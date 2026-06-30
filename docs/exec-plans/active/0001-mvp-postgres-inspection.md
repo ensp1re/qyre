@@ -28,8 +28,8 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
 
 ## Progress log
 
-- 2026-06-30: Repository skeleton, harness docs, tooling, and verification gates created. No product
-  code yet. All features `not_started`.
+- 2026-06-30 (`a0ae2f7`): Repository skeleton, harness docs, tooling, and verification gates
+  created. `pnpm check` and the smoke E2E pass. No product code yet; all features `not_started`.
 
 ## Open decisions
 

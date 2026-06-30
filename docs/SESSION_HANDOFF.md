@@ -8,10 +8,10 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 ## Current state
 
 - Date: 2026-06-30
-- Latest commit: (none yet - initial skeleton not committed)
+- Latest commit: `a0ae2f7` (chore: scaffold Humb agent-first monorepo skeleton)
 - Build status: skeleton builds (`pnpm build`)
-- Test status: skeleton tests pass (`pnpm test`)
-- Verification status: `pnpm check` expected to pass on a clean install
+- Test status: skeleton tests pass (`pnpm test`); smoke E2E passes (`pnpm test:e2e`)
+- Verification status: `pnpm check` passes on a clean install
 
 ## Completed
 

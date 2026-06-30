@@ -4,6 +4,7 @@ build/
 coverage/
 .turbo/
 .vite/
+.cursor/
 *.log
 .DS_Store
 .env

@@ -6,7 +6,7 @@ system-of-record docs, not an instruction dump.
 ## What Humb is
 
 A CLI-launched, local-first database management UI. `npx humb <postgres-url>` starts a local server,
-opens a browser, and lets a developer inspect and manage their database. MVP is Postgres, read-only.
+opens a browser, and lets a developer inspect and manage their database. Postgres first, read-only.
 See [`docs/product-specs/connect-and-inspect-postgres.md`](docs/product-specs/connect-and-inspect-postgres.md).
 
 ## Startup workflow
@@ -26,10 +26,10 @@ Before changing code:
 ## Standard commands
 
 - Install: `pnpm install`
-- Full verification: `pnpm check` (format, lint, typecheck, test, build, harness checks)
+- Full verification: `pnpm check` (format, lint, typecheck, test, build, project-state checks)
 - CI-equivalent (adds E2E): `pnpm check:ci`
 - Dev: `pnpm dev`
-- Feature/handoff harness checks: `pnpm harness:check`
+- Feature/handoff state checks: `pnpm check:state`
 
 ## Routing map
 

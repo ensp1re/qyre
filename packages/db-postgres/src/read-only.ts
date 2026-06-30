@@ -1,4 +1,4 @@
-/** Thrown when a query is not allowed under Humb's read-only MVP policy. */
+/** Thrown when a query is not allowed under Humb's read-only policy. */
 export class ReadOnlyViolationError extends Error {
   constructor(message: string) {
     super(message);

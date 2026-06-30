@@ -1,4 +1,4 @@
-# Plan 0001: MVP Postgres Inspection
+# Plan 0001: Postgres Inspection
 
 Status: Active
 Owner: unassigned
@@ -6,7 +6,7 @@ Linked features: F001-F007 (`docs/FEATURES.json`)
 
 ## Objective
 
-Deliver the MVP product contract: `npx humb <postgres-url>` starts a local server, opens the browser
+Deliver the product contract: `npx humb <postgres-url>` starts a local server, opens the browser
 UI, and lets a developer inspect a Postgres database (schemas, tables, columns, rows) read-only.
 
 ## Scope
@@ -17,7 +17,7 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
 
 ## Verification path
 
-- `pnpm check` must pass (format, lint, typecheck, test, build, harness checks).
+- `pnpm check` must pass (format, lint, typecheck, test, build, project-state checks).
 - `pnpm test:e2e` smoke must pass.
 - `pnpm test:e2e:golden` must pass with `HUMB_TEST_DATABASE_URL` set (CI provides Postgres).
 
@@ -28,8 +28,8 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
 
 ## Progress log
 
-- 2026-06-30 (`a0ae2f7`): Repository skeleton, harness docs, tooling, and verification gates
-  created. `pnpm check` and the smoke E2E pass. No product code yet; all features `not_started`.
+- 2026-06-30 (`a0ae2f7`): Repository skeleton, agent docs, tooling, and verification gates created.
+  `pnpm check` and the smoke E2E pass. No product code yet; all features `not_started`.
 
 ## Open decisions
 

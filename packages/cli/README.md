@@ -7,5 +7,5 @@ npx humb postgres://user:pass@localhost:5432/mydb
 ```
 
 It parses the target, starts the local server, opens your browser, and shuts down cleanly on
-`Ctrl+C`. MVP supports PostgreSQL. See
+`Ctrl+C`. Supports PostgreSQL first, with more engines planned. See
 [`docs/product-specs/connect-and-inspect-postgres.md`](../../docs/product-specs/connect-and-inspect-postgres.md).

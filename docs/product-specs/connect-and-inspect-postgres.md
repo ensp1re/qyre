@@ -1,7 +1,7 @@
-# MVP Product Contract: Connect and Inspect Postgres
+# Product Contract: Connect and Inspect Postgres
 
-This is the finalized MVP contract for Humb. It is the single source of truth for what "the MVP"
-means. Anything not listed here is out of scope for the MVP.
+This is the finalized contract for Humb's first release. It is the single source of truth for what
+that scope means. Anything not listed here is out of scope for now.
 
 ## One-sentence promise
 
@@ -10,7 +10,7 @@ its structure and data in a clean local web UI, without installing a heavy datab
 
 ## CLI input shape
 
-The MVP supports launching against Postgres:
+Humb launches against Postgres:
 
 ```bash
 npx humb <postgres-connection-string>
@@ -28,14 +28,14 @@ Behavior:
   error explaining the expected formats and exits non-zero.
 - `Ctrl+C` shuts the server down cleanly and releases the database connection pool.
 
-### Future input shapes (NOT in MVP, documented for design only)
+### Future input shapes (not yet supported, documented for design only)
 
 - Local file databases such as SQLite via `npx humb ./local.db` are a planned follow-up and must be
   added as a new adapter package (`db-sqlite`), not by special-casing the Postgres path.
 
 ## Scope
 
-In scope for MVP:
+In scope:
 
 - Postgres only (one connection at a time).
 - Read-only inspection: schemas, tables, columns, indexes, approximate/explicit row counts.
@@ -43,7 +43,7 @@ In scope for MVP:
 - A read-only SQL query runner (SELECT-style statements only).
 - Local server health and runtime diagnostics endpoints for verification.
 
-Out of scope for MVP:
+Out of scope (for now):
 
 - Writes, schema edits, migrations, or destructive actions.
 - Multiple simultaneous connections.
@@ -52,13 +52,13 @@ Out of scope for MVP:
 
 ## Read-only vs write behavior
 
-The MVP is strictly read-only. Write capability is explicitly excluded and, when later introduced,
-must follow the rules in [`../SECURITY.md`](../SECURITY.md): destructive actions require explicit,
-unambiguous user confirmation and must never be the default path.
+Humb is strictly read-only for now. Write capability is explicitly excluded and, when later
+introduced, must follow the rules in [`../SECURITY.md`](../SECURITY.md): destructive actions require
+explicit, unambiguous user confirmation and must never be the default path.
 
 ## First golden journey
 
-The primary end-to-end journey the harness must protect:
+The primary end-to-end journey we protect:
 
 1. Start Humb against a Postgres database.
 2. The browser UI loads and shows a connected status.
@@ -73,7 +73,7 @@ See [`../RELIABILITY.md`](../RELIABILITY.md) for how this journey is verified.
   database is connected.
 - The UI can list at least schemas and tables for the connected database.
 - Selecting a table shows its columns and a first page of rows.
-- No write/DDL/DML-mutating action is reachable from the MVP UI.
+- No write/DDL/DML-mutating action is reachable from the UI.
 - The server starts, reports healthy, and shuts down cleanly.
 
 ## Failure states

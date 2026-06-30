@@ -15,9 +15,9 @@ rules are first-class.
   errors, screenshots, and diagnostics.
 - Real credentials never go in the repo. Use `.env` (gitignored) and `.env.example` for templates.
 
-## Database safety (read-only MVP)
+## Database safety (read-only)
 
-- The MVP is strictly read-only. The query runner must reject non-SELECT/mutating statements.
+- Humb is strictly read-only for now. The query runner must reject non-SELECT/mutating statements.
 - Use parameterized queries / safe identifier quoting in adapters. Never build SQL by naive string
   concatenation of untrusted input.
 - When write features are eventually added, destructive actions (DROP, DELETE, TRUNCATE, UPDATE

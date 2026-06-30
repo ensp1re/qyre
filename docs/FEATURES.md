@@ -1,8 +1,8 @@
 # FEATURES.md
 
-[`FEATURES.json`](FEATURES.json) is the single source of truth for MVP scope. It is a harness
-primitive, not a memo: the scheduler (which feature to do next), the verifier (is it done), and the
-session-handoff report all read from it.
+[`FEATURES.json`](FEATURES.json) is the single source of truth for scope. It is not a memo: it is
+read when choosing the next feature, judging whether a feature is done, and writing the session
+handoff.
 
 ## The triple
 
@@ -12,7 +12,7 @@ Every feature entry must have:
 - `verification`: the exact command that proves it works.
 - `state`: one of `not_started`, `active`, `blocked`, `passing`.
 
-Plus harness metadata: `id`, `evidence`, `blockedReason`, `spec`.
+Plus metadata: `id`, `evidence`, `blockedReason`, `spec`.
 
 ## State machine
 

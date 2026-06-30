@@ -15,8 +15,8 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Completed
 
-- Repository skeleton: monorepo layout, tooling, and harness docs.
-- MVP product contract finalized (`docs/product-specs/connect-and-inspect-postgres.md`).
+- Repository skeleton: monorepo layout, tooling, and agent docs.
+- Product contract finalized (`docs/product-specs/connect-and-inspect-postgres.md`).
 - Feature list seeded (`docs/FEATURES.json`, F001-F007, all `not_started`).
 - Verification scripts and git hooks wired (`pnpm check`, Lefthook, CI).
 - First E2E golden journey defined (smoke + golden-journey specs).

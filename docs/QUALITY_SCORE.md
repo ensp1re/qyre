@@ -35,9 +35,9 @@ work, not as a separate cleanup day.
 
 ## Benchmark snapshots
 
-| Date       | Harness variant | Completion rate | Retries | Defects before review | Notes                                     |
-| ---------- | --------------- | --------------- | ------- | --------------------- | ----------------------------------------- |
-| 2026-06-30 | skeleton        | n/a             | n/a     | n/a                   | structure + harness only, no product code |
+| Date       | Variant  | Completion rate | Retries | Defects before review | Notes                                    |
+| ---------- | -------- | --------------- | ------- | --------------------- | ---------------------------------------- |
+| 2026-06-30 | skeleton | n/a             | n/a     | n/a                   | structure + checks only, no product code |
 
 ## Simplification log
 

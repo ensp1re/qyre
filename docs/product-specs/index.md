@@ -5,7 +5,7 @@ fresh agent can discover product scope quickly.
 
 ## Active Specs
 
-- [`connect-and-inspect-postgres.md`](connect-and-inspect-postgres.md) - the MVP product contract.
+- [`connect-and-inspect-postgres.md`](connect-and-inspect-postgres.md) - the product contract.
 
 ## Rules
 

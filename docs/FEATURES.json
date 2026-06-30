@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "Machine-readable feature state list. Single source of truth for MVP scope. The harness controls state transitions: a feature only becomes 'passing' when its verification command actually passes. See docs/FEATURES.md for rules.",
+  "description": "Machine-readable feature state list. Single source of truth for scope. State transitions are gated by verification: a feature only becomes 'passing' when its verification command actually passes. See docs/FEATURES.md for rules.",
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
     {

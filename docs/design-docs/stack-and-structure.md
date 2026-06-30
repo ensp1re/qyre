@@ -31,4 +31,4 @@ and expanding to many engines. It must be legible to AI agents and friendly to o
 ## Alternatives considered
 
 - Single-package app (rejected: would entangle engine-specific code and hurt extensibility).
-- Next.js full-stack (rejected for MVP: heavier than a CLI-launched local server needs).
+- Next.js full-stack (rejected: heavier than a CLI-launched local server needs).

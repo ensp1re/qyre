@@ -8,19 +8,19 @@ npx humb postgres://user:pass@localhost:5432/mydb
 ```
 
 The command starts a local server, opens your browser, and lets you inspect and manage your
-database through a clean web interface. The MVP targets PostgreSQL; the architecture is designed so
-new database engines can be added as independent adapter packages.
+database through a clean web interface. Humb targets PostgreSQL first; the architecture is designed
+so new database engines can be added as independent adapter packages.
 
 ## Status
 
-Early skeleton. This repository is set up as an agent-first, harness-engineered monorepo. Most
-product behavior is not implemented yet; the structure, rules, and verification gates come first.
+Early skeleton. This repository is set up as an agent-first monorepo. Most product behavior is not
+implemented yet; the structure, rules, and verification gates come first.
 
 ## Quick start (development)
 
 ```bash
 pnpm install
-pnpm check        # format, lint, typecheck, test, build, harness checks
+pnpm check        # format, lint, typecheck, test, build, project-state checks
 pnpm dev          # run packages in watch mode
 ```
 

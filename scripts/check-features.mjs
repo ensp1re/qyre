@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Validate docs/FEATURES.json as a harness primitive.
+ * Validate docs/FEATURES.json as the single source of truth for feature state.
  *
- * Enforces the invariants documented in docs/FEATURES.md so the feature list can be trusted by the
- * scheduler, verifier, and session-handoff report. Exits non-zero on any violation.
+ * Enforces the invariants documented in docs/FEATURES.md so the feature list can be trusted when
+ * choosing the next task, judging completion, and writing the session handoff. Exits non-zero on
+ * any violation.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

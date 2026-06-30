@@ -4,7 +4,7 @@
  * This package must stay UI-, server-, and engine-agnostic. See ARCHITECTURE.md.
  */
 
-/** Database engines Humb can target. MVP supports Postgres only. */
+/** Database engines Humb can target. Postgres is supported first. */
 export type DatabaseEngine = "postgres";
 
 /** A parsed, validated database connection target. */
@@ -106,7 +106,7 @@ export function parseConnectionTarget(input: string | undefined): ConnectionTarg
   if (!POSTGRES_PROTOCOLS.has(url.protocol)) {
     throw new InvalidConnectionTargetError(
       `Unsupported database target protocol "${url.protocol}". ` +
-        "The MVP supports Postgres (postgres:// or postgresql://)."
+        "Humb currently supports Postgres (postgres:// or postgresql://)."
     );
   }
 

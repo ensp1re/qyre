@@ -1,0 +1,39 @@
+{
+  "name": "humb",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Launch a local-first database management UI from your terminal.",
+  "license": "MIT",
+  "bin": {
+    "humb": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@humb/core": "workspace:*",
+    "@humb/db-adapter": "workspace:*",
+    "@humb/db-postgres": "workspace:*",
+    "@humb/server": "workspace:*",
+    "commander": "^12.1.0",
+    "open": "^10.1.0"
+  },
+  "devDependencies": {
+    "@humb/config": "workspace:*"
+  }
+}

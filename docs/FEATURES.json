@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "description": "Machine-readable feature state list. Single source of truth for MVP scope. The harness controls state transitions: a feature only becomes 'passing' when its verification command actually passes. See docs/FEATURES.md for rules.",
+  "states": ["not_started", "active", "blocked", "passing"],
+  "features": [
+    {
+      "id": "F001",
+      "behavior": "CLI accepts `npx humb <postgres-url>`, parses the target, and starts the local server.",
+      "verification": "pnpm --filter humb test",
+      "state": "not_started",
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
+    },
+    {
+      "id": "F002",
+      "behavior": "Launching Humb opens the browser UI which shows the database connection status.",
+      "verification": "pnpm test:e2e:golden",
+      "state": "not_started",
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
+    },
+    {
+      "id": "F003",
+      "behavior": "Postgres adapter introspects schemas, tables, columns, indexes, and row counts.",
+      "verification": "pnpm --filter @humb/db-postgres test",
+      "state": "not_started",
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
+    },
+    {
+      "id": "F004",
+      "behavior": "UI shows a database navigation tree (schemas/tables) and table metadata.",
+      "verification": "pnpm test:e2e:golden",
+      "state": "not_started",
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
+    },
+    {
+      "id": "F005",
+      "behavior": "UI displays a paginated page of rows for a selected table.",
+      "verification": "pnpm test:e2e:golden",
+      "state": "not_started",
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
+    },
+    {
+      "id": "F006",
+      "behavior": "Read-only SQL query runner executes SELECT-style statements and rejects mutations.",
+      "verification": "pnpm --filter @humb/server test",
+      "state": "not_started",
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
+    },
+    {
+      "id": "F007",
+      "behavior": "Local server exposes health and runtime diagnostics endpoints for agent verification.",
+      "verification": "pnpm --filter @humb/server test",
+      "state": "not_started",
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
+    }
+  ]
+}

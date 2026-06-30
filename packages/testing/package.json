@@ -1,0 +1,23 @@
+{
+  "name": "@humb/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Internal test utilities and fixtures for Humb. Not part of the public API.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rimraf .turbo"
+  },
+  "dependencies": {
+    "@humb/core": "workspace:*",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@humb/config": "workspace:*",
+    "@types/pg": "^8.11.10"
+  }
+}

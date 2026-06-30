@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "paths": {
+      "@humb/core": ["./packages/core/src/index.ts"],
+      "@humb/db-adapter": ["./packages/db-adapter/src/index.ts"],
+      "@humb/db-postgres": ["./packages/db-postgres/src/index.ts"],
+      "@humb/server": ["./packages/server/src/index.ts"],
+      "@humb/ui": ["./packages/ui/src/index.tsx"],
+      "@humb/testing": ["./packages/testing/src/index.ts"]
+    }
+  }
+}

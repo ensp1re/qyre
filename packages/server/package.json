@@ -1,0 +1,35 @@
+{
+  "name": "@humb/server",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Local HTTP server for Humb (Fastify).",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@humb/core": "workspace:*",
+    "@humb/db-adapter": "workspace:*",
+    "@humb/db-postgres": "workspace:*",
+    "fastify": "^5.2.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@humb/config": "workspace:*"
+  }
+}

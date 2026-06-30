@@ -1,0 +1,82 @@
+# ARCHITECTURE.md
+
+Top-level map of the Humb system. Keep this concise and point to deeper docs when needed.
+
+## System shape
+
+- Product: Humb, a local-first database management UI launched from the CLI.
+- Primary user workflow: `npx humb <postgres-url>` -> local server -> browser UI -> inspect database.
+- Runtime surfaces: CLI, local HTTP server, browser SPA.
+- Source of truth for product behavior: [`docs/product-specs/`](docs/product-specs/).
+
+## Runtime flow
+
+```mermaid
+flowchart LR
+  cli["packages/cli (humb)"] --> server["packages/server (Fastify)"]
+  server --> core["packages/core (contracts)"]
+  server --> adapterApi["packages/db-adapter (interfaces)"]
+  adapterApi --> pg["packages/db-postgres (pg)"]
+  server --> static["apps/web build (served static)"]
+  browser["Browser SPA (apps/web)"] -->|HTTP /api| server
+  web2ui["apps/web"] --> uikit["packages/ui"]
+```
+
+## Domain map
+
+| Domain      | Purpose                                                  | Primary entry points                          | Related spec                                         |
+| ----------- | -------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------- |
+| CLI         | Parse target, start server, open browser, clean shutdown | `packages/cli/src/index.ts`                   | `docs/product-specs/connect-and-inspect-postgres.md` |
+| Server      | Local HTTP API, health, static UI serving                | `packages/server/src/index.ts`                | same                                                 |
+| Core        | Shared domain types and contracts                        | `packages/core/src/index.ts`                  | same                                                 |
+| DB adapters | Engine-agnostic interface + concrete engines             | `packages/db-adapter`, `packages/db-postgres` | same                                                 |
+| Web UI      | Browser interface for inspection                         | `apps/web/src`                                | same                                                 |
+| UI kit      | Reusable presentation components                         | `packages/ui/src/index.ts`                    | `FRONTEND.md`                                        |
+
+## Layer model
+
+Use a fixed directional model so agents do not invent ad hoc architecture:
+
+`Types (core) -> Adapter contracts (db-adapter) -> Adapter impls (db-*) -> Server -> CLI`
+and separately `UI kit (ui) -> Web app (apps/web)`.
+
+The browser talks to the server only over the local HTTP API. The web app never imports server or
+adapter packages directly.
+
+## Hard dependency rules
+
+- Lower layers must not depend on higher layers.
+- `packages/core` must not depend on server, CLI, adapters, or UI.
+- `packages/db-adapter` defines interfaces; it must not depend on a concrete engine.
+- `packages/db-postgres` depends on `db-adapter` and `core` only.
+- `packages/server` may depend on `core`, `db-adapter`, and concrete `db-*` packages.
+- `packages/cli` depends on `server` (and `core`); it must not talk to adapters directly.
+- `apps/web` depends on `ui` and `core` types only; all data access goes through the HTTP API.
+- New database engines are added as new `db-<engine>` packages, never by branching inside existing
+  packages on engine type.
+
+## Adding a new database engine (future)
+
+1. Create `packages/db-<engine>` implementing the `DatabaseAdapter` contract from `db-adapter`.
+2. Register it behind the server's adapter resolution by connection target.
+3. Add a product spec and feature entries.
+4. Add integration + golden-journey coverage.
+
+This keeps Postgres-specific logic isolated and makes new engines additive.
+
+## Cross-cutting interfaces
+
+| Concern    | Approved boundary              | Notes                                                      |
+| ---------- | ------------------------------ | ---------------------------------------------------------- |
+| Logging    | server logger (Fastify/pino)   | structured logs only, no ad hoc console in product code    |
+| DB access  | `DatabaseAdapter` interface    | UI/server never embed engine-specific SQL outside adapters |
+| Config     | `packages/config`              | shared TS/lint/test/build config                           |
+| Validation | parse at boundaries (e.g. Zod) | validate untrusted input before use                        |
+
+## Change checklist
+
+When you touch architecture-relevant code:
+
+1. Update this file if the domain map or boundaries changed.
+2. Update the related design doc in [`docs/design-docs/`](docs/design-docs/) if reasoning changed.
+3. Add or update an executable check if a rule should be enforced mechanically.

@@ -1,0 +1,21 @@
+# Humb git hooks.
+# Goal: a commit or push must never leave the repo unbuildable or untested.
+# See docs/RELIABILITY.md for the full verification contract.
+
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: "*.{ts,tsx,js,mjs,json,md,css,yml,yaml}"
+      run: pnpm prettier --check {staged_files}
+    lint:
+      glob: "*.{ts,tsx,js,mjs}"
+      run: pnpm eslint {staged_files}
+    typecheck:
+      run: pnpm typecheck
+
+pre-push:
+  commands:
+    full-check:
+      # A push must fail if the project cannot build or required tests fail.
+      run: pnpm check

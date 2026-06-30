@@ -1,0 +1,34 @@
+{
+  "name": "@humb/db-postgres",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "PostgreSQL adapter for Humb.",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@humb/core": "workspace:*",
+    "@humb/db-adapter": "workspace:*",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@humb/config": "workspace:*",
+    "@types/pg": "^8.11.10"
+  }
+}

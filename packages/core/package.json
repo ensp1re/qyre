@@ -1,0 +1,28 @@
+{
+  "name": "@humb/core",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Shared domain types and contracts for Humb.",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rimraf dist .turbo"
+  },
+  "devDependencies": {
+    "@humb/config": "workspace:*"
+  }
+}

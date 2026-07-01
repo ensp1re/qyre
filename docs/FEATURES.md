@@ -32,6 +32,9 @@ flowchart TD
 - `state` is one of the allowed states.
 - At most one feature is `active` at a time.
 - A `passing` feature must have non-empty `evidence` (command output ref, commit SHA, or E2E artifact).
+  Once the work is committed, include the commit SHA (and PR link/number if one exists) in
+  `evidence` alongside the verification output — not just a prose description — so a fresh agent can
+  locate the exact change without re-deriving it.
 - A `blocked` feature must have a non-empty `blockedReason`.
 - Every feature must have a non-empty `behavior` and `verification`.
 - The agent does not flip a feature to `passing` from inspection; it only does so after the

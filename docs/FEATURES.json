@@ -8,7 +8,7 @@
       "behavior": "CLI accepts `npx humb <database-url>`, auto-detects the database engine from the target (Postgres today), and starts the local server.",
       "verification": "pnpm --filter humb test",
       "state": "passing",
-      "evidence": "pnpm --filter humb test passes (7/7, packages/cli/src/index.test.ts) on 2026-07-01. Manually re-verified end to end against a real Postgres container: `HUMB_PORT=7799 humb <url>` listened on 7799 (env var previously silently ignored, now fixed via resolvePort), and `GET /` served the built apps/web UI (previously 404'd; fixed via static serving in packages/server) with `GET /api/health` reporting `connected`.",
+      "evidence": "commit 9c37ec2 (PR #3): pnpm --filter humb test passes (7/7, packages/cli/src/index.test.ts) on 2026-07-01. Manually re-verified end to end against a real Postgres container: `HUMB_PORT=7799 humb <url>` listened on 7799 (env var previously silently ignored, now fixed via resolvePort), and `GET /` served the built apps/web UI (previously 404'd; fixed via static serving in packages/server) with `GET /api/health` reporting `connected`.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
     },

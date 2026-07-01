@@ -40,6 +40,14 @@ intentional open-source project. These rules are enforced by review and, where p
 - Constants that are true compile-time constants: `UPPER_SNAKE_CASE`.
 - Avoid abbreviations unless they are domain-standard (e.g. `db`, `sql`, `url`).
 
+## Branches and pull requests
+
+- Never push a completed feature slice directly to `main`. Do the work on a branch named
+  `feature/<ID>-<short-kebab-slug>` (e.g. `feature/F001-cli-start-server`) and open a PR.
+- PR titles start with the feature ID, e.g. `F001: CLI accepts target and starts server`.
+- A feature only moves to `passing` in `docs/FEATURES.json` once its branch's PR is opened
+  (merge is a separate, human/CI-gated step); record the PR URL as `evidence`.
+
 ## Public API stability
 
 - A package's public API is whatever it exports from `src/index.ts`.

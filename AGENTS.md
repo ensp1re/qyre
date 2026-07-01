@@ -52,6 +52,8 @@ Before changing code:
 - A feature only becomes `passing` when its verification command actually passes.
 - If you change behavior, update the matching spec, plan, or reliability doc in the same session.
 - If you hit repeated review feedback, promote it into a lint rule or check instead of re-explaining.
+- Never push a completed feature directly to `main`. Work on a `feature/<ID>-<slug>` branch and
+  open a PR (see [`docs/NAMING.md`](docs/NAMING.md)); record the PR URL as evidence.
 - Keep generated artifacts in [`docs/generated/`](docs/generated/) and references in [`docs/references/`](docs/references/).
 - Respect [`docs/NAMING.md`](docs/NAMING.md) and the layer rules in `ARCHITECTURE.md`.
 

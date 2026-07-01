@@ -16,6 +16,9 @@ pre-commit:
 
 pre-push:
   commands:
+    no-direct-main-push:
+      # Feature work must land via a feature/<ID>-<slug> branch and a PR (docs/NAMING.md).
+      run: node scripts/check-no-direct-main-push.mjs
     full-check:
       # A push must fail if the project cannot build or required tests fail.
       run: pnpm check

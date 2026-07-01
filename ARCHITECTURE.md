@@ -28,10 +28,10 @@ flowchart LR
 | Domain     | Purpose                                                  | Primary entry points                                     | Related spec                                         |
 | ---------- | -------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
 | CLI        | Parse target, start server, open browser, clean shutdown | `packages/cli/src/index.ts`                              | `docs/product-specs/connect-and-inspect-postgres.md` |
-| Server     | Local HTTP API, health, static UI serving                | `packages/server/src/index.ts`                           | same                                                 |
+| Server     | Local HTTP API, health, static UI serving                | `packages/server/src/index.ts`                           | `packages/server/STRUCTURE.md`                       |
 | Core       | Shared domain types, validation, and contracts           | `packages/core/src/` (`types/`, `validation/`)           | same                                                 |
 | DB drivers | Engine-agnostic interface + concrete engine drivers      | `packages/drivers/contract`, `packages/drivers/<engine>` | same                                                 |
-| Web UI     | Browser interface for inspection                         | `apps/web/src`                                           | same                                                 |
+| Web UI     | Browser interface for inspection                         | `apps/web/src`                                           | `apps/web/STRUCTURE.md`                              |
 | UI kit     | Reusable presentation components                         | `packages/ui/src/components/`                            | `FRONTEND.md`                                        |
 
 ## Folder organization

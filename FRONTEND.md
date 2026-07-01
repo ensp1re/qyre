@@ -1,6 +1,8 @@
 # FRONTEND.md
 
-Stable frontend expectations so agents do not invent UI patterns unpredictably.
+Stable frontend expectations so agents do not invent UI patterns unpredictably. See
+[`apps/web/STRUCTURE.md`](apps/web/STRUCTURE.md) for the detailed folder structure and its growth
+path (feature-based organization once the app outgrows its current flat `api/`/`hooks/` shape).
 
 ## Stack
 

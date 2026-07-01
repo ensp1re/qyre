@@ -1,15 +1,16 @@
 # Humb
 
-Humb is a local-first database management UI you can launch straight from your terminal, without
-installing a heavy database IDE.
+Humb is a local-first database management UI you can launch straight from your terminal with one
+command, for any database, without installing a heavy database IDE.
 
 ```bash
 npx humb postgres://user:pass@localhost:5432/mydb
 ```
 
-The command starts a local server, opens your browser, and lets you inspect and manage your
-database through a clean web interface. Humb targets PostgreSQL first; the architecture is designed
-so new database engines can be added as independent adapter packages.
+Point the command at a database and Humb detects what kind of database it is, starts a local
+server, and opens your browser to a clean web interface for inspecting and managing it. Postgres is
+the first fully supported engine; the architecture is designed so new engines plug in as independent
+adapter packages and get picked up by the same detection path.
 
 ## Status
 

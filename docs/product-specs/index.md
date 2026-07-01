@@ -3,9 +3,14 @@
 User-facing behavior specs. Each spec describes observable behavior and acceptance criteria so a
 fresh agent can discover product scope quickly.
 
+Humb's product is a universal database inspector: one CLI command auto-detects the target's engine
+and opens a web UI for it. Each engine gets its own spec once supported; specs below describe a
+single engine's behavior, not the whole product.
+
 ## Active Specs
 
-- [`connect-and-inspect-postgres.md`](connect-and-inspect-postgres.md) - the product contract.
+- [`connect-and-inspect-postgres.md`](connect-and-inspect-postgres.md) - the Postgres engine
+  contract, and the first engine this product supports end to end.
 
 ## Rules
 

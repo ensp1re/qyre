@@ -4,8 +4,9 @@ Top-level map of the Humb system. Keep this concise and point to deeper docs whe
 
 ## System shape
 
-- Product: Humb, a local-first database management UI launched from the CLI.
-- Primary user workflow: `npx humb <postgres-url>` -> local server -> browser UI -> inspect database.
+- Product: Humb, a local-first database management UI launched from the CLI for any database engine.
+- Primary user workflow: `npx humb <database-url>` -> engine auto-detected from the target -> local
+  server -> browser UI -> inspect database.
 - Runtime surfaces: CLI, local HTTP server, browser SPA.
 - Source of truth for product behavior: [`docs/product-specs/`](docs/product-specs/).
 
@@ -55,14 +56,19 @@ adapter packages directly.
 - New database engines are added as new `db-<engine>` packages, never by branching inside existing
   packages on engine type.
 
-## Adding a new database engine (future)
+## Adding a new database engine
+
+Postgres is the first supported engine, not the only one the architecture allows. Every additional
+engine follows the same recipe:
 
 1. Create `packages/db-<engine>` implementing the `DatabaseAdapter` contract from `db-adapter`.
-2. Register it behind the server's adapter resolution by connection target.
+2. Register it behind the server's adapter resolution, which detects the engine from the connection
+   target (URL scheme, file extension, etc.) rather than requiring the user to name it.
 3. Add a product spec and feature entries.
 4. Add integration + golden-journey coverage.
 
-This keeps Postgres-specific logic isolated and makes new engines additive.
+This keeps engine-specific logic isolated so adding a database is additive, never a branch inside
+existing packages.
 
 ## Cross-cutting interfaces
 

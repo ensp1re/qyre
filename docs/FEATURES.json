@@ -8,6 +8,7 @@
       "behavior": "CLI accepts `npx humb <database-url>`, auto-detects the database engine from the target (Postgres today), and starts the local server.",
       "verification": "pnpm --filter humb test",
       "state": "passing",
+      "commitHash": "9c37ec2",
       "evidence": "commit 9c37ec2 (PR #3): pnpm --filter humb test passes (7/7, packages/cli/src/index.test.ts) on 2026-07-01. Manually re-verified end to end against a real Postgres container: `HUMB_PORT=7799 humb <url>` listened on 7799 (env var previously silently ignored, now fixed via resolvePort), and `GET /` served the built apps/web UI (previously 404'd; fixed via static serving in packages/server) with `GET /api/health` reporting `connected`.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
@@ -15,9 +16,10 @@
     {
       "id": "F002",
       "behavior": "Launching Humb opens the browser UI which shows the database connection status.",
-      "verification": "pnpm test:e2e:golden",
+      "verification": "pnpm test:e2e:full",
       "state": "passing",
-      "evidence": "pnpm test:e2e:golden passes (1/1) on 2026-07-01 against a real Postgres container. Fixed a real infra gap along the way: Playwright's webServer only ran `vite preview` (no backend), so /api/health always failed - replaced with e2e/server.ts, which starts the real Humb server (API + built web app on one port, matching a real `npx humb <url>` launch) and connects to Postgres only when HUMB_TEST_DATABASE_URL is set.",
+      "commitHash": "ec9ebf2",
+      "evidence": "commit ec9ebf2 (PR #6): pnpm test:e2e:full passes (1/1) on 2026-07-01 against a real Postgres container. Fixed a real infra gap along the way: Playwright's webServer only ran `vite preview` (no backend), so /api/health always failed - replaced with e2e/server.ts, which starts the real Humb server (API + built web app on one port, matching a real `npx humb <url>` launch) and connects to Postgres only when HUMB_TEST_DATABASE_URL is set.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
     },
@@ -26,24 +28,27 @@
       "behavior": "Postgres adapter introspects schemas, tables, columns, indexes, and row counts.",
       "verification": "pnpm --filter @humb/postgres test",
       "state": "passing",
-      "evidence": "pnpm --filter @humb/db-postgres test passed (16/16) on 2026-07-01, including new integration tests (postgres-adapter.integration.test.ts) against a real Postgres container that previously did not exist for getOverview/getTable/getRows/runReadOnlyQuery. Auditing against the full spec found schemas/tables/columns were covered but indexes and row counts were entirely unimplemented (missing from @humb/core's TableMetadata contract and the adapter) - added IndexMetadata to @humb/core, index introspection via pg_index/pg_class/pg_attribute, and an approximate row count via pg_class.reltuples with a COUNT(*) fallback for never-analyzed tables (reltuples is -1 until ANALYZE runs). Manually re-verified end to end: GET /api/tables/public/humb_demo_users returned real indexes (with a genuine string[] columns array, not the raw Postgres array-literal string node-postgres returns for untyped array columns - caught and fixed via an explicit ::text cast) and rowCount 3. Package later renamed/moved packages/db-postgres -> packages/drivers/postgres (@humb/postgres) as part of an architecture reorganization; re-verified the same 16/16 pass at the new location and updated this verification command accordingly.",
+      "commitHash": "4ec7345",
+      "evidence": "commit 4ec7345 (PR #4): pnpm --filter @humb/db-postgres test passed (16/16) on 2026-07-01, including new integration tests (postgres-adapter.integration.test.ts) against a real Postgres container that previously did not exist for getOverview/getTable/getRows/runReadOnlyQuery. Auditing against the full spec found schemas/tables/columns were covered but indexes and row counts were entirely unimplemented (missing from @humb/core's TableMetadata contract and the adapter) - added IndexMetadata to @humb/core, index introspection via pg_index/pg_class/pg_attribute, and an approximate row count via pg_class.reltuples with a COUNT(*) fallback for never-analyzed tables (reltuples is -1 until ANALYZE runs). Manually re-verified end to end: GET /api/tables/public/humb_demo_users returned real indexes (with a genuine string[] columns array, not the raw Postgres array-literal string node-postgres returns for untyped array columns - caught and fixed via an explicit ::text cast) and rowCount 3. Package later renamed/moved packages/db-postgres -> packages/drivers/postgres (@humb/postgres) in commit cc3db12 (PR #5) as part of an architecture reorganization; re-verified the same 16/16 pass at the new location and updated this verification command accordingly.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
     },
     {
       "id": "F004",
       "behavior": "UI shows a database navigation tree (schemas/tables) and table metadata.",
-      "verification": "pnpm test:e2e:golden",
+      "verification": "pnpm test:e2e:full",
       "state": "passing",
-      "evidence": "pnpm test:e2e:golden passes (1/1) on 2026-07-01: added SchemaTree/TableDetail components (@humb/ui), api/hooks (apps/web), wired into App.tsx. The golden journey now actually clicks the fixture table in the nav tree and asserts a column name is visible (previously only asserted the table name appeared as text, which would have passed without real interaction) - strengthened per the goal-driven-execution rule rather than leaving a superficial check.",
+      "commitHash": "ec9ebf2",
+      "evidence": "commit ec9ebf2 (PR #6): pnpm test:e2e:full passes (1/1) on 2026-07-01: added SchemaTree/TableDetail components (@humb/ui), api/hooks (apps/web), wired into App.tsx. The connect-and-inspect journey now actually clicks the fixture table in the nav tree and asserts a column name is visible (previously only asserted the table name appeared as text, which would have passed without real interaction) - strengthened per the goal-driven-execution rule rather than leaving a superficial check.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
     },
     {
       "id": "F005",
       "behavior": "UI displays a paginated page of rows for a selected table.",
-      "verification": "pnpm test:e2e:golden",
+      "verification": "pnpm test:e2e:full",
       "state": "not_started",
+      "commitHash": null,
       "evidence": null,
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
@@ -53,6 +58,7 @@
       "behavior": "Read-only SQL query runner executes SELECT-style statements and rejects mutations.",
       "verification": "pnpm --filter @humb/server test",
       "state": "not_started",
+      "commitHash": null,
       "evidence": null,
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
@@ -62,6 +68,7 @@
       "behavior": "Local server exposes health and runtime diagnostics endpoints for agent verification.",
       "verification": "pnpm --filter @humb/server test",
       "state": "not_started",
+      "commitHash": null,
       "evidence": null,
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"

@@ -46,7 +46,7 @@ Before changing code:
 - [`docs/FEATURES.json`](docs/FEATURES.json): machine-readable feature state (single source of truth for scope)
 - [`docs/PRODUCT_SENSE.md`](docs/PRODUCT_SENSE.md): durable product judgment
 - [`docs/QUALITY_SCORE.md`](docs/QUALITY_SCORE.md): domain and package health
-- [`docs/RELIABILITY.md`](docs/RELIABILITY.md): bootstrap, verification, golden journeys, health signals
+- [`docs/RELIABILITY.md`](docs/RELIABILITY.md): bootstrap, verification, end-to-end journeys, health signals
 - [`docs/SECURITY.md`](docs/SECURITY.md): database safety, secrets, destructive-action rules
 - [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md): current state and next action
 - [`docs/design-docs/index.md`](docs/design-docs/index.md): design decisions and core beliefs

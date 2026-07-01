@@ -29,7 +29,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   - Re-verified manually end to end with a real Postgres container (not just unit tests): the built
     UI now loads at `/`, `HUMB_PORT` is respected, and `/api/health` reports `connected`.
 - Verification scripts and git hooks wired (`pnpm check`, Lefthook, CI).
-- First E2E golden journey defined (smoke + golden-journey specs).
+- First E2E journey defined (smoke + connect-and-inspect specs).
 - **F003 (`passing`)**: Postgres introspection. This audit found bigger gaps than F001's: the actual
   introspection logic (`getOverview`/`getTable`/`getRows`/`runReadOnlyQuery`) had **zero** test
   coverage (only the adapter factory and the unrelated read-only SQL guard were tested), and indexes
@@ -66,30 +66,36 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
     (`@humb/postgres`). Required adding `packages/drivers/*` to `pnpm-workspace.yaml` (its
     `packages/*` glob is one level only) and deleting/relinking stale `node_modules` symlinks in the
     moved packages (pnpm's relative symlinks broke one directory level deeper after a plain `mv`).
-  - Re-verified the entire golden path after the move: `pnpm check` (all 13 tasks), the real CLI
+  - Re-verified the entire end-to-end path after the move: `pnpm check` (all 13 tasks), the real CLI
     binary against a live Postgres container (`HUMB_PORT`, static serving, `/api/overview`,
     `/api/tables/.../rows` with real indexes/rowCount), and the smoke E2E.
 - **F002 + F004 (`passing`)**: browser UI shows database connection status, plus a navigation tree
   (schemas/tables) and table metadata (columns, indexes, approximate row count). Added
   `SchemaTree`/`TableDetail` to `@humb/ui`, `api/overview.ts` + `api/table.ts` + matching hooks to
   `apps/web`, and wired them into `App.tsx` (loading/error/empty states, retry buttons).
-  - Found and fixed a real E2E infra gap while getting the golden journey to actually pass:
+  - Found and fixed a real E2E infra gap while getting the full journey to actually pass:
     Playwright's `webServer` only ran `vite preview` (a static file server with **no backend**), so
     `/api/health` always failed with `ECONNREFUSED` regardless of frontend completeness. Replaced it
     with `e2e/server.ts`, which starts the real Humb server (API + built web app on one port,
     matching what `npx humb <url>` actually does) and connects to Postgres only when
     `HUMB_TEST_DATABASE_URL` is set - so the same server correctly serves both `@smoke` (no
-    database) and `@golden` (live database) specs.
-  - Strengthened `golden-journey.spec.ts` itself: it previously only asserted the fixture table's
-    name appeared as text anywhere on the page, which would pass without the nav tree being
-    interactive at all. It now clicks the table and asserts a real column name becomes visible,
-    actually exercising F004's "table metadata" behavior.
+    database) and `@full` (live database) specs.
+  - Strengthened the spec itself (renamed `golden-journey.spec.ts` -> `connect-and-inspect.spec.ts`,
+    tag `@golden` -> `@full`, script `test:e2e:golden` -> `test:e2e:full` - "golden journey" was
+    unclear jargon): it previously only asserted the fixture table's name appeared as text anywhere
+    on the page, which would pass without the nav tree being interactive at all. It now clicks the
+    table and asserts a real column name becomes visible, actually exercising F004's "table
+    metadata" behavior.
+- **`docs/FEATURES.json` gained a `commitHash` field**: `evidence` alone was prose that could bury a
+  commit reference; `passing` features now also require a dedicated, validated `commitHash` (real
+  git SHA, enforced by `scripts/check-features.mjs`) so anyone can confirm the work was actually
+  committed and pushed without parsing prose.
 
 ## In progress
 
-- **F005 (`not_started`)**: paginated table rows. This is the one remaining piece of the golden
-  journey - `e2e/golden-journey.spec.ts` has a `TODO(F005)` marking where a row-visibility assertion
-  needs to be added once it's implemented.
+- **F005 (`not_started`)**: paginated table rows. This is the one remaining piece of the full
+  journey - `e2e/connect-and-inspect.spec.ts` has a `TODO(F005)` marking where a row-visibility
+  assertion needs to be added once it's implemented.
 
 ## Known issues / blockers
 
@@ -107,5 +113,5 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 /api/tables/:schema/:table/rows`, page/pageSize query params validated by
    `@humb/core`'s `rowsQuerySchema`). Add a rows view to `apps/web` (likely under the existing
    `TableDetail` panel or alongside it), a hook + api fetcher following the established pattern, and
-   fill in the `TODO(F005)` assertion in `golden-journey.spec.ts`.
+   fill in the `TODO(F005)` assertion in `connect-and-inspect.spec.ts`.
 2. Revisit F006/F007's `not_started` state per the note above.

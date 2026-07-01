@@ -25,7 +25,7 @@
     "format:check": "prettier --check .",
     "test": "turbo run test",
     "test:e2e": "playwright test --grep @smoke",
-    "test:e2e:golden": "playwright test --grep @golden",
+    "test:e2e:full": "playwright test --grep @full",
     "check:features": "node scripts/check-features.mjs",
     "check:handoff": "node scripts/check-handoff.mjs",
     "check:state": "pnpm check:features && pnpm check:handoff",

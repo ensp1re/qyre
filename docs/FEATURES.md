@@ -12,7 +12,7 @@ Every feature entry must have:
 - `verification`: the exact command that proves it works.
 - `state`: one of `not_started`, `active`, `blocked`, `passing`.
 
-Plus metadata: `id`, `evidence`, `blockedReason`, `spec`.
+Plus metadata: `id`, `commitHash`, `evidence`, `blockedReason`, `spec`.
 
 ## State machine
 
@@ -31,10 +31,12 @@ flowchart TD
 - IDs are unique and match `F` followed by three digits.
 - `state` is one of the allowed states.
 - At most one feature is `active` at a time.
-- A `passing` feature must have non-empty `evidence` (command output ref, commit SHA, or E2E artifact).
-  Once the work is committed, include the commit SHA (and PR link/number if one exists) in
-  `evidence` alongside the verification output — not just a prose description — so a fresh agent can
-  locate the exact change without re-deriving it.
+- A `passing` feature must have non-empty `evidence` (command output ref, commit SHA, or E2E artifact)
+  **and** a `commitHash` (a real git SHA, 7-40 hex characters) — a dedicated, machine-checkable field
+  so anyone can confirm the work was actually committed/pushed without parsing prose. `evidence`
+  should still describe what was verified and how; `commitHash` is just the pointer to where.
+- A feature only becomes `passing` once its commit is actually pushed — `commitHash` must be a real,
+  pushed SHA, not a local-only one.
 - A `blocked` feature must have a non-empty `blockedReason`.
 - Every feature must have a non-empty `behavior` and `verification`.
 - The agent does not flip a feature to `passing` from inspection; it only does so after the

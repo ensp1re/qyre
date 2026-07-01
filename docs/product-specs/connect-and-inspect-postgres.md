@@ -63,7 +63,7 @@ Humb is strictly read-only for now. Write capability is explicitly excluded and,
 introduced, must follow the rules in [`../SECURITY.md`](../SECURITY.md): destructive actions require
 explicit, unambiguous user confirmation and must never be the default path.
 
-## First golden journey
+## Primary end-to-end journey
 
 The primary end-to-end journey we protect:
 

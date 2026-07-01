@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
  * Playwright config for Humb's end-to-end tests.
  *
  * - `@smoke` specs run with no database (just the built UI) and gate `pnpm test:e2e`.
- * - `@golden` specs require HUMB_TEST_DATABASE_URL and run via `pnpm test:e2e:golden`.
+ * - `@full` specs require HUMB_TEST_DATABASE_URL and run via `pnpm test:e2e:full`.
  *
  * See docs/RELIABILITY.md.
  */

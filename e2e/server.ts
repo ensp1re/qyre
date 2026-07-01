@@ -4,7 +4,7 @@
  * no backend behind it.
  *
  * Connects to Postgres only if HUMB_TEST_DATABASE_URL is set: `@smoke` specs need no database
- * (the server just reports "unconfigured"), `@golden` specs need a live connection. Never opens a
+ * (the server just reports "unconfigured"), `@full` specs need a live connection. Never opens a
  * browser - this is for Playwright's `webServer`, not interactive use.
  */
 import { dirname, resolve } from "node:path";

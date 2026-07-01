@@ -80,7 +80,7 @@ engine follows the same recipe:
    Do not reuse logic that only looks generic but actually differs per engine (e.g. SQL identifier
    quoting - `"..."` in Postgres, `` `...` `` in MySQL); keep that in the engine's own package.
 4. Add a product spec and feature entries.
-5. Add integration + golden-journey coverage.
+5. Add integration + end-to-end (connect-and-inspect) coverage.
 
 This keeps engine-specific logic isolated so adding a database is additive, never a branch inside
 existing packages.

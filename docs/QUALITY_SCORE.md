@@ -13,15 +13,15 @@ work, not as a separate cleanup day.
 
 ## Packages
 
-| Package                 | Grade | Verification                                     | Agent legibility             | Test stability             | Key gaps                                                                                         | Last updated |
-| ----------------------- | ----- | ------------------------------------------------ | ---------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------ | ------------ |
-| `@humb/core`            | B     | `pnpm --filter @humb/core test` (14/14)          | good, folder-organized       | stable                     | `validation/` only covers query+rows so far                                                      | 2026-07-01   |
-| `@humb/driver-contract` | B     | `pnpm --filter @humb/driver-contract test` (7/7) | good                         | stable                     | only one consumer engine so far                                                                  | 2026-07-01   |
-| `@humb/postgres`        | B     | `pnpm --filter @humb/postgres test` (16/16)      | good                         | stable, integration-tested | two real bugs found via audit (indexes/rowCount were unimplemented, `pg` array-type parsing bug) | 2026-07-01   |
-| `@humb/server`          | B     | `pnpm --filter @humb/server test` (7/7)          | good                         | stable                     | F006/F007 not yet audited against full spec                                                      | 2026-07-01   |
-| `humb` (cli)            | B     | `pnpm --filter humb test` (7/7)                  | good                         | stable                     | web-dist path is monorepo-relative (tech debt)                                                   | 2026-07-01   |
-| `@humb/ui`              | B     | builds/typechecks; no dedicated tests yet        | good, one component per file | none yet                   | zero component-level test coverage (only exercised via e2e smoke)                                | 2026-07-01   |
-| `@humb/web`             | B     | smoke E2E only                                   | good, api/hooks split        | smoke only                 | no F004/F005 UI yet; golden journey still red                                                    | 2026-07-01   |
+| Package                 | Grade | Verification                                             | Agent legibility             | Test stability             | Key gaps                                                                                         | Last updated |
+| ----------------------- | ----- | -------------------------------------------------------- | ---------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------ | ------------ |
+| `@humb/core`            | B     | `pnpm --filter @humb/core test` (14/14)                  | good, folder-organized       | stable                     | `validation/` only covers query+rows so far                                                      | 2026-07-01   |
+| `@humb/driver-contract` | B     | `pnpm --filter @humb/driver-contract test` (7/7)         | good                         | stable                     | only one consumer engine so far                                                                  | 2026-07-01   |
+| `@humb/postgres`        | B     | `pnpm --filter @humb/postgres test` (16/16)              | good                         | stable, integration-tested | two real bugs found via audit (indexes/rowCount were unimplemented, `pg` array-type parsing bug) | 2026-07-01   |
+| `@humb/server`          | B     | `pnpm --filter @humb/server test` (7/7)                  | good                         | stable                     | F006/F007 not yet audited against full spec                                                      | 2026-07-01   |
+| `humb` (cli)            | B     | `pnpm --filter humb test` (7/7)                          | good                         | stable                     | web-dist path is monorepo-relative (tech debt)                                                   | 2026-07-01   |
+| `@humb/ui`              | B     | builds/typechecks; no dedicated tests yet                | good, one component per file | none yet                   | zero component-level test coverage (only exercised via e2e smoke)                                | 2026-07-01   |
+| `@humb/web`             | B     | smoke + full E2E (`pnpm test:e2e`, `pnpm test:e2e:full`) | good, api/hooks split        | stable                     | F005 (paginated rows) not built yet; nav tree + table metadata done                              | 2026-07-01   |
 
 ## Architectural layers
 

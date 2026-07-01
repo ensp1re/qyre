@@ -10,6 +10,7 @@ coverage/
 .env
 .env.*
 !.env.example
+.local/
 playwright-report/
 test-results/
 docs/generated/*

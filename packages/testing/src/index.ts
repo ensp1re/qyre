@@ -43,22 +43,30 @@ export const FIXTURE = {
  * Idempotent: safe to run repeatedly.
  */
 export async function setupFixture(connectionString: string): Promise<void> {
+  await runStatements(connectionString, [
+    `DROP TABLE IF EXISTS ${FIXTURE.table}`,
+    `CREATE TABLE ${FIXTURE.table} (
+       id serial PRIMARY KEY,
+       name text NOT NULL,
+       email text NOT NULL
+     )`,
+    `INSERT INTO ${FIXTURE.table} (name, email) VALUES
+       ('Ada Lovelace', 'ada@example.com'),
+       ('Alan Turing', 'alan@example.com'),
+       ('Grace Hopper', 'grace@example.com')`
+  ]);
+}
+
+/**
+ * Run a sequence of raw SQL statements against a target database, sequentially in one pool.
+ * A generic low-level helper for ad hoc/manual fixture and seed scripts.
+ */
+export async function runStatements(connectionString: string, statements: string[]): Promise<void> {
   const pool = new Pool({ connectionString });
   try {
-    await pool.query(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
-    await pool.query(
-      `CREATE TABLE ${FIXTURE.table} (
-         id serial PRIMARY KEY,
-         name text NOT NULL,
-         email text NOT NULL
-       )`
-    );
-    await pool.query(
-      `INSERT INTO ${FIXTURE.table} (name, email) VALUES
-         ('Ada Lovelace', 'ada@example.com'),
-         ('Alan Turing', 'alan@example.com'),
-         ('Grace Hopper', 'grace@example.com')`
-    );
+    for (const statement of statements) {
+      await pool.query(statement);
+    }
   } finally {
     await pool.end();
   }

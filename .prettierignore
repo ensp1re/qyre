@@ -3,6 +3,8 @@ dist
 build
 coverage
 .turbo
+.cursor
+.claude
 pnpm-lock.yaml
 playwright-report
 test-results

@@ -33,47 +33,38 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   `packages/server/STRUCTURE.md` (Fastify plugin/route growth path) - see PR #9.
 - `.local/` added to `.gitignore` (personal, never-committed scratch scripts); `@humb/testing`
   gained a generic `runStatements()` helper to support this without adding new root dependencies.
+- **F006 `passing`** (PR #10): read-only SQL query runner. Auditing it found a real, exploitable
+  security bug - a writable CTE bypassed the leading-keyword read-only check and actually deleted
+  data. Fixed with a full-statement keyword scan plus (the authoritative backstop) running queries
+  inside a real Postgres `READ ONLY` transaction. Also fixed a rejected query returning HTTP 500
+  instead of 400, and built the missing `QueryRunner` UI.
 
 ## In progress
 
-- **F006 (`active`)**: read-only SQL query runner. Auditing it (same pattern as F001/F003) found a
-  **real, exploitable security bug**: `assertReadOnly` only checked the _leading_ keyword, so a
-  writable CTE - `WITH deleted AS (DELETE FROM t RETURNING *) SELECT * FROM deleted` - starts with
-  the allowed "with" keyword but actually deletes data. Verified this really executed a DELETE
-  through the real adapter against a live table before fixing it. Fixed with two layers:
-  1. `assertReadOnly` now also scans the whole statement (comments/string literals/quoted
-     identifiers stripped first, to avoid false positives) for forbidden keywords anywhere, not just
-     leading - `packages/drivers/postgres/src/read-only.ts`.
-  2. The authoritative fix: `runReadOnlyQuery` now runs inside a real Postgres `BEGIN TRANSACTION
-READ ONLY` - Postgres itself refuses any write, regardless of what the string check misses.
-     Proved this independently with a test that hides a `DELETE` inside a plpgsql function body
-     (`SELECT some_function()` - no forbidden keyword in the SQL text at all, only the transaction
-     backstop can catch it) - `postgres-adapter.integration.test.ts`.
-  - Also found and fixed: a rejected query returned HTTP 500 instead of 400. Fixed by moving
-    `ReadOnlyViolationError` from `@humb/postgres` to `@humb/driver-contract` (it's an
-    engine-agnostic concept - every future engine's query runner needs it) so `packages/server` can
-    catch it without depending on a concrete engine package, and return 400.
-  - Built the missing UI: `QueryRunner` (`@humb/ui`) - a SQL textarea + results table - wired into
-    `apps/web` via `api/query.ts` + `useRunQuery` (a `useMutation`, not `useQuery` - it's
-    user-triggered, not passive). Manually verified success/rejection/writable-CTE cases through the
-    real HTTP path (`curl` against the built CLI + live Postgres), not just unit tests.
-  - Broadened F006's verification command from `pnpm --filter @humb/server test` to also run
-    `pnpm --filter @humb/postgres test` - the actual read-only-enforcement logic (and its new
-    security regression tests) lives there, not in `@humb/server`; the original command would never
-    have re-run them.
-  - Not yet marked `passing`: still need to record evidence/commitHash after committing.
+- **F007 (`active`, fix pending commit)**: health/runtime diagnostics endpoint. Auditing `/api/health`
+  (built in F001) the same way as F001/F003/F006 found a real crash bug, not just a coverage gap:
+  node-postgres's `Pool` emits an unhandled `"error"` event when an idle client's connection is
+  severed by the database (restart, network blip, admin kill) - with no listener, that crashes the
+  entire Node process instead of `/api/health` ever getting a chance to report `"disconnected"`.
+  Confirmed live: started the CLI against a real Postgres container, stopped the container, and
+  watched the whole server die instead of degrading gracefully.
+  - Fixed with `pool.on("error", ...)` in `packages/drivers/postgres/src/index.ts`'s `connect()`,
+    logging instead of crashing. Re-verified live: killing the database now leaves the server up and
+    `/api/health` correctly reports `"disconnected"`; a subsequent `SIGINT` still shuts down cleanly.
+  - Added a regression test in `postgres-adapter.integration.test.ts` that reproduces the exact
+    failure against a real database (`pg_terminate_backend` on an idle pooled connection) - confirmed
+    it fails without the fix and passes with it.
+  - Broadened F007's verification command to also run `pnpm --filter @humb/postgres test`, matching
+    F006's precedent, since the fix lives there, not in `@humb/server`.
+  - Not yet marked with a `commitHash`: still need to commit, push, open the PR, and record evidence.
 
 ## Known issues / blockers
 
-- F007 (health/diagnostics endpoints) has backend code + passing package-level tests but hasn't been
-  audited against its full spec yet - same starting position F001/F003/F006 were in before real gaps
-  turned up. Audit before marking `passing`.
 - `packages/cli`'s path to `apps/web/dist` is monorepo-relative and won't resolve once `humb` is
   published to npm; tracked in `docs/exec-plans/tech-debt-tracker.md`.
 
 ## Next steps
 
-1. Commit F006's fixes, record its `commitHash`/evidence, mark `passing`.
-2. Audit F007 the same way (health/diagnostics endpoints) before marking it `passing`.
-3. Consider the next slice: a SQLite driver (`packages/drivers/sqlite`), or `humb` npm-publish
+1. Commit F007's fixes, open its PR, record `commitHash`/evidence in `docs/FEATURES.json`.
+2. Consider the next slice: a SQLite driver (`packages/drivers/sqlite`), or `humb` npm-publish
    packaging work (the `apps/web/dist` path tech debt above).

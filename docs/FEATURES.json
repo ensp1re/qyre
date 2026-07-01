@@ -66,8 +66,8 @@
     {
       "id": "F007",
       "behavior": "Local server exposes health and runtime diagnostics endpoints for agent verification.",
-      "verification": "pnpm --filter @humb/server test",
-      "state": "not_started",
+      "verification": "pnpm --filter @humb/server test && pnpm --filter @humb/postgres test",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

@@ -81,6 +81,10 @@ engine follows the same recipe:
    quoting - `"..."` in Postgres, `` `...` `` in MySQL); keep that in the engine's own package.
 4. Add a product spec and feature entries.
 5. Add integration + end-to-end (connect-and-inspect) coverage.
+6. If the engine's client library uses a connection pool, attach an error listener to it so a
+   dropped connection (DB restart, network blip) degrades to `/api/health` reporting
+   `"disconnected"` instead of crashing the whole process - see F007's audit of
+   `packages/drivers/postgres`, where a missing `pool.on("error", ...)` listener did exactly that.
 
 This keeps engine-specific logic isolated so adding a database is additive, never a branch inside
 existing packages.

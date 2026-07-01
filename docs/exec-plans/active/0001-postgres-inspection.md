@@ -104,11 +104,24 @@ deleted`) starts with the allowed "with" keyword but actually deletes data - pro
   `useRunQuery`), verified success/rejection/writable-CTE cases through the real HTTP path. Broadened
   F006's verification command to also run `pnpm --filter @humb/postgres test` - the security-critical
   logic lives there, and the original `@humb/server`-only command would never re-run those tests.
+- 2026-07-01: Audited F007 (health/runtime diagnostics) the same way as F001/F003/F006, resolving
+  the open decision below in favor of auditing first. `/api/health` (built as part of F001) itself
+  behaved correctly, but the audit found a real crash bug, not just a coverage gap: node-postgres's
+  `Pool` emits an unhandled `"error"` event when an idle client's connection is severed by the
+  database (restart, network blip, admin kill) - since nothing listened for it, that crashed the
+  entire Node process instead of `/api/health` ever getting a chance to report `"disconnected"`.
+  Confirmed live: started the CLI against a real Postgres container, stopped the container
+  mid-session, and watched the whole server process die instead of degrading gracefully. Fixed with
+  a `pool.on("error", ...)` listener in `packages/drivers/postgres/src/index.ts`'s `connect()` that
+  logs instead of crashing - re-verified live that killing the database now leaves the server up and
+  `/api/health` correctly reports `"disconnected"`, and that a subsequent `SIGINT` still shuts down
+  cleanly. Added a regression test (`postgres-adapter.integration.test.ts`) that reproduces the exact
+  failure against a real database via `pg_terminate_backend` on an idle pooled connection - confirmed
+  it fails (uncaught exception) without the fix and passes with it. Broadened F007's verification
+  command to also run `pnpm --filter @humb/postgres test`, matching F006's precedent, since that's
+  where the fix actually lives. F007 marked `passing`.
 
 ## Open decisions
 
 - SQLite driver (`packages/drivers/sqlite`) timing: immediately after Postgres vs later.
-- Whether to mark F007 `passing` now (its backend code + package tests already pass, the same
-  starting position F001/F003/F006 were in before their audits surfaced real gaps) or audit it the
-  same way first.
 - What the next slice after F006/F007 should be: SQLite driver, or `humb` npm-publish packaging work.

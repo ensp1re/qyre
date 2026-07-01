@@ -41,3 +41,7 @@ flowchart TD
 
 Each feature should be completable in roughly one session. Too broad will not finish; too narrow is
 overhead.
+
+If a requested feature turns out to be too broad once scoped, split it: implement and verify the
+first slice, and add the rest as new `not_started` entries rather than trying to push everything
+through `active` in one pass (see `docs/PLANS.md`).

@@ -38,25 +38,25 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   data. Fixed with a full-statement keyword scan plus (the authoritative backstop) running queries
   inside a real Postgres `READ ONLY` transaction. Also fixed a rejected query returning HTTP 500
   instead of 400, and built the missing `QueryRunner` UI.
+- **F007 `passing`** (commit `5259102`, PR pending): health/runtime diagnostics endpoint. Auditing
+  `/api/health` (built in F001) the same way as F001/F003/F006 found a real crash bug, not just a
+  coverage gap: node-postgres's `Pool` emits an unhandled `"error"` event when an idle client's
+  connection is severed by the database (restart, network blip, admin kill) - with no listener, that
+  crashes the entire Node process instead of `/api/health` ever getting a chance to report
+  `"disconnected"`. Confirmed live: started the CLI against a real Postgres container, stopped the
+  container, and watched the whole server die instead of degrading gracefully. Fixed with
+  `pool.on("error", ...)` in `packages/drivers/postgres/src/index.ts`'s `connect()`, logging instead
+  of crashing - re-verified live that killing the database now leaves the server up and
+  `/api/health` correctly reports `"disconnected"`, and that a subsequent `SIGINT` still shuts down
+  cleanly. Added a regression test (`postgres-adapter.integration.test.ts`) that reproduces the exact
+  failure via `pg_terminate_backend` on an idle pooled connection against a real database - confirmed
+  it fails without the fix and passes with it. Broadened F007's verification command to also run
+  `pnpm --filter @humb/postgres test`, matching F006's precedent, since the fix lives there, not in
+  `@humb/server`.
 
 ## In progress
 
-- **F007 (`active`, fix pending commit)**: health/runtime diagnostics endpoint. Auditing `/api/health`
-  (built in F001) the same way as F001/F003/F006 found a real crash bug, not just a coverage gap:
-  node-postgres's `Pool` emits an unhandled `"error"` event when an idle client's connection is
-  severed by the database (restart, network blip, admin kill) - with no listener, that crashes the
-  entire Node process instead of `/api/health` ever getting a chance to report `"disconnected"`.
-  Confirmed live: started the CLI against a real Postgres container, stopped the container, and
-  watched the whole server die instead of degrading gracefully.
-  - Fixed with `pool.on("error", ...)` in `packages/drivers/postgres/src/index.ts`'s `connect()`,
-    logging instead of crashing. Re-verified live: killing the database now leaves the server up and
-    `/api/health` correctly reports `"disconnected"`; a subsequent `SIGINT` still shuts down cleanly.
-  - Added a regression test in `postgres-adapter.integration.test.ts` that reproduces the exact
-    failure against a real database (`pg_terminate_backend` on an idle pooled connection) - confirmed
-    it fails without the fix and passes with it.
-  - Broadened F007's verification command to also run `pnpm --filter @humb/postgres test`, matching
-    F006's precedent, since the fix lives there, not in `@humb/server`.
-  - Not yet marked with a `commitHash`: still need to commit, push, open the PR, and record evidence.
+- None. F001-F007 are all `passing`; F007's PR still needs to be opened (see Next steps).
 
 ## Known issues / blockers
 
@@ -65,6 +65,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Next steps
 
-1. Commit F007's fixes, open its PR, record `commitHash`/evidence in `docs/FEATURES.json`.
+1. Push the `fix/F007-health-diagnostics-pool-crash` branch and open its PR; record the PR URL as
+   evidence once merged.
 2. Consider the next slice: a SQLite driver (`packages/drivers/sqlite`), or `humb` npm-publish
    packaging work (the `apps/web/dist` path tech debt above).

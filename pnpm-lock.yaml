@@ -152,6 +152,9 @@ importers:
       '@humb/config':
         specifier: workspace:*
         version: link:../config
+      '@humb/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@types/pg':
         specifier: ^8.11.10
         version: 8.20.0

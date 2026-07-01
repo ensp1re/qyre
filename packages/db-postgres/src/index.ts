@@ -8,6 +8,7 @@ import type {
   ColumnMetadata,
   ConnectionTarget,
   DatabaseOverview,
+  IndexMetadata,
   RowPage,
   SchemaMetadata,
   TableMetadata
@@ -23,6 +24,70 @@ const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
 /** Quote a SQL identifier safely. */
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
+}
+
+/** Fetch index metadata for a table via Postgres's system catalogs. */
+async function fetchIndexes(pool: Pool, schema: string, table: string): Promise<IndexMetadata[]> {
+  const result = await pool.query<{
+    index_name: string;
+    is_unique: boolean;
+    is_primary: boolean;
+    columns: string[];
+  }>(
+    `SELECT
+        ic.relname AS index_name,
+        ix.indisunique AS is_unique,
+        ix.indisprimary AS is_primary,
+        array_agg(a.attname::text ORDER BY array_position(ix.indkey, a.attnum)) AS columns
+       FROM pg_index ix
+       JOIN pg_class ic ON ic.oid = ix.indexrelid
+       JOIN pg_class tc ON tc.oid = ix.indrelid
+       JOIN pg_namespace n ON n.oid = tc.relnamespace
+       JOIN pg_attribute a ON a.attrelid = tc.oid AND a.attnum = ANY(ix.indkey)
+      WHERE n.nspname = $1 AND tc.relname = $2
+      GROUP BY ic.relname, ix.indisunique, ix.indisprimary
+      ORDER BY ic.relname`,
+    [schema, table]
+  );
+
+  return result.rows.map((row) => ({
+    name: row.index_name,
+    columns: row.columns,
+    unique: row.is_unique,
+    primary: row.is_primary
+  }));
+}
+
+/** Approximate row count from Postgres's planner statistics (fast; avoids a full table scan). */
+async function fetchRowCountEstimate(
+  pool: Pool,
+  schema: string,
+  table: string
+): Promise<number | undefined> {
+  const result = await pool.query<{ estimate: string | null }>(
+    `SELECT reltuples::bigint AS estimate
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = $1 AND c.relname = $2`,
+    [schema, table]
+  );
+
+  const estimate = result.rows[0]?.estimate;
+  if (estimate == null) {
+    return undefined;
+  }
+
+  // reltuples is -1 for a table that has never been ANALYZEd (common right after creation).
+  // Fall back to an exact count rather than surface a nonsensical negative number.
+  const parsed = Number(estimate);
+  if (parsed >= 0) {
+    return parsed;
+  }
+
+  const exact = await pool.query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
+  );
+  return Number(exact.rows[0]?.count ?? 0);
 }
 
 export class PostgresAdapter implements DatabaseAdapter {
@@ -108,7 +173,12 @@ export class PostgresAdapter implements DatabaseAdapter {
       isPrimaryKey: primaryKeys.has(row.column_name)
     }));
 
-    return { schema, name: table, columns };
+    const [indexes, rowCount] = await Promise.all([
+      fetchIndexes(this.getPool(), schema, table),
+      fetchRowCountEstimate(this.getPool(), schema, table)
+    ]);
+
+    return { schema, name: table, columns, indexes, rowCount };
   }
 
   async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {

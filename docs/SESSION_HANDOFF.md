@@ -30,6 +30,25 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
     UI now loads at `/`, `HUMB_PORT` is respected, and `/api/health` reports `connected`.
 - Verification scripts and git hooks wired (`pnpm check`, Lefthook, CI).
 - First E2E golden journey defined (smoke + golden-journey specs).
+- **F003 (`passing`)**: Postgres introspection. This audit found bigger gaps than F001's: the actual
+  introspection logic (`getOverview`/`getTable`/`getRows`/`runReadOnlyQuery`) had **zero** test
+  coverage (only the adapter factory and the unrelated read-only SQL guard were tested), and indexes
+  and row counts were entirely unimplemented — not even present in `@humb/core`'s `TableMetadata`
+  contract. Fixed by:
+  - Adding `IndexMetadata` to `@humb/core` and implementing index introspection
+    (`pg_index`/`pg_class`/`pg_attribute`) and an approximate row count (`pg_class.reltuples`, with a
+    `COUNT(*)` fallback for never-`ANALYZE`d tables, since `reltuples` is `-1` until then) in
+    `packages/db-postgres`.
+  - Adding real integration tests (`postgres-adapter.integration.test.ts`) against a live Postgres,
+    reusing `@humb/testing`'s existing `requireTestDatabaseUrl`/`setupFixture` fixture helpers.
+  - Wiring `HUMB_TEST_DATABASE_URL` through: added it to `turbo.json`'s `test` task `env` allowlist
+    (Turborepo's strict env mode was silently stripping it from child processes) and added a Postgres
+    service to CI's `check` job (previously only the `e2e` job had one).
+  - Manual verification caught a real bug my own test missed: `array_agg(a.attname ...)` returned a
+    raw Postgres array-literal string (`"{id}"`) instead of a JS array, because `pg` has no type
+    parser for arrays of the internal `name` type. Fixed with an explicit `::text` cast, then
+    strengthened the test to assert on the actual `columns` array contents (not just presence) so
+    this bug class can't regress silently again.
 
 ## In progress
 
@@ -44,19 +63,18 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Known issues / blockers
 
-- F003 (Postgres introspection), F006 (read-only query runner), and F007 (health endpoint) also
-  have backend code already committed in `a0ae2f7` with passing package-level tests
-  (`pnpm --filter @humb/db-postgres test`, `pnpm --filter @humb/server test`), same as F001 was.
-  Their `FEATURES.json` entries still say `not_started` pending an explicit decision to mark them
-  `passing` (not done yet — flag this to the user before flipping their state, and audit each
-  against its full spec/acceptance criteria first, the way F001 needed auditing before it was truly
-  done).
+- F006 (read-only query runner) and F007 (health endpoint) also have backend code already committed
+  in `a0ae2f7` with passing package-level tests (`pnpm --filter @humb/server test`), same situation
+  F001 and F003 were in. `FEATURES.json` still says `not_started` for both, pending an explicit
+  decision to mark them `passing` — audit each against its full spec/acceptance criteria first (both
+  F001 and F003 had real gaps hiding behind passing tests; assume the same risk here).
 - `packages/cli`'s path to `apps/web/dist` is monorepo-relative and won't resolve once `humb` is
   published to npm; tracked in `docs/exec-plans/tech-debt-tracker.md`.
 
 ## Next steps
 
 1. Implement F004 (navigation tree) and F005 (paginated table rows) in `apps/web` — these are the
-   actually-missing pieces blocking `e2e/golden-journey.spec.ts`.
+   actually-missing pieces blocking `e2e/golden-journey.spec.ts`. F004 has real backend endpoints to
+   build against now (`GET /api/overview`, `GET /api/tables/:schema/:table` with indexes/rowCount).
 2. Once F004/F005 land and the golden journey is green, mark F002/F004/F005 `passing` together.
-3. Revisit F003/F006/F007's `not_started` state per the note above.
+3. Revisit F006/F007's `not_started` state per the note above.

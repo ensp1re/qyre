@@ -45,10 +45,20 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   an earlier note in this log incorrectly said), so with the static-serving fix the behavior itself
   now works end to end — it stays `active` only because its verification command is a golden-journey
   spec shared with F004/F005, which aren't implemented yet (no nav tree or table view).
+- 2026-07-01: Audited F003 the same way. Found bigger gaps than F001: introspection logic had zero
+  test coverage, and indexes/row counts were entirely unimplemented (missing from `@humb/core`'s
+  contract, not just the adapter). Added `IndexMetadata` to core, implemented index + approximate
+  row-count introspection in `packages/db-postgres`, added integration tests against a real Postgres
+  (reusing `@humb/testing`), fixed a Turborepo strict-env-mode gap that silently dropped
+  `HUMB_TEST_DATABASE_URL` from the `test` task, and added a Postgres service to CI's `check` job.
+  Manual verification caught a bug the new test didn't: index `columns` came back as a raw Postgres
+  array-literal string, not a JS array (no `pg` type parser for arrays of the internal `name` type);
+  fixed with an explicit `::text` cast and strengthened the test's assertions. F003 marked `passing`.
 
 ## Open decisions
 
 - SQLite (`db-sqlite`) timing: immediately after Postgres vs later.
 - Whether the query runner ships in the first golden journey or as a follow-up slice.
-- Whether to mark F003/F006/F007 `passing` now (their backend code + package tests already pass,
-  mirroring F001) or treat them as needing further review before recording.
+- Whether to mark F006/F007 `passing` now (their backend code + package tests already pass, the same
+  starting position F001 and F003 were in before their audits surfaced real gaps) or audit them the
+  same way first.

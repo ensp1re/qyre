@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@humb/config": "workspace:*",
+    "@humb/testing": "workspace:*",
     "@types/pg": "^8.11.10"
   }
 }

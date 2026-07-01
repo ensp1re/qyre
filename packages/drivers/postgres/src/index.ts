@@ -106,6 +106,12 @@ export class PostgresAdapter implements DatabaseAdapter {
 
   async connect(): Promise<void> {
     this.pool = new Pool({ connectionString: this.target.raw });
+    // pg emits "error" on the pool when an idle client's connection is dropped by the
+    // database (restart, network blip, admin kill). Without a listener, Node treats that as an
+    // unhandled error and crashes the whole process - the opposite of what /api/health is for.
+    this.pool.on("error", (error) => {
+      console.error("Postgres pool error (connection dropped):", error.message);
+    });
   }
 
   async disconnect(): Promise<void> {

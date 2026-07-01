@@ -66,10 +66,10 @@
     {
       "id": "F007",
       "behavior": "Local server exposes health and runtime diagnostics endpoints for agent verification.",
-      "verification": "pnpm --filter @humb/server test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "verification": "pnpm --filter @humb/server test && pnpm --filter @humb/postgres test",
+      "state": "passing",
+      "commitHash": "5259102",
+      "evidence": "commit 5259102: pnpm --filter @humb/server test (8/8) and pnpm --filter @humb/postgres test (25/25) pass on 2026-07-01. Auditing /api/health (built in F001) against the full spec found a real bug, not just a coverage gap: node-postgres's Pool emits an unhandled \"error\" event when an idle client's connection is severed by the database (restart, network blip, admin kill) - confirmed live by starting the CLI against a real Postgres container, stopping the container mid-session, and watching the entire Node process crash instead of /api/health ever reporting \"disconnected\". Fixed by attaching pool.on(\"error\", ...) in packages/drivers/postgres/src/index.ts's connect() to log instead of crash. Re-verified live: after the fix, killing the database leaves the server up and /api/health correctly returns database: \"disconnected\"; a subsequent SIGINT still shuts down cleanly. Added a regression test (postgres-adapter.integration.test.ts) that reproduces the exact failure via pg_terminate_backend on an idle pooled connection against a real database - confirmed it fails (uncaught exception) without the fix and passes with it.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
     }

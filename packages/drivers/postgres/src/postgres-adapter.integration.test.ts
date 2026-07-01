@@ -6,6 +6,7 @@
  * trivially.
  */
 import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@humb/testing";
+import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PostgresAdapter } from "./index.js";
 
@@ -99,5 +100,33 @@ describe("PostgresAdapter integration", () => {
     } finally {
       await runStatements(databaseUrl, ["DROP FUNCTION IF EXISTS humb_test_wipe()"]);
     }
+  });
+
+  it("survives an idle pooled connection being dropped by the database", async () => {
+    // Reproduces a real crash: node-postgres's Pool emits an unhandled "error" event when an
+    // idle client's connection is severed server-side (restart, network blip, admin kill) -
+    // exactly what happens when the database becomes unreachable while Humb is running. Without
+    // a pool.on("error", ...) listener, that event crashes the whole Node process instead of
+    // /api/health ever getting a chance to report "disconnected".
+    await adapter.ping(); // ensure a client is checked into the pool
+
+    const admin = new Pool({ connectionString: databaseUrl });
+    try {
+      const { rows } = await admin.query<{ pid: number }>(
+        `SELECT pid FROM pg_stat_activity
+         WHERE datname = current_database() AND state = 'idle' AND pid <> pg_backend_pid()
+         ORDER BY pid DESC LIMIT 1`
+      );
+      const pid = rows[0]?.pid;
+      expect(pid).toBeDefined();
+      await admin.query("SELECT pg_terminate_backend($1)", [pid]);
+    } finally {
+      await admin.end();
+    }
+
+    // Give the pool's "error" event a tick to fire. If it's unhandled, the test process crashes
+    // here rather than this assertion ever running.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(await adapter.ping()).toBe(true);
   });
 });

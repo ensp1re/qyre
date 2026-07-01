@@ -1,10 +1,11 @@
 import type { ConnectionStatus } from "@humb/core";
-import { Panel, RowsTable, SchemaTree, StatusBadge, TableDetail } from "@humb/ui";
+import { Panel, QueryRunner, RowsTable, SchemaTree, StatusBadge, TableDetail } from "@humb/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useHealth } from "./hooks/use-health.js";
 import { useOverview } from "./hooks/use-overview.js";
 import { useRows } from "./hooks/use-rows.js";
+import { useRunQuery } from "./hooks/use-run-query.js";
 import { useTable } from "./hooks/use-table.js";
 
 export function App(): ReactNode {
@@ -15,9 +16,11 @@ export function App(): ReactNode {
 
   const [selected, setSelected] = useState<{ schema: string; table: string } | undefined>();
   const [page, setPage] = useState(0);
+  const [querySql, setQuerySql] = useState("");
   const overview = useOverview({ enabled: status === "connected" });
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page);
+  const runQuery = useRunQuery();
 
   function selectTable(schema: string, tableName: string): void {
     setSelected({ schema, table: tableName });
@@ -116,6 +119,21 @@ export function App(): ReactNode {
               ) : null}
             </Panel>
           </div>
+        </div>
+      )}
+
+      {status === "connected" && (
+        <div style={{ marginTop: "1.5rem" }}>
+          <Panel title="Query runner">
+            <QueryRunner
+              sql={querySql}
+              onSqlChange={setQuerySql}
+              onRun={() => runQuery.mutate(querySql)}
+              isRunning={runQuery.isPending}
+              result={runQuery.data}
+              error={runQuery.error instanceof Error ? runQuery.error.message : undefined}
+            />
+          </Panel>
         </div>
       )}
     </main>

@@ -86,12 +86,29 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   at `pageSize=2` against the 3-row fixture. `connect-and-inspect.spec.ts` now asserts real fixture
   row values are visible. F005 marked `passing` - F001 through F005 are all `passing`, and the
   connect-and-inspect journey is fully green end to end.
+- 2026-07-01: Audited F006 (read-only query runner) the same way as F001/F003. This one turned up a
+  **real, exploitable security bug**, not just a UX/coverage gap: `assertReadOnly` only checked the
+  leading keyword, so a writable CTE (`WITH deleted AS (DELETE FROM t RETURNING *) SELECT * FROM
+deleted`) starts with the allowed "with" keyword but actually deletes data - proved this by running
+  it through the real adapter against a live table and watching a row disappear, before fixing
+  anything. Fixed with two layers: (1) `assertReadOnly` now scans the whole statement for forbidden
+  keywords, not just the leading one (stripping comments/literals/quoted identifiers first to avoid
+  false positives); (2) the authoritative fix - `runReadOnlyQuery` now runs inside a real Postgres
+  `READ ONLY` transaction, so Postgres itself refuses any write regardless of what the string check
+  misses. Proved layer 2 independently with a test that hides a `DELETE` inside a plpgsql function
+  (`SELECT some_function()` has no forbidden keyword in its text at all - only the transaction
+  backstop catches it). Also fixed: a rejected query returned HTTP 500 instead of 400 - moved
+  `ReadOnlyViolationError` from `@humb/postgres` to `@humb/driver-contract` (engine-agnostic; every
+  engine's query runner needs it) so `packages/server` can catch it without depending on a concrete
+  engine. Built the missing UI (`QueryRunner` in `@humb/ui`, wired via `apps/web`'s `api/query.ts` +
+  `useRunQuery`), verified success/rejection/writable-CTE cases through the real HTTP path. Broadened
+  F006's verification command to also run `pnpm --filter @humb/postgres test` - the security-critical
+  logic lives there, and the original `@humb/server`-only command would never re-run those tests.
 
 ## Open decisions
 
 - SQLite driver (`packages/drivers/sqlite`) timing: immediately after Postgres vs later.
-- Whether to mark F006/F007 `passing` now (their backend code + package tests already pass, the same
-  starting position F001 and F003 were in before their audits surfaced real gaps) or audit them the
+- Whether to mark F007 `passing` now (its backend code + package tests already pass, the same
+  starting position F001/F003/F006 were in before their audits surfaced real gaps) or audit it the
   same way first.
-- What the next slice after the connect-and-inspect journey should be: SQLite driver, the read-only
-  query runner UI (F006 already has backend support), or `humb` npm-publish packaging work.
+- What the next slice after F006/F007 should be: SQLite driver, or `humb` npm-publish packaging work.

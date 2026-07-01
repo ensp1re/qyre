@@ -33,4 +33,36 @@ describe("assertReadOnly", () => {
   it("rejects an empty query", () => {
     expect(() => assertReadOnly("   ")).toThrow(ReadOnlyViolationError);
   });
+
+  it("rejects a writable CTE (DELETE hidden behind a leading WITH)", () => {
+    expect(() =>
+      assertReadOnly("WITH deleted AS (DELETE FROM users RETURNING *) SELECT * FROM deleted")
+    ).toThrow(ReadOnlyViolationError);
+  });
+
+  it("rejects a writable CTE using INSERT", () => {
+    expect(() =>
+      assertReadOnly(
+        "WITH inserted AS (INSERT INTO users (name) VALUES ('x') RETURNING *) SELECT * FROM inserted"
+      )
+    ).toThrow(ReadOnlyViolationError);
+  });
+
+  it("rejects TRUNCATE, GRANT, and CALL even as the leading keyword", () => {
+    expect(() => assertReadOnly("TRUNCATE users")).toThrow(ReadOnlyViolationError);
+    expect(() => assertReadOnly("GRANT ALL ON users TO public")).toThrow(ReadOnlyViolationError);
+    expect(() => assertReadOnly("CALL some_procedure()")).toThrow(ReadOnlyViolationError);
+  });
+
+  it("does not false-positive on column/table names containing forbidden words as substrings", () => {
+    expect(() => assertReadOnly("SELECT created_at, call_count FROM audit_log")).not.toThrow();
+  });
+
+  it("does not false-positive on a string literal containing a forbidden word", () => {
+    expect(() => assertReadOnly("SELECT * FROM logs WHERE action = 'update'")).not.toThrow();
+  });
+
+  it("does not false-positive on a quoted identifier containing a forbidden word", () => {
+    expect(() => assertReadOnly('SELECT "update" FROM settings')).not.toThrow();
+  });
 });

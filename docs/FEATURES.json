@@ -56,8 +56,8 @@
     {
       "id": "F006",
       "behavior": "Read-only SQL query runner executes SELECT-style statements and rejects mutations.",
-      "verification": "pnpm --filter @humb/server test",
-      "state": "not_started",
+      "verification": "pnpm --filter @humb/postgres test && pnpm --filter @humb/server test",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

@@ -1,6 +1,8 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { DatabaseAdapter } from "@humb/driver-contract";
+import { ReadOnlyViolationError } from "@humb/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer } from "./index.js";
 
@@ -24,6 +26,30 @@ describe("createServer", () => {
     const app = createServer();
     const response = await app.inject({ method: "POST", url: "/api/query", payload: {} });
     expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("returns 400 (not 500) when the adapter rejects a read-only-violating query", async () => {
+    const adapter: DatabaseAdapter = {
+      engine: "postgres",
+      connect: async () => {},
+      disconnect: async () => {},
+      ping: async () => true,
+      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getTable: async () => ({ schema: "public", name: "x", columns: [] }),
+      getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
+      runReadOnlyQuery: async () => {
+        throw new ReadOnlyViolationError("Only read-only statements are allowed.");
+      }
+    };
+    const app = createServer({ adapter });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/query",
+      payload: { sql: "DELETE FROM users" }
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: "Only read-only statements are allowed." });
     await app.close();
   });
 

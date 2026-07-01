@@ -47,9 +47,9 @@
       "id": "F005",
       "behavior": "UI displays a paginated page of rows for a selected table.",
       "verification": "pnpm test:e2e:full",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "1f779da",
+      "evidence": "commit 1f779da: pnpm test:e2e:full passes (1/1) on 2026-07-01 against a real Postgres container: added RowsTable (@humb/ui), api/rows.ts + useRows hook (apps/web, using TanStack Query's keepPreviousData to avoid flicker between pages), wired into App.tsx below TableDetail with Previous/Next controls. \"Can go next\" uses a simple rows.length === pageSize heuristic (no exact total count from the backend) - manually verified the boundary is correct via curl with page=0/1 at pageSize=2 against the 3-row fixture. The connect-and-inspect journey now asserts real fixture row values (ada@example.com, grace@example.com) are visible, not just presence of a table.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
     },

@@ -90,12 +90,18 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   commit reference; `passing` features now also require a dedicated, validated `commitHash` (real
   git SHA, enforced by `scripts/check-features.mjs`) so anyone can confirm the work was actually
   committed and pushed without parsing prose.
+- **F005 (`passing`)**: paginated table rows - the last piece of the connect-and-inspect journey.
+  Added `RowsTable` (`@humb/ui`), `api/rows.ts` + `useRows` hook (`apps/web`, using TanStack Query's
+  `keepPreviousData` so the table doesn't flicker between pages), wired below `TableDetail` with
+  Previous/Next controls. There's no exact total row count from the backend, so "can go next" uses a
+  `rows.length === pageSize` heuristic - manually verified the boundary is correct via `curl` with
+  `page=0`/`page=1` at `pageSize=2` against the 3-row fixture. `connect-and-inspect.spec.ts` now
+  asserts real fixture row values are visible (`ada@example.com`, `grace@example.com`), not just
+  that a rows table exists.
 
 ## In progress
 
-- **F005 (`not_started`)**: paginated table rows. This is the one remaining piece of the full
-  journey - `e2e/connect-and-inspect.spec.ts` has a `TODO(F005)` marking where a row-visibility
-  assertion needs to be added once it's implemented.
+- None. F001-F005 are all `passing`; the connect-and-inspect journey is fully green end to end.
 
 ## Known issues / blockers
 
@@ -109,9 +115,8 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Next steps
 
-1. Implement F005: paginated table rows. Backend already supports it (`GET
-/api/tables/:schema/:table/rows`, page/pageSize query params validated by
-   `@humb/core`'s `rowsQuerySchema`). Add a rows view to `apps/web` (likely under the existing
-   `TableDetail` panel or alongside it), a hook + api fetcher following the established pattern, and
-   fill in the `TODO(F005)` assertion in `connect-and-inspect.spec.ts`.
-2. Revisit F006/F007's `not_started` state per the note above.
+1. Revisit F006/F007's `not_started` state per the note above (audit before marking passing, the
+   same way F001/F003 needed auditing).
+2. Consider the next slice beyond the connect-and-inspect journey: e.g. a SQLite driver
+   (`packages/drivers/sqlite`), the read-only query runner UI (F006 has backend support already), or
+   packaging work (the `apps/web/dist` monorepo-relative path tech debt) before publishing to npm.

@@ -1,9 +1,10 @@
 import type { ConnectionStatus } from "@humb/core";
-import { Panel, SchemaTree, StatusBadge, TableDetail } from "@humb/ui";
+import { Panel, RowsTable, SchemaTree, StatusBadge, TableDetail } from "@humb/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useHealth } from "./hooks/use-health.js";
 import { useOverview } from "./hooks/use-overview.js";
+import { useRows } from "./hooks/use-rows.js";
 import { useTable } from "./hooks/use-table.js";
 
 export function App(): ReactNode {
@@ -13,8 +14,15 @@ export function App(): ReactNode {
     : (health?.database ?? "unconfigured");
 
   const [selected, setSelected] = useState<{ schema: string; table: string } | undefined>();
+  const [page, setPage] = useState(0);
   const overview = useOverview({ enabled: status === "connected" });
   const table = useTable(selected?.schema, selected?.table);
+  const rows = useRows(selected?.schema, selected?.table, page);
+
+  function selectTable(schema: string, tableName: string): void {
+    setSelected({ schema, table: tableName });
+    setPage(0);
+  }
 
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "2.5rem 1.25rem" }}>
@@ -59,7 +67,7 @@ export function App(): ReactNode {
                 <SchemaTree
                   schemas={overview.data.schemas}
                   selected={selected}
-                  onSelect={(schema, tableName) => setSelected({ schema, table: tableName })}
+                  onSelect={selectTable}
                 />
               ) : (
                 <p>No tables found.</p>
@@ -81,7 +89,30 @@ export function App(): ReactNode {
                   </button>
                 </p>
               ) : table.data ? (
-                <TableDetail table={table.data} />
+                <>
+                  <TableDetail table={table.data} />
+                  <div style={{ marginTop: "1rem" }}>
+                    {rows.isLoading ? (
+                      <p>Loading rows...</p>
+                    ) : rows.isError ? (
+                      <p>
+                        Failed to load rows.{" "}
+                        <button type="button" onClick={() => rows.refetch()}>
+                          Retry
+                        </button>
+                      </p>
+                    ) : rows.data ? (
+                      <RowsTable
+                        rowPage={rows.data}
+                        page={page}
+                        canGoPrevious={page > 0}
+                        canGoNext={rows.data.rows.length === rows.data.pageSize}
+                        onPrevious={() => setPage((current) => Math.max(0, current - 1))}
+                        onNext={() => setPage((current) => current + 1)}
+                      />
+                    ) : null}
+                  </div>
+                </>
               ) : null}
             </Panel>
           </div>

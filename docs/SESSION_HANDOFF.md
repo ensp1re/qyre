@@ -69,17 +69,27 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   - Re-verified the entire golden path after the move: `pnpm check` (all 13 tasks), the real CLI
     binary against a live Postgres container (`HUMB_PORT`, static serving, `/api/overview`,
     `/api/tables/.../rows` with real indexes/rowCount), and the smoke E2E.
+- **F002 + F004 (`passing`)**: browser UI shows database connection status, plus a navigation tree
+  (schemas/tables) and table metadata (columns, indexes, approximate row count). Added
+  `SchemaTree`/`TableDetail` to `@humb/ui`, `api/overview.ts` + `api/table.ts` + matching hooks to
+  `apps/web`, and wired them into `App.tsx` (loading/error/empty states, retry buttons).
+  - Found and fixed a real E2E infra gap while getting the golden journey to actually pass:
+    Playwright's `webServer` only ran `vite preview` (a static file server with **no backend**), so
+    `/api/health` always failed with `ECONNREFUSED` regardless of frontend completeness. Replaced it
+    with `e2e/server.ts`, which starts the real Humb server (API + built web app on one port,
+    matching what `npx humb <url>` actually does) and connects to Postgres only when
+    `HUMB_TEST_DATABASE_URL` is set - so the same server correctly serves both `@smoke` (no
+    database) and `@golden` (live database) specs.
+  - Strengthened `golden-journey.spec.ts` itself: it previously only asserted the fixture table's
+    name appeared as text anywhere on the page, which would pass without the nav tree being
+    interactive at all. It now clicks the table and asserts a real column name becomes visible,
+    actually exercising F004's "table metadata" behavior.
 
 ## In progress
 
-- **F002 (`active`)**: browser UI shows database connection status. Correction to an earlier note
-  in this file: `apps/web/src/App.tsx` was **not** a bare scaffold — it already fetches
-  `/api/health` and renders a real `StatusBadge`/connection summary from `@humb/ui`. Combined with
-  this session's static-serving fix, the connection-status behavior is now genuinely verified
-  working end to end. It stays `active` (not `passing`) only because its verification command
-  (`pnpm test:e2e:golden`) is shared with F004/F005 in one Playwright spec and won't go green until
-  the nav tree and table view exist too — see `e2e/golden-journey.spec.ts`. The real remaining gap
-  is F004/F005: no navigation tree or table view UI exists yet.
+- **F005 (`not_started`)**: paginated table rows. This is the one remaining piece of the golden
+  journey - `e2e/golden-journey.spec.ts` has a `TODO(F005)` marking where a row-visibility assertion
+  needs to be added once it's implemented.
 
 ## Known issues / blockers
 
@@ -93,8 +103,9 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Next steps
 
-1. Implement F004 (navigation tree) and F005 (paginated table rows) in `apps/web` — these are the
-   actually-missing pieces blocking `e2e/golden-journey.spec.ts`. F004 has real backend endpoints to
-   build against now (`GET /api/overview`, `GET /api/tables/:schema/:table` with indexes/rowCount).
-2. Once F004/F005 land and the golden journey is green, mark F002/F004/F005 `passing` together.
-3. Revisit F006/F007's `not_started` state per the note above.
+1. Implement F005: paginated table rows. Backend already supports it (`GET
+/api/tables/:schema/:table/rows`, page/pageSize query params validated by
+   `@humb/core`'s `rowsQuerySchema`). Add a rows view to `apps/web` (likely under the existing
+   `TableDetail` panel or alongside it), a hook + api fetcher following the established pattern, and
+   fill in the `TODO(F005)` assertion in `golden-journey.spec.ts`.
+2. Revisit F006/F007's `not_started` state per the note above.

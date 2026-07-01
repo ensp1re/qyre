@@ -6,3 +6,5 @@
  */
 export * from "./components/status-badge.js";
 export * from "./components/panel.js";
+export * from "./components/schema-tree.js";
+export * from "./components/table-detail.js";

@@ -35,6 +35,9 @@ Each golden journey has a repeatable verification path and clear failure signals
 - `golden-journey.spec.ts`: requires `HUMB_TEST_DATABASE_URL`. If it is missing, the test FAILS with
   an actionable message (we do not silently skip required verification). It runs in CI where a
   Postgres service is available, and locally when a developer/agent provides the URL.
+- Both specs run against `e2e/server.ts`, which starts the real Humb server (API + built web app on
+  one port) rather than a separate `vite preview` process with no backend - it connects to Postgres
+  only when `HUMB_TEST_DATABASE_URL` is set, so the same webServer serves both specs correctly.
 
 ## Required runtime signals
 

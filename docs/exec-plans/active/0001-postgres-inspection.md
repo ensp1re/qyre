@@ -64,6 +64,15 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   `packages/db-postgres` -> `packages/drivers/postgres` (`@humb/postgres`); required a
   `packages/drivers/*` entry in `pnpm-workspace.yaml`. Re-verified `pnpm check`, a real CLI run
   against live Postgres, and the smoke E2E after the move.
+- 2026-07-01: Implemented F002+F004 (nav tree + table metadata): `SchemaTree`/`TableDetail` in
+  `@humb/ui`, `api/`+`hooks/` in `apps/web`, wired into `App.tsx`. Getting `pnpm test:e2e:golden` to
+  actually pass surfaced a real E2E infra gap: Playwright's `webServer` only ran `vite preview`
+  (no backend at all), so `/api/health` always failed regardless of frontend completeness. Replaced
+  it with `e2e/server.ts` - the real Humb server, API + built web app on one port, connecting to
+  Postgres only when `HUMB_TEST_DATABASE_URL` is set. Also strengthened `golden-journey.spec.ts`,
+  which previously only asserted the fixture table name appeared as text (would pass without any
+  real interaction) - it now clicks the table and asserts a column becomes visible. F002 and F004
+  marked `passing`; F005 (rows) is the one remaining piece, with a `TODO(F005)` left in the spec.
 
 ## Open decisions
 

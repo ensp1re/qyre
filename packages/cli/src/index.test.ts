@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseArgs } from "./index.js";
+import { parseArgs, resolvePort } from "./index.js";
 
 describe("parseArgs", () => {
   it("parses a target argument", () => {
@@ -13,5 +13,23 @@ describe("parseArgs", () => {
 
   it("returns an undefined target when none is given", () => {
     expect(parseArgs([]).target).toBeUndefined();
+  });
+});
+
+describe("resolvePort", () => {
+  it("prefers the --port flag over HUMB_PORT", () => {
+    expect(resolvePort(9000, { HUMB_PORT: "8000" })).toBe(9000);
+  });
+
+  it("falls back to HUMB_PORT when no flag is given", () => {
+    expect(resolvePort(undefined, { HUMB_PORT: "8000" })).toBe(8000);
+  });
+
+  it("returns undefined when neither is set", () => {
+    expect(resolvePort(undefined, {})).toBeUndefined();
+  });
+
+  it("ignores an invalid HUMB_PORT", () => {
+    expect(resolvePort(undefined, { HUMB_PORT: "not-a-number" })).toBeUndefined();
   });
 });

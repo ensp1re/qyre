@@ -25,8 +25,8 @@
       "id": "F003",
       "behavior": "Postgres adapter introspects schemas, tables, columns, indexes, and row counts.",
       "verification": "pnpm --filter @humb/db-postgres test",
-      "state": "not_started",
-      "evidence": null,
+      "state": "passing",
+      "evidence": "pnpm --filter @humb/db-postgres test passes (16/16) on 2026-07-01, including new integration tests (postgres-adapter.integration.test.ts) against a real Postgres container that previously did not exist for getOverview/getTable/getRows/runReadOnlyQuery. Auditing against the full spec found schemas/tables/columns were covered but indexes and row counts were entirely unimplemented (missing from @humb/core's TableMetadata contract and the adapter) - added IndexMetadata to @humb/core, index introspection via pg_index/pg_class/pg_attribute, and an approximate row count via pg_class.reltuples with a COUNT(*) fallback for never-analyzed tables (reltuples is -1 until ANALYZE runs). Manually re-verified end to end: GET /api/tables/public/humb_demo_users returned real indexes (with a genuine string[] columns array, not the raw Postgres array-literal string node-postgres returns for untyped array columns - caught and fixed via an explicit ::text cast) and rowCount 3.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
     },

@@ -9,6 +9,7 @@ import { join } from "node:path";
 import fastifyStatic from "@fastify/static";
 import { DEFAULT_PORT, redactConnectionString, rowsQuerySchema, runQuerySchema } from "@humb/core";
 import type { ConnectionTarget, HealthResponse } from "@humb/core";
+import { ReadOnlyViolationError } from "@humb/driver-contract";
 import type { DatabaseAdapter } from "@humb/driver-contract";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
@@ -78,7 +79,14 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
     if (!parsed.success) {
       return reply.status(400).send({ error: "Request body must be { sql: string }." });
     }
-    return requireAdapter(adapter).runReadOnlyQuery(parsed.data.sql);
+    try {
+      return await requireAdapter(adapter).runReadOnlyQuery(parsed.data.sql);
+    } catch (error) {
+      if (error instanceof ReadOnlyViolationError) {
+        return reply.status(400).send({ error: error.message });
+      }
+      throw error;
+    }
   });
 
   if (options.webRoot && existsSync(join(options.webRoot, "index.html"))) {

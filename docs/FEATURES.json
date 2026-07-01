@@ -56,10 +56,10 @@
     {
       "id": "F006",
       "behavior": "Read-only SQL query runner executes SELECT-style statements and rejects mutations.",
-      "verification": "pnpm --filter @humb/server test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "verification": "pnpm --filter @humb/postgres test && pnpm --filter @humb/server test",
+      "state": "passing",
+      "commitHash": "c049110",
+      "evidence": "commit c049110: pnpm --filter @humb/postgres test (24/24) and pnpm --filter @humb/server test (8/8) pass on 2026-07-01. Auditing found a real, exploitable security bug: assertReadOnly only checked the leading keyword, so a writable CTE (`WITH deleted AS (DELETE FROM t RETURNING *) SELECT * FROM deleted`) starts with the allowed \"with\" keyword but actually deletes data - confirmed this executed a real DELETE through the adapter against a live table before fixing it. Fixed with two layers: assertReadOnly now scans the whole statement (literals/identifiers stripped first) for forbidden keywords anywhere, not just leading; and runReadOnlyQuery now runs inside a real Postgres READ ONLY transaction as the authoritative backstop - proved this independently with a test hiding a DELETE inside a plpgsql function call, which no string check could ever catch. Also fixed a rejected query returning HTTP 500 instead of 400 (moved ReadOnlyViolationError to @humb/driver-contract so packages/server can catch it without depending on a concrete engine). Built the missing UI (QueryRunner in @humb/ui, wired via apps/web) and manually verified success/rejection/writable-CTE cases through the real HTTP path against a live Postgres container.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
     },

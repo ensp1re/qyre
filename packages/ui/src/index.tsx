@@ -9,3 +9,4 @@ export * from "./components/panel.js";
 export * from "./components/schema-tree.js";
 export * from "./components/table-detail.js";
 export * from "./components/rows-table.js";
+export * from "./components/query-runner.js";

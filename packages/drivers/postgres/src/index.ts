@@ -200,13 +200,29 @@ export class PostgresAdapter implements DatabaseAdapter {
 
   async runReadOnlyQuery(sql: string): Promise<RowPage> {
     assertReadOnly(sql);
-    const result = await this.getPool().query(sql);
-    return {
-      columns: result.fields.map((field) => field.name),
-      rows: result.rows as Array<Record<string, unknown>>,
-      page: 0,
-      pageSize: result.rows.length
-    };
+
+    // assertReadOnly is a heuristic string check and can be bypassed (e.g. a writable CTE like
+    // `WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x` starts with the allowed "with"
+    // keyword). Running inside a real Postgres READ ONLY transaction is the authoritative
+    // guarantee: Postgres itself refuses any data-modifying statement here, regardless of what the
+    // string check missed.
+    const client = await this.getPool().connect();
+    try {
+      await client.query("BEGIN TRANSACTION READ ONLY");
+      const result = await client.query(sql);
+      await client.query("COMMIT");
+      return {
+        columns: result.fields.map((field) => field.name),
+        rows: result.rows as Array<Record<string, unknown>>,
+        page: 0,
+        pageSize: result.rows.length
+      };
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 

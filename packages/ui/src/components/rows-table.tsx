@@ -1,5 +1,6 @@
 import type { RowPage } from "@humb/core";
 import type { CSSProperties, ReactNode } from "react";
+import { formatCell } from "../format-cell.js";
 
 export interface RowsTableProps {
   rowPage: RowPage;
@@ -80,11 +81,4 @@ export function RowsTable({
       </div>
     </div>
   );
-}
-
-function formatCell(value: unknown): string {
-  if (value === null || value === undefined) {
-    return "";
-  }
-  return typeof value === "string" ? value : JSON.stringify(value);
 }

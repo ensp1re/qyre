@@ -78,11 +78,20 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
 - 2026-07-01: Added a `commitHash` field to `docs/FEATURES.json` (enforced by
   `scripts/check-features.mjs`) so a `passing` feature's actual pushed commit is a validated field,
   not just prose inside `evidence`.
+- 2026-07-01: Implemented F005 (paginated table rows), the last piece of the connect-and-inspect
+  journey. Added `RowsTable` (`@humb/ui`), `api/rows.ts` + `useRows` (`apps/web`, TanStack Query's
+  `keepPreviousData` to avoid flicker between pages), wired below `TableDetail` with Previous/Next
+  controls. No exact total row count from the backend, so "can go next" uses a
+  `rows.length === pageSize` heuristic; manually verified the boundary via `curl` with `page=0`/`1`
+  at `pageSize=2` against the 3-row fixture. `connect-and-inspect.spec.ts` now asserts real fixture
+  row values are visible. F005 marked `passing` - F001 through F005 are all `passing`, and the
+  connect-and-inspect journey is fully green end to end.
 
 ## Open decisions
 
 - SQLite driver (`packages/drivers/sqlite`) timing: immediately after Postgres vs later.
-- Whether the query runner ships in the first end-to-end journey or as a follow-up slice.
 - Whether to mark F006/F007 `passing` now (their backend code + package tests already pass, the same
   starting position F001 and F003 were in before their audits surfaced real gaps) or audit them the
   same way first.
+- What the next slice after the connect-and-inspect journey should be: SQLite driver, the read-only
+  query runner UI (F006 already has backend support), or `humb` npm-publish packaging work.

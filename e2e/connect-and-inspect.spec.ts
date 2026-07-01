@@ -7,8 +7,7 @@ import { expect, test } from "@playwright/test";
  * Requires HUMB_TEST_DATABASE_URL. If it is missing, this test FAILS with an actionable message -
  * we never silently skip required verification (see docs/RELIABILITY.md).
  *
- * This is the verification command for features F002/F004/F005. F002/F004 are covered below; F005
- * (a page of rows) is not asserted yet - add that once F005 lands. Run it with
+ * This is the verification command for features F002/F004/F005, all covered below. Run it with
  * `pnpm test:e2e:full`.
  */
 test("@full connect to Postgres and inspect a table", async ({ page }) => {
@@ -27,5 +26,7 @@ test("@full connect to Postgres and inspect a table", async ({ page }) => {
   await expect(page.getByTestId("table-detail")).toBeVisible();
   await expect(page.getByTestId("table-detail").getByText("email")).toBeVisible();
 
-  // TODO(F005): assert a page of rows (e.g. the fixture's row count/emails) is visible.
+  // F005: a page of the fixture's actual rows is visible.
+  await expect(page.getByTestId("rows-table").getByText("ada@example.com")).toBeVisible();
+  await expect(page.getByTestId("rows-table").getByText("grace@example.com")).toBeVisible();
 });

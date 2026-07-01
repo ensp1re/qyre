@@ -47,7 +47,7 @@
       "id": "F005",
       "behavior": "UI displays a paginated page of rows for a selected table.",
       "verification": "pnpm test:e2e:full",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

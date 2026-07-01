@@ -18,6 +18,8 @@ pre-push:
   commands:
     no-direct-main-push:
       # Feature work must land via a feature/<ID>-<slug> branch and a PR (docs/NAMING.md).
+      # use_stdin is required: this script reads the ref list git pre-push provides on stdin.
+      use_stdin: true
       run: node scripts/check-no-direct-main-push.mjs
     full-check:
       # A push must fail if the project cannot build or required tests fail.

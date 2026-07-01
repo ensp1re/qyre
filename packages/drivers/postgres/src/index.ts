@@ -1,7 +1,7 @@
 /**
- * PostgreSQL adapter for Humb.
+ * PostgreSQL driver for Humb.
  *
- * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@humb/db-adapter`.
+ * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@humb/driver-contract`.
  * All Postgres-specific SQL and introspection lives here. See ARCHITECTURE.md.
  */
 import type {
@@ -13,7 +13,8 @@ import type {
   SchemaMetadata,
   TableMetadata
 } from "@humb/core";
-import type { AdapterFactory, DatabaseAdapter } from "@humb/db-adapter";
+import { resolvePageRequest } from "@humb/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@humb/driver-contract";
 import { Pool } from "pg";
 import { assertReadOnly } from "./read-only.js";
 
@@ -182,9 +183,7 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {
-    const safePage = Math.max(0, Math.floor(page));
-    const safePageSize = Math.min(Math.max(1, Math.floor(pageSize)), 200);
-    const offset = safePage * safePageSize;
+    const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
 
     const result = await this.getPool().query(
       `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)} LIMIT $1 OFFSET $2`,

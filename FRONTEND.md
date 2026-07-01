@@ -27,9 +27,12 @@ Every data-driven view must explicitly handle:
 
 ## Guardrails
 
-- Reusable, presentation-only components live in `packages/ui`. App-specific composition lives in
-  `apps/web`.
-- `packages/ui` must not fetch data or import server/adapter packages.
+- Reusable, presentation-only components live in `packages/ui`, one component per file under
+  `components/` (shadcn-style; see [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md)).
+  App-specific composition lives in `apps/web` (`api/` fetchers, `hooks/`, then composition
+  components).
+- `packages/ui` must not fetch data or import server/driver packages. It may import `@humb/core` for
+  shared domain types a component's props genuinely represent (e.g. `ConnectionStatus`).
 - Document the design system / component conventions in [`docs/references/`](docs/references/).
 - Keep copy, keyboard behavior, and visual hierarchy consistent across flows.
 - When a UI bug is fixed, add or update the matching validation step (unit or E2E).

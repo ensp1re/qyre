@@ -25,10 +25,8 @@
   "dependencies": {
     "@fastify/static": "^9.1.3",
     "@humb/core": "workspace:*",
-    "@humb/db-adapter": "workspace:*",
-    "@humb/db-postgres": "workspace:*",
-    "fastify": "^5.2.0",
-    "zod": "^3.24.1"
+    "@humb/driver-contract": "workspace:*",
+    "fastify": "^5.2.0"
   },
   "devDependencies": {
     "@humb/config": "workspace:*"

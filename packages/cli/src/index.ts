@@ -4,8 +4,8 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseConnectionTarget } from "@humb/core";
-import { resolveAdapter } from "@humb/db-adapter";
-import { postgresAdapterFactory } from "@humb/db-postgres";
+import { resolveAdapter } from "@humb/driver-contract";
+import { postgresAdapterFactory } from "@humb/postgres";
 import { startServer } from "@humb/server";
 import { Command } from "commander";
 import open from "open";

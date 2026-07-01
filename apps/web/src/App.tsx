@@ -1,28 +1,10 @@
-import type { ConnectionStatus } from "@humb/ui";
+import type { ConnectionStatus } from "@humb/core";
 import { Panel, StatusBadge } from "@humb/ui";
-import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-
-interface HealthResponse {
-  status: string;
-  database: ConnectionStatus;
-  target: string | null;
-}
-
-async function fetchHealth(): Promise<HealthResponse> {
-  const response = await fetch("/api/health");
-  if (!response.ok) {
-    throw new Error(`Health check failed with status ${response.status}`);
-  }
-  return (await response.json()) as HealthResponse;
-}
+import { useHealth } from "./hooks/use-health.js";
 
 export function App(): ReactNode {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["health"],
-    queryFn: fetchHealth,
-    retry: false
-  });
+  const { data, isLoading, isError } = useHealth();
 
   const status: ConnectionStatus = isError ? "disconnected" : (data?.database ?? "unconfigured");
 

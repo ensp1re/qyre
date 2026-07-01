@@ -20,8 +20,8 @@
     "esModuleInterop": true,
     "paths": {
       "@humb/core": ["./packages/core/src/index.ts"],
-      "@humb/db-adapter": ["./packages/db-adapter/src/index.ts"],
-      "@humb/db-postgres": ["./packages/db-postgres/src/index.ts"],
+      "@humb/driver-contract": ["./packages/drivers/contract/src/index.ts"],
+      "@humb/postgres": ["./packages/drivers/postgres/src/index.ts"],
       "@humb/server": ["./packages/server/src/index.ts"],
       "@humb/ui": ["./packages/ui/src/index.tsx"],
       "@humb/testing": ["./packages/testing/src/index.ts"]

@@ -1,8 +1,8 @@
 {
-  "name": "@humb/db-adapter",
+  "name": "@humb/postgres",
   "version": "0.0.0",
   "type": "module",
-  "description": "Engine-agnostic database adapter contracts for Humb.",
+  "description": "PostgreSQL adapter for Humb.",
   "license": "MIT",
   "exports": {
     ".": {
@@ -23,9 +23,13 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humb/core": "workspace:*"
+    "@humb/core": "workspace:*",
+    "@humb/driver-contract": "workspace:*",
+    "pg": "^8.13.1"
   },
   "devDependencies": {
-    "@humb/config": "workspace:*"
+    "@humb/config": "workspace:*",
+    "@humb/testing": "workspace:*",
+    "@types/pg": "^8.11.10"
   }
 }

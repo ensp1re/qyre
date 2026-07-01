@@ -49,6 +49,26 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
     parser for arrays of the internal `name` type. Fixed with an explicit `::text` cast, then
     strengthened the test to assert on the actual `columns` array contents (not just presence) so
     this bug class can't regress silently again.
+- **Architecture reorganization** (folder rules now in `docs/CODE_ORGANIZATION.md`):
+  - `@humb/core` split from one flat `index.ts` into `types/`, `errors.ts`, `connection-target.ts`,
+    and `validation/` (the Zod schemas moved out of `packages/server`). Promoted `ConnectionStatus`/
+    `HealthResponse` into core so `apps/web` and `packages/ui` stop hand-duplicating them — this is
+    the actual mechanism that prevents frontend/backend type drift, not just a folder tidy-up.
+  - `@humb/ui` split into `components/status-badge.tsx` / `components/panel.tsx` (shadcn-style, one
+    component per file); `apps/web` got `api/health.ts` + `hooks/use-health.ts`, with `App.tsx` now
+    composition-only.
+  - `@humb/driver-contract` (formerly `db-adapter`) gained a genuinely shared `resolvePageRequest()`
+    pagination-clamping util, now used by the Postgres driver instead of duplicating the clamping
+    logic inline. SQL identifier quoting was deliberately **not** shared - it differs per engine
+    (`"..."` in Postgres vs `` `...` `` in MySQL) and would be a footgun as a "generic" default.
+  - **Renamed and moved**: `packages/db-adapter` -> `packages/drivers/contract`
+    (`@humb/driver-contract`), `packages/db-postgres` -> `packages/drivers/postgres`
+    (`@humb/postgres`). Required adding `packages/drivers/*` to `pnpm-workspace.yaml` (its
+    `packages/*` glob is one level only) and deleting/relinking stale `node_modules` symlinks in the
+    moved packages (pnpm's relative symlinks broke one directory level deeper after a plain `mv`).
+  - Re-verified the entire golden path after the move: `pnpm check` (all 13 tasks), the real CLI
+    binary against a live Postgres container (`HUMB_PORT`, static serving, `/api/overview`,
+    `/api/tables/.../rows` with real indexes/rowCount), and the smoke E2E.
 
 ## In progress
 

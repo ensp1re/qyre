@@ -27,8 +27,8 @@
   },
   "dependencies": {
     "@humb/core": "workspace:*",
-    "@humb/db-adapter": "workspace:*",
-    "@humb/db-postgres": "workspace:*",
+    "@humb/driver-contract": "workspace:*",
+    "@humb/postgres": "workspace:*",
     "@humb/server": "workspace:*",
     "commander": "^12.1.0",
     "open": "^10.1.0"

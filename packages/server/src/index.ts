@@ -7,12 +7,11 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import fastifyStatic from "@fastify/static";
-import { DEFAULT_PORT, redactConnectionString } from "@humb/core";
-import type { ConnectionTarget } from "@humb/core";
-import type { DatabaseAdapter } from "@humb/db-adapter";
+import { DEFAULT_PORT, redactConnectionString, rowsQuerySchema, runQuerySchema } from "@humb/core";
+import type { ConnectionTarget, HealthResponse } from "@humb/core";
+import type { DatabaseAdapter } from "@humb/driver-contract";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
-import { z } from "zod";
 
 export interface CreateServerOptions {
   /** The connected (or to-be-connected) database adapter. */
@@ -29,12 +28,6 @@ export interface CreateServerOptions {
   webRoot?: string;
 }
 
-const querySchema = z.object({ sql: z.string().min(1) });
-const rowsQuerySchema = z.object({
-  page: z.coerce.number().int().min(0).default(0),
-  pageSize: z.coerce.number().int().min(1).max(200).default(50)
-});
-
 function requireAdapter(adapter: DatabaseAdapter | undefined): DatabaseAdapter {
   if (!adapter) {
     throw Object.assign(new Error("No database connection is configured."), { statusCode: 503 });
@@ -47,8 +40,8 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   const app = Fastify({ logger: options.logger ?? false });
   const { adapter, target } = options;
 
-  app.get("/api/health", async () => {
-    let database: "connected" | "disconnected" | "unconfigured" = "unconfigured";
+  app.get("/api/health", async (): Promise<HealthResponse> => {
+    let database: HealthResponse["database"] = "unconfigured";
     if (adapter) {
       database = (await adapter.ping().catch(() => false)) ? "connected" : "disconnected";
     }
@@ -81,7 +74,7 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   );
 
   app.post<{ Body: unknown }>("/api/query", async (request, reply) => {
-    const parsed = querySchema.safeParse(request.body);
+    const parsed = runQuerySchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({ error: "Request body must be { sql: string }." });
     }

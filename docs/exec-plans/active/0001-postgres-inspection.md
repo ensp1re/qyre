@@ -54,10 +54,20 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   Manual verification caught a bug the new test didn't: index `columns` came back as a raw Postgres
   array-literal string, not a JS array (no `pg` type parser for arrays of the internal `name` type);
   fixed with an explicit `::text` cast and strengthened the test's assertions. F003 marked `passing`.
+- 2026-07-01: Architecture reorganization (folder rules now in `docs/CODE_ORGANIZATION.md`):
+  `@humb/core` split into `types/`/`errors.ts`/`connection-target.ts`/`validation/` and gained
+  `ConnectionStatus`/`HealthResponse` (previously hand-duplicated in `apps/web`/`packages/ui`);
+  `@humb/ui` split into one component per file; `apps/web` got `api/`/`hooks/`; a genuinely
+  engine-agnostic `resolvePageRequest()` moved into the driver contract package (SQL identifier
+  quoting deliberately stayed put - it differs per engine). Renamed/moved
+  `packages/db-adapter` -> `packages/drivers/contract` (`@humb/driver-contract`) and
+  `packages/db-postgres` -> `packages/drivers/postgres` (`@humb/postgres`); required a
+  `packages/drivers/*` entry in `pnpm-workspace.yaml`. Re-verified `pnpm check`, a real CLI run
+  against live Postgres, and the smoke E2E after the move.
 
 ## Open decisions
 
-- SQLite (`db-sqlite`) timing: immediately after Postgres vs later.
+- SQLite driver (`packages/drivers/sqlite`) timing: immediately after Postgres vs later.
 - Whether the query runner ships in the first golden journey or as a follow-up slice.
 - Whether to mark F006/F007 `passing` now (their backend code + package tests already pass, the same
   starting position F001 and F003 were in before their audits surfaced real gaps) or audit them the

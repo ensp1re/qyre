@@ -22,6 +22,9 @@
     "test": "vitest run",
     "clean": "rimraf dist .turbo"
   },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
   "devDependencies": {
     "@humb/config": "workspace:*"
   }

@@ -10,8 +10,8 @@ database it's pointed at, starts a local server, and opens a browser so a develo
 manage it — one command, no manual driver selection, no heavy IDE install. Read-only for now.
 Postgres is the first fully supported engine; see
 [`docs/product-specs/connect-and-inspect-postgres.md`](docs/product-specs/connect-and-inspect-postgres.md).
-Every other engine is added the same way (new `db-<engine>` adapter package, see `ARCHITECTURE.md`),
-never by hard-coding Postgres assumptions into the server, CLI, or UI.
+Every other engine is added the same way (new `packages/drivers/<engine>` package, see
+`ARCHITECTURE.md`), never by hard-coding Postgres assumptions into the server, CLI, or UI.
 
 ## Startup workflow
 
@@ -38,6 +38,8 @@ Before changing code:
 ## Routing map
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): domains, layers, package boundaries, dependency rules
+- [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md): folder rules inside packages (types,
+  validation, UI components, driver packages)
 - [`FRONTEND.md`](FRONTEND.md): UI constraints and design rules
 - [`docs/NAMING.md`](docs/NAMING.md): naming rules for packages, files, commands, features, adapters
 - [`docs/PLANS.md`](docs/PLANS.md): execution-plan lifecycle

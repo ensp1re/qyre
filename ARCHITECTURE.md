@@ -16,8 +16,8 @@ Top-level map of the Humb system. Keep this concise and point to deeper docs whe
 flowchart LR
   cli["packages/cli (humb)"] --> server["packages/server (Fastify)"]
   server --> core["packages/core (contracts)"]
-  server --> adapterApi["packages/db-adapter (interfaces)"]
-  adapterApi --> pg["packages/db-postgres (pg)"]
+  server --> adapterApi["packages/drivers/contract (interfaces)"]
+  adapterApi --> pg["packages/drivers/postgres (pg)"]
   server --> static["apps/web build (served static)"]
   browser["Browser SPA (apps/web)"] -->|HTTP /api| server
   web2ui["apps/web"] --> uikit["packages/ui"]
@@ -25,47 +25,62 @@ flowchart LR
 
 ## Domain map
 
-| Domain      | Purpose                                                  | Primary entry points                          | Related spec                                         |
-| ----------- | -------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------- |
-| CLI         | Parse target, start server, open browser, clean shutdown | `packages/cli/src/index.ts`                   | `docs/product-specs/connect-and-inspect-postgres.md` |
-| Server      | Local HTTP API, health, static UI serving                | `packages/server/src/index.ts`                | same                                                 |
-| Core        | Shared domain types and contracts                        | `packages/core/src/index.ts`                  | same                                                 |
-| DB adapters | Engine-agnostic interface + concrete engines             | `packages/db-adapter`, `packages/db-postgres` | same                                                 |
-| Web UI      | Browser interface for inspection                         | `apps/web/src`                                | same                                                 |
-| UI kit      | Reusable presentation components                         | `packages/ui/src/index.ts`                    | `FRONTEND.md`                                        |
+| Domain     | Purpose                                                  | Primary entry points                                     | Related spec                                         |
+| ---------- | -------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
+| CLI        | Parse target, start server, open browser, clean shutdown | `packages/cli/src/index.ts`                              | `docs/product-specs/connect-and-inspect-postgres.md` |
+| Server     | Local HTTP API, health, static UI serving                | `packages/server/src/index.ts`                           | same                                                 |
+| Core       | Shared domain types, validation, and contracts           | `packages/core/src/` (`types/`, `validation/`)           | same                                                 |
+| DB drivers | Engine-agnostic interface + concrete engine drivers      | `packages/drivers/contract`, `packages/drivers/<engine>` | same                                                 |
+| Web UI     | Browser interface for inspection                         | `apps/web/src`                                           | same                                                 |
+| UI kit     | Reusable presentation components                         | `packages/ui/src/components/`                            | `FRONTEND.md`                                        |
+
+## Folder organization
+
+Every package that grows past a handful of exports is organized by concern, not left as one flat
+`index.ts`/`index.tsx`. See [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md) for the concrete
+rules (types vs. validation vs. errors in `core`, one component per file in `ui`, driver packages
+grouped under `packages/drivers/`). `index.ts`/`index.tsx` is a barrel only - it re-exports, it does
+not define things.
 
 ## Layer model
 
 Use a fixed directional model so agents do not invent ad hoc architecture:
 
-`Types (core) -> Adapter contracts (db-adapter) -> Adapter impls (db-*) -> Server -> CLI`
-and separately `UI kit (ui) -> Web app (apps/web)`.
+`Types (core) -> Driver contract (drivers/contract) -> Driver impls (drivers/*) -> Server -> CLI`
+and separately `UI kit (ui) -> Web app (apps/web)`. `ui` may depend on `core` for shared domain types
+(e.g. `ConnectionStatus`) so the same type isn't hand-duplicated in both places - see
+`docs/CODE_ORGANIZATION.md`.
 
 The browser talks to the server only over the local HTTP API. The web app never imports server or
-adapter packages directly.
+driver packages directly.
 
 ## Hard dependency rules
 
 - Lower layers must not depend on higher layers.
-- `packages/core` must not depend on server, CLI, adapters, or UI.
-- `packages/db-adapter` defines interfaces; it must not depend on a concrete engine.
-- `packages/db-postgres` depends on `db-adapter` and `core` only.
-- `packages/server` may depend on `core`, `db-adapter`, and concrete `db-*` packages.
-- `packages/cli` depends on `server` (and `core`); it must not talk to adapters directly.
+- `packages/core` must not depend on server, CLI, drivers, or UI.
+- `packages/drivers/contract` defines interfaces; it must not depend on a concrete engine.
+- `packages/drivers/postgres` (and future `packages/drivers/<engine>`) depends on
+  `driver-contract` and `core` only.
+- `packages/server` may depend on `core`, `driver-contract`, and concrete driver packages.
+- `packages/cli` depends on `server` (and `core`); it must not talk to drivers directly.
 - `apps/web` depends on `ui` and `core` types only; all data access goes through the HTTP API.
-- New database engines are added as new `db-<engine>` packages, never by branching inside existing
-  packages on engine type.
+- New database engines are added as new `packages/drivers/<engine>` packages, never by branching
+  inside existing packages on engine type.
 
 ## Adding a new database engine
 
 Postgres is the first supported engine, not the only one the architecture allows. Every additional
 engine follows the same recipe:
 
-1. Create `packages/db-<engine>` implementing the `DatabaseAdapter` contract from `db-adapter`.
+1. Create `packages/drivers/<engine>` implementing the `DatabaseAdapter` contract from
+   `@humb/driver-contract`.
 2. Register it behind the server's adapter resolution, which detects the engine from the connection
    target (URL scheme, file extension, etc.) rather than requiring the user to name it.
-3. Add a product spec and feature entries.
-4. Add integration + golden-journey coverage.
+3. Reuse genuinely engine-agnostic logic from `@humb/driver-contract` (e.g. pagination clamping).
+   Do not reuse logic that only looks generic but actually differs per engine (e.g. SQL identifier
+   quoting - `"..."` in Postgres, `` `...` `` in MySQL); keep that in the engine's own package.
+4. Add a product spec and feature entries.
+5. Add integration + golden-journey coverage.
 
 This keeps engine-specific logic isolated so adding a database is additive, never a branch inside
 existing packages.

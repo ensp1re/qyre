@@ -99,12 +99,12 @@ importers:
       '@humb/core':
         specifier: workspace:*
         version: link:../core
-      '@humb/db-adapter':
+      '@humb/driver-contract':
         specifier: workspace:*
-        version: link:../db-adapter
-      '@humb/db-postgres':
+        version: link:../drivers/contract
+      '@humb/postgres':
         specifier: workspace:*
-        version: link:../db-postgres
+        version: link:../drivers/postgres
       '@humb/server':
         specifier: workspace:*
         version: link:../server
@@ -122,39 +122,43 @@ importers:
   packages/config: {}
 
   packages/core:
+    dependencies:
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
       '@humb/config':
         specifier: workspace:*
         version: link:../config
 
-  packages/db-adapter:
+  packages/drivers/contract:
     dependencies:
       '@humb/core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../../core
     devDependencies:
       '@humb/config':
         specifier: workspace:*
-        version: link:../config
+        version: link:../../config
 
-  packages/db-postgres:
+  packages/drivers/postgres:
     dependencies:
       '@humb/core':
         specifier: workspace:*
-        version: link:../core
-      '@humb/db-adapter':
+        version: link:../../core
+      '@humb/driver-contract':
         specifier: workspace:*
-        version: link:../db-adapter
+        version: link:../contract
       pg:
         specifier: ^8.13.1
         version: 8.22.0
     devDependencies:
       '@humb/config':
         specifier: workspace:*
-        version: link:../config
+        version: link:../../config
       '@humb/testing':
         specifier: workspace:*
-        version: link:../testing
+        version: link:../../testing
       '@types/pg':
         specifier: ^8.11.10
         version: 8.20.0
@@ -167,18 +171,12 @@ importers:
       '@humb/core':
         specifier: workspace:*
         version: link:../core
-      '@humb/db-adapter':
+      '@humb/driver-contract':
         specifier: workspace:*
-        version: link:../db-adapter
-      '@humb/db-postgres':
-        specifier: workspace:*
-        version: link:../db-postgres
+        version: link:../drivers/contract
       fastify:
         specifier: ^5.2.0
         version: 5.9.0
-      zod:
-        specifier: ^3.24.1
-        version: 3.25.76
     devDependencies:
       '@humb/config':
         specifier: workspace:*
@@ -201,6 +199,10 @@ importers:
         version: 8.20.0
 
   packages/ui:
+    dependencies:
+      '@humb/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@humb/config':
         specifier: workspace:*

@@ -13,31 +13,32 @@ work, not as a separate cleanup day.
 
 ## Packages
 
-| Package             | Grade | Verification | Agent legibility | Test stability | Key gaps                 | Last updated |
-| ------------------- | ----- | ------------ | ---------------- | -------------- | ------------------------ | ------------ |
-| `@humb/core`        | -     | none yet     | -                | -              | only placeholder types   | 2026-06-30   |
-| `@humb/db-adapter`  | -     | none yet     | -                | -              | contract not implemented | 2026-06-30   |
-| `@humb/db-postgres` | -     | none yet     | -                | -              | not implemented          | 2026-06-30   |
-| `@humb/server`      | -     | none yet     | -                | -              | not implemented          | 2026-06-30   |
-| `humb` (cli)        | -     | none yet     | -                | -              | not implemented          | 2026-06-30   |
-| `@humb/ui`          | -     | none yet     | -                | -              | not implemented          | 2026-06-30   |
-| `@humb/web`         | -     | smoke only   | -                | -              | not implemented          | 2026-06-30   |
+| Package                 | Grade | Verification                                     | Agent legibility             | Test stability             | Key gaps                                                                                         | Last updated |
+| ----------------------- | ----- | ------------------------------------------------ | ---------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------ | ------------ |
+| `@humb/core`            | B     | `pnpm --filter @humb/core test` (14/14)          | good, folder-organized       | stable                     | `validation/` only covers query+rows so far                                                      | 2026-07-01   |
+| `@humb/driver-contract` | B     | `pnpm --filter @humb/driver-contract test` (7/7) | good                         | stable                     | only one consumer engine so far                                                                  | 2026-07-01   |
+| `@humb/postgres`        | B     | `pnpm --filter @humb/postgres test` (16/16)      | good                         | stable, integration-tested | two real bugs found via audit (indexes/rowCount were unimplemented, `pg` array-type parsing bug) | 2026-07-01   |
+| `@humb/server`          | B     | `pnpm --filter @humb/server test` (7/7)          | good                         | stable                     | F006/F007 not yet audited against full spec                                                      | 2026-07-01   |
+| `humb` (cli)            | B     | `pnpm --filter humb test` (7/7)                  | good                         | stable                     | web-dist path is monorepo-relative (tech debt)                                                   | 2026-07-01   |
+| `@humb/ui`              | B     | builds/typechecks; no dedicated tests yet        | good, one component per file | none yet                   | zero component-level test coverage (only exercised via e2e smoke)                                | 2026-07-01   |
+| `@humb/web`             | B     | smoke E2E only                                   | good, api/hooks split        | smoke only                 | no F004/F005 UI yet; golden journey still red                                                    | 2026-07-01   |
 
 ## Architectural layers
 
-| Layer      | Grade | Boundary enforcement | Agent legibility | Key gaps        | Last updated |
-| ---------- | ----- | -------------------- | ---------------- | --------------- | ------------ |
-| Core types | -     | docs only            | -                | placeholder     | 2026-06-30   |
-| Adapters   | -     | docs only            | -                | not implemented | 2026-06-30   |
-| Server     | -     | docs only            | -                | not implemented | 2026-06-30   |
-| CLI        | -     | docs only            | -                | not implemented | 2026-06-30   |
-| UI         | -     | docs only            | -                | not implemented | 2026-06-30   |
+| Layer      | Grade | Boundary enforcement                              | Agent legibility | Key gaps                                      | Last updated |
+| ---------- | ----- | ------------------------------------------------- | ---------------- | --------------------------------------------- | ------------ |
+| Core types | B     | docs + folder convention (`CODE_ORGANIZATION.md`) | good             | none major                                    | 2026-07-01   |
+| Drivers    | B     | docs + `packages/drivers/` grouping               | good             | only one engine to validate the split against | 2026-07-01   |
+| Server     | B     | docs only                                         | good             | F006/F007 unaudited                           | 2026-07-01   |
+| CLI        | B     | docs only                                         | good             | web-dist path packaging (tech debt)           | 2026-07-01   |
+| UI         | B     | docs + folder convention                          | good             | no component tests                            | 2026-07-01   |
 
 ## Benchmark snapshots
 
-| Date       | Variant  | Completion rate | Retries | Defects before review | Notes                                    |
-| ---------- | -------- | --------------- | ------- | --------------------- | ---------------------------------------- |
-| 2026-06-30 | skeleton | n/a             | n/a     | n/a                   | structure + checks only, no product code |
+| Date       | Variant                              | Completion rate | Retries | Defects before review | Notes                                                                                                                                                                                                                   |
+| ---------- | ------------------------------------ | --------------- | ------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-06-30 | skeleton                             | n/a             | n/a     | n/a                   | structure + checks only, no product code                                                                                                                                                                                |
+| 2026-07-01 | F001/F003 audit + architecture reorg | n/a             | n/a     | 4                     | audits of "passing" package tests found real gaps each time (HUMB_PORT ignored, no static serving, indexes/rowCount unimplemented, `pg` array-type bug); architecture reorganized into types/components/drivers folders |
 
 ## Simplification log
 

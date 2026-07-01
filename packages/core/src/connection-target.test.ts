@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  InvalidConnectionTargetError,
-  parseConnectionTarget,
-  redactConnectionString
-} from "./index.js";
+import { redactConnectionString, parseConnectionTarget } from "./connection-target.js";
+import { InvalidConnectionTargetError } from "./errors.js";
 
 describe("parseConnectionTarget", () => {
   it("accepts postgres:// urls", () => {

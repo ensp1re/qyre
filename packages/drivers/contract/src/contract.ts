@@ -1,9 +1,3 @@
-/**
- * Engine-agnostic database adapter contracts.
- *
- * Concrete engines (e.g. `@humb/db-postgres`) implement {@link DatabaseAdapter}.
- * This package must not depend on any concrete database driver. See ARCHITECTURE.md.
- */
 import type { ConnectionTarget, DatabaseOverview, RowPage, TableMetadata } from "@humb/core";
 
 /** A live, engine-specific connection to a single database. */
@@ -33,24 +27,4 @@ export interface AdapterFactory {
   supports(target: ConnectionTarget): boolean;
   /** Create (but do not yet connect) an adapter for the target. */
   create(target: ConnectionTarget): DatabaseAdapter;
-}
-
-/** Thrown when no registered adapter supports a connection target. */
-export class UnsupportedEngineError extends Error {
-  constructor(engine: string) {
-    super(`No database adapter is registered for engine "${engine}".`);
-    this.name = "UnsupportedEngineError";
-  }
-}
-
-/** Resolve the first factory that supports the target, or throw. */
-export function resolveAdapter(
-  factories: readonly AdapterFactory[],
-  target: ConnectionTarget
-): DatabaseAdapter {
-  const factory = factories.find((candidate) => candidate.supports(target));
-  if (!factory) {
-    throw new UnsupportedEngineError(target.engine);
-  }
-  return factory.create(target);
 }

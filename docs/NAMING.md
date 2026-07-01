@@ -6,17 +6,24 @@ intentional open-source project. These rules are enforced by review and, where p
 ## Packages
 
 - Public packages are published under the `@humb/` scope: `@humb/core`, `@humb/server`,
-  `@humb/db-adapter`, `@humb/db-postgres`, `@humb/ui`.
+  `@humb/driver-contract`, `@humb/postgres`, `@humb/ui`.
 - The CLI package is published as the bare name `humb` (this is the user-facing binary).
 - Internal-only packages set `"private": true` and are excluded from publishing:
   `@humb/web`, `@humb/config`, `@humb/testing`.
-- Workspace folder names use short kebab-case nouns: `cli`, `server`, `core`, `db-adapter`,
-  `db-postgres`, `ui`, `config`, `testing`.
+- Workspace folder names use short kebab-case nouns: `cli`, `server`, `core`, `ui`, `config`,
+  `testing`. Database driver packages live under `drivers/` (see below) rather than at the top level.
 
-## Database adapters
+## Database drivers
 
-- Adapter packages are named `db-<engine>`: `db-postgres` now; future `db-sqlite`, `db-mysql`, etc.
-- The engine identifier is lowercase and matches the package suffix.
+- Driver packages live under `packages/drivers/<engine>` and are named `@humb/<engine>` - just the
+  engine name, no `db-` prefix. The `drivers/` folder already conveys what they are. `postgres` now;
+  future `sqlite`, `mysql`, etc.
+- The shared engine-agnostic contract lives at `packages/drivers/contract`, package name
+  `@humb/driver-contract`.
+- The engine identifier (`DatabaseEngine` in `@humb/core`, `AdapterFactory.engine`) is lowercase and
+  matches the package name.
+- See [`docs/CODE_ORGANIZATION.md`](CODE_ORGANIZATION.md) for what may vs. may not be shared in
+  `driver-contract` across engines.
 
 ## Commands
 

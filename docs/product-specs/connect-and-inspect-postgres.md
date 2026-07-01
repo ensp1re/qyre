@@ -28,7 +28,7 @@ Behavior:
   scheme), parses it with that engine's adapter, starts a local server on a default port
   (configurable via `HUMB_PORT`, default `7717`), and opens the default browser to the UI.
 - If no target is provided, the CLI prints usage help and exits with a non-zero code.
-- If the target's engine is recognized but not yet supported (see `db-<engine>` packages in
+- If the target's engine is recognized but not yet supported (see `packages/drivers/<engine>` in
   `ARCHITECTURE.md`), the CLI says so explicitly rather than treating it as a parse failure.
 - If the target cannot be parsed or its engine cannot be determined at all, the CLI prints an
   actionable error explaining the expected formats and exits non-zero.
@@ -37,8 +37,8 @@ Behavior:
 ### Future engines (not yet supported, documented for design only)
 
 - Additional engines (e.g. SQLite via `npx humb ./local.db`, MySQL, etc.) are planned and must be
-  added as new adapter packages (`db-sqlite`, `db-mysql`, ...) picked up by the same auto-detection
-  path, never by special-casing the Postgres path.
+  added as new `packages/drivers/<engine>` packages (`sqlite`, `mysql`, ...) picked up by the same
+  auto-detection path, never by special-casing the Postgres path.
 
 ## Scope
 
@@ -55,7 +55,7 @@ Out of scope (for now, Postgres engine):
 - Writes, schema edits, migrations, or destructive actions.
 - Multiple simultaneous connections.
 - Authentication / multi-user / remote hosting (Humb is local-first and binds to localhost).
-- Engines other than Postgres (tracked separately as each `db-<engine>` package ships).
+- Engines other than Postgres (tracked separately as each `packages/drivers/<engine>` package ships).
 
 ## Read-only vs write behavior
 

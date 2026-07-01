@@ -1,7 +1,8 @@
 import type { ConnectionTarget } from "@humb/core";
 import { describe, expect, it } from "vitest";
-import type { AdapterFactory, DatabaseAdapter } from "./index.js";
-import { resolveAdapter, UnsupportedEngineError } from "./index.js";
+import type { AdapterFactory, DatabaseAdapter } from "./contract.js";
+import { UnsupportedEngineError } from "./errors.js";
+import { resolveAdapter } from "./resolve.js";
 
 const fakeAdapter = { engine: "postgres" } as DatabaseAdapter;
 

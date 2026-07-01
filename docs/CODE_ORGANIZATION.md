@@ -46,6 +46,18 @@ import server/driver packages - see `FRONTEND.md`.
 - `App.tsx` (and future route/page components) - composition only: wire hooks to `@humb/ui`
   components. No inline `fetch` calls or hand-rolled response types.
 
+This flat shape is deliberate while the app is small. See
+[`apps/web/STRUCTURE.md`](../apps/web/STRUCTURE.md) for the feature-based structure to migrate to
+once it grows (multiple routes/pages, or `api/`/`hooks/` stop reading as one coherent unit) - do not
+migrate speculatively.
+
+## `packages/server`: routes inline until they don't fit in one file
+
+Currently one file (`packages/server/src/index.ts`) registering all routes directly - correct while
+there are only a handful of routes and one cross-cutting concern (static serving). See
+[`packages/server/STRUCTURE.md`](../packages/server/STRUCTURE.md) for the Fastify plugin/route/schema
+structure to migrate to once that stops being true.
+
 ## Database drivers: `packages/drivers/`
 
 Every engine-related package lives under `packages/drivers/`:

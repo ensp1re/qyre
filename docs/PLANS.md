@@ -20,6 +20,17 @@ full plan.
 - [`exec-plans/completed/`](exec-plans/completed/): finished plans kept for future agent context.
 - [`exec-plans/tech-debt-tracker.md`](exec-plans/tech-debt-tracker.md): deferred work and follow-ups.
 
+## Splitting oversized work
+
+If an approved task is bigger than one feature/session, do not try to queue and execute every
+sub-part in the same pass:
+
+- Scope and implement the first slice now; get it to `passing` on its own.
+- Record the remaining sub-parts as new `not_started` entries in `docs/FEATURES.json` (or as
+  additional scope items in the active plan) so they are visible and pick-up-able later.
+- Only promote a queued slice to `active` when it is actually picked up, in this session or a future
+  one. Do not silently start on deferred slices without saying so.
+
 ## Minimum plan sections
 
 - objective

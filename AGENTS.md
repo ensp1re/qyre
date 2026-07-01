@@ -53,6 +53,12 @@ Before changing code:
 
 ## Working contract
 
+- Before starting a non-trivial change, state the plan and ask the user to proceed. This does not
+  require a formal plan-mode session — a stated plan plus an explicit go-ahead in conversation is
+  enough. Trivial, obviously-reversible edits do not need this pause.
+- Treat `docs/design-docs/stack-and-structure.md` as a starting point, not a fixed constraint. If a
+  better approach surfaces mid-task, propose it (see `docs/design-docs/index.md`) instead of silently
+  working around the existing decision or silently adopting the new one.
 - Work from one feature slice at a time (see `docs/FEATURES.json`).
 - Do not mark work done from code inspection alone; runnable evidence is required.
 - A feature only becomes `passing` when its verification command actually passes.

@@ -20,3 +20,6 @@ Discoverable map of design history.
 - Every design doc has an owner or an update trigger.
 - Mark stale docs deprecated instead of letting them drift.
 - Link active execution plans to the design docs they depend on.
+- An accepted decision (e.g. `stack-and-structure.md`) is not immutable. If a better approach
+  surfaces while working on a task, propose it here as a new entry under Proposed, get user sign-off,
+  then move it to Accepted (and the superseded doc to Deprecated) — do not deviate silently.

@@ -4,6 +4,9 @@
  * Exposes a small JSON API the browser UI consumes, plus a health endpoint used for verification.
  * The server never talks to a database directly; it goes through a {@link DatabaseAdapter}.
  */
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import fastifyStatic from "@fastify/static";
 import { DEFAULT_PORT, redactConnectionString } from "@humb/core";
 import type { ConnectionTarget } from "@humb/core";
 import type { DatabaseAdapter } from "@humb/db-adapter";
@@ -18,6 +21,12 @@ export interface CreateServerOptions {
   target?: ConnectionTarget;
   /** Enable Fastify's logger. Defaults to false (the CLI configures logging). */
   logger?: boolean;
+  /**
+   * Directory containing the built `apps/web` static assets (its `index.html` and bundle).
+   * When provided and it exists, the server serves the browser UI itself so `npx humb <target>`
+   * has something to open. When omitted, only the `/api/*` routes are registered.
+   */
+  webRoot?: string;
 }
 
 const querySchema = z.object({ sql: z.string().min(1) });
@@ -78,6 +87,16 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
     }
     return requireAdapter(adapter).runReadOnlyQuery(parsed.data.sql);
   });
+
+  if (options.webRoot && existsSync(join(options.webRoot, "index.html"))) {
+    void app.register(fastifyStatic, { root: options.webRoot });
+    app.setNotFoundHandler((request, reply) => {
+      if (request.raw.url?.startsWith("/api/")) {
+        return reply.status(404).send({ error: "Not found" });
+      }
+      return reply.sendFile("index.html");
+    });
+  }
 
   return app;
 }

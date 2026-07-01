@@ -20,7 +20,7 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
 
 - `pnpm check` must pass (format, lint, typecheck, test, build, project-state checks).
 - `pnpm test:e2e` smoke must pass.
-- `pnpm test:e2e:golden` must pass with `HUMB_TEST_DATABASE_URL` set (CI provides Postgres).
+- `pnpm test:e2e:full` must pass with `HUMB_TEST_DATABASE_URL` set (CI provides Postgres).
 
 ## Risks and blockers
 
@@ -43,7 +43,7 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   decision to record them (not done silently — see `docs/SESSION_HANDOFF.md`). Moved F002 to
   `active`: `apps/web/src/App.tsx` already renders real connection status (not a bare scaffold, as
   an earlier note in this log incorrectly said), so with the static-serving fix the behavior itself
-  now works end to end — it stays `active` only because its verification command is a golden-journey
+  now works end to end — it stays `active` only because its verification command is an end-to-end
   spec shared with F004/F005, which aren't implemented yet (no nav tree or table view).
 - 2026-07-01: Audited F003 the same way. Found bigger gaps than F001: introspection logic had zero
   test coverage, and indexes/row counts were entirely unimplemented (missing from `@humb/core`'s
@@ -64,11 +64,25 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   `packages/db-postgres` -> `packages/drivers/postgres` (`@humb/postgres`); required a
   `packages/drivers/*` entry in `pnpm-workspace.yaml`. Re-verified `pnpm check`, a real CLI run
   against live Postgres, and the smoke E2E after the move.
+- 2026-07-01: Implemented F002+F004 (nav tree + table metadata): `SchemaTree`/`TableDetail` in
+  `@humb/ui`, `api/`+`hooks/` in `apps/web`, wired into `App.tsx`. Getting the full journey test to
+  actually pass surfaced a real E2E infra gap: Playwright's `webServer` only ran `vite preview`
+  (no backend at all), so `/api/health` always failed regardless of frontend completeness. Replaced
+  it with `e2e/server.ts` - the real Humb server, API + built web app on one port, connecting to
+  Postgres only when `HUMB_TEST_DATABASE_URL` is set. Also strengthened the spec (previously only
+  asserted the fixture table name appeared as text, which would pass without any real interaction -
+  now clicks the table and asserts a column becomes visible), and renamed it:
+  `golden-journey.spec.ts` -> `connect-and-inspect.spec.ts`, tag `@golden` -> `@full`, script
+  `test:e2e:golden` -> `test:e2e:full` ("golden journey" was unclear jargon). F002 and F004 marked
+  `passing`; F005 (rows) is the one remaining piece, with a `TODO(F005)` left in the spec.
+- 2026-07-01: Added a `commitHash` field to `docs/FEATURES.json` (enforced by
+  `scripts/check-features.mjs`) so a `passing` feature's actual pushed commit is a validated field,
+  not just prose inside `evidence`.
 
 ## Open decisions
 
 - SQLite driver (`packages/drivers/sqlite`) timing: immediately after Postgres vs later.
-- Whether the query runner ships in the first golden journey or as a follow-up slice.
+- Whether the query runner ships in the first end-to-end journey or as a follow-up slice.
 - Whether to mark F006/F007 `passing` now (their backend code + package tests already pass, the same
   starting position F001 and F003 were in before their audits surfaced real gaps) or audit them the
   same way first.

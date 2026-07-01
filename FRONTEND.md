@@ -40,5 +40,5 @@ Every data-driven view must explicitly handle:
 ## Verification expectations
 
 - Capture evidence for critical user journeys (see [`docs/RELIABILITY.md`](docs/RELIABILITY.md)).
-- The golden journey is validated with Playwright.
+- The full connect-and-inspect journey is validated with Playwright.
 - If visual regressions become common, standardize screenshot or DOM checks.

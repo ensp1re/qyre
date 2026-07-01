@@ -15,6 +15,7 @@ const featuresPath = resolve(here, "../docs/FEATURES.json");
 
 const ALLOWED_STATES = ["not_started", "active", "blocked", "passing"];
 const ID_PATTERN = /^F\d{3}$/;
+const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/i;
 
 /** @type {string[]} */
 const errors = [];
@@ -65,6 +66,12 @@ for (const [index, feature] of features.entries()) {
 
   if (feature.state === "passing" && !nonEmpty(feature.evidence)) {
     errors.push(`Feature ${label}: 'passing' features must record non-empty 'evidence'.`);
+  }
+
+  if (feature.state === "passing" && !COMMIT_HASH_PATTERN.test(feature.commitHash ?? "")) {
+    errors.push(
+      `Feature ${label}: 'passing' features must record a 'commitHash' (the git SHA that made it pass).`
+    );
   }
 
   if (feature.state === "blocked" && !nonEmpty(feature.blockedReason)) {

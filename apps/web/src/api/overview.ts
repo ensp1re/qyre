@@ -1,0 +1,10 @@
+import type { DatabaseOverview } from "@humb/core";
+
+/** Fetch the database's schemas and tables. */
+export async function fetchOverview(): Promise<DatabaseOverview> {
+  const response = await fetch("/api/overview");
+  if (!response.ok) {
+    throw new Error(`Failed to load overview (status ${response.status})`);
+  }
+  return (await response.json()) as DatabaseOverview;
+}

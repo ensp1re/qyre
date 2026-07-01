@@ -5,7 +5,7 @@
  */
 import { Pool } from "pg";
 
-/** Environment variable that holds the Postgres URL used by integration and golden-journey tests. */
+/** Environment variable that holds the Postgres URL used by integration and end-to-end tests. */
 export const TEST_DB_ENV = "HUMB_TEST_DATABASE_URL";
 
 /** Whether a test database is configured in the environment. */
@@ -31,7 +31,7 @@ export function requireTestDatabaseUrl(): string {
   return url;
 }
 
-/** The fixture table the golden journey expects to find. */
+/** The fixture table the connect-and-inspect journey expects to find. */
 export const FIXTURE = {
   schema: "public",
   table: "humb_demo_users",

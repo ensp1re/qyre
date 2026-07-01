@@ -17,24 +17,27 @@ A change is not done until the required levels pass, in order:
 1. Static: formatting, lint, typecheck.
 2. Unit: package unit tests (Vitest).
 3. Integration: adapter tests against an ephemeral Postgres (requires `HUMB_TEST_DATABASE_URL`).
-4. End-to-end: Playwright golden journey for cross-component changes.
+4. End-to-end: Playwright's full connect-and-inspect journey for cross-component changes.
 
 Do not skip a required level. Passing unit tests alone does not mean a cross-component feature is done.
 
-## Golden journeys
+## End-to-end journeys
 
 1. Connect and inspect (primary): start Humb against Postgres, UI shows connected, list
    schemas/tables, open a table, view a page of rows.
 
-Each golden journey has a repeatable verification path and clear failure signals.
+Each journey has a repeatable verification path and clear failure signals.
 
-### How the golden journey is verified
+### How the connect-and-inspect journey is verified
 
 - `apps/web` E2E `smoke.spec.ts`: always runs, no database required. Confirms the UI boots and the
   connection screen renders. Part of `pnpm test:e2e` and `pnpm check:ci`.
-- `golden-journey.spec.ts`: requires `HUMB_TEST_DATABASE_URL`. If it is missing, the test FAILS with
-  an actionable message (we do not silently skip required verification). It runs in CI where a
+- `connect-and-inspect.spec.ts`: requires `HUMB_TEST_DATABASE_URL`. If it is missing, the test FAILS
+  with an actionable message (we do not silently skip required verification). It runs in CI where a
   Postgres service is available, and locally when a developer/agent provides the URL.
+- Both specs run against `e2e/server.ts`, which starts the real Humb server (API + built web app on
+  one port) rather than a separate `vite preview` process with no backend - it connects to Postgres
+  only when `HUMB_TEST_DATABASE_URL` is set, so the same webServer serves both specs correctly.
 
 ## Required runtime signals
 

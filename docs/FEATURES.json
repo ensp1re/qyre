@@ -5,7 +5,7 @@
   "features": [
     {
       "id": "F001",
-      "behavior": "CLI accepts `npx humb <postgres-url>`, parses the target, and starts the local server.",
+      "behavior": "CLI accepts `npx humb <database-url>`, auto-detects the database engine from the target (Postgres today), and starts the local server.",
       "verification": "pnpm --filter humb test",
       "state": "not_started",
       "evidence": null,

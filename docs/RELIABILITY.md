@@ -8,7 +8,7 @@ How Humb proves it is healthy and restartable. Only a full-pipeline run counts a
 - Verification (local): `pnpm check`
 - Verification (CI-equivalent, adds E2E): `pnpm check:ci`
 - Start app (dev): `pnpm dev`
-- Start product (once implemented): `humb <postgres-url>`
+- Start product (once implemented): `humb <database-url>` (engine auto-detected from the target)
 
 ## Verification hierarchy
 

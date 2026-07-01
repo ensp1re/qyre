@@ -5,9 +5,13 @@ system-of-record docs, not an instruction dump.
 
 ## What Humb is
 
-A CLI-launched, local-first database management UI. `npx humb <postgres-url>` starts a local server,
-opens a browser, and lets a developer inspect and manage their database. Postgres first, read-only.
-See [`docs/product-specs/connect-and-inspect-postgres.md`](docs/product-specs/connect-and-inspect-postgres.md).
+A CLI-launched, local-first database management UI. `npx humb <database-url>` detects what kind of
+database it's pointed at, starts a local server, and opens a browser so a developer can inspect and
+manage it — one command, no manual driver selection, no heavy IDE install. Read-only for now.
+Postgres is the first fully supported engine; see
+[`docs/product-specs/connect-and-inspect-postgres.md`](docs/product-specs/connect-and-inspect-postgres.md).
+Every other engine is added the same way (new `db-<engine>` adapter package, see `ARCHITECTURE.md`),
+never by hard-coding Postgres assumptions into the server, CLI, or UI.
 
 ## Startup workflow
 
@@ -44,6 +48,8 @@ Before changing code:
 - [`docs/SECURITY.md`](docs/SECURITY.md): database safety, secrets, destructive-action rules
 - [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md): current state and next action
 - [`docs/design-docs/index.md`](docs/design-docs/index.md): design decisions and core beliefs
+- [`CLAUDE.md`](CLAUDE.md): Claude Code auto-loaded pointer into this file plus the four core rules
+- [`.claude/skills/humb-lean-output/SKILL.md`](.claude/skills/humb-lean-output/SKILL.md): response/reporting style
 
 ## Working contract
 

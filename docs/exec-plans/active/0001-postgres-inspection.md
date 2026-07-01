@@ -6,8 +6,9 @@ Linked features: F001-F007 (`docs/FEATURES.json`)
 
 ## Objective
 
-Deliver the product contract: `npx humb <postgres-url>` starts a local server, opens the browser
-UI, and lets a developer inspect a Postgres database (schemas, tables, columns, rows) read-only.
+Deliver the Postgres engine contract, the first slice of Humb's universal database inspector:
+`npx humb <database-url>` detects the engine, starts a local server, opens the browser UI, and lets
+a developer inspect a Postgres database (schemas, tables, columns, rows) read-only.
 
 ## Scope
 

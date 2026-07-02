@@ -1,6 +1,6 @@
 {
   "name": "@humbdb/core",
-  "version": "0.0.0",
+  "version": "0.0.2",
   "type": "module",
   "description": "Shared domain types and contracts for Humb.",
   "license": "MIT",

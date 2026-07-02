@@ -1,6 +1,8 @@
 # Plan 0001: Postgres Inspection
 
-Status: Active
+Status: Completed (2026-07-02) - all linked features (F001-F007) are `passing`; see each one's
+`evidence` in `docs/FEATURES.json` for verification detail. Superseded by
+[`0002-sqlite-engine.md`](../active/0002-sqlite-engine.md) for the next engine.
 Owner: unassigned
 Linked features: F001-F007 (`docs/FEATURES.json`)
 

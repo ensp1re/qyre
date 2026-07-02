@@ -203,16 +203,38 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   build-time ephemera, but these need to be committed to render on GitHub/npm). New
   `scripts/check-readme.mjs` (F009's verification command) wired into a new `check:readme` script
   and folded into `check:state`/`pnpm check`, so a future README regression fails loudly.
-  `node scripts/check-readme.mjs` and `pnpm check` both pass.
+  `node scripts/check-readme.mjs` and `pnpm check` both pass. Follow-up
+  ([PR #27](https://github.com/ensp1re/humb/pull/27), merged): reworded the security section so
+  read-only reads as the current phase, not a permanent ceiling, per the user - full write/IDE
+  features are a stated future direction once read-only inspection is solid.
+- **F010 `passing`** (commit `370c645`, [PR #28](https://github.com/ensp1re/humb/pull/28)): fixed
+  the `apps/web/dist` monorepo-relative path tech debt tracked since F001
+  (`docs/exec-plans/tech-debt-tracker.md`) - `packages/cli`'s `defaultWebRoot()` located the built
+  UI via a path relative to its own file, which only resolved inside this monorepo checkout; once
+  published and installed standalone, that traversal would escape into unrelated directories and
+  the server would silently serve API-only, no UI. Fixed by bundling `apps/web`'s build directly
+  into the `humb` package: `tsup.config.ts`'s `onSuccess` hook copies it into `packages/cli`'s own
+  `dist/web`, included automatically since `files: ["dist"]` already covers the whole tree.
+  `defaultWebRoot(here)` is now exported and takes an explicit directory (a testable pure function
+  like `resolvePort`/`resolveFilesRoot`) - tries the bundled `dist/web` first, falls back to the
+  old monorepo-relative path for local dev/test. New `turbo.json` task dependency
+  (`humb#build -> @humb/web#build`) since there's no `package.json` edge between them for turbo to
+  infer build order from. Added npm-discoverability metadata (keywords, homepage, repository,
+  bugs) to `packages/cli/package.json`. New `scripts/verify-npm-package.mjs` (F010's second
+  verification command) packs the `humb` package exactly as `pnpm publish` would, extracts it into
+  a fresh temp directory with zero relationship to this repo, and starts the real server from
+  there against a real SQLite file - proving `GET /` serves the actual UI and `GET /api/health`
+  reports a real connection from a location that could never accidentally still see the
+  monorepo's `apps/web/dist`. `node scripts/verify-npm-package.mjs` and
+  `node scripts/publish.mjs --dry-run` both pass; `pnpm test`/`pnpm test:e2e`/`pnpm test:e2e:full`
+  (real `postgres:16-alpine` container) and `pnpm check` all pass.
 
 ## In progress
 
-- None. F010/F011 are `not_started` backlog.
+- None. F011 is `not_started` backlog.
 
 ## Known issues / blockers
 
-- `packages/cli`'s path to `apps/web/dist` is monorepo-relative and won't resolve once `humb` is
-  published to npm; tracked in `docs/exec-plans/tech-debt-tracker.md` and as F010.
 - F011 (Playwright e2e coverage for SQLite) is `not_started`; the UI itself needs no changes (it's
   already engine-agnostic, verified live against SQLite over the same HTTP contract) - only
   `e2e/server.ts` needs to support starting against either engine's fixture.
@@ -221,7 +243,6 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 
 ## Next steps
 
-1. Pick up F010 (npm publish - fix `packages/cli`'s monorepo-relative `apps/web/dist` path, add
-   npm-discoverability metadata, write a release script) or F011 (SQLite Playwright e2e coverage)
-   next - F009 is done. F010 is the more natural next step per the user's original leaning
-   (SQLite → publish → UI/UX), all three of which are now done except publish itself.
+1. Pick up F011 (SQLite Playwright e2e coverage) next - F009 and F010 are both done, closing out
+   the user's original leaning (SQLite → publish → UI/UX) except this last piece of SQLite e2e
+   coverage.

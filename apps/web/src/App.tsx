@@ -16,6 +16,7 @@ import { useOverview } from "./hooks/use-overview.js";
 import { useRows } from "./hooks/use-rows.js";
 import { useRunQuery } from "./hooks/use-run-query.js";
 import { useTable } from "./hooks/use-table.js";
+import { useTheme } from "./hooks/use-theme.js";
 
 export function App(): ReactNode {
   const {
@@ -32,6 +33,9 @@ export function App(): ReactNode {
   const [page, setPage] = useState(0);
   const [querySql, setQuerySql] = useState("");
   const [tab, setTab] = useState<ShellTab>("sql-editor");
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+  const [lastQueryMs, setLastQueryMs] = useState<number>();
+  const { theme, toggleTheme } = useTheme();
 
   const overview = useOverview({ enabled: status === "connected" });
   const table = useTable(selected?.schema, selected?.table);
@@ -51,29 +55,43 @@ export function App(): ReactNode {
     }
   }
 
+  function runSql(): void {
+    const start = performance.now();
+    runQuery.mutate(querySql, {
+      onSuccess: () => setLastQueryMs(Math.round(performance.now() - start))
+    });
+  }
+
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <TitleBar
         status={status}
         target={health?.target ?? null}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         onRefresh={refresh}
         isRefreshing={healthLoading}
+        onToggleSidebar={() => setSidebarOpen((current) => !current)}
       />
 
       <div className="flex min-h-0 flex-1">
         <Sidebar
+          target={health?.target ?? null}
+          status={status}
           schemas={overview.data?.schemas ?? []}
           selected={selected}
           onSelect={selectTable}
           isLoading={status === "connected" && overview.isLoading}
           isError={overview.isError}
           onRetry={() => overview.refetch()}
+          open={sidebarOpen}
+          onOpenChange={setSidebarOpen}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <TabBar active={tab} onChange={setTab} />
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
             {status !== "connected" ? (
               <p data-testid="connection-summary" className="text-[13px] text-muted-foreground">
                 {healthLoading
@@ -84,7 +102,7 @@ export function App(): ReactNode {
               <QueryRunner
                 sql={querySql}
                 onSqlChange={setQuerySql}
-                onRun={() => runQuery.mutate(querySql)}
+                onRun={runSql}
                 isRunning={runQuery.isPending}
                 result={runQuery.data}
                 error={runQuery.error instanceof Error ? runQuery.error.message : undefined}
@@ -110,11 +128,15 @@ export function App(): ReactNode {
               ) : rows.data ? (
                 <RowsTable
                   rowPage={rows.data}
+                  columns={table.data?.columns}
+                  tableName={selected.table}
+                  approxRowCount={table.data?.rowCount}
                   page={page}
                   canGoPrevious={page > 0}
                   canGoNext={rows.data.rows.length === rows.data.pageSize}
                   onPrevious={() => setPage((current) => Math.max(0, current - 1))}
                   onNext={() => setPage((current) => current + 1)}
+                  onRefresh={() => rows.refetch()}
                 />
               ) : null
             ) : tab === "schema" ? (
@@ -151,7 +173,12 @@ export function App(): ReactNode {
         </div>
       </div>
 
-      <StatusBar status={status} engine={overview.data?.engine} schema={selected?.schema} />
+      <StatusBar
+        status={status}
+        engine={overview.data?.engine}
+        schema={selected?.schema}
+        lastQueryMs={lastQueryMs}
+      />
     </div>
   );
 }

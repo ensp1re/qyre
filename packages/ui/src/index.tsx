@@ -10,5 +10,6 @@ export * from "./components/status-bar.js";
 export * from "./components/tab-bar.js";
 export * from "./components/table-detail.js";
 export * from "./components/title-bar.js";
+export * from "./components/type-icon.js";
 export * from "./components/rows-table.js";
 export * from "./components/query-runner.js";

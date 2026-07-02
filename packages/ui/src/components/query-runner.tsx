@@ -1,5 +1,6 @@
 import type { RowPage } from "@humb/core";
-import type { CSSProperties, ReactNode } from "react";
+import { Play } from "lucide-react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { formatCell } from "../format-cell.js";
 
 export interface QueryRunnerProps {
@@ -11,12 +12,6 @@ export interface QueryRunnerProps {
   error?: string;
 }
 
-const cellStyle: CSSProperties = {
-  textAlign: "left",
-  padding: "0.375rem 0.5rem",
-  borderBottom: "1px solid #e5e7eb"
-};
-
 /** A read-only SQL query box: SELECT-style statements only, enforced server-side. */
 export function QueryRunner({
   sql,
@@ -26,43 +21,77 @@ export function QueryRunner({
   result,
   error
 }: QueryRunnerProps): ReactNode {
+  const canRun = !isRunning && sql.trim().length > 0;
+  const lineCount = sql.split("\n").length;
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      if (canRun) onRun();
+    }
+  }
+
   return (
-    <div data-testid="query-runner">
+    <div
+      data-testid="query-runner"
+      className="flex h-full flex-col overflow-hidden rounded-[3px] border border-border"
+    >
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={!canRun}
+          className="flex items-center gap-1.5 rounded-[3px] bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          <Play className="h-2.5 w-2.5" />
+          {isRunning ? "Running..." : "Run"}
+        </button>
+        <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
+          ⌘ Enter
+        </span>
+        <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+          {lineCount} line{lineCount === 1 ? "" : "s"}
+        </span>
+      </div>
+
       <textarea
         value={sql}
         onChange={(event) => onSqlChange(event.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder="SELECT * FROM my_table LIMIT 10"
-        rows={4}
-        style={{
-          width: "100%",
-          fontFamily: "monospace",
-          fontSize: "0.875rem",
-          padding: "0.5rem",
-          boxSizing: "border-box"
-        }}
+        spellCheck={false}
+        className="min-h-[8rem] flex-1 resize-none bg-background p-3 font-mono text-[12px] leading-5 text-foreground outline-none"
+        style={{ caretColor: "var(--c-blue)" }}
       />
-      <div style={{ marginTop: "0.5rem" }}>
-        <button type="button" onClick={onRun} disabled={isRunning || sql.trim().length === 0}>
-          {isRunning ? "Running..." : "Run query"}
-        </button>
-      </div>
 
       {error && (
-        <p data-testid="query-error" style={{ color: "#dc2626", marginTop: "0.75rem" }}>
+        <p
+          data-testid="query-error"
+          className="border-t border-border px-3 py-2 font-mono text-[11px]"
+          style={{ color: "var(--c-red)" }}
+        >
           {error}
         </p>
       )}
 
       {result && !error && (
-        <div data-testid="query-result" style={{ marginTop: "0.75rem", overflowX: "auto" }}>
+        <div
+          data-testid="query-result"
+          className="max-h-64 shrink-0 overflow-auto border-t border-border"
+        >
           {result.rows.length === 0 ? (
-            <p style={{ color: "#6b7280", fontSize: "0.875rem" }}>Query returned no rows.</p>
+            <p className="p-3 font-mono text-[11px] text-muted-foreground">
+              Query returned no rows.
+            </p>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
-              <thead>
+            <table className="w-full border-collapse font-mono text-[11px]">
+              <thead className="sticky top-0 bg-card">
                 <tr>
                   {result.columns.map((column) => (
-                    <th key={column} style={cellStyle}>
+                    <th
+                      key={column}
+                      className="whitespace-nowrap border-b border-r border-border px-3 py-1.5 text-left font-medium text-muted-foreground"
+                    >
                       {column}
                     </th>
                   ))}
@@ -70,9 +99,12 @@ export function QueryRunner({
               </thead>
               <tbody>
                 {result.rows.map((row, rowIndex) => (
-                  <tr key={rowIndex}>
+                  <tr key={rowIndex} className="border-b border-border/50">
                     {result.columns.map((column) => (
-                      <td key={column} style={cellStyle}>
+                      <td
+                        key={column}
+                        className="whitespace-nowrap border-r border-border/50 px-3 py-1.5 text-foreground/80"
+                      >
                         {formatCell(row[column])}
                       </td>
                     ))}

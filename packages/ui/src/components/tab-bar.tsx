@@ -20,7 +20,10 @@ export interface TabBarProps {
 /** The IDE-style tab strip switching between the shell's five content panes. */
 export function TabBar({ active, onChange }: TabBarProps): ReactNode {
   return (
-    <div role="tablist" className="flex shrink-0 border-b border-border bg-card">
+    <div
+      role="tablist"
+      className="flex shrink-0 items-end gap-0.5 overflow-x-auto border-b border-border bg-card px-2 pt-1"
+    >
       {TABS.map(({ id, label, icon: Icon }) => {
         const isActive = id === active;
         return (
@@ -31,13 +34,13 @@ export function TabBar({ active, onChange }: TabBarProps): ReactNode {
             aria-selected={isActive}
             onClick={() => onChange(id)}
             className={cn(
-              "flex items-center gap-1.5 border-b-2 border-transparent px-3 py-1.5 text-[12px]",
+              "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-[3px] px-3 py-1.5 text-[11px] font-medium transition-colors",
               isActive
-                ? "border-primary text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                ? "-mb-px border border-border border-b-background bg-background text-foreground"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
             )}
           >
-            <Icon className="h-3.5 w-3.5" />
+            <Icon className="h-3 w-3" />
             {label}
           </button>
         );

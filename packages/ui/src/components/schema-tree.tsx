@@ -1,5 +1,5 @@
-import type { SchemaMetadata } from "@humb/core";
-import { ChevronRight, Search } from "lucide-react";
+import type { ConnectionStatus, SchemaMetadata } from "@humb/core";
+import { Circle, FolderOpen, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { cn } from "../cn.js";
@@ -10,9 +10,58 @@ export interface SelectedTable {
 }
 
 export interface SchemaTreeProps {
+  target: string | null;
+  status: ConnectionStatus;
   schemas: SchemaMetadata[];
   selected?: SelectedTable;
   onSelect: (schema: string, table: string) => void;
+}
+
+type NodeType = "connection" | "schema" | "table";
+
+interface Node {
+  id: string;
+  name: string;
+  type: NodeType;
+  schema?: string;
+  children?: Node[];
+}
+
+const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
+  connected: "var(--c-green)",
+  disconnected: "var(--c-red)",
+  unconfigured: "var(--muted-foreground)"
+};
+
+function buildTree(target: string | null, schemas: SchemaMetadata[]): Node {
+  return {
+    id: "connection",
+    name: target ?? "not connected",
+    type: "connection",
+    children: schemas.map((schema) => ({
+      id: `schema:${schema.name}`,
+      name: schema.name,
+      type: "schema",
+      children: schema.tables.map((table) => ({
+        id: `table:${schema.name}:${table}`,
+        name: table,
+        type: "table",
+        schema: schema.name
+      }))
+    }))
+  };
+}
+
+function collectMatchIds(node: Node, query: string, ancestors: string[] = []): Set<string> {
+  const result = new Set<string>();
+  const path = [...ancestors, node.id];
+  if (node.name.toLowerCase().includes(query.toLowerCase())) {
+    for (const id of path) result.add(id);
+  }
+  for (const child of node.children ?? []) {
+    for (const id of collectMatchIds(child, query, path)) result.add(id);
+  }
+  return result;
 }
 
 function highlight(text: string, query: string): ReactNode {
@@ -22,7 +71,7 @@ function highlight(text: string, query: string): ReactNode {
   return (
     <>
       {text.slice(0, index)}
-      <mark className="rounded-sm bg-[color-mix(in_srgb,var(--c-blue)_25%,transparent)] text-inherit">
+      <mark className="rounded-[1px] bg-[color-mix(in_srgb,var(--c-blue)_25%,transparent)] text-[var(--c-blue)]">
         {text.slice(index, index + query.length)}
       </mark>
       {text.slice(index + query.length)}
@@ -30,96 +79,169 @@ function highlight(text: string, query: string): ReactNode {
   );
 }
 
-/**
- * A searchable, collapsible navigation tree of schemas and their tables. Purely presentational:
- * selection is owned by the caller. Matching a search term force-opens that schema's group and
- * highlights the matched substring (docs/references/design-system.md).
- */
-export function SchemaTree({ schemas, selected, onSelect }: SchemaTreeProps): ReactNode {
-  const [query, setQuery] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+function TreeRow({
+  node,
+  depth,
+  query,
+  matchIds,
+  selected,
+  onSelect,
+  status
+}: {
+  node: Node;
+  depth: number;
+  query: string;
+  matchIds: Set<string>;
+  selected?: SelectedTable;
+  onSelect: (schema: string, table: string) => void;
+  status: ConnectionStatus;
+}): ReactNode {
+  const [manualOpen, setManualOpen] = useState(depth < 2);
+  const forceOpen = query.length > 0 && matchIds.has(node.id);
+  const open = query.length > 0 ? forceOpen : manualOpen;
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return schemas;
-    return schemas
-      .map((schema) => ({
-        ...schema,
-        tables: schema.tables.filter((table) => table.toLowerCase().includes(q))
-      }))
-      .filter((schema) => schema.tables.length > 0 || schema.name.toLowerCase().includes(q));
-  }, [schemas, query]);
+  if (query.length > 0 && !matchIds.has(node.id)) return null;
 
-  function toggleSchema(name: string): void {
-    setCollapsed((current) => {
-      const next = new Set(current);
-      if (next.has(name)) {
-        next.delete(name);
-      } else {
-        next.add(name);
-      }
-      return next;
-    });
-  }
+  const hasChildren = Boolean(node.children && node.children.length > 0);
+  const isSelected =
+    node.type === "table" && selected?.schema === node.schema && selected?.table === node.name;
 
   return (
-    <nav data-testid="schema-tree" className="flex h-full flex-col font-mono text-[12px]">
-      <div className="relative shrink-0 px-2 pb-2 pt-1">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search tables..."
-          aria-label="Search tables"
-          className="w-full rounded-md border border-border bg-input py-1 pl-6 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+    <div>
+      <div
+        role={node.type === "table" ? "button" : undefined}
+        aria-pressed={node.type === "table" ? isSelected : undefined}
+        className={cn(
+          "mx-1 flex cursor-pointer select-none items-center gap-1.5 rounded-[2px] py-[3px] pr-2 hover:bg-sidebar-accent",
+          isSelected && "bg-primary/10"
+        )}
+        style={{ paddingLeft: `${8 + depth * 14}px` }}
+        onClick={() => {
+          if (hasChildren) setManualOpen((current) => !current);
+          if (node.type === "table" && node.schema) onSelect(node.schema, node.name);
+        }}
+      >
+        {hasChildren ? (
+          <svg
+            viewBox="0 0 24 24"
+            className={cn(
+              "h-2.5 w-2.5 shrink-0 text-muted-foreground/60 transition-transform",
+              open && "rotate-90"
+            )}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path d="m9 18 6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <span className="w-2.5 shrink-0" />
+        )}
+
+        {node.type === "connection" && (
+          <Circle
+            className="h-1.5 w-1.5 shrink-0"
+            fill={STATUS_DOT_COLOR[status]}
+            style={{ color: STATUS_DOT_COLOR[status] }}
+          />
+        )}
+        {node.type === "schema" && (
+          <FolderOpen className="h-3 w-3 shrink-0" style={{ color: "var(--c-amber)" }} />
+        )}
+        {node.type === "table" && <Table2 className="h-3 w-3 shrink-0 text-muted-foreground" />}
+
+        <span
+          className={cn(
+            "truncate font-mono text-[11px] text-foreground/70",
+            isSelected ? "text-foreground" : "hover:text-foreground"
+          )}
+        >
+          {highlight(node.name, query)}
+        </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-1 pb-2">
-        {filtered.map((schema) => {
-          const isOpen = query.trim().length > 0 || !collapsed.has(schema.name);
-          return (
-            <div key={schema.name} className="mb-1">
-              <button
-                type="button"
-                onClick={() => toggleSchema(schema.name)}
-                className="flex w-full items-center gap-1 rounded-md px-1 py-1 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground hover:bg-sidebar-accent"
-              >
-                <ChevronRight
-                  className={cn("h-3 w-3 shrink-0 transition-transform", isOpen && "rotate-90")}
-                />
-                {highlight(schema.name, query)}
-              </button>
-              {isOpen && (
-                <ul className="m-0 list-none py-0 pl-4">
-                  {schema.tables.map((table) => {
-                    const isSelected =
-                      selected?.schema === schema.name && selected?.table === table;
-                    return (
-                      <li key={table}>
-                        <button
-                          type="button"
-                          aria-pressed={isSelected}
-                          onClick={() => onSelect(schema.name, table)}
-                          className={cn(
-                            "block w-full truncate rounded-md px-2 py-1 text-left",
-                            isSelected
-                              ? "bg-primary text-primary-foreground"
-                              : "text-foreground hover:bg-sidebar-accent"
-                          )}
-                        >
-                          {highlight(table, query)}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          );
-        })}
+      {hasChildren && open && (
+        <div>
+          {node.children?.map((child) => (
+            <TreeRow
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              query={query}
+              matchIds={matchIds}
+              selected={selected}
+              onSelect={onSelect}
+              status={status}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A searchable, collapsible navigation tree: connection -> schema -> table, mirroring
+ * docs/references/design-system.md's TreeNode pattern. Purely presentational: selection is owned
+ * by the caller. Matching a search term force-opens its ancestor path and highlights the match.
+ */
+export function SchemaTree({
+  target,
+  status,
+  schemas,
+  selected,
+  onSelect
+}: SchemaTreeProps): ReactNode {
+  const [query, setQuery] = useState("");
+  const tree = useMemo(() => buildTree(target, schemas), [target, schemas]);
+  const matchIds = useMemo(
+    () => (query.trim().length > 1 ? collectMatchIds(tree, query.trim()) : new Set<string>()),
+    [tree, query]
+  );
+  const trimmedQuery = query.trim();
+
+  return (
+    <div data-testid="schema-tree" className="flex h-full flex-col">
+      <div className="shrink-0 border-b border-border px-2 py-2">
+        <div className="flex items-center gap-1.5 rounded-[3px] border border-border bg-background px-2 py-1.5">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <input
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search tables, schemas..."
+            aria-label="Search tables"
+            className="w-full min-w-0 bg-transparent font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40"
+          />
+        </div>
       </div>
-    </nav>
+
+      <nav className="flex-1 overflow-y-auto py-1">
+        {trimmedQuery.length > 1 && matchIds.size === 0 ? (
+          <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+            no results
+          </div>
+        ) : (
+          <TreeRow
+            node={tree}
+            depth={0}
+            query={trimmedQuery.length > 1 ? trimmedQuery : ""}
+            matchIds={matchIds}
+            selected={selected}
+            onSelect={onSelect}
+            status={status}
+          />
+        )}
+      </nav>
+    </div>
   );
 }

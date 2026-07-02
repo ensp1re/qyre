@@ -112,13 +112,14 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   shares the same `open` state as the desktop collapse-to-rail); tab bar scrolls horizontally;
   title/status bars hide secondary text at narrow widths. Verified live via Preview across
   desktop/tablet/mobile and both themes against a real Postgres fixture.
-- **DF-03 `passing`** (commit `39bfc95`): added the SQL Editor's line-numbered gutter, the one
-  piece of `QueryRunner` left unstyled after the DF-02 correction pass. A scrollable line-number
-  column (`packages/ui/src/components/query-runner.tsx`) stays in sync with the textarea via a
-  real `onScroll` handler - the source design (`github.com/ensp1re/UserDashboard`'s `SqlEditor`)
-  never needed this since its query never scrolls, so there was no reference behavior to copy.
-  Verified live via Preview against a real SQLite fixture: line numbers align and stay synced
-  while scrolling a 60-line query, in both light and dark mode. Re-ran `pnpm --filter @humb/postgres
+- **DF-03 `passing`** (commit `39bfc95`, [PR #20](https://github.com/ensp1re/humb/pull/20)): added
+  the SQL Editor's line-numbered gutter, the one piece of `QueryRunner` left unstyled after the
+  DF-02 correction pass. A scrollable line-number column
+  (`packages/ui/src/components/query-runner.tsx`) stays in sync with the textarea via a real
+  `onScroll` handler - the source design (`github.com/ensp1re/UserDashboard`'s `SqlEditor`) never
+  needed this since its query never scrolls, so there was no reference behavior to copy. Verified
+  live via Preview against a real SQLite fixture: line numbers align and stay synced while
+  scrolling a 60-line query, in both light and dark mode. Re-ran `pnpm --filter @humb/postgres
 test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - no regression.
 
 ## In progress

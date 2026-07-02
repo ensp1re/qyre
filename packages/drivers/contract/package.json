@@ -1,5 +1,5 @@
 {
-  "name": "@humb/driver-contract",
+  "name": "@humbdb/driver-contract",
   "version": "0.0.0",
   "type": "module",
   "description": "Engine-agnostic database adapter contracts for Humb.",
@@ -23,9 +23,9 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humb/core": "workspace:*"
+    "@humbdb/core": "workspace:*"
   },
   "devDependencies": {
-    "@humb/config": "workspace:*"
+    "@humbdb/config": "workspace:*"
   }
 }

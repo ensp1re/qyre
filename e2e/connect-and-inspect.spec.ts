@@ -1,4 +1,4 @@
-import { FIXTURE, requireTestDatabaseUrl, setupFixture } from "@humb/testing";
+import { FIXTURE, requireTestDatabaseUrl, setupFixture } from "@humbdb/testing";
 import { expect, test } from "@playwright/test";
 
 /**

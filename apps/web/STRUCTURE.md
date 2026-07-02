@@ -15,8 +15,8 @@ TanStack Router/Query instead of custom routing/fetching).
 ```
 apps/web/src/
   main.tsx            # entry point: React root, QueryClientProvider
-  App.tsx             # composition only: wires hooks to @humb/ui components
-  api/<resource>.ts    # typed fetch wrappers returning @humb/core types
+  App.tsx             # composition only: wires hooks to @humbdb/ui components
+  api/<resource>.ts    # typed fetch wrappers returning @humbdb/core types
   hooks/use-<resource>.ts  # TanStack Query hooks wrapping the api/ fetchers
 ```
 
@@ -41,7 +41,7 @@ apps/web/src/
       api/               # this feature's fetch wrappers
       hooks/              # this feature's TanStack Query hooks
       components/          # components used only within this feature
-  components/           # shared composition components used across features (not @humb/ui - that's
+  components/           # shared composition components used across features (not @humbdb/ui - that's
                          # the cross-app reusable design system, this is apps/web-only composition)
   lib/                  # preconfigured singletons (query client instance, etc.)
 ```
@@ -59,13 +59,13 @@ Likely first features, based on current functionality: `connection` (health/stat
   `import/no-restricted-paths` once there are enough features for a violation to be likely.
 - **No barrel files inside `features/<name>/`.** Import directly
   (`features/schema-browser/hooks/use-overview.js`, not a re-exporting `index.ts`). Barrel files
-  defeat Vite's tree-shaking and blur the unidirectional-import boundary above. `@humb/ui`'s own
+  defeat Vite's tree-shaking and blur the unidirectional-import boundary above. `@humbdb/ui`'s own
   package barrel is fine - it's a small, deliberately-curated public API, not an internal feature
   folder.
-- **`@humb/ui` vs. `apps/web/src/components/`**: `@humb/ui` is the reusable, presentation-only
+- **`@humbdb/ui` vs. `apps/web/src/components/`**: `@humbdb/ui` is the reusable, presentation-only
   design system (usable by any future app in this monorepo). `apps/web/src/components/` is
   composition specific to this app - it may fetch data indirectly via hooks and know about
-  app-level layout, `@humb/ui` must not.
+  app-level layout, `@humbdb/ui` must not.
 - **File naming stays kebab-case** (`use-overview.ts`, `schema-tree.tsx`) per
   [`docs/NAMING.md`](../../docs/NAMING.md) - only the exported symbol is `PascalCase`
   (components) or `camelCase` (hooks/functions). Don't switch to PascalCase filenames even though

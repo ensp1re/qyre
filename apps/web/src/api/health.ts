@@ -1,4 +1,4 @@
-import type { HealthResponse } from "@humb/core";
+import type { HealthResponse } from "@humbdb/core";
 
 /** Fetch the server's health/connection status. */
 export async function fetchHealth(): Promise<HealthResponse> {

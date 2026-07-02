@@ -27,16 +27,16 @@ if (!["patch", "minor", "major"].includes(bumpType)) {
 /**
  * Explicit publish order (dependency-first), so a package is never published before a workspace
  * dependency it needs is already resolvable. Kept explicit rather than topologically computed: the
- * package count is small and a new engine package (e.g. @humb/sqlite, F008) forces a conscious
+ * package count is small and a new engine package (e.g. @humbdb/sqlite, F008) forces a conscious
  * update here, which doubles as a reminder to wire it into the release.
  */
 const PUBLISH_ORDER = [
-  "@humb/core",
-  "@humb/driver-contract",
-  "@humb/postgres",
-  "@humb/sqlite",
-  "@humb/server",
-  "@humb/ui",
+  "@humbdb/core",
+  "@humbdb/driver-contract",
+  "@humbdb/postgres",
+  "@humbdb/sqlite",
+  "@humbdb/server",
+  "@humbdb/ui",
   "humb"
 ];
 

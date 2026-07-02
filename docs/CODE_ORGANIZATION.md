@@ -6,13 +6,13 @@ fresh agent adding a type, a component, or a database engine has one obvious pla
 
 ## Why this exists
 
-`@humb/core` is imported by both `packages/server` (backend) and `apps/web` (frontend). A single,
+`@humbdb/core` is imported by both `packages/server` (backend) and `apps/web` (frontend). A single,
 well-organized source of truth for the types (and their runtime validation) that cross that
 boundary is what prevents the two sides from silently drifting apart - e.g. the frontend assuming a
 field is always present that the backend doesn't actually guarantee. That is a correctness and
 security concern (see `docs/SECURITY.md`'s "validate at the boundary" rule), not just tidiness.
 
-## `@humb/core`: shared types and validation
+## `@humbdb/core`: shared types and validation
 
 `packages/core/src/` is organized by concern, never one flat `index.ts`:
 
@@ -26,24 +26,24 @@ security concern (see `docs/SECURITY.md`'s "validate at the boundary" rule), not
 - `index.ts` is a barrel only: `export * from "./..."`. It never defines anything itself.
 
 Rule of thumb: if both `packages/server` and `apps/web` need to know a shape (an API request or
-response type), it belongs in `@humb/core`, not hand-duplicated in each. `HealthResponse` and
+response type), it belongs in `@humbdb/core`, not hand-duplicated in each. `HealthResponse` and
 `ConnectionStatus` are the canonical example - they used to be redefined separately in `apps/web`
 and `packages/ui`; now both import them from here.
 
-## `@humb/ui`: one component per file
+## `@humbdb/ui`: one component per file
 
 `packages/ui/src/components/<component-name>.tsx`, kebab-case, shadcn-style (matches
 `docs/design-docs/stack-and-structure.md`). `index.tsx` is a barrel only.
 
-`@humb/ui` may depend on `@humb/core` for shared domain types when a component's prop is genuinely a
+`@humbdb/ui` may depend on `@humbdb/core` for shared domain types when a component's prop is genuinely a
 shared domain concept (e.g. `StatusBadge`'s `status: ConnectionStatus`). It must not fetch data or
 import server/driver packages - see `FRONTEND.md`.
 
 ## `apps/web`: composition, not one giant component
 
-- `api/<resource>.ts` - typed `fetch` wrappers returning `@humb/core` types.
+- `api/<resource>.ts` - typed `fetch` wrappers returning `@humbdb/core` types.
 - `hooks/use-<resource>.ts` - React Query hooks wrapping the `api/` fetchers.
-- `App.tsx` (and future route/page components) - composition only: wire hooks to `@humb/ui`
+- `App.tsx` (and future route/page components) - composition only: wire hooks to `@humbdb/ui`
   components. No inline `fetch` calls or hand-rolled response types.
 
 This flat shape is deliberate while the app is small. See
@@ -62,10 +62,10 @@ structure to migrate to once that stops being true.
 
 Every engine-related package lives under `packages/drivers/`:
 
-- `packages/drivers/contract` (`@humb/driver-contract`) - the engine-agnostic `DatabaseAdapter` /
+- `packages/drivers/contract` (`@humbdb/driver-contract`) - the engine-agnostic `DatabaseAdapter` /
   `AdapterFactory` contract, plus genuinely engine-agnostic shared utilities (e.g. pagination
   clamping via `resolvePageRequest`). It must not depend on a concrete engine.
-- `packages/drivers/<engine>` (`@humb/<engine>`, e.g. `@humb/postgres`) - one package per engine,
+- `packages/drivers/<engine>` (`@humbdb/<engine>`, e.g. `@humbdb/postgres`) - one package per engine,
   implementing the contract. Named `<engine>` alone, not `db-<engine>` - the `drivers/` folder
   already conveys what these packages are.
 

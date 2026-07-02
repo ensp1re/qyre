@@ -1,4 +1,4 @@
-import type { TableMetadata } from "@humb/core";
+import type { TableMetadata } from "@humbdb/core";
 import type { ReactNode } from "react";
 import { TableDetail } from "./table-detail.js";
 

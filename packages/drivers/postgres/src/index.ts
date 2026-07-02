@@ -1,7 +1,7 @@
 /**
  * PostgreSQL driver for Humb.
  *
- * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@humb/driver-contract`.
+ * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@humbdb/driver-contract`.
  * All Postgres-specific SQL and introspection lives here. See ARCHITECTURE.md.
  */
 import type {
@@ -12,12 +12,12 @@ import type {
   RowPage,
   SchemaMetadata,
   TableMetadata
-} from "@humb/core";
-import { assertReadOnly, resolvePageRequest } from "@humb/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@humb/driver-contract";
+} from "@humbdb/core";
+import { assertReadOnly, resolvePageRequest } from "@humbdb/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
 import { Pool } from "pg";
 
-export { assertReadOnly, ReadOnlyViolationError } from "@humb/driver-contract";
+export { assertReadOnly, ReadOnlyViolationError } from "@humbdb/driver-contract";
 
 const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
 

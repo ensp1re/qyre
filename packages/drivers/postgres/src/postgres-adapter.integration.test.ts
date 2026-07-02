@@ -5,7 +5,7 @@
  * verification: a missing env var fails these tests with an actionable message instead of passing
  * trivially.
  */
-import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@humb/testing";
+import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@humbdb/testing";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PostgresAdapter } from "./index.js";

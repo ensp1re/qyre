@@ -27,7 +27,7 @@ export default defineConfig({
   webServer: {
     // Runs the real Humb server (serving both the API and the built web app on one port), not a
     // separate vite-preview process with no backend behind it - see e2e/server.ts.
-    command: "pnpm --filter @humb/web build && pnpm exec tsx e2e/server.ts",
+    command: "pnpm --filter @humbdb/web build && pnpm exec tsx e2e/server.ts",
     url: "http://localhost:4173",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000

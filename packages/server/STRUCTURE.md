@@ -55,7 +55,7 @@ packages/server/src/
   because updating the registration list feels like busywork). It scans `routes/` and registers
   everything by convention - don't reach for it before there's enough routes to justify the added
   indirection.
-- **Bridge `@humb/core`'s Zod schemas into Fastify's native schema slot** via
+- **Bridge `@humbdb/core`'s Zod schemas into Fastify's native schema slot** via
   `@fastify/type-provider-zod`, instead of calling `.parse()`/`.safeParse()` manually inside handlers
   (the current approach). Fastify pre-compiles schemas at startup for both validation and response
   serialization (`fast-json-stringify`) - manual Zod parsing inside a handler gets none of that

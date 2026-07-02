@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@humb/web", "@humb/testing"]
+  "ignore": ["@humbdb/web", "@humbdb/testing"]
 }

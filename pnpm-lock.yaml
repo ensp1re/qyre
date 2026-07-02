@@ -59,10 +59,10 @@ importers:
 
   apps/web:
     dependencies:
-      '@humb/core':
+      '@humbdb/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@humb/ui':
+      '@humbdb/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@tanstack/react-query':
@@ -99,19 +99,19 @@ importers:
 
   packages/cli:
     dependencies:
-      '@humb/core':
+      '@humbdb/core':
         specifier: workspace:*
         version: link:../core
-      '@humb/driver-contract':
+      '@humbdb/driver-contract':
         specifier: workspace:*
         version: link:../drivers/contract
-      '@humb/postgres':
+      '@humbdb/postgres':
         specifier: workspace:*
         version: link:../drivers/postgres
-      '@humb/server':
+      '@humbdb/server':
         specifier: workspace:*
         version: link:../server
-      '@humb/sqlite':
+      '@humbdb/sqlite':
         specifier: workspace:*
         version: link:../drivers/sqlite
       commander:
@@ -121,7 +121,7 @@ importers:
         specifier: ^10.1.0
         version: 10.2.0
     devDependencies:
-      '@humb/config':
+      '@humbdb/config':
         specifier: workspace:*
         version: link:../config
 
@@ -133,36 +133,36 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
-      '@humb/config':
+      '@humbdb/config':
         specifier: workspace:*
         version: link:../config
 
   packages/drivers/contract:
     dependencies:
-      '@humb/core':
+      '@humbdb/core':
         specifier: workspace:*
         version: link:../../core
     devDependencies:
-      '@humb/config':
+      '@humbdb/config':
         specifier: workspace:*
         version: link:../../config
 
   packages/drivers/postgres:
     dependencies:
-      '@humb/core':
+      '@humbdb/core':
         specifier: workspace:*
         version: link:../../core
-      '@humb/driver-contract':
+      '@humbdb/driver-contract':
         specifier: workspace:*
         version: link:../contract
       pg:
         specifier: ^8.13.1
         version: 8.22.0
     devDependencies:
-      '@humb/config':
+      '@humbdb/config':
         specifier: workspace:*
         version: link:../../config
-      '@humb/testing':
+      '@humbdb/testing':
         specifier: workspace:*
         version: link:../../testing
       '@types/pg':
@@ -171,17 +171,17 @@ importers:
 
   packages/drivers/sqlite:
     dependencies:
-      '@humb/core':
+      '@humbdb/core':
         specifier: workspace:*
         version: link:../../core
-      '@humb/driver-contract':
+      '@humbdb/driver-contract':
         specifier: workspace:*
         version: link:../contract
       better-sqlite3:
         specifier: ^11.10.0
         version: 11.10.0
     devDependencies:
-      '@humb/config':
+      '@humbdb/config':
         specifier: workspace:*
         version: link:../../config
       '@types/better-sqlite3':
@@ -193,30 +193,30 @@ importers:
       '@fastify/static':
         specifier: ^9.1.3
         version: 9.1.3
-      '@humb/core':
+      '@humbdb/core':
         specifier: workspace:*
         version: link:../core
-      '@humb/driver-contract':
+      '@humbdb/driver-contract':
         specifier: workspace:*
         version: link:../drivers/contract
       fastify:
         specifier: ^5.2.0
         version: 5.9.0
     devDependencies:
-      '@humb/config':
+      '@humbdb/config':
         specifier: workspace:*
         version: link:../config
 
   packages/testing:
     dependencies:
-      '@humb/core':
+      '@humbdb/core':
         specifier: workspace:*
         version: link:../core
       pg:
         specifier: ^8.13.1
         version: 8.22.0
     devDependencies:
-      '@humb/config':
+      '@humbdb/config':
         specifier: workspace:*
         version: link:../config
       '@types/pg':
@@ -225,7 +225,7 @@ importers:
 
   packages/ui:
     dependencies:
-      '@humb/core':
+      '@humbdb/core':
         specifier: workspace:*
         version: link:../core
       clsx:
@@ -238,7 +238,7 @@ importers:
         specifier: ^2.6.0
         version: 2.6.1
     devDependencies:
-      '@humb/config':
+      '@humbdb/config':
         specifier: workspace:*
         version: link:../config
       '@types/react':

@@ -1,4 +1,4 @@
-import type { TableMetadata } from "@humb/core";
+import type { TableMetadata } from "@humbdb/core";
 
 /** Fetch a single table's columns, indexes, and approximate row count. */
 export async function fetchTable(schema: string, table: string): Promise<TableMetadata> {

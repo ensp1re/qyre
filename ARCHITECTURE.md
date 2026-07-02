@@ -73,10 +73,10 @@ Postgres is the first supported engine, not the only one the architecture allows
 engine follows the same recipe:
 
 1. Create `packages/drivers/<engine>` implementing the `DatabaseAdapter` contract from
-   `@humb/driver-contract`.
+   `@humbdb/driver-contract`.
 2. Register it behind the server's adapter resolution, which detects the engine from the connection
    target (URL scheme, file extension, etc.) rather than requiring the user to name it.
-3. Reuse genuinely engine-agnostic logic from `@humb/driver-contract` (e.g. pagination clamping).
+3. Reuse genuinely engine-agnostic logic from `@humbdb/driver-contract` (e.g. pagination clamping).
    Do not reuse logic that only looks generic but actually differs per engine (e.g. SQL identifier
    quoting - `"..."` in Postgres, `` `...` `` in MySQL); keep that in the engine's own package.
 4. Add a product spec and feature entries.

@@ -1,5 +1,5 @@
 {
-  "name": "@humb/core",
+  "name": "@humbdb/core",
   "version": "0.0.0",
   "type": "module",
   "description": "Shared domain types and contracts for Humb.",
@@ -26,6 +26,6 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@humb/config": "workspace:*"
+    "@humbdb/config": "workspace:*"
   }
 }

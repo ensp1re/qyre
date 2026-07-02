@@ -1,4 +1,4 @@
-import type { ConnectionStatus } from "@humb/core";
+import type { ConnectionStatus } from "@humbdb/core";
 import {
   ConsoleLog,
   FilesBrowser,
@@ -11,7 +11,7 @@ import {
   TabBar,
   TitleBar,
   type ShellTab
-} from "@humb/ui";
+} from "@humbdb/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useAllTables } from "./hooks/use-all-tables.js";

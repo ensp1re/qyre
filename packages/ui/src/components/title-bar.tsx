@@ -1,4 +1,4 @@
-import type { ConnectionStatus } from "@humb/core";
+import type { ConnectionStatus } from "@humbdb/core";
 import { ChevronRight, Menu, Moon, RefreshCw, Settings, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";

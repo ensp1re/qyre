@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { InvalidConnectionTargetError } from "@humb/core";
+import { InvalidConnectionTargetError } from "@humbdb/core";
 import { main } from "./index.js";
 
 main().catch((error: unknown) => {

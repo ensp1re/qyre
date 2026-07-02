@@ -12,11 +12,11 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseConnectionTarget } from "@humb/core";
-import { resolveAdapter } from "@humb/driver-contract";
-import { postgresAdapterFactory } from "@humb/postgres";
-import { startServer } from "@humb/server";
-import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@humb/testing";
+import { parseConnectionTarget } from "@humbdb/core";
+import { resolveAdapter } from "@humbdb/driver-contract";
+import { postgresAdapterFactory } from "@humbdb/postgres";
+import { startServer } from "@humbdb/server";
+import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@humbdb/testing";
 import { chromium } from "@playwright/test";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));

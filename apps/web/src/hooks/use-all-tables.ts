@@ -1,4 +1,4 @@
-import type { SchemaMetadata, TableMetadata } from "@humb/core";
+import type { SchemaMetadata, TableMetadata } from "@humbdb/core";
 import { useQueries } from "@tanstack/react-query";
 import { fetchTable } from "../api/table.js";
 

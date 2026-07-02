@@ -4,11 +4,11 @@
 import { existsSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseConnectionTarget } from "@humb/core";
-import { resolveAdapter } from "@humb/driver-contract";
-import { postgresAdapterFactory } from "@humb/postgres";
-import { startServer } from "@humb/server";
-import { sqliteAdapterFactory } from "@humb/sqlite";
+import { parseConnectionTarget } from "@humbdb/core";
+import { resolveAdapter } from "@humbdb/driver-contract";
+import { postgresAdapterFactory } from "@humbdb/postgres";
+import { startServer } from "@humbdb/server";
+import { sqliteAdapterFactory } from "@humbdb/sqlite";
 import { Command } from "commander";
 import open from "open";
 

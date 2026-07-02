@@ -1,4 +1,4 @@
-# @humb/testing
+# @humbdb/testing
 
 Internal (private) test utilities and fixtures for Humb: test-database helpers, fixture setup, and
 shared verification helpers.

@@ -48,26 +48,26 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   now works end to end — it stays `active` only because its verification command is an end-to-end
   spec shared with F004/F005, which aren't implemented yet (no nav tree or table view).
 - 2026-07-01: Audited F003 the same way. Found bigger gaps than F001: introspection logic had zero
-  test coverage, and indexes/row counts were entirely unimplemented (missing from `@humb/core`'s
+  test coverage, and indexes/row counts were entirely unimplemented (missing from `@humbdb/core`'s
   contract, not just the adapter). Added `IndexMetadata` to core, implemented index + approximate
   row-count introspection in `packages/db-postgres`, added integration tests against a real Postgres
-  (reusing `@humb/testing`), fixed a Turborepo strict-env-mode gap that silently dropped
+  (reusing `@humbdb/testing`), fixed a Turborepo strict-env-mode gap that silently dropped
   `HUMB_TEST_DATABASE_URL` from the `test` task, and added a Postgres service to CI's `check` job.
   Manual verification caught a bug the new test didn't: index `columns` came back as a raw Postgres
   array-literal string, not a JS array (no `pg` type parser for arrays of the internal `name` type);
   fixed with an explicit `::text` cast and strengthened the test's assertions. F003 marked `passing`.
 - 2026-07-01: Architecture reorganization (folder rules now in `docs/CODE_ORGANIZATION.md`):
-  `@humb/core` split into `types/`/`errors.ts`/`connection-target.ts`/`validation/` and gained
+  `@humbdb/core` split into `types/`/`errors.ts`/`connection-target.ts`/`validation/` and gained
   `ConnectionStatus`/`HealthResponse` (previously hand-duplicated in `apps/web`/`packages/ui`);
-  `@humb/ui` split into one component per file; `apps/web` got `api/`/`hooks/`; a genuinely
+  `@humbdb/ui` split into one component per file; `apps/web` got `api/`/`hooks/`; a genuinely
   engine-agnostic `resolvePageRequest()` moved into the driver contract package (SQL identifier
   quoting deliberately stayed put - it differs per engine). Renamed/moved
-  `packages/db-adapter` -> `packages/drivers/contract` (`@humb/driver-contract`) and
-  `packages/db-postgres` -> `packages/drivers/postgres` (`@humb/postgres`); required a
+  `packages/db-adapter` -> `packages/drivers/contract` (`@humbdb/driver-contract`) and
+  `packages/db-postgres` -> `packages/drivers/postgres` (`@humbdb/postgres`); required a
   `packages/drivers/*` entry in `pnpm-workspace.yaml`. Re-verified `pnpm check`, a real CLI run
   against live Postgres, and the smoke E2E after the move.
 - 2026-07-01: Implemented F002+F004 (nav tree + table metadata): `SchemaTree`/`TableDetail` in
-  `@humb/ui`, `api/`+`hooks/` in `apps/web`, wired into `App.tsx`. Getting the full journey test to
+  `@humbdb/ui`, `api/`+`hooks/` in `apps/web`, wired into `App.tsx`. Getting the full journey test to
   actually pass surfaced a real E2E infra gap: Playwright's `webServer` only ran `vite preview`
   (no backend at all), so `/api/health` always failed regardless of frontend completeness. Replaced
   it with `e2e/server.ts` - the real Humb server, API + built web app on one port, connecting to
@@ -81,7 +81,7 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   `scripts/check-features.mjs`) so a `passing` feature's actual pushed commit is a validated field,
   not just prose inside `evidence`.
 - 2026-07-01: Implemented F005 (paginated table rows), the last piece of the connect-and-inspect
-  journey. Added `RowsTable` (`@humb/ui`), `api/rows.ts` + `useRows` (`apps/web`, TanStack Query's
+  journey. Added `RowsTable` (`@humbdb/ui`), `api/rows.ts` + `useRows` (`apps/web`, TanStack Query's
   `keepPreviousData` to avoid flicker between pages), wired below `TableDetail` with Previous/Next
   controls. No exact total row count from the backend, so "can go next" uses a
   `rows.length === pageSize` heuristic; manually verified the boundary via `curl` with `page=0`/`1`
@@ -100,12 +100,12 @@ deleted`) starts with the allowed "with" keyword but actually deletes data - pro
   misses. Proved layer 2 independently with a test that hides a `DELETE` inside a plpgsql function
   (`SELECT some_function()` has no forbidden keyword in its text at all - only the transaction
   backstop catches it). Also fixed: a rejected query returned HTTP 500 instead of 400 - moved
-  `ReadOnlyViolationError` from `@humb/postgres` to `@humb/driver-contract` (engine-agnostic; every
+  `ReadOnlyViolationError` from `@humbdb/postgres` to `@humbdb/driver-contract` (engine-agnostic; every
   engine's query runner needs it) so `packages/server` can catch it without depending on a concrete
-  engine. Built the missing UI (`QueryRunner` in `@humb/ui`, wired via `apps/web`'s `api/query.ts` +
+  engine. Built the missing UI (`QueryRunner` in `@humbdb/ui`, wired via `apps/web`'s `api/query.ts` +
   `useRunQuery`), verified success/rejection/writable-CTE cases through the real HTTP path. Broadened
-  F006's verification command to also run `pnpm --filter @humb/postgres test` - the security-critical
-  logic lives there, and the original `@humb/server`-only command would never re-run those tests.
+  F006's verification command to also run `pnpm --filter @humbdb/postgres test` - the security-critical
+  logic lives there, and the original `@humbdb/server`-only command would never re-run those tests.
 - 2026-07-01: Audited F007 (health/runtime diagnostics) the same way as F001/F003/F006, resolving
   the open decision below in favor of auditing first. `/api/health` (built as part of F001) itself
   behaved correctly, but the audit found a real crash bug, not just a coverage gap: node-postgres's
@@ -120,7 +120,7 @@ deleted`) starts with the allowed "with" keyword but actually deletes data - pro
   cleanly. Added a regression test (`postgres-adapter.integration.test.ts`) that reproduces the exact
   failure against a real database via `pg_terminate_backend` on an idle pooled connection - confirmed
   it fails (uncaught exception) without the fix and passes with it. Broadened F007's verification
-  command to also run `pnpm --filter @humb/postgres test`, matching F006's precedent, since that's
+  command to also run `pnpm --filter @humbdb/postgres test`, matching F006's precedent, since that's
   where the fix actually lives. F007 marked `passing`.
 
 ## Open decisions

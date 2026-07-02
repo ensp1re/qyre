@@ -13,16 +13,16 @@ import {
   redactConnectionString,
   rowsQuerySchema,
   runQuerySchema
-} from "@humb/core";
+} from "@humbdb/core";
 import type {
   ConnectionTarget,
   ConsoleEvents,
   FileContent,
   FilesOverview,
   HealthResponse
-} from "@humb/core";
-import { ReadOnlyViolationError } from "@humb/driver-contract";
-import type { DatabaseAdapter } from "@humb/driver-contract";
+} from "@humbdb/core";
+import { ReadOnlyViolationError } from "@humbdb/driver-contract";
+import type { DatabaseAdapter } from "@humbdb/driver-contract";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 import { EventLog } from "./event-log.js";

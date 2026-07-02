@@ -1,4 +1,4 @@
-import type { FileContent, FilesOverview } from "@humb/core";
+import type { FileContent, FilesOverview } from "@humbdb/core";
 
 /** Fetch the Files tab's tree of `.sql` files (empty/disabled if no --files-dir was configured). */
 export async function fetchFilesOverview(): Promise<FilesOverview> {

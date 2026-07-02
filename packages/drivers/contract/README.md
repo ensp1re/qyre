@@ -1,4 +1,4 @@
-# @humb/driver-contract
+# @humbdb/driver-contract
 
 Engine-agnostic database adapter contracts. Concrete engine drivers implement `DatabaseAdapter`.
 

@@ -8,7 +8,7 @@ Linked features: F008, F011 (`docs/FEATURES.json`)
 
 Add SQLite as Humb's second engine (`npx humb ./app.db`), proving the driver-plugin architecture
 (`packages/drivers/<engine>`) is genuinely reusable rather than accidentally Postgres-shaped, and
-generalizing `@humb/core`'s connection-target parsing from Postgres-only to engine-detecting.
+generalizing `@humbdb/core`'s connection-target parsing from Postgres-only to engine-detecting.
 
 ## Scope
 
@@ -20,13 +20,13 @@ Out of scope: remote SQLite/Turso URLs (open product decision, not yet made - se
 
 ## Verification path
 
-- F008: `pnpm --filter @humb/core test && pnpm --filter @humb/driver-contract test && pnpm --filter @humb/sqlite test && pnpm --filter humb test`, plus manual live verification of the real HTTP path (no CI service dependency - SQLite is just a local file).
+- F008: `pnpm --filter @humbdb/core test && pnpm --filter @humbdb/driver-contract test && pnpm --filter @humbdb/sqlite test && pnpm --filter humb test`, plus manual live verification of the real HTTP path (no CI service dependency - SQLite is just a local file).
 - F011: `pnpm test:e2e:full` (once the SQLite fixture is wired into `e2e/server.ts`).
-- Re-verify Postgres is unaffected: `pnpm --filter @humb/postgres test` (with `HUMB_TEST_DATABASE_URL`), `pnpm test:e2e:full`, `pnpm test:e2e`.
+- Re-verify Postgres is unaffected: `pnpm --filter @humbdb/postgres test` (with `HUMB_TEST_DATABASE_URL`), `pnpm test:e2e:full`, `pnpm test:e2e`.
 
 ## Risks and blockers
 
-- `@humb/core`'s `parseConnectionTarget` was Postgres-only (hard-threw for any non-Postgres-URL
+- `@humbdb/core`'s `parseConnectionTarget` was Postgres-only (hard-threw for any non-Postgres-URL
   input) - this was the real blocker to a second engine ever reaching `AdapterFactory.supports()`,
   not just a missing driver package. Generalizing it is the one change every future engine depends
   on; get it right once rather than special-casing per engine.
@@ -37,19 +37,19 @@ Out of scope: remote SQLite/Turso URLs (open product decision, not yet made - se
 ## Progress log
 
 - 2026-07-02: Implemented F008.
-  - **`@humb/core`**: `parseConnectionTarget` no longer assumes Postgres - it now checks for a
+  - **`@humbdb/core`**: `parseConnectionTarget` no longer assumes Postgres - it now checks for a
     Postgres URL, a `file:` URL, or (the common case) a bare non-URL-shaped string treated as a
     candidate SQLite path, checked for existence at the parse boundary (fail-fast, matching
     Postgres's fail-fast-on-invalid-input behavior). `DatabaseEngine` gained `"sqlite"`.
-  - **`@humb/driver-contract`**: moved `assertReadOnly`/`ReadOnlyViolationError`'s implementation
-    here from `@humb/postgres` (it was already pure text scanning, no Postgres-specific SQL) so
-    SQLite reuses it instead of duplicating it - `@humb/postgres` now re-exports from
-    `@humb/driver-contract` instead of defining it locally. All 14 existing tests moved with it and
-    still pass; re-verified `@humb/postgres`'s own suite (11/11) and the full Postgres
+  - **`@humbdb/driver-contract`**: moved `assertReadOnly`/`ReadOnlyViolationError`'s implementation
+    here from `@humbdb/postgres` (it was already pure text scanning, no Postgres-specific SQL) so
+    SQLite reuses it instead of duplicating it - `@humbdb/postgres` now re-exports from
+    `@humbdb/driver-contract` instead of defining it locally. All 14 existing tests moved with it and
+    still pass; re-verified `@humbdb/postgres`'s own suite (11/11) and the full Postgres
     connect-and-inspect journey are unaffected.
-  - **`packages/drivers/sqlite`** (`@humb/sqlite`, new package): `better-sqlite3`-backed adapter.
+  - **`packages/drivers/sqlite`** (`@humbdb/sqlite`, new package): `better-sqlite3`-backed adapter.
     The whole connection is opened `readonly: true` in `connect()` - the authoritative read-only
-    backstop, equivalent to `@humb/postgres`'s `READ ONLY` transaction (SQLite has no writable-CTE
+    backstop, equivalent to `@humbdb/postgres`'s `READ ONLY` transaction (SQLite has no writable-CTE
     or stored-procedure equivalent for a string-scan bypass to hide behind, so a read-only file
     handle is both necessary and sufficient here). Verified this live: a direct second `Database`
     handle against the same file, opened readonly, genuinely refuses a raw `DELETE`

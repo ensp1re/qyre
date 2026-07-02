@@ -84,12 +84,12 @@ chart/graph is ever added rather than inventing new hues.
   `ToggleLeft` (green) for boolean, `Calendar` (purple) for date/timestamp - a small `TypeIcon`
   helper keyed off the column's `dataType` string. Reuse this exact color mapping wherever a
   column's data type is shown (table headers, schema view, query results).
-  `ColumnMetadata.dataType` from `@humb/core` is engine-reported (`information_schema`/`PRAGMA`
+  `ColumnMetadata.dataType` from `@humbdb/core` is engine-reported (`information_schema`/`PRAGMA`
   text), not a single Humb-normalized enum, so the type-icon helper does its own prefix matching
   per engine's naming (`int*`/`numeric*` etc. for Postgres, `INTEGER`/`REAL` etc. for SQLite) -
   document any per-engine special-casing right next to that helper, don't scatter it.
 - **Status/connection dot**: a filled `Circle` (green when connected) rather than a text badge in
-  chrome-level UI (title bar, status bar); `StatusBadge` (`@humb/ui`) remains the right component
+  chrome-level UI (title bar, status bar); `StatusBadge` (`@humbdb/ui`) remains the right component
   for the more prominent "Database connection" panel state.
 - Search-and-highlight in the sidebar tree: matched substrings wrapped in `<mark>` with a tinted
   `--c-blue` background - matching nodes force their ancestor path open.

@@ -1,5 +1,5 @@
 {
-  "name": "@humb/web",
+  "name": "@humbdb/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,8 +13,8 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humb/core": "workspace:*",
-    "@humb/ui": "workspace:*",
+    "@humbdb/core": "workspace:*",
+    "@humbdb/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

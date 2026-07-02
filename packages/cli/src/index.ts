@@ -2,7 +2,7 @@
  * The `humb` CLI: parse a database target, start the local server, and open the browser.
  */
 import { existsSync, statSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseConnectionTarget } from "@humb/core";
 import { resolveAdapter } from "@humb/driver-contract";
@@ -13,12 +13,23 @@ import { Command } from "commander";
 import open from "open";
 
 /**
- * Where the built `apps/web` static assets live relative to this file, in both source
- * (`src/index.ts`, for tests) and built (`dist/index.js`) form. `startServer` no-ops static
- * serving if this path doesn't contain a build, so this is safe even before `apps/web` is built.
+ * Where the built `apps/web` static assets live, relative to this file's own directory (`here` -
+ * `dist` when built, `src` in dev/test). Two candidates, tried in order:
+ *
+ * 1. `<here>/web`, bundled alongside this file by `tsup.config.ts`'s `onSuccess` hook and shipped
+ *    inside the published `humb` npm package (see `files` in `package.json`) - this is what
+ *    resolves once installed standalone outside this monorepo (F010).
+ * 2. `<here>/../../../apps/web/dist`, monorepo-relative - what resolves in local dev/test, where
+ *    the bundled copy was never created.
+ *
+ * `startServer` no-ops static serving if neither path contains a build, so this is safe even
+ * before `apps/web` is built at all.
  */
-function defaultWebRoot(): string {
-  const here = dirname(fileURLToPath(import.meta.url));
+export function defaultWebRoot(here: string): string {
+  const bundled = resolve(here, "web");
+  if (existsSync(join(bundled, "index.html"))) {
+    return bundled;
+  }
   return resolve(here, "../../../apps/web/dist");
 }
 
@@ -91,7 +102,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     target,
     port,
     logger: true,
-    webRoot: defaultWebRoot(),
+    webRoot: defaultWebRoot(dirname(fileURLToPath(import.meta.url))),
     filesRoot
   });
   process.stdout.write(`Humb is running at ${server.url}\n`);

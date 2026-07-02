@@ -83,33 +83,39 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   Preview screenshot); added `cn()` to `packages/ui`. Also introduced the `DF-##` ID series
   alongside `F###` (`docs/NAMING.md`, `scripts/check-features.mjs`) for frontend/design-driven work.
   [PR #14](https://github.com/ensp1re/humb/pull/14), merged.
-- **DF-02 `passing`** (commit `2b3179c`): rebuilt `apps/web`'s shell to the actual IDE layout -
-  title bar (wordmark, connection breadcrumb, status dot, refresh, chrome-only theme/settings
-  placeholders), a collapsible sidebar with a searchable/highlightable schema tree (matches
-  force-open their ancestor group), a five-tab bar (SQL Editor/Tables/Schema/Files/Console), and a
-  status bar (connection, engine, current schema) - all pure Tailwind against DF-01's tokens, no
-  inline styles. Existing data flows were preserved, just redistributed across tabs instead of one
-  long page: SQL Editor hosts `QueryRunner`, Tables hosts `RowsTable`, Schema hosts the existing
-  single-table `TableDetail` (the full all-tables grid is DF-05's job, not built here); Files/Console
-  are placeholder empty states pending DF-06/DF-07's backends. Selecting a table in the sidebar
-  switches to the Tables tab. Dark is now the default theme on `<html>` per the design system - the
-  theme toggle itself stays inert until DF-09 wires persistence, same chrome-only precedent as the
-  settings gear. Removed `Panel` and `StatusBadge` from `packages/ui` (both became fully unused once
-  the old single-page layout and its "Database connection" panel were replaced); the status dot kept
-  the same `data-testid="status-badge"`/`data-status` contract, now on `TitleBar`, so existing e2e
-  assertions kept working with only the table-selection flow in
-  `e2e/connect-and-inspect.spec.ts` updated for the new tab-based navigation. Added `lucide-react` to
-  `@humb/ui` for the shell's icons. Caught and fixed a real bug during live Preview verification (not
-  caught by any automated check): the search-highlight's `bg-[var(--c-blue)]/25` silently failed to
-  generate a working Tailwind utility - Tailwind's JIT can't apply an opacity modifier to a raw
-  `var()` reference, so it fell back to `<mark>`'s default yellow; fixed with a `color-mix()`
-  arbitrary value instead. Verified live against a real Postgres fixture (docker `postgres:16-alpine`
-  - the built CLI): search/highlight, table selection, tab switching, and sidebar collapse/expand all
-    confirmed in both light and dark mode.
+- **DF-02 `passing`** (commit `2b3179c`, corrected in commit `0238265` - see below): rebuilt
+  `apps/web`'s shell to the actual IDE layout - title bar, collapsible sidebar with a
+  searchable/highlightable schema tree, a five-tab bar (SQL Editor/Tables/Schema/Files/Console),
+  and a status bar, all pure Tailwind against DF-01's tokens, no inline styles. Existing data flows
+  were preserved, just redistributed across tabs instead of one long page. Files/Console are
+  placeholder empty states pending DF-06/DF-07's backends. Added `lucide-react` to `@humb/ui` for
+  the shell's icons.
+- **DF-02 correction, DF-04 `passing`, DF-09 `passing`** (commit `0238265`): the user flagged that
+  DF-02's first pass had captured DF-01's token doc correctly but drifted from
+  `github.com/ensp1re/UserDashboard`'s actual component patterns, called dark mode "bad for the
+  eyes" with no way to change it, and asked for mobile support. Re-cloned and read the real
+  `App.tsx` (previously only skimmed for token extraction) and ported its patterns directly:
+  hierarchical sidebar tree (connection -> schema -> table, was flat schema -> table) matching the
+  source's TreeNode depth/indent/hover exactly; a real spreadsheet-style Tables tab (type/PK
+  sub-header row via a new shared `TypeIcon` helper, sortable columns, row-number + checkbox
+  columns, CSV export + "copy selected as CSV") - this is DF-04's exact scope, implemented now
+  since Tables was the specific complaint rather than deferred again, so DF-04 is `passing` too;
+  Schema tab restyled to the source's per-column row pattern; VS Code-style attached tab bar;
+  status bar moved to `bg-sidebar` with colored status text; title bar with a real breadcrumb
+  split (prefix/database name) and `h-9` sizing. Root cause of "too dark, bad for the eyes": the
+  theme toggle was wired inert (chrome-only, deferred to DF-09) with no way to leave dark mode -
+  since that's the actual mechanism of the complaint, implemented DF-09 now instead of deferring
+  again (`apps/web/src/hooks/use-theme.ts` toggles `.dark` and persists to `localStorage`, plus a
+  pre-paint inline script in `index.html` so there's no flash of the wrong theme on load) - DF-09
+  is `passing`. Added mobile support the source has none of: the sidebar becomes an off-canvas
+  overlay drawer with a backdrop below the `md` breakpoint (opened via the title bar's hamburger,
+  shares the same `open` state as the desktop collapse-to-rail); tab bar scrolls horizontally;
+  title/status bars hide secondary text at narrow widths. Verified live via Preview across
+  desktop/tablet/mobile and both themes against a real Postgres fixture.
 
 ## In progress
 
-- None. F009/F010/F011/DF-03..DF-09 are `not_started` backlog.
+- None. F009/F010/F011/DF-03/DF-05..DF-08 are `not_started` backlog.
 
 ## Known issues / blockers
 
@@ -124,8 +130,8 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Next steps
 
-1. Push the DF-02 branch and open its PR; record the PR URL as evidence once merged.
-2. Pick up DF-03 (SQL Editor tab restyle) next - it's the first of the per-tab content slices now
-   that the shell exists; DF-04/DF-05 (Tables/Schema restyle) follow the same pattern. F009/F010/F011
-   remain backlog per the user's stated leaning (SQLite → publish → UI/UX, UI/UX now underway as the
-   DF series).
+1. Push the DF-02 correction commit to the existing branch/PR ([PR #15](https://github.com/ensp1re/humb/pull/15)).
+2. Pick up DF-05 (Schema tab full all-tables grid) or DF-03 (SQL Editor line-numbered gutter,
+   currently just a lightly-restyled textarea) next - DF-04 and DF-09 are done ahead of schedule
+   (folded into the DF-02 correction). F009/F010/F011 remain backlog per the user's stated leaning
+   (SQLite → publish → UI/UX, UI/UX now underway as the DF series).

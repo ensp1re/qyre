@@ -171,6 +171,30 @@ scope"), multi-connection UI, settings panel content.
     clean. Started a real `postgres:16-alpine` container and re-ran `pnpm --filter @humb/postgres
 test` (11/11) and `pnpm test:e2e:full` (1/1) - no regression from the DF-02 baseline. `pnpm
 check` (format/lint/typecheck/test/build across all packages) passes; commit `39bfc95`.
+- 2026-07-02: DF-05 (Schema tab full-database grid, commit `3a51660`).
+  - Replaced the Schema tab's old behavior (required a sidebar selection, rendered a single
+    `TableDetail`) with a new `SchemaGrid` (`packages/ui`) showing every table in the database at
+    once. Reused `TableDetail`'s exact column-row pattern (PK badge, `TypeIcon`, indexes, row
+    count) unchanged for each card instead of inventing a new one - `TableDetail`'s own docstring
+    had anticipated this since the DF-02 correction pass.
+  - Added `useAllTables` (`apps/web`) to fan the existing single-table
+    `/api/tables/:schema/:table` endpoint out across every `schema.table` pair via `useQueries` -
+    no new backend endpoint needed, matching `docs/product-specs/dashboard-ui.md`'s "Backend gaps"
+    section, which never listed DF-05. Shares its query key with `useTable` so a table already
+    viewed in the Tables tab is served from cache, not refetched.
+  - FK badges stay out of scope, deferred to DF-08 per the behavior entry (Postgres/SQLite don't
+    expose FK metadata yet - PK-only badges ship first).
+  - Strengthening `e2e/connect-and-inspect.spec.ts` to assert the grid renders _before_ any table
+    is selected (proving the behavior genuinely changed, not just a superficial pass) surfaced a
+    real test bug: the grid's own table-name text made the sidebar's prior `getByText(table)`
+    assertion ambiguous (Playwright strict-mode violation, 3 matches). Fixed by scoping that
+    assertion to a role locator instead of loosening the new one.
+  - `pnpm --filter @humb/web build`/`typecheck` and `pnpm --filter @humb/ui build`/`typecheck`
+    clean. Re-ran `pnpm test:e2e:full` against a real `postgres:16-alpine` container - passes.
+    `pnpm check` passes. Manually verified live via Preview against a real 3-table Postgres
+    fixture (`humb_demo_users`/`orders`/`products`): all three cards render with correct PK
+    badges/type icons/index footers/row counts, wraps responsively at tablet width, correct in
+    both light and dark mode.
 
 ## Open decisions
 
@@ -179,7 +203,8 @@ check` (format/lint/typecheck/test/build across all packages) passes; commit `39
 - Whether FK metadata (`DF-08`) is added to `@humb/core`'s `ColumnMetadata` directly or as a new
   field alongside `IndexMetadata` - decide when DF-08 is scoped, following F003's precedent for how
   `IndexMetadata` itself was added.
-- Order of remaining DF-05..DF-08 pickup - not fixed; pick per session same as the F-series.
-  (DF-03/DF-04/DF-09 all shipped ahead of the originally-declared order - DF-04/DF-09 folded into
-  the DF-02 correction pass since user feedback pointed straight at Tables/dark-mode; DF-03 picked
-  up next as the smallest remaining slice - not a sign the declared split doesn't hold.)
+- Order of remaining DF-06..DF-08 pickup - not fixed; pick per session same as the F-series.
+  (DF-03/DF-04/DF-05/DF-09 all shipped ahead of the originally-declared order - DF-04/DF-09 folded
+  into the DF-02 correction pass since user feedback pointed straight at Tables/dark-mode; DF-03
+  and DF-05 picked up next as the smallest remaining backend-free slices - not a sign the declared
+  split doesn't hold.)

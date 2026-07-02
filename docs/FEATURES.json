@@ -157,9 +157,9 @@
       "id": "DF-05",
       "behavior": "The Schema tab shows a grid of table cards (all tables in the connected database, each with its columns and a PK badge) - a full-database overview distinct from the existing single-table TableDetail. FK badges are deferred to DF-08 (needs new backend metadata); ship the grid with PK-only badges first if FK metadata isn't ready.",
       "verification": "pnpm --filter @humb/web build && pnpm --filter @humb/web typecheck && pnpm test:e2e:full",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "3a51660",
+      "evidence": "commit 3a51660 (PR #21, https://github.com/ensp1re/humb/pull/21): the old Schema tab required a sidebar selection and rendered a single TableDetail; replaced with a new SchemaGrid (packages/ui) that lays out every table in the database as a card, reusing TableDetail's exact column-row pattern (PK badge, TypeIcon, indexes, row count) unchanged - no new visual pattern invented. New useAllTables hook (apps/web) fans the existing single-table /api/tables/:schema/:table endpoint out across every schema.table pair via useQueries, sharing its query key with useTable so a table already viewed in the Tables tab is served from cache instead of refetched. FK badges deliberately out of scope, deferred to DF-08 (Postgres/SQLite don't expose FK metadata yet). pnpm --filter @humb/web build/typecheck and pnpm --filter @humb/ui build/typecheck clean; pnpm check (full monorepo) passes. Strengthened e2e/connect-and-inspect.spec.ts's Schema tab assertion to run before any table is selected (previously only reachable after selection), proving the grid genuinely doesn't require it - also had to scope the sidebar's table-name assertion to a role locator since the grid's own table-name text now creates a page-wide ambiguity for a bare getByText. Re-ran pnpm test:e2e:full against a real postgres:16-alpine container - passes. Manually verified live via Preview against a real 3-table Postgres fixture (humb_demo_users/orders/products): grid renders all three cards with correct PK badges/type icons/index footers/row counts, wraps responsively at tablet width, and renders correctly in both light and dark mode.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },

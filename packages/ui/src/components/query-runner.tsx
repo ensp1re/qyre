@@ -1,6 +1,7 @@
 import type { RowPage } from "@humb/core";
 import { Play } from "lucide-react";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { KeyboardEvent, ReactNode, UIEvent } from "react";
+import { useRef } from "react";
 import { formatCell } from "../format-cell.js";
 import { Spinner } from "./spinner.js";
 
@@ -24,11 +25,18 @@ export function QueryRunner({
 }: QueryRunnerProps): ReactNode {
   const canRun = !isRunning && sql.trim().length > 0;
   const lineCount = sql.split("\n").length;
+  const gutterRef = useRef<HTMLDivElement>(null);
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
       if (canRun) onRun();
+    }
+  }
+
+  function handleScroll(event: UIEvent<HTMLTextAreaElement>): void {
+    if (gutterRef.current) {
+      gutterRef.current.scrollTop = event.currentTarget.scrollTop;
     }
   }
 
@@ -59,15 +67,30 @@ export function QueryRunner({
         </span>
       </div>
 
-      <textarea
-        value={sql}
-        onChange={(event) => onSqlChange(event.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="SELECT * FROM my_table LIMIT 10"
-        spellCheck={false}
-        className="min-h-[8rem] flex-1 resize-none bg-background p-3 font-mono text-[12px] leading-5 text-foreground outline-none"
-        style={{ caretColor: "var(--c-blue)" }}
-      />
+      <div className="flex min-h-[8rem] flex-1 overflow-hidden">
+        <div
+          ref={gutterRef}
+          aria-hidden="true"
+          className="shrink-0 select-none overflow-hidden border-r border-border bg-background pr-3 pt-3 text-right font-mono text-[11px] text-muted-foreground/30"
+          style={{ minWidth: "44px" }}
+        >
+          {Array.from({ length: lineCount }, (_, index) => (
+            <div key={index} style={{ lineHeight: "20px" }}>
+              {index + 1}
+            </div>
+          ))}
+        </div>
+        <textarea
+          value={sql}
+          onChange={(event) => onSqlChange(event.target.value)}
+          onKeyDown={handleKeyDown}
+          onScroll={handleScroll}
+          placeholder="SELECT * FROM my_table LIMIT 10"
+          spellCheck={false}
+          className="flex-1 resize-none overflow-auto bg-background p-3 font-mono text-[12px] leading-5 text-foreground outline-none"
+          style={{ caretColor: "var(--c-blue)" }}
+        />
+      </div>
 
       {error && (
         <p

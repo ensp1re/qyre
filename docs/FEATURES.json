@@ -72,6 +72,36 @@
       "evidence": "commit 5259102: pnpm --filter @humb/server test (8/8) and pnpm --filter @humb/postgres test (25/25) pass on 2026-07-01. Auditing /api/health (built in F001) against the full spec found a real bug, not just a coverage gap: node-postgres's Pool emits an unhandled \"error\" event when an idle client's connection is severed by the database (restart, network blip, admin kill) - confirmed live by starting the CLI against a real Postgres container, stopping the container mid-session, and watching the entire Node process crash instead of /api/health ever reporting \"disconnected\". Fixed by attaching pool.on(\"error\", ...) in packages/drivers/postgres/src/index.ts's connect() to log instead of crash. Re-verified live: after the fix, killing the database leaves the server up and /api/health correctly returns database: \"disconnected\"; a subsequent SIGINT still shuts down cleanly. Added a regression test (postgres-adapter.integration.test.ts) that reproduces the exact failure via pg_terminate_backend on an idle pooled connection against a real database - confirmed it fails (uncaught exception) without the fix and passes with it.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-postgres.md"
+    },
+    {
+      "id": "F008",
+      "behavior": "CLI recognizes a SQLite file target (`npx humb ./app.db`) and the full connect-and-inspect journey (connection status, table list, columns, paginated rows, read-only query runner) works against it with zero credentials, per docs/product-specs/connect-and-inspect-sqlite.md. Also validates the driver-plugin architecture: a second engine is what actually proves packages/drivers/<engine> is reusable, not just designed to look reusable.",
+      "verification": "pnpm --filter @humb/sqlite test && pnpm --filter humb test && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-sqlite.md"
+    },
+    {
+      "id": "F009",
+      "behavior": "README.md accurately reflects the current product (F001-F007 passing, not a skeleton), gives a working quick-start, and includes the marketing surface needed for GitHub/npm discovery: a demo GIF or asciicast, a \"why not X\" comparison section, badges (CI/npm/license), and the read-only-enforced-by-the-database security story from F006/F007.",
+      "verification": "node scripts/check-readme.mjs",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "README.md"
+    },
+    {
+      "id": "F010",
+      "behavior": "`npm install -g humb` (or `npx humb@latest`) works standalone outside this monorepo: the published package serves the built apps/web UI (fixes the apps/web/dist monorepo-relative path tech debt tracked in docs/exec-plans/tech-debt-tracker.md), has npm-discoverability metadata (description, keywords, repository, homepage), and can be released via a repeatable script that bumps every publishable workspace package's version in lockstep and publishes them in dependency order.",
+      "verification": "node scripts/publish.mjs --dry-run && node scripts/verify-npm-package.mjs",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "README.md"
     }
   ]
 }

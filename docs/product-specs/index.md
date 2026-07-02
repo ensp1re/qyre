@@ -11,6 +11,10 @@ single engine's behavior, not the whole product.
 
 - [`connect-and-inspect-postgres.md`](connect-and-inspect-postgres.md) - the Postgres engine
   contract, and the first engine this product supports end to end.
+- [`connect-and-inspect-sqlite.md`](connect-and-inspect-sqlite.md) - the SQLite engine contract
+  (F008, not yet implemented). File-based, no server/credentials - documents where it diverges from
+  the Postgres contract (no schemas, no network "connection", file-handle-level read-only
+  enforcement instead of a `READ ONLY` transaction).
 
 ## Rules
 

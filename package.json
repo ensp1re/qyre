@@ -31,6 +31,7 @@
     "check:state": "pnpm check:features && pnpm check:handoff",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:state",
     "check:ci": "pnpm check && pnpm test:e2e",
+    "release": "node scripts/publish.mjs",
     "clean": "turbo run clean && rimraf node_modules",
     "prepare": "lefthook install"
   },

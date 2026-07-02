@@ -188,10 +188,26 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   mode. `pnpm test` (all packages) and `pnpm test:e2e:full` against a real `postgres:16-alpine`
   container - no regression; `pnpm check` (full monorepo) passes. **The DF series (DF-01..DF-09)
   is now entirely `passing`.**
+- **F009 `passing`** (commit `7936c48`, [PR #25](https://github.com/ensp1re/humb/pull/25)): full
+  README rewrite - it still said "Early skeleton... most product behavior is not implemented yet",
+  stale since F001-F008 and the whole DF series are `passing`. Working quick-start (both Postgres
+  and SQLite targets); CI/npm/license badges (CI badge verified against the real workflow via
+  `gh api repos/ensp1re/humb/actions/workflows`); a "Why not just use ___?" section (pgAdmin/
+  DBeaver-style GUIs, a database's own CLI, cloud-hosted DB GUIs); the read-only-enforced-by-the-
+  database security story from F006/F008. Demo asset: asked the user directly whether to ship
+  static screenshots now, connect the Chrome extension for a real animated GIF, or skip the visual
+  demo - chose static screenshots. New `scripts/capture-readme-screenshots.mjs` starts a real
+  server against a live Postgres fixture (with an added FK-constrained table) and drives a real
+  Playwright browser through the SQL Editor/Schema/Tables tabs, saving real screenshots (not
+  mockups) to `docs/screenshots/` (a new directory - `docs/generated/` is gitignored for
+  build-time ephemera, but these need to be committed to render on GitHub/npm). New
+  `scripts/check-readme.mjs` (F009's verification command) wired into a new `check:readme` script
+  and folded into `check:state`/`pnpm check`, so a future README regression fails loudly.
+  `node scripts/check-readme.mjs` and `pnpm check` both pass.
 
 ## In progress
 
-- None. F009/F010/F011 are `not_started` backlog. The DF-01..DF-09 series is complete.
+- None. F010/F011 are `not_started` backlog.
 
 ## Known issues / blockers
 
@@ -200,9 +216,12 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 - F011 (Playwright e2e coverage for SQLite) is `not_started`; the UI itself needs no changes (it's
   already engine-agnostic, verified live against SQLite over the same HTTP contract) - only
   `e2e/server.ts` needs to support starting against either engine's fixture.
+- An animated demo (GIF or asciicast) for the README remains a legitimate follow-up - F009 shipped
+  with static screenshots instead (see that entry's evidence for why).
 
 ## Next steps
 
-1. Pick up F009 (README rewrite), F010 (npm publish), or F011 (SQLite e2e coverage) next, per the
-   user's stated leaning (SQLite → publish → UI/UX - UI/UX is now done, so publish-readiness is the
-   natural next focus).
+1. Pick up F010 (npm publish - fix `packages/cli`'s monorepo-relative `apps/web/dist` path, add
+   npm-discoverability metadata, write a release script) or F011 (SQLite Playwright e2e coverage)
+   next - F009 is done. F010 is the more natural next step per the user's original leaning
+   (SQLite → publish → UI/UX), all three of which are now done except publish itself.

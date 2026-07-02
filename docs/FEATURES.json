@@ -87,9 +87,9 @@
       "id": "F009",
       "behavior": "README.md accurately reflects the current product (F001-F007 passing, not a skeleton), gives a working quick-start, and includes the marketing surface needed for GitHub/npm discovery: a demo GIF or asciicast, a \"why not X\" comparison section, badges (CI/npm/license), and the read-only-enforced-by-the-database security story from F006/F007.",
       "verification": "node scripts/check-readme.mjs",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "7936c48",
+      "evidence": "commit 7936c48 (PR #25, https://github.com/ensp1re/humb/pull/25): full rewrite of README.md - quick-start covers both Postgres and SQLite targets; CI/npm/license badges (shields.io, CI badge verified against the real workflow via `gh api repos/ensp1re/humb/actions/workflows`); a \"Why not just use ___?\" section comparing against pgAdmin/DBeaver-style GUIs, a database's own CLI, and cloud-hosted DB GUIs; the read-only-enforced-by-the-database security story (assertReadOnly's scan plus the real Postgres READ ONLY transaction / SQLite readonly:true backstop from F006/F008). Demo asset: asked the user directly whether to (a) ship static screenshots now, (b) connect the Chrome extension to record a real animated GIF, or (c) skip the visual demo entirely - chose (a), so the behavior's \"demo GIF or asciicast\" is satisfied with three real screenshots (not mockups) instead of an animation: new scripts/capture-readme-screenshots.mjs starts a real server against a live Postgres fixture (with an added FK-constrained table for a meaningful Schema tab screenshot) and drives a real Playwright browser through the SQL Editor/Schema/Tables tabs, saving PNGs to docs/screenshots/ (a new directory, not docs/generated/ - that's gitignored for build-time ephemera, but these need to be committed to render on GitHub/npm). An animated demo remains a legitimate follow-up. New scripts/check-readme.mjs (checks for no skeleton language, a working quick-start, >=3 shields.io badges, a screenshot section, a \"why not\" heading, and the read-only story) wired into a new `check:readme` script and folded into `check:state`/`pnpm check`. `node scripts/check-readme.mjs` and `pnpm check` (full monorepo) both pass.",
       "blockedReason": null,
       "spec": "README.md"
     },

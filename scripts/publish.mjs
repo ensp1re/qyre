@@ -37,7 +37,7 @@ const PUBLISH_ORDER = [
   "@humbdb/sqlite",
   "@humbdb/server",
   "@humbdb/ui",
-  "humb"
+  "@humbdb/humb"
 ];
 
 function run(command, commandArgs, options = {}) {
@@ -79,9 +79,9 @@ const orderedPackages = PUBLISH_ORDER.map((name) => packagesByName.get(name)).fi
 
 // 3. Lockstep version: bump off the CLI package's current version, since that's the version users
 // actually see.
-const cliPkg = packagesByName.get("humb");
+const cliPkg = packagesByName.get("@humbdb/humb");
 if (!cliPkg) {
-  console.error('Could not find the "humb" package among publishable packages.');
+  console.error('Could not find the "@humbdb/humb" package among publishable packages.');
   process.exit(1);
 }
 const currentVersion = readPackageJson(join(cliPkg.path, "package.json")).version;

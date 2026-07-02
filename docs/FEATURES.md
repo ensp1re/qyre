@@ -28,9 +28,12 @@ flowchart TD
 
 ## Rules (enforced by `scripts/check-features.mjs`)
 
-- IDs are unique and match `F` followed by three digits.
+- IDs are unique and match `F` followed by three digits (e.g. `F008`), or `DF-` followed by two or
+  more digits (e.g. `DF-01`) for frontend/design-driven work - see `docs/NAMING.md`. Both series
+  follow every rule on this page identically; `DF-` is purely a visual/organizational split, not a
+  different process.
 - `state` is one of the allowed states.
-- At most one feature is `active` at a time.
+- At most one feature is `active` at a time, counting `F###` and `DF-##` together.
 - A `passing` feature must have non-empty `evidence` (command output ref, commit SHA, or E2E artifact)
   **and** a `commitHash` (a real git SHA, 7-40 hex characters) — a dedicated, machine-checkable field
   so anyone can confirm the work was actually committed/pushed without parsing prose. `evidence`

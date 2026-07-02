@@ -56,25 +56,37 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 - Backlog planning (PR #12): added F008 (SQLite driver, with a full product spec at
   `docs/product-specs/connect-and-inspect-sqlite.md`), F009 (README rewrite), F010 (npm publish, incl.
   `scripts/publish.mjs` for lockstep version bump + release). No product code changed.
-- **F008 `passing`** (commit `9c2162d`, PR pending): SQLite as Humb's second engine
-  (`npx humb ./app.db`). See `docs/exec-plans/active/0002-sqlite-engine.md` for full detail. In
-  short: generalized `@humb/core`'s `parseConnectionTarget` from Postgres-only to engine-detecting
-  (this was the real blocker to any second engine, not a missing driver package); moved
-  `assertReadOnly` from `@humb/postgres` to `@humb/driver-contract` so both engines share it; built
-  `@humb/sqlite` on `better-sqlite3` with the whole connection opened `readonly: true` as the
-  authoritative read-only backstop (verified live, independent of the string-scan heuristic); wired
-  `sqliteAdapterFactory` into the CLI. Caught and fixed a real bug during live verification (not
-  package tests, which all passed): `/api/health` redacted a SQLite path as
-  `<unparseable connection string>` since redaction assumed every target is a URL. Scoped to
-  backend + CLI - Playwright e2e coverage split out as **F011** (`not_started`) since it needs
-  `e2e/server.ts` to support either engine, a distinct slice of work.
+- **F008 `passing`** ([PR #13](https://github.com/ensp1re/humb/pull/13), merged): SQLite as Humb's
+  second engine (`npx humb ./app.db`). See `docs/exec-plans/active/0002-sqlite-engine.md` for full
+  detail (F011, its e2e slice, is still open there). In short: generalized `@humb/core`'s
+  `parseConnectionTarget` from Postgres-only to engine-detecting (this was the real blocker to any
+  second engine, not a missing driver package); moved `assertReadOnly` from `@humb/postgres` to
+  `@humb/driver-contract` so both engines share it; built `@humb/sqlite` on `better-sqlite3` with the
+  whole connection opened `readonly: true` as the authoritative read-only backstop (verified live,
+  independent of the string-scan heuristic); wired `sqliteAdapterFactory` into the CLI. Caught and
+  fixed a real bug during live verification (not package tests, which all passed): `/api/health`
+  redacted a SQLite path as `<unparseable connection string>` since redaction assumed every target is
+  a URL. Scoped to backend + CLI - Playwright e2e coverage split out as **F011** (`not_started`).
 - Moved `docs/exec-plans/active/0001-postgres-inspection.md` to `completed/` (F001-F007 all
-  `passing`); `0002-sqlite-engine.md` is now the active plan (F008, F011).
+  `passing`).
+- **DF-01 `passing`** (dashboard UI redesign, foundation slice): the user shared a private design
+  repo (`github.com/ensp1re/UserDashboard`, a Figma Make export) to implement as Humb's new UI - a
+  VS Code-style Postgres/SQL IDE (title bar, searchable sidebar tree, SQL Editor/Tables/Schema/
+  Files/Console tabs, status bar), not a generic dashboard. See
+  `docs/exec-plans/active/0003-dashboard-ui.md` for full detail and the `DF-02`..`DF-09` breakdown.
+  This slice: extracted the full token set into `docs/references/design-system.md`; added
+  `.claude/skills/humb-design-system/SKILL.md` so future UI work discovers it automatically; added
+  `docs/product-specs/dashboard-ui.md` (the engine-agnostic UI contract + backend gaps the design
+  surfaces: engine+version in `/api/health`, FK metadata, a scoped Files-browsing endpoint, a
+  Console/activity-log endpoint); wired the real tokens into `apps/web`'s Tailwind config (previously
+  scaffolded but completely unused - zero regression risk, verified live via build/typecheck/e2e/a
+  Preview screenshot); added `cn()` to `packages/ui`. Also introduced the `DF-##` ID series
+  alongside `F###` (`docs/NAMING.md`, `scripts/check-features.mjs`) for frontend/design-driven work.
 
 ## In progress
 
-- None. F008's PR still needs to be opened (see Next steps); F009/F010/F011 are `not_started`
-  backlog.
+- None. DF-01's PR still needs to be opened (see Next steps); F009/F010/F011/DF-02..DF-09 are
+  `not_started` backlog.
 
 ## Known issues / blockers
 
@@ -83,10 +95,12 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 - F011 (Playwright e2e coverage for SQLite) is `not_started`; the UI itself needs no changes (it's
   already engine-agnostic, verified live against SQLite over the same HTTP contract) - only
   `e2e/server.ts` needs to support starting against either engine's fixture.
+- DF-06 (Files tab) and DF-07 (Console tab) both need new backend capability, not just restyling -
+  DF-06 in particular needs a real security-scoping decision before any filesystem-reading endpoint
+  is written (`docs/product-specs/dashboard-ui.md`).
 
 ## Next steps
 
-1. Push the `feature/F008-sqlite-driver` branch and open its PR; record the PR URL as evidence once
-   merged (the commit SHA is already recorded: `9c2162d`).
-2. Pick up F011 (SQLite e2e coverage), or move to F009 (README rewrite)/F010 (npm publish) per the
-   user's stated leaning: SQLite → publish → UI/UX.
+1. Push the DF-01 branch and open its PR; record the PR URL as evidence once merged.
+2. Pick up DF-02 (shell layout - blocks every other DF slice visually), or F009/F010/F011 per the
+   user's stated leaning: SQLite → publish → UI/UX (UI/UX is now underway as the DF series).

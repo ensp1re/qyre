@@ -23,7 +23,9 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humb/core": "workspace:*"
+    "@humb/core": "workspace:*",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.6.0"
   },
   "peerDependencies": {
     "react": "^18.3.1",

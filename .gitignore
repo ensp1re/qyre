@@ -5,6 +5,7 @@ coverage/
 .turbo/
 .vite/
 .cursor/
+CLAUDE.md
 *.log
 .DS_Store
 .env

@@ -56,7 +56,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 - Backlog planning (PR #12): added F008 (SQLite driver, with a full product spec at
   `docs/product-specs/connect-and-inspect-sqlite.md`), F009 (README rewrite), F010 (npm publish, incl.
   `scripts/publish.mjs` for lockstep version bump + release). No product code changed.
-- **F008 `passing`** (commit `PENDING`, PR pending): SQLite as Humb's second engine
+- **F008 `passing`** (commit `9c2162d`, PR pending): SQLite as Humb's second engine
   (`npx humb ./app.db`). See `docs/exec-plans/active/0002-sqlite-engine.md` for full detail. In
   short: generalized `@humb/core`'s `parseConnectionTarget` from Postgres-only to engine-detecting
   (this was the real blocker to any second engine, not a missing driver package); moved
@@ -86,8 +86,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Next steps
 
-1. Push the F008 branch and open its PR; record the commit SHA/PR URL as evidence (`commitHash` is
-   currently the placeholder `"PENDING"` in `docs/FEATURES.json` - fill it in after committing, same
-   two-commit pattern as F006/F007).
+1. Push the `feature/F008-sqlite-driver` branch and open its PR; record the PR URL as evidence once
+   merged (the commit SHA is already recorded: `9c2162d`).
 2. Pick up F011 (SQLite e2e coverage), or move to F009 (README rewrite)/F010 (npm publish) per the
    user's stated leaning: SQLite → publish → UI/UX.

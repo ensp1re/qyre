@@ -1,6 +1,7 @@
 /**
  * The `humb` CLI: parse a database target, start the local server, and open the browser.
  */
+import { existsSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseConnectionTarget } from "@humb/core";
@@ -24,6 +25,7 @@ function defaultWebRoot(): string {
 export interface CliArgs {
   target: string | undefined;
   port: number | undefined;
+  filesDir: string | undefined;
 }
 
 /** Parse CLI arguments. Throws (via commander) on malformed flags. */
@@ -37,12 +39,16 @@ export function parseArgs(argv: string[]): CliArgs {
       "database connection string (postgres://user:pass@host:5432/db) or a path to a SQLite file (./app.db)"
     )
     .option("-p, --port <port>", "port for the local server", (value) => parseInt(value, 10))
+    .option(
+      "--files-dir <dir>",
+      "directory the Files tab may read *.sql files from (opt-in; disabled by default)"
+    )
     .allowExcessArguments(false)
     .exitOverride();
 
   program.parse(argv, { from: "user" });
-  const opts = program.opts<{ port?: number }>();
-  return { target: program.args[0], port: opts.port };
+  const opts = program.opts<{ port?: number; filesDir?: string }>();
+  return { target: program.args[0], port: opts.port, filesDir: opts.filesDir };
 }
 
 /** Resolve the port to listen on: `--port` flag, then `HUMB_PORT` env var, then the server default. */
@@ -61,6 +67,11 @@ export function resolvePort(
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
+/** Resolves the `--files-dir` flag to an absolute path. Undefined means file browsing is disabled. */
+export function resolveFilesRoot(filesDir: string | undefined, cwd: string): string | undefined {
+  return filesDir ? resolve(cwd, filesDir) : undefined;
+}
+
 /** Run the CLI. Returns the running server's URL. */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgs(argv);
@@ -69,13 +80,19 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   const adapter = resolveAdapter([postgresAdapterFactory, sqliteAdapterFactory], target);
   await adapter.connect();
 
+  const filesRoot = resolveFilesRoot(args.filesDir, process.cwd());
+  if (filesRoot && (!existsSync(filesRoot) || !statSync(filesRoot).isDirectory())) {
+    throw new Error(`--files-dir "${filesRoot}" does not exist or is not a directory.`);
+  }
+
   const port = resolvePort(args.port, process.env);
   const server = await startServer({
     adapter,
     target,
     port,
     logger: true,
-    webRoot: defaultWebRoot()
+    webRoot: defaultWebRoot(),
+    filesRoot
   });
   process.stdout.write(`Humb is running at ${server.url}\n`);
   await open(server.url);

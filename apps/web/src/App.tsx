@@ -1,5 +1,6 @@
 import type { ConnectionStatus } from "@humb/core";
 import {
+  FilesBrowser,
   QueryRunner,
   RowsTable,
   SchemaGrid,
@@ -13,6 +14,7 @@ import {
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useAllTables } from "./hooks/use-all-tables.js";
+import { useFileContent, useFilesOverview } from "./hooks/use-files.js";
 import { useHealth } from "./hooks/use-health.js";
 import { useOverview } from "./hooks/use-overview.js";
 import { useRows } from "./hooks/use-rows.js";
@@ -37,12 +39,15 @@ export function App(): ReactNode {
   const [tab, setTab] = useState<ShellTab>("sql-editor");
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [lastQueryMs, setLastQueryMs] = useState<number>();
+  const [selectedFilePath, setSelectedFilePath] = useState<string>();
   const { theme, toggleTheme } = useTheme();
 
   const overview = useOverview({ enabled: status === "connected" });
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page);
   const allTables = useAllTables(overview.data?.schemas);
+  const filesOverview = useFilesOverview({ enabled: status === "connected" });
+  const fileContent = useFileContent(selectedFilePath);
   const runQuery = useRunQuery();
 
   function selectTable(schema: string, tableName: string): void {
@@ -170,9 +175,41 @@ export function App(): ReactNode {
                 <SchemaGrid tables={allTables.tables} />
               )
             ) : tab === "files" ? (
-              <p className="text-[13px] text-muted-foreground">
-                File browsing needs a scoped read-only endpoint - coming in DF-06.
-              </p>
+              filesOverview.isLoading ? (
+                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                  <Spinner /> Loading files...
+                </p>
+              ) : filesOverview.isError ? (
+                <p className="text-[13px] text-muted-foreground">
+                  Failed to load files.{" "}
+                  <button
+                    type="button"
+                    onClick={() => filesOverview.refetch()}
+                    className="text-primary underline"
+                  >
+                    Retry
+                  </button>
+                </p>
+              ) : !filesOverview.data?.enabled ? (
+                <p className="text-[13px] text-muted-foreground">
+                  File browsing is disabled. Launch Humb with{" "}
+                  <code className="font-mono">--files-dir &lt;dir&gt;</code> to browse and preview{" "}
+                  <code className="font-mono">.sql</code> files.
+                </p>
+              ) : filesOverview.data.tree.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">
+                  No .sql files found under the configured files directory.
+                </p>
+              ) : (
+                <FilesBrowser
+                  tree={filesOverview.data.tree}
+                  selectedPath={selectedFilePath}
+                  onSelectFile={setSelectedFilePath}
+                  content={fileContent.data?.content}
+                  isContentLoading={fileContent.isLoading}
+                  contentError={fileContent.isError ? "Failed to load file." : undefined}
+                />
+              )
             ) : (
               <p className="text-[13px] text-muted-foreground">
                 The activity console needs a server-side event log - coming in DF-07.

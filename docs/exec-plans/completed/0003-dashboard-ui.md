@@ -1,6 +1,7 @@
 # Plan 0003: Dashboard UI Redesign
 
-Status: Active
+Status: Completed (2026-07-03) - all linked features (DF-01 through DF-09) are `passing`; see each
+one's `evidence` in `docs/FEATURES.json` for verification detail.
 Owner: unassigned
 Linked features: DF-01 through DF-09 (`docs/FEATURES.json`)
 
@@ -264,16 +265,50 @@ build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm test:e2e:full` against a 
     a rejected one, confirmed both appear in the Console tab with correct level colors after a
     manual refresh; Clear empties the log (`"No events yet."` renders); both light and dark mode
     correct.
+- 2026-07-03: DF-08 (engine+version status bar, FK metadata, commit `c7173fb`) - the DF series'
+  last slice.
+  - Added `DatabaseAdapter.getVersion(): Promise<string>` to `@humb/driver-contract`'s contract,
+    implemented per engine like every other engine-specific concern - resolved the open decision
+    below in favor of a plain formatted string rather than a structured field, since the UI only
+    ever needed to display it, not parse it further. Postgres parses `"PostgreSQL 16.4"` out of
+    `SELECT version()`'s full string; SQLite formats `"SQLite " + sqlite_version()`.
+  - New `HealthResponse.engineVersion` field, populated by `GET /api/health` only when `ping()`
+    reports connected (`null` otherwise, failures swallowed the same way `ping()` itself already
+    is). `StatusBar` shows it in place of the bare engine id, falling back to the bare id if the
+    version call ever fails.
+  - Resolved the other open decision below: `ColumnMetadata` gets a plain `isForeignKey: boolean`,
+    matching `isPrimaryKey`'s existing shape exactly rather than a structured `references: {...}`
+    field - the Schema tab's badge only ever needed to know "does this column reference another
+    table", not which one, so the richer shape would have been speculative. Detected via
+    `information_schema.table_constraints`/`key_column_usage` (Postgres, the same tables the
+    existing PK query already uses) and `PRAGMA foreign_key_list` (SQLite).
+  - `TableDetail` (reused by both `SchemaGrid` and the single-table view) now renders the FK badge
+    and blue column-name color the source design always had - closes out DF-05's deferred badge.
+  - New integration tests for both adapters create a real second table with an actual FK
+    constraint (Postgres: `REFERENCES`; SQLite: `PRAGMA`-visible), not a mocked shape, plus a
+    `getVersion()` format assertion. Existing `DatabaseAdapter` mocks in
+    `packages/server/src/index.test.ts` updated with `getVersion` for the new required contract
+    method; new tests assert `engineVersion` is populated when connected and `null` otherwise.
+  - `pnpm test` (all packages, including the `@humb/postgres`/`@humb/sqlite` integration suites
+    against a real Postgres container) and `pnpm test:e2e`/`pnpm test:e2e:full` against a real
+    `postgres:16-alpine` container all pass; `pnpm check` (full monorepo) passes.
+  - Manually verified live via Preview against a real Postgres fixture with a genuine FK
+    (`orders.user_id -> humb_demo_users.id`): Schema tab shows the FK badge with correct blue
+    styling, status bar reads `"PostgreSQL 16.14"` instead of the bare `"postgres"` it showed
+    before - both correct in light and dark mode.
+  - **DF-01 through DF-09 are all `passing`. The dashboard UI redesign this plan tracks is
+    complete** - see `docs/SESSION_HANDOFF.md` for the note to move this plan to `completed/`.
 
 ## Open decisions
 
 - ~~Files tab security scoping~~ - resolved by DF-06; see
   `docs/product-specs/dashboard-ui.md`'s "Files tab security boundary" section.
-- Whether FK metadata (`DF-08`) is added to `@humb/core`'s `ColumnMetadata` directly or as a new
-  field alongside `IndexMetadata` - decide when DF-08 is scoped, following F003's precedent for how
-  `IndexMetadata` itself was added.
-- DF-08 is the only remaining `DF-##` slice - no ordering decision left to make. (DF-03/DF-04/
-  DF-05/DF-06/DF-07/DF-09 all shipped ahead of the originally-declared order - DF-04/DF-09 folded
-  into the DF-02 correction pass since user feedback pointed straight at Tables/dark-mode; DF-03,
-  DF-05, DF-06, and DF-07 picked up next in roughly ascending order of new-backend-capability
-  needed - not a sign the declared split doesn't hold.)
+- ~~Whether FK metadata is added to `ColumnMetadata` directly or as a new field alongside
+  `IndexMetadata`~~ - resolved by DF-08: a plain `isForeignKey: boolean` on `ColumnMetadata`
+  itself, matching `isPrimaryKey`'s shape - the badge never needed to know which table/column it
+  references, only whether one exists.
+- No `DF-##` slices remain. (DF-03/DF-04/DF-05/DF-06/DF-07/DF-08/DF-09 all shipped ahead of the
+  originally-declared order - DF-04/DF-09 folded into the DF-02 correction pass since user
+  feedback pointed straight at Tables/dark-mode; DF-03, DF-05, DF-06, DF-07, and DF-08 picked up
+  next in roughly ascending order of new-backend-capability needed - not a sign the declared split
+  didn't hold, just that nothing forced a stricter order.)

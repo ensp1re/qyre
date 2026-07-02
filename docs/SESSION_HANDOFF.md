@@ -73,7 +73,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   repo (`github.com/ensp1re/UserDashboard`, a Figma Make export) to implement as Humb's new UI - a
   VS Code-style Postgres/SQL IDE (title bar, searchable sidebar tree, SQL Editor/Tables/Schema/
   Files/Console tabs, status bar), not a generic dashboard. See
-  `docs/exec-plans/active/0003-dashboard-ui.md` for full detail and the `DF-02`..`DF-09` breakdown.
+  `docs/exec-plans/completed/0003-dashboard-ui.md` for full detail and the `DF-02`..`DF-09` breakdown.
   This slice: extracted the full token set into `docs/references/design-system.md`; added
   `.claude/skills/humb-design-system/SKILL.md` so future UI work discovers it automatically; added
   `docs/product-specs/dashboard-ui.md` (the engine-agnostic UI contract + backend gaps the design
@@ -170,10 +170,28 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   refresh; Clear empties the log; both light and dark mode render correctly. `pnpm --filter
 @humb/server test` (37/37) and `pnpm test:e2e:full` against a real `postgres:16-alpine`
   container - no regression.
+- **DF-08 `passing`** (commit `c7173fb`, [PR #24](https://github.com/ensp1re/humb/pull/24)): the
+  DF series' last two deferred backend gaps. New `DatabaseAdapter.getVersion(): Promise<string>`,
+  implemented per engine like every other engine-specific concern (`IndexMetadata`'s F003
+  precedent) - Postgres parses `"PostgreSQL 16.4"` out of `SELECT version()`'s full string; SQLite
+  formats `"SQLite " + sqlite_version()`. New `HealthResponse.engineVersion` field, populated only
+  when actually connected; `StatusBar` shows it in place of the bare engine id, falling back to
+  the bare id if the version call ever fails. New `ColumnMetadata.isForeignKey: boolean`, detected
+  via `information_schema.table_constraints`/`key_column_usage` (Postgres) and
+  `PRAGMA foreign_key_list` (SQLite) - `TableDetail` (reused by `SchemaGrid` and the single-table
+  view) now renders the FK badge and blue column-name color the source design always had, closing
+  out DF-05's deferred badge. New integration tests for both adapters create a real second table
+  with an actual FK constraint, not a mocked shape, plus a `getVersion()` format assertion.
+  Verified live via Preview against a real Postgres fixture with a genuine FK
+  (`orders.user_id -> humb_demo_users.id`): FK badge renders correctly, status bar reads
+  `"PostgreSQL 16.14"` instead of the bare `"postgres"` it showed before - both in light and dark
+  mode. `pnpm test` (all packages) and `pnpm test:e2e:full` against a real `postgres:16-alpine`
+  container - no regression; `pnpm check` (full monorepo) passes. **The DF series (DF-01..DF-09)
+  is now entirely `passing`.**
 
 ## In progress
 
-- None. F009/F010/F011/DF-08 are `not_started` backlog.
+- None. F009/F010/F011 are `not_started` backlog. The DF-01..DF-09 series is complete.
 
 ## Known issues / blockers
 
@@ -185,7 +203,6 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 
 ## Next steps
 
-1. Pick up DF-08 (engine+version status bar, FK metadata for the Schema tab's badges) next -
-   DF-03/DF-04/DF-05/DF-06/DF-07/DF-09 are all done, closing out the DF series except DF-08.
-   F009/F010/F011 remain backlog per the user's stated leaning (SQLite → publish → UI/UX, UI/UX now
-   underway as the DF series).
+1. Pick up F009 (README rewrite), F010 (npm publish), or F011 (SQLite e2e coverage) next, per the
+   user's stated leaning (SQLite → publish → UI/UX - UI/UX is now done, so publish-readiness is the
+   natural next focus).

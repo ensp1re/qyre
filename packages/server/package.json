@@ -1,6 +1,6 @@
 {
   "name": "@humbdb/server",
-  "version": "0.0.0",
+  "version": "0.0.2",
   "type": "module",
   "description": "Local HTTP server for Humb (Fastify).",
   "license": "MIT",

@@ -1,5 +1,5 @@
 {
-  "name": "humb",
+  "name": "@humbdb/humb",
   "version": "0.0.0",
   "type": "module",
   "description": "Launch a local-first database management UI from your terminal.",

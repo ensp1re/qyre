@@ -12,9 +12,13 @@ single engine's behavior, not the whole product.
 - [`connect-and-inspect-postgres.md`](connect-and-inspect-postgres.md) - the Postgres engine
   contract, and the first engine this product supports end to end.
 - [`connect-and-inspect-sqlite.md`](connect-and-inspect-sqlite.md) - the SQLite engine contract
-  (F008, not yet implemented). File-based, no server/credentials - documents where it diverges from
-  the Postgres contract (no schemas, no network "connection", file-handle-level read-only
-  enforcement instead of a `READ ONLY` transaction).
+  (F008 `passing`; Playwright e2e coverage split out as F011). File-based, no server/credentials -
+  documents where it diverges from the Postgres contract (no schemas, no network "connection",
+  file-handle-level read-only enforcement instead of a `READ ONLY` transaction).
+- [`dashboard-ui.md`](dashboard-ui.md) - the engine-agnostic UI shape (title bar, sidebar, SQL
+  Editor/Tables/Schema/Files/Console tabs, status bar) sitting on top of any engine's data contract.
+  Tracked as the `DF-##` series (`docs/NAMING.md`), not `F###`. See
+  `docs/references/design-system.md` for the design tokens.
 
 ## Rules
 

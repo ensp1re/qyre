@@ -112,6 +112,96 @@
       "evidence": null,
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-sqlite.md"
+    },
+    {
+      "id": "DF-01",
+      "behavior": "The dashboard UI redesign (source: github.com/ensp1re/UserDashboard, a private Figma Make export) is read and documented before any view is ported: docs/references/design-system.md captures the full token set (colors light/dark, typography, radius, component patterns), .claude/skills/humb-design-system/SKILL.md makes it discoverable to future UI work, and docs/product-specs/dashboard-ui.md defines the engine-agnostic UI contract plus the backend gaps the design surfaces. The real tokens are wired into apps/web's Tailwind config (previously scaffolded but entirely unused) so the rules are backed by a working build, not just prose - with zero regression to the current passing UI, since no component uses a Tailwind class yet.",
+      "verification": "pnpm --filter @humb/web build && pnpm --filter @humb/web typecheck && pnpm --filter @humb/ui build && pnpm --filter @humb/ui typecheck && pnpm test:e2e",
+      "state": "passing",
+      "commitHash": "24fd66c",
+      "evidence": "commit 24fd66c: pnpm --filter @humb/web build/typecheck and pnpm --filter @humb/ui build/typecheck all clean; pnpm test:e2e (@smoke) and pnpm test:e2e:full (@full, with HUMB_TEST_DATABASE_URL) both still pass, confirming zero regression from wiring real Tailwind tokens into a config that was scaffolded from the start but genuinely unused (grepped for Tailwind classNames across apps/web and packages/ui before touching anything - zero hits - so no component code could be affected). Manually verified live via the Preview tool: pnpm --filter @humb/web dev, screenshot confirms the app renders correctly (background/text now use the real design tokens instead of old hardcoded hex, no visual breakage), zero console errors. pnpm check passes end to end.",
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "DF-02",
+      "behavior": "apps/web's shell is rebuilt to match the design: title bar (wordmark, connection breadcrumb, status dot, dark/light toggle), collapsible sidebar with a searchable/highlightable schema tree (ports SchemaTree's data into the new tree pattern), a tab bar (SQL Editor/Tables/Schema/Files/Console - Files and Console tabs can render a real UI shell with an empty/placeholder state until DF-06/DF-07 add their backends), and a status bar. Uses only tokens from docs/references/design-system.md via Tailwind classes, no inline styles.",
+      "verification": "pnpm --filter @humb/web build && pnpm --filter @humb/web typecheck && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "DF-03",
+      "behavior": "The SQL Editor tab ports the design's line-numbered read-only query runner (Cmd/Ctrl+Enter to run, results panel below the editor) on top of the existing QueryRunner/useRunQuery data flow - presentation only, no change to F006's read-only enforcement.",
+      "verification": "pnpm --filter @humb/web build && pnpm --filter @humb/web typecheck && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "DF-04",
+      "behavior": "The Tables tab ports the design's searchable/sortable row browser on top of the existing RowsTable/useRows data flow (client-side search/sort over the fetched page). Write-shaped controls from the source design (\"Add row\") are dropped per docs/product-specs/dashboard-ui.md's out-of-scope list.",
+      "verification": "pnpm --filter @humb/web build && pnpm --filter @humb/web typecheck && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "DF-05",
+      "behavior": "The Schema tab shows a grid of table cards (all tables in the connected database, each with its columns and a PK badge) - a full-database overview distinct from the existing single-table TableDetail. FK badges are deferred to DF-08 (needs new backend metadata); ship the grid with PK-only badges first if FK metadata isn't ready.",
+      "verification": "pnpm --filter @humb/web build && pnpm --filter @humb/web typecheck && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "DF-06",
+      "behavior": "The Files tab lists and previews SQL-related files, backed by a new read-only, narrowly-scoped filesystem endpoint - the security boundary (which directory, which extensions, opt-in vs. default-on) must be decided and documented in docs/product-specs/dashboard-ui.md before the endpoint is written, per docs/SECURITY.md's untrusted-input rules. Never implement as \"read whatever path the client sends.\"",
+      "verification": "pnpm --filter @humb/server test && pnpm --filter @humb/web build && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "DF-07",
+      "behavior": "The Console tab shows a stream of recent connection/query events, backed by a new server-side in-memory ring buffer (no persistence requirement) and an endpoint exposing it - structured logging already exists (Fastify/pino) but isn't queryable by the frontend today.",
+      "verification": "pnpm --filter @humb/server test && pnpm --filter @humb/web build && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "DF-08",
+      "behavior": "The status bar shows the connected engine + version (e.g. \"PostgreSQL 16.1\", \"SQLite 3.45.0\") via a new engine-agnostic field on HealthResponse/DatabaseAdapter (SELECT version() for Postgres, sqlite_version() pragma for SQLite), and the Schema tab's FK badges (deferred from DF-05) are backed by new FK metadata added to @humb/core's column/table contracts, implemented per engine the same way IndexMetadata was added in F003.",
+      "verification": "pnpm --filter @humb/core test && pnpm --filter @humb/postgres test && pnpm --filter @humb/sqlite test && pnpm --filter @humb/server test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "DF-09",
+      "behavior": "Dark/light theme toggling (the title bar's Sun/Moon button) actually switches the .dark class and persists the choice (localStorage) - dark is the default per docs/references/design-system.md. Purely frontend; no backend dependency.",
+      "verification": "pnpm --filter @humb/web build && pnpm --filter @humb/web typecheck && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
     }
   ]
 }

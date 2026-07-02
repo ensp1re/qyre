@@ -3,7 +3,9 @@
 Model-friendly external reference material, copied or summarized locally so agents can use it without
 relying on chat history or the network.
 
-- (add references here, e.g. `pg-llms.txt`, `fastify-llms.txt`, design-system notes)
+- [`design-system.md`](design-system.md) - colors (light/dark), typography, radius/spacing, and
+  component patterns for the dashboard UI redesign (`DF-##` series). Source: a private Figma Make
+  export, captured 2026-07-02.
 
 ## Rules
 

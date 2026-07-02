@@ -1,14 +1,93 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * Design tokens - see docs/references/design-system.md for the full reference (source: a private
+ * Figma Make export). Semantic tokens only; component code should reference these via Tailwind
+ * classes (bg-background, text-muted-foreground, ...) or var(--c-*) for the accent set below, never
+ * raw hex.
+ */
 :root {
   color-scheme: light;
+  --font-size: 13px;
+  --background: #f5f6f8;
+  --foreground: #1a1d23;
+  --card: #ffffff;
+  --card-foreground: #1a1d23;
+  --popover: #ffffff;
+  --popover-foreground: #1a1d23;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #eef0f3;
+  --secondary-foreground: #1a1d23;
+  --muted: #eef0f3;
+  --muted-foreground: #64748b;
+  --accent: #e8eaed;
+  --accent-foreground: #1a1d23;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: #eef0f3;
+  --ring: #2563eb;
+  --radius: 0.25rem;
+  --sidebar: #eff1f4;
+  --sidebar-foreground: #1a1d23;
+  --sidebar-accent: #e4e6ea;
+  --sidebar-accent-foreground: #1a1d23;
+  --sidebar-border: rgba(0, 0, 0, 0.06);
+  /* semantic accent colors (data-type icons, status dots, badges, SQL syntax highlighting) */
+  --c-green: #16a34a;
+  --c-amber: #b45309;
+  --c-purple: #7c3aed;
+  --c-blue: #2563eb;
+  --c-red: #dc2626;
+}
+
+/* Dark is the primary/default theme for this product - see docs/references/design-system.md. */
+.dark {
+  color-scheme: dark;
+  --background: #0a0d12;
+  --foreground: #cdd6e4;
+  --card: #10151c;
+  --card-foreground: #cdd6e4;
+  --popover: #161d27;
+  --popover-foreground: #cdd6e4;
+  --primary: #4a9eff;
+  --primary-foreground: #0a0d12;
+  --secondary: #161d27;
+  --secondary-foreground: #cdd6e4;
+  --muted: #161d27;
+  --muted-foreground: #5a6880;
+  --accent: #1a2535;
+  --accent-foreground: #cdd6e4;
+  --destructive: #e05c6a;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.06);
+  --input: #161d27;
+  --ring: #4a9eff;
+  --sidebar: #0d1219;
+  --sidebar-foreground: #cdd6e4;
+  --sidebar-accent: #161d27;
+  --sidebar-accent-foreground: #cdd6e4;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --c-green: #4fc46a;
+  --c-amber: #e09a40;
+  --c-purple: #c47eff;
+  --c-blue: #4a9eff;
+  --c-red: #e05c6a;
+}
+
+html {
+  font-size: var(--font-size);
 }
 
 body {
   margin: 0;
   font-family:
+    "Geist",
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -17,6 +96,6 @@ body {
     Helvetica,
     Arial,
     sans-serif;
-  background: #f9fafb;
-  color: #111827;
+  background: var(--background);
+  color: var(--foreground);
 }

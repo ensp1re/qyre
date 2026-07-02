@@ -34,6 +34,10 @@ intentional open-source project. These rules are enforced by review and, where p
 
 - Feature IDs are stable and machine-readable: `F001`, `F002`, ... defined in
   [`FEATURES.json`](FEATURES.json). IDs are never reused or renumbered.
+- Frontend/design-driven work (porting the dashboard UI redesign - see
+  `docs/product-specs/dashboard-ui.md`) uses a separate `DF-01`, `DF-02`, ... series so it's
+  visually distinct from backend/product feature work at a glance, while following the exact same
+  state machine and rules as `F###` entries (see `docs/FEATURES.md`).
 
 ## Files and routes
 

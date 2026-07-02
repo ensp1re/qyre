@@ -14,7 +14,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const featuresPath = resolve(here, "../docs/FEATURES.json");
 
 const ALLOWED_STATES = ["not_started", "active", "blocked", "passing"];
-const ID_PATTERN = /^F\d{3}$/;
+// F### for backend/product features, DF-## for frontend/design-driven work (docs/NAMING.md).
+const ID_PATTERN = /^(F\d{3}|DF-\d{2,})$/;
 const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/i;
 
 /** @type {string[]} */
@@ -41,7 +42,7 @@ for (const [index, feature] of features.entries()) {
   const label = feature?.id ?? `#${index}`;
 
   if (typeof feature.id !== "string" || !ID_PATTERN.test(feature.id)) {
-    errors.push(`Feature ${label}: id must match F### (e.g. F001).`);
+    errors.push(`Feature ${label}: id must match F### (e.g. F001) or DF-## (e.g. DF-01).`);
   } else if (seenIds.has(feature.id)) {
     errors.push(`Feature ${label}: duplicate id.`);
   } else {

@@ -151,10 +151,29 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   correctly with no flag - all in both light and dark mode. `pnpm --filter @humb/server test`
   (30/30, real temp-dir/symlink fixtures, no mocks) and `pnpm --filter humb test` (11/11) pass;
   `pnpm test:e2e:full` against a real `postgres:16-alpine` container - no regression.
+- **DF-07 `passing`** (commit `185e1ae`, [PR #23](https://github.com/ensp1re/humb/pull/23)): the
+  Console tab is real now, backed by a new bounded in-memory event log
+  (`packages/server/src/event-log.ts`, `EventLog` - no persistence requirement). Wired to two real
+  event sources already inside the server, not synthetic data: `POST /api/query` logs `info` on
+  success (duration + row count), `warn` when `ReadOnlyViolationError` rejects a query, `error` for
+  any other failure; `GET /api/health` logs a transition (not every poll, never the first
+  observation) when `ping()`'s result actually changes. New `GET /api/console` (read) and
+  `DELETE /api/console` (clear - safe, since it only resets Humb's own diagnostic buffer, not the
+  connected database, matching DF-04's CSV-export precedent). New `ConsoleEvent`/`ConsoleEvents`
+  types in `@humb/core`; new `ConsoleLog` (`packages/ui`) - level-colored stream with a Clear
+  action; `useConsoleEvents` polls every 3s while connected (paused by React Query when the tab
+  loses focus - confirmed that's why a headless Preview session never saw the auto-poll fire on
+  its own, not a bug). Fixed a real, pre-existing gap surfaced while wiring this up: the title
+  bar's global Refresh button only refetched health+overview, never Files (DF-06) or the new
+  Console data - `refresh()` now refetches both. Verified live via Preview against a real Postgres
+  fixture: a successful and a rejected query both appear with correct level colors after a manual
+  refresh; Clear empties the log; both light and dark mode render correctly. `pnpm --filter
+@humb/server test` (37/37) and `pnpm test:e2e:full` against a real `postgres:16-alpine`
+  container - no regression.
 
 ## In progress
 
-- None. F009/F010/F011/DF-07/DF-08 are `not_started` backlog.
+- None. F009/F010/F011/DF-08 are `not_started` backlog.
 
 ## Known issues / blockers
 
@@ -163,12 +182,10 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 - F011 (Playwright e2e coverage for SQLite) is `not_started`; the UI itself needs no changes (it's
   already engine-agnostic, verified live against SQLite over the same HTTP contract) - only
   `e2e/server.ts` needs to support starting against either engine's fixture.
-- DF-07 (Console tab) needs new backend capability (an in-memory ring buffer + endpoint), not just
-  restyling.
 
 ## Next steps
 
-1. Pick up DF-07 (Console tab - needs a new in-memory ring buffer + endpoint) or DF-08
-   (engine+version status bar, FK metadata) next - DF-03/DF-04/DF-05/DF-06/DF-09 are all done.
+1. Pick up DF-08 (engine+version status bar, FK metadata for the Schema tab's badges) next -
+   DF-03/DF-04/DF-05/DF-06/DF-07/DF-09 are all done, closing out the DF series except DF-08.
    F009/F010/F011 remain backlog per the user's stated leaning (SQLite → publish → UI/UX, UI/UX now
    underway as the DF series).

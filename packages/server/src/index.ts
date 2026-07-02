@@ -14,11 +14,18 @@ import {
   rowsQuerySchema,
   runQuerySchema
 } from "@humb/core";
-import type { ConnectionTarget, FileContent, FilesOverview, HealthResponse } from "@humb/core";
+import type {
+  ConnectionTarget,
+  ConsoleEvents,
+  FileContent,
+  FilesOverview,
+  HealthResponse
+} from "@humb/core";
 import { ReadOnlyViolationError } from "@humb/driver-contract";
 import type { DatabaseAdapter } from "@humb/driver-contract";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
+import { EventLog } from "./event-log.js";
 import { buildFileTree, InvalidFilePathError, resolveSqlFilePath } from "./files.js";
 
 export interface CreateServerOptions {
@@ -53,12 +60,25 @@ function requireAdapter(adapter: DatabaseAdapter | undefined): DatabaseAdapter {
 export function createServer(options: CreateServerOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false });
   const { adapter, target, filesRoot } = options;
+  const eventLog = new EventLog();
+  let lastKnownStatus: HealthResponse["database"] | undefined;
 
   app.get("/api/health", async (): Promise<HealthResponse> => {
     let database: HealthResponse["database"] = "unconfigured";
     if (adapter) {
       database = (await adapter.ping().catch(() => false)) ? "connected" : "disconnected";
     }
+
+    // Log only actual transitions, not every poll - and never the very first observation (that's
+    // the baseline, not a notable event).
+    if (lastKnownStatus !== undefined && lastKnownStatus !== database) {
+      eventLog.log(
+        database === "connected" ? "info" : "warn",
+        database === "connected" ? "Database connection restored." : "Database connection lost."
+      );
+    }
+    lastKnownStatus = database;
+
     return {
       status: "ok",
       database,
@@ -98,14 +118,34 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
     if (!parsed.success) {
       return reply.status(400).send({ error: "Request body must be { sql: string }." });
     }
+    const start = Date.now();
     try {
-      return await requireAdapter(adapter).runReadOnlyQuery(parsed.data.sql);
+      const result = await requireAdapter(adapter).runReadOnlyQuery(parsed.data.sql);
+      eventLog.log(
+        "info",
+        `Query executed in ${Date.now() - start}ms - ${result.rows.length} rows returned`
+      );
+      return result;
     } catch (error) {
       if (error instanceof ReadOnlyViolationError) {
+        eventLog.log("warn", `Query rejected: ${error.message}`);
         return reply.status(400).send({ error: error.message });
       }
+      eventLog.log(
+        "error",
+        `Query failed: ${error instanceof Error ? error.message : String(error)}`
+      );
       throw error;
     }
+  });
+
+  app.get("/api/console", async (): Promise<ConsoleEvents> => {
+    return { events: eventLog.list() };
+  });
+
+  app.delete("/api/console", async (): Promise<ConsoleEvents> => {
+    eventLog.clear();
+    return { events: [] };
   });
 
   app.get("/api/files", async (): Promise<FilesOverview> => {

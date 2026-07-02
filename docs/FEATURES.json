@@ -127,9 +127,9 @@
       "id": "DF-02",
       "behavior": "apps/web's shell is rebuilt to match the design: title bar (wordmark, connection breadcrumb, status dot, dark/light toggle), collapsible sidebar with a searchable/highlightable schema tree (ports SchemaTree's data into the new tree pattern), a tab bar (SQL Editor/Tables/Schema/Files/Console - Files and Console tabs can render a real UI shell with an empty/placeholder state until DF-06/DF-07 add their backends), and a status bar. Uses only tokens from docs/references/design-system.md via Tailwind classes, no inline styles.",
       "verification": "pnpm --filter @humb/web build && pnpm --filter @humb/web typecheck && pnpm test:e2e:full",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "0238265",
+      "evidence": "commit 2b3179c shipped the shell wired to DF-01's token doc, but drifted from the actual source component patterns (flat schema/table tree instead of connection->schema->table hierarchy, plain-HTML Tables/Schema views, underline tabs, ad hoc status bar) - flagged by the user against github.com/ensp1re/UserDashboard directly. commit 0238265 re-cloned and read the real App.tsx (previously only skimmed for token extraction) and ported its actual patterns: hierarchical sidebar tree matching the source's TreeNode depth/indent/hover exactly, VS Code-style attached tab bar, status bar moved to bg-sidebar with colored status text and separators, title bar at h-9 with a real prefix/database-name breadcrumb split. Root cause of the 'too dark, bad for the eyes' complaint: the theme toggle was an inert chrome-only placeholder deferred to DF-09 with no way to leave dark mode - fixed by implementing DF-09 now (see that entry) instead of deferring again. pnpm check (format/lint/typecheck/test/build across all 10 packages) and pnpm test:e2e/test:e2e:full (live Postgres) all pass. Manually verified live via Preview across desktop/tablet/mobile and both themes against a real Postgres fixture (docker postgres:16-alpine + humb-cli): hierarchical tree + search/highlight, table selection auto-switching to Tables tab, Schema tab, theme toggle persistence (no FOUC on reload confirmed), and the mobile drawer opening/closing/auto-closing on table selection.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },
@@ -147,9 +147,9 @@
       "id": "DF-04",
       "behavior": "The Tables tab ports the design's searchable/sortable row browser on top of the existing RowsTable/useRows data flow (client-side search/sort over the fetched page). Write-shaped controls from the source design (\"Add row\") are dropped per docs/product-specs/dashboard-ui.md's out-of-scope list.",
       "verification": "pnpm --filter @humb/web build && pnpm --filter @humb/web typecheck && pnpm test:e2e:full",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "0238265",
+      "evidence": "commit 0238265: folded into DF-02's correction pass since the Tables tab was the user's specific complaint against github.com/ensp1re/UserDashboard, not deferred further. RowsTable (packages/ui) now does client-side search (filters across all fetched columns) and per-column sort (asc/desc/none cycle, click a header) over the currently fetched page, a type/PK sub-header row (new shared TypeIcon helper), row-number + checkbox columns, and CSV export of the current page plus 'copy selected as CSV' for checked rows (both read-only, explicitly endorsed by docs/product-specs/dashboard-ui.md's out-of-scope carve-out). 'Add row' was never built. pnpm check and pnpm test:e2e/test:e2e:full pass; manually verified live (sort, filter, CSV export, row selection) via Preview against a real Postgres fixture.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },
@@ -197,9 +197,9 @@
       "id": "DF-09",
       "behavior": "Dark/light theme toggling (the title bar's Sun/Moon button) actually switches the .dark class and persists the choice (localStorage) - dark is the default per docs/references/design-system.md. Purely frontend; no backend dependency.",
       "verification": "pnpm --filter @humb/web build && pnpm --filter @humb/web typecheck && pnpm test:e2e:full",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "0238265",
+      "evidence": "commit 0238265: implemented ahead of schedule - DF-02's original pass left the toggle as an inert chrome-only placeholder, which turned out to be the actual mechanism behind a 'too dark, bad for the eyes' complaint (no way to leave dark mode). apps/web/src/hooks/use-theme.ts toggles the .dark class and persists to localStorage (`humb-theme`); apps/web/index.html gained a pre-paint inline script reading that key before React mounts so there's no flash of the wrong theme on load. Manually verified live: toggled to light, reloaded, confirmed the choice persisted with zero flash of dark before light applied (checked via document.documentElement.classList and localStorage directly in Preview). pnpm check and pnpm test:e2e/test:e2e:full pass.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     }

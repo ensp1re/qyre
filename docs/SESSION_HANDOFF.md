@@ -82,11 +82,40 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   scaffolded but completely unused - zero regression risk, verified live via build/typecheck/e2e/a
   Preview screenshot); added `cn()` to `packages/ui`. Also introduced the `DF-##` ID series
   alongside `F###` (`docs/NAMING.md`, `scripts/check-features.mjs`) for frontend/design-driven work.
+  [PR #14](https://github.com/ensp1re/humb/pull/14), merged.
+- **DF-02 `passing`** (commit `2b3179c`, corrected in commit `0238265` - see below): rebuilt
+  `apps/web`'s shell to the actual IDE layout - title bar, collapsible sidebar with a
+  searchable/highlightable schema tree, a five-tab bar (SQL Editor/Tables/Schema/Files/Console),
+  and a status bar, all pure Tailwind against DF-01's tokens, no inline styles. Existing data flows
+  were preserved, just redistributed across tabs instead of one long page. Files/Console are
+  placeholder empty states pending DF-06/DF-07's backends. Added `lucide-react` to `@humb/ui` for
+  the shell's icons.
+- **DF-02 correction, DF-04 `passing`, DF-09 `passing`** (commit `0238265`): the user flagged that
+  DF-02's first pass had captured DF-01's token doc correctly but drifted from
+  `github.com/ensp1re/UserDashboard`'s actual component patterns, called dark mode "bad for the
+  eyes" with no way to change it, and asked for mobile support. Re-cloned and read the real
+  `App.tsx` (previously only skimmed for token extraction) and ported its patterns directly:
+  hierarchical sidebar tree (connection -> schema -> table, was flat schema -> table) matching the
+  source's TreeNode depth/indent/hover exactly; a real spreadsheet-style Tables tab (type/PK
+  sub-header row via a new shared `TypeIcon` helper, sortable columns, row-number + checkbox
+  columns, CSV export + "copy selected as CSV") - this is DF-04's exact scope, implemented now
+  since Tables was the specific complaint rather than deferred again, so DF-04 is `passing` too;
+  Schema tab restyled to the source's per-column row pattern; VS Code-style attached tab bar;
+  status bar moved to `bg-sidebar` with colored status text; title bar with a real breadcrumb
+  split (prefix/database name) and `h-9` sizing. Root cause of "too dark, bad for the eyes": the
+  theme toggle was wired inert (chrome-only, deferred to DF-09) with no way to leave dark mode -
+  since that's the actual mechanism of the complaint, implemented DF-09 now instead of deferring
+  again (`apps/web/src/hooks/use-theme.ts` toggles `.dark` and persists to `localStorage`, plus a
+  pre-paint inline script in `index.html` so there's no flash of the wrong theme on load) - DF-09
+  is `passing`. Added mobile support the source has none of: the sidebar becomes an off-canvas
+  overlay drawer with a backdrop below the `md` breakpoint (opened via the title bar's hamburger,
+  shares the same `open` state as the desktop collapse-to-rail); tab bar scrolls horizontally;
+  title/status bars hide secondary text at narrow widths. Verified live via Preview across
+  desktop/tablet/mobile and both themes against a real Postgres fixture.
 
 ## In progress
 
-- None. DF-01's PR still needs to be opened (see Next steps); F009/F010/F011/DF-02..DF-09 are
-  `not_started` backlog.
+- None. F009/F010/F011/DF-03/DF-05..DF-08 are `not_started` backlog.
 
 ## Known issues / blockers
 
@@ -101,6 +130,8 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Next steps
 
-1. Push the DF-01 branch and open its PR; record the PR URL as evidence once merged.
-2. Pick up DF-02 (shell layout - blocks every other DF slice visually), or F009/F010/F011 per the
-   user's stated leaning: SQLite → publish → UI/UX (UI/UX is now underway as the DF series).
+1. Push the DF-02 correction commit to the existing branch/PR ([PR #15](https://github.com/ensp1re/humb/pull/15)).
+2. Pick up DF-05 (Schema tab full all-tables grid) or DF-03 (SQL Editor line-numbered gutter,
+   currently just a lightly-restyled textarea) next - DF-04 and DF-09 are done ahead of schedule
+   (folded into the DF-02 correction). F009/F010/F011 remain backlog per the user's stated leaning
+   (SQLite → publish → UI/UX, UI/UX now underway as the DF series).

@@ -77,6 +77,84 @@ scope"), multi-connection UI, settings panel content.
     (shell layout, SQL Editor, Tables, Schema, Files+backend, Console+backend, engine-version/FK
     backend additions, theme toggle) - too broad for one slice, split per
     `docs/PLANS.md`'s rule, same pattern as F008/F011.
+- 2026-07-02: DF-02 (shell layout).
+  - Rebuilt `apps/web`'s shell in `packages/ui`: `TitleBar`, `Sidebar` (wraps the restyled
+    `SchemaTree` with search + highlight + force-open-on-match + collapse-to-rail), `TabBar`,
+    `StatusBar` - all pure Tailwind against DF-01's tokens, no inline styles, per the acceptance
+    criteria in `docs/product-specs/dashboard-ui.md`.
+  - Split the old single-page layout's content across the new tabs instead of restyling it yet:
+    SQL Editor = existing `QueryRunner`, Tables = existing `RowsTable`, Schema = existing
+    single-table `TableDetail`. Decided this over building DF-05's full all-tables grid early,
+    since that's explicitly its own slice - reusing the existing single-table view keeps Schema
+    functioning (not a placeholder) without doing DF-05's work under DF-02's name. Files/Console
+    are placeholder empty states, as the behavior spec explicitly allows only for those two tabs.
+  - Set `class="dark"` on `apps/web/index.html`'s `<html>` since dark is the documented
+    default theme - the title bar's theme toggle button itself stays inert (chrome-only, same
+    precedent as the settings gear) until DF-09 wires persistence.
+  - Removed `Panel` and `StatusBadge` (`packages/ui`) - both became fully unused once the old
+    single-page layout and its "Database connection" panel were replaced by the new shell; per
+    the four-rules contract (remove dead code your own change orphans), not left as debt. The
+    status dot kept `StatusBadge`'s `data-testid="status-badge"`/`data-status` contract, moved
+    onto `TitleBar`, so existing e2e assertions needed no testid changes - only the
+    table-selection flow in `e2e/connect-and-inspect.spec.ts` was updated (select table -> now
+    switches to the Tables tab; a separate click on the Schema tab reveals `table-detail`) since
+    the tabbed layout genuinely changed when each is visible, not just cosmetically.
+  - Added `lucide-react` to `@humb/ui` for the shell's icons, per the icon library named in
+    `docs/references/design-system.md`.
+  - Live verification against a real Postgres fixture (docker `postgres:16-alpine` + the built
+    CLI) via the Preview tool caught a real bug not caught by any automated check: the search
+    highlight's `bg-[var(--c-blue)]/25` silently failed to generate a working Tailwind utility
+    (JIT can't apply an opacity modifier to a raw `var()` reference), silently falling back to
+    `<mark>`'s browser-default yellow - fixed with a `color-mix()` arbitrary value instead,
+    re-verified the tinted-blue highlight renders with correct inherited text color. Confirmed
+    search/highlight, table selection, tab switching, and sidebar collapse/expand in both light
+    and dark mode.
+  - `pnpm check` (format/lint/typecheck/test/build across all 10 packages) and
+    `pnpm test:e2e`/`pnpm test:e2e:full` all pass; commit `2b3179c`.
+- 2026-07-02: DF-02 correction + DF-04 + DF-09 (commit `0238265`).
+  - The user reviewed the DF-02 result against `github.com/ensp1re/UserDashboard` directly and
+    flagged three real problems: the shell didn't actually match the source's component patterns
+    (only its color tokens), dark mode was "bad for the eyes" with no way to leave it, and there
+    was no mobile support. Re-cloned the source (`gh repo clone`, private) and read the real
+    `App.tsx` in full this time - DF-01 had only skimmed it for token extraction, which is why the
+    tree/table/tab-bar patterns had drifted despite the colors being correct.
+  - Rewired every shell component against the actual source patterns: `SchemaTree` now builds a
+    hierarchical connection -> schema -> table tree (was flat schema -> table) with the source's
+    exact `TreeNode` depth-indent/chevron/hover/highlight behavior; `RowsTable` gained a real
+    spreadsheet grid (type/PK sub-header row via a new shared `TypeIcon` helper in `packages/ui`,
+    prefix-matched case-insensitively against both Postgres's `information_schema` strings and
+    SQLite's `PRAGMA` strings; sortable columns; row-number + checkbox columns; cell borders);
+    `TableDetail` restyled to the source's per-column row pattern; `TabBar` switched to a VS
+    Code-style attached-tab look; `StatusBar` moved to `bg-sidebar` with colored status text and
+    `·` separators; `TitleBar` got a real prefix/database-name breadcrumb split and `h-9` sizing
+    (was `h-10`, drifted from the source without a reason).
+  - This is DF-04's exact scope (client-side search/sort over the fetched page) - implemented it
+    now rather than deferring further, since the Tables tab was the user's specific complaint;
+    marked DF-04 `passing`. Added two genuinely-functional read-only actions the row checkboxes
+    make meaningful - CSV export of the current page, "copy selected as CSV" for the selection -
+    both explicitly endorsed by `docs/product-specs/dashboard-ui.md`'s out-of-scope carve-out
+    rather than wiring them to a real mutation.
+  - Root cause of "too dark, bad for the eyes": the theme toggle was wired as an inert chrome-only
+    placeholder deferred to DF-09, so there was no way to leave dark mode at all - since that's the
+    actual mechanism behind the complaint, implemented DF-09 now instead of deferring it again
+    (`apps/web/src/hooks/use-theme.ts` toggles `.dark` and persists to `localStorage`; a pre-paint
+    inline script in `index.html` reads it before React mounts so there's no flash of the wrong
+    theme). Marked DF-09 `passing`.
+  - Added mobile responsiveness, which the source has none of: `Sidebar`'s `open` state was lifted
+    to `App` so it drives both desktop's collapse-to-rail and, below the `md` breakpoint, an
+    off-canvas overlay drawer with a backdrop (opened via a new hamburger button in `TitleBar`,
+    `md:hidden`); `TabBar` scrolls horizontally instead of wrapping; `TitleBar`/`StatusBar` hide
+    secondary text (breadcrumb prefix, encoding, engine name) at narrow widths via `sm:`/`md:`
+    classes rather than JS breakpoint checks.
+  - Also gave `QueryRunner` a light restyle (bordered container, `Play`-icon run button,
+    `Cmd/Ctrl+Enter` to run) so it doesn't look visibly unstyled next to the rest of the shell -
+    the line-numbered gutter itself stays DF-03's scope, not attempted here.
+  - Verified live via Preview across desktop/tablet/mobile viewports and both themes against a
+    real Postgres fixture: hierarchical tree search/highlight, table selection auto-switching to
+    the Tables tab, sort/filter/CSV export, Schema tab, theme toggle persistence (confirmed no
+    FOUC via `document.documentElement.classList`/`localStorage` after a hard reload), and the
+    mobile drawer opening/backdrop-dismissing/auto-closing on table selection.
+  - `pnpm check` and `pnpm test:e2e`/`pnpm test:e2e:full` all pass; commit `0238265`.
 
 ## Open decisions
 
@@ -85,5 +163,7 @@ scope"), multi-connection UI, settings panel content.
 - Whether FK metadata (`DF-08`) is added to `@humb/core`'s `ColumnMetadata` directly or as a new
   field alongside `IndexMetadata` - decide when DF-08 is scoped, following F003's precedent for how
   `IndexMetadata` itself was added.
-- Order of DF-02..DF-09 pickup beyond "shell layout first" (DF-02 blocks everything else visually) -
-  not fixed; pick per session same as the F-series.
+- Order of remaining DF-03/DF-05..DF-08 pickup - not fixed; pick per session same as the F-series.
+  (DF-04 and DF-09 shipped early, folded into the DF-02 correction pass since they were the direct
+  fix for the user's Tables-tab and dark-mode complaints - not a sign the declared split doesn't
+  hold, just that user feedback pointed straight at those two.)

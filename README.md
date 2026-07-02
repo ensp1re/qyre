@@ -54,10 +54,10 @@ SQL queries, browse `.sql` files near the launch target, and watch a live log of
 connection/query activity. New engines plug in as independent `packages/drivers/<engine>` adapter
 packages and are picked up by the same detection path - no changes to the CLI, server, or UI.
 
-## Security: read-only, enforced by the database itself
+## Security: read-only today, enforced by the database itself
 
-Humb never lets you mutate the connected database, and that's not just an app-level string check
-you could work around with a clever query:
+Today, Humb is strictly read-only, and that's not enforced by just an app-level string check you
+could work around with a clever query:
 
 - Every query is scanned and rejected up front if it isn't `SELECT`/`WITH`/`EXPLAIN`/`SHOW`/
   `TABLE`/`VALUES` - but that scan is only the first layer.
@@ -67,6 +67,13 @@ you could work around with a clever query:
   gets refused by the database, not by Humb's string check.
 - Humb binds to `127.0.0.1` only and never transmits your database's contents, schema, or
   credentials anywhere off your machine.
+
+Read-only is a deliberate first phase, not a permanent ceiling: inspection has to be rock-solid
+before any write/mutation feature is even considered (see
+[`docs/PRODUCT_SENSE.md`](docs/PRODUCT_SENSE.md)'s "Read before write" rule). A future full
+IDE-style write experience - creating tables, managing users/roles, and the like - is on the
+roadmap, but it'll ship as its own carefully-scoped feature with explicit confirmation and
+permission scoping, not a quiet loosening of what's described above.
 
 See [`docs/SECURITY.md`](docs/SECURITY.md) for the full set of rules this project holds itself to.
 

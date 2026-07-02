@@ -1,5 +1,6 @@
 import type { ConnectionStatus } from "@humb/core";
 import {
+  ConsoleLog,
   FilesBrowser,
   QueryRunner,
   RowsTable,
@@ -14,6 +15,7 @@ import {
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useAllTables } from "./hooks/use-all-tables.js";
+import { useClearConsole, useConsoleEvents } from "./hooks/use-console.js";
 import { useFileContent, useFilesOverview } from "./hooks/use-files.js";
 import { useHealth } from "./hooks/use-health.js";
 import { useOverview } from "./hooks/use-overview.js";
@@ -48,6 +50,8 @@ export function App(): ReactNode {
   const allTables = useAllTables(overview.data?.schemas);
   const filesOverview = useFilesOverview({ enabled: status === "connected" });
   const fileContent = useFileContent(selectedFilePath);
+  const consoleEvents = useConsoleEvents({ enabled: status === "connected" });
+  const clearConsole = useClearConsole();
   const runQuery = useRunQuery();
 
   function selectTable(schema: string, tableName: string): void {
@@ -60,6 +64,8 @@ export function App(): ReactNode {
     void refetchHealth();
     if (status === "connected") {
       void overview.refetch();
+      void filesOverview.refetch();
+      void consoleEvents.refetch();
     }
   }
 
@@ -210,11 +216,29 @@ export function App(): ReactNode {
                   contentError={fileContent.isError ? "Failed to load file." : undefined}
                 />
               )
-            ) : (
-              <p className="text-[13px] text-muted-foreground">
-                The activity console needs a server-side event log - coming in DF-07.
-              </p>
-            )}
+            ) : tab === "console" ? (
+              consoleEvents.isLoading ? (
+                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                  <Spinner /> Loading console...
+                </p>
+              ) : consoleEvents.isError ? (
+                <p className="text-[13px] text-muted-foreground">
+                  Failed to load console events.{" "}
+                  <button
+                    type="button"
+                    onClick={() => consoleEvents.refetch()}
+                    className="text-primary underline"
+                  >
+                    Retry
+                  </button>
+                </p>
+              ) : (
+                <ConsoleLog
+                  events={consoleEvents.data?.events ?? []}
+                  onClear={() => clearConsole.mutate()}
+                />
+              )
+            ) : null}
           </div>
         </div>
       </div>

@@ -12,6 +12,7 @@ export * from "./types/schema.js";
 export * from "./types/query.js";
 export * from "./types/health.js";
 export * from "./types/files.js";
+export * from "./types/console.js";
 export * from "./errors.js";
 export * from "./connection-target.js";
 export * from "./validation/query.js";

@@ -112,10 +112,19 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   shares the same `open` state as the desktop collapse-to-rail); tab bar scrolls horizontally;
   title/status bars hide secondary text at narrow widths. Verified live via Preview across
   desktop/tablet/mobile and both themes against a real Postgres fixture.
+- **DF-03 `passing`** (commit `39bfc95`, [PR #20](https://github.com/ensp1re/humb/pull/20)): added
+  the SQL Editor's line-numbered gutter, the one piece of `QueryRunner` left unstyled after the
+  DF-02 correction pass. A scrollable line-number column
+  (`packages/ui/src/components/query-runner.tsx`) stays in sync with the textarea via a real
+  `onScroll` handler - the source design (`github.com/ensp1re/UserDashboard`'s `SqlEditor`) never
+  needed this since its query never scrolls, so there was no reference behavior to copy. Verified
+  live via Preview against a real SQLite fixture: line numbers align and stay synced while
+  scrolling a 60-line query, in both light and dark mode. Re-ran `pnpm --filter @humb/postgres
+test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - no regression.
 
 ## In progress
 
-- None. F009/F010/F011/DF-03/DF-05..DF-08 are `not_started` backlog.
+- None. F009/F010/F011/DF-05..DF-08 are `not_started` backlog.
 
 ## Known issues / blockers
 
@@ -130,8 +139,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Next steps
 
-1. Push the DF-02 correction commit to the existing branch/PR ([PR #15](https://github.com/ensp1re/humb/pull/15)).
-2. Pick up DF-05 (Schema tab full all-tables grid) or DF-03 (SQL Editor line-numbered gutter,
-   currently just a lightly-restyled textarea) next - DF-04 and DF-09 are done ahead of schedule
-   (folded into the DF-02 correction). F009/F010/F011 remain backlog per the user's stated leaning
+1. Pick up DF-05 (Schema tab full all-tables grid), DF-06 (Files tab - needs the security-scoping
+   decision first), DF-07 (Console tab), or DF-08 (engine+version status bar, FK metadata) next -
+   DF-03/DF-04/DF-09 are all done. F009/F010/F011 remain backlog per the user's stated leaning
    (SQLite → publish → UI/UX, UI/UX now underway as the DF series).

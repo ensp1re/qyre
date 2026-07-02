@@ -155,6 +155,22 @@ scope"), multi-connection UI, settings panel content.
     FOUC via `document.documentElement.classList`/`localStorage` after a hard reload), and the
     mobile drawer opening/backdrop-dismissing/auto-closing on table selection.
   - `pnpm check` and `pnpm test:e2e`/`pnpm test:e2e:full` all pass; commit `0238265`.
+- 2026-07-02: DF-03 (SQL Editor line-numbered gutter, commit `39bfc95`).
+  - The DF-02 correction pass gave `QueryRunner` a light restyle (bordered container, run button,
+    `Cmd/Ctrl+Enter`) but explicitly deferred the source design's line-numbered gutter to this
+    slice - the only piece of `SqlEditor` (`github.com/ensp1re/UserDashboard`) not yet ported.
+  - Added a scrollable line-number column to `packages/ui/src/components/query-runner.tsx`,
+    synced to the textarea's `scrollTop` via a real `onScroll` handler. The source mock's gutter
+    has no scroll sync at all - its demo query is short enough to never need it - so this had no
+    reference behavior to copy; built it because a real editor has to handle queries that scroll.
+  - Verified live via Preview against a real SQLite fixture (`sqlite3` CLI, `humb_demo_users`
+    table): line numbers render, increment, and stay aligned with content through a 60-line query
+    while scrolling, in both light and dark mode; a real query still runs and results still render
+    below the editor.
+  - `pnpm --filter @humb/web build`/`typecheck` and `pnpm --filter @humb/ui build`/`typecheck`
+    clean. Started a real `postgres:16-alpine` container and re-ran `pnpm --filter @humb/postgres
+test` (11/11) and `pnpm test:e2e:full` (1/1) - no regression from the DF-02 baseline. `pnpm
+check` (format/lint/typecheck/test/build across all packages) passes; commit `39bfc95`.
 
 ## Open decisions
 
@@ -163,7 +179,7 @@ scope"), multi-connection UI, settings panel content.
 - Whether FK metadata (`DF-08`) is added to `@humb/core`'s `ColumnMetadata` directly or as a new
   field alongside `IndexMetadata` - decide when DF-08 is scoped, following F003's precedent for how
   `IndexMetadata` itself was added.
-- Order of remaining DF-03/DF-05..DF-08 pickup - not fixed; pick per session same as the F-series.
-  (DF-04 and DF-09 shipped early, folded into the DF-02 correction pass since they were the direct
-  fix for the user's Tables-tab and dark-mode complaints - not a sign the declared split doesn't
-  hold, just that user feedback pointed straight at those two.)
+- Order of remaining DF-05..DF-08 pickup - not fixed; pick per session same as the F-series.
+  (DF-03/DF-04/DF-09 all shipped ahead of the originally-declared order - DF-04/DF-09 folded into
+  the DF-02 correction pass since user feedback pointed straight at Tables/dark-mode; DF-03 picked
+  up next as the smallest remaining slice - not a sign the declared split doesn't hold.)

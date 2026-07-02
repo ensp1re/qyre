@@ -9,4 +9,6 @@ export interface HealthResponse {
   readonly status: "ok";
   readonly database: ConnectionStatus;
   readonly target: string | null;
+  /** e.g. "PostgreSQL 16.1", "SQLite 3.45.0". Null when not connected or unavailable. */
+  readonly engineVersion: string | null;
 }

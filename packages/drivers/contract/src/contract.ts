@@ -10,6 +10,8 @@ export interface DatabaseAdapter {
   disconnect(): Promise<void>;
   /** Lightweight connectivity check. */
   ping(): Promise<boolean>;
+  /** Human-readable engine name + version, e.g. "PostgreSQL 16.1", "SQLite 3.45.0". */
+  getVersion(): Promise<string>;
   /** Introspect the overall structure (schemas and tables). */
   getOverview(): Promise<DatabaseOverview>;
   /** Introspect a single table's columns and metadata. */

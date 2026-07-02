@@ -123,6 +123,14 @@ export class PostgresAdapter implements DatabaseAdapter {
     return result.rows[0]?.ok === 1;
   }
 
+  async getVersion(): Promise<string> {
+    const result = await this.getPool().query<{ version: string }>("SELECT version() AS version");
+    const raw = result.rows[0]?.version ?? "";
+    // e.g. "PostgreSQL 16.4 (Debian 16.4-1.pgdg120+1) on x86_64-pc-linux-gnu, ..." -> "PostgreSQL 16.4".
+    const match = /^(\S+)\s+(\S+)/.exec(raw);
+    return match ? `${match[1]} ${match[2]}` : raw;
+  }
+
   async getOverview(): Promise<DatabaseOverview> {
     const result = await this.getPool().query<{ table_schema: string; table_name: string }>(
       `SELECT table_schema, table_name
@@ -172,11 +180,24 @@ export class PostgresAdapter implements DatabaseAdapter {
     );
     const primaryKeys = new Set(pkResult.rows.map((row) => row.column_name));
 
+    const fkResult = await this.getPool().query<{ column_name: string }>(
+      `SELECT kcu.column_name
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.key_column_usage kcu
+           ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND tc.table_schema = $1 AND tc.table_name = $2`,
+      [schema, table]
+    );
+    const foreignKeys = new Set(fkResult.rows.map((row) => row.column_name));
+
     const columns: ColumnMetadata[] = columnsResult.rows.map((row) => ({
       name: row.column_name,
       dataType: row.data_type,
       nullable: row.is_nullable === "YES",
-      isPrimaryKey: primaryKeys.has(row.column_name)
+      isPrimaryKey: primaryKeys.has(row.column_name),
+      isForeignKey: foreignKeys.has(row.column_name)
     }));
 
     const [indexes, rowCount] = await Promise.all([

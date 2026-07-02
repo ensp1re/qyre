@@ -4,6 +4,7 @@ export interface ColumnMetadata {
   readonly dataType: string;
   readonly nullable: boolean;
   readonly isPrimaryKey: boolean;
+  readonly isForeignKey: boolean;
 }
 
 /** Metadata for a single index on a table. */

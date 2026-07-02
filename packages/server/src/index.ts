@@ -79,6 +79,9 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
     }
     lastKnownStatus = database;
 
+    const engineVersion =
+      adapter && database === "connected" ? await adapter.getVersion().catch(() => null) : null;
+
     return {
       status: "ok",
       database,
@@ -88,7 +91,8 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
         ? target.engine === "sqlite"
           ? target.raw
           : redactConnectionString(target.raw)
-        : null
+        : null,
+      engineVersion
     };
   });
 

@@ -51,6 +51,17 @@ interface IndexInfoRow {
   name: string;
 }
 
+interface ForeignKeyListRow {
+  id: number;
+  seq: number;
+  table: string;
+  from: string;
+  to: string | null;
+  on_update: string;
+  on_delete: string;
+  match: string;
+}
+
 /** Fetch index metadata for a table via SQLite's pragmas. */
 function fetchIndexes(db: Database.Database, table: string): IndexMetadata[] {
   const indexList = db.pragma(`index_list(${quoteIdent(table)})`) as IndexListRow[];
@@ -96,6 +107,13 @@ export class SqliteAdapter implements DatabaseAdapter {
     return row?.ok === 1;
   }
 
+  async getVersion(): Promise<string> {
+    const row = this.getDb().prepare("SELECT sqlite_version() AS version").get() as {
+      version: string;
+    };
+    return `SQLite ${row.version}`;
+  }
+
   async getOverview(): Promise<DatabaseOverview> {
     const tables = this.getDb()
       .prepare(
@@ -113,6 +131,10 @@ export class SqliteAdapter implements DatabaseAdapter {
   async getTable(schema: string, table: string): Promise<TableMetadata> {
     const db = this.getDb();
     const tableInfo = db.pragma(`table_info(${quoteIdent(table)})`) as TableInfoRow[];
+    const foreignKeyList = db.pragma(
+      `foreign_key_list(${quoteIdent(table)})`
+    ) as ForeignKeyListRow[];
+    const foreignKeys = new Set(foreignKeyList.map((fk) => fk.from));
 
     const columns: ColumnMetadata[] = tableInfo.map((row) => ({
       name: row.name,
@@ -120,7 +142,8 @@ export class SqliteAdapter implements DatabaseAdapter {
       // awkwardly in the UI, so fall back to a neutral placeholder rather than an empty cell.
       dataType: row.type || "any",
       nullable: row.notnull === 0,
-      isPrimaryKey: row.pk > 0
+      isPrimaryKey: row.pk > 0,
+      isForeignKey: foreignKeys.has(row.name)
     }));
 
     const indexes = fetchIndexes(db, table);

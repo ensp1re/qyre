@@ -11,7 +11,50 @@ describe("createServer", () => {
     const app = createServer();
     const response = await app.inject({ method: "GET", url: "/api/health" });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ status: "ok", database: "unconfigured" });
+    expect(response.json()).toMatchObject({
+      status: "ok",
+      database: "unconfigured",
+      engineVersion: null
+    });
+    await app.close();
+  });
+
+  it("reports the adapter's engine version when connected", async () => {
+    const adapter: DatabaseAdapter = {
+      engine: "postgres",
+      connect: async () => {},
+      disconnect: async () => {},
+      ping: async () => true,
+      getVersion: async () => "PostgreSQL 16.4",
+      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getTable: async () => ({ schema: "public", name: "x", columns: [] }),
+      getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
+      runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
+    };
+    const app = createServer({ adapter });
+    const response = await app.inject({ method: "GET", url: "/api/health" });
+    expect(response.json()).toMatchObject({
+      database: "connected",
+      engineVersion: "PostgreSQL 16.4"
+    });
+    await app.close();
+  });
+
+  it("reports a null engine version when the adapter is disconnected", async () => {
+    const adapter: DatabaseAdapter = {
+      engine: "postgres",
+      connect: async () => {},
+      disconnect: async () => {},
+      ping: async () => false,
+      getVersion: async () => "PostgreSQL 16.4",
+      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getTable: async () => ({ schema: "public", name: "x", columns: [] }),
+      getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
+      runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
+    };
+    const app = createServer({ adapter });
+    const response = await app.inject({ method: "GET", url: "/api/health" });
+    expect(response.json()).toMatchObject({ database: "disconnected", engineVersion: null });
     await app.close();
   });
 
@@ -35,6 +78,7 @@ describe("createServer", () => {
       connect: async () => {},
       disconnect: async () => {},
       ping: async () => true,
+      getVersion: async () => "PostgreSQL 16.0",
       getOverview: async () => ({ engine: "postgres", schemas: [] }),
       getTable: async () => ({ schema: "public", name: "x", columns: [] }),
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
@@ -187,6 +231,7 @@ describe("createServer", () => {
         connect: async () => {},
         disconnect: async () => {},
         ping: async () => true,
+        getVersion: async () => "PostgreSQL 16.0",
         getOverview: async () => ({ engine: "postgres", schemas: [] }),
         getTable: async () => ({ schema: "public", name: "x", columns: [] }),
         getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
@@ -214,6 +259,7 @@ describe("createServer", () => {
         connect: async () => {},
         disconnect: async () => {},
         ping: async () => true,
+        getVersion: async () => "PostgreSQL 16.0",
         getOverview: async () => ({ engine: "postgres", schemas: [] }),
         getTable: async () => ({ schema: "public", name: "x", columns: [] }),
         getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
@@ -238,6 +284,7 @@ describe("createServer", () => {
         connect: async () => {},
         disconnect: async () => {},
         ping: async () => connected,
+        getVersion: async () => "PostgreSQL 16.0",
         getOverview: async () => ({ engine: "postgres", schemas: [] }),
         getTable: async () => ({ schema: "public", name: "x", columns: [] }),
         getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
@@ -262,6 +309,7 @@ describe("createServer", () => {
         connect: async () => {},
         disconnect: async () => {},
         ping: async () => true,
+        getVersion: async () => "PostgreSQL 16.0",
         getOverview: async () => ({ engine: "postgres", schemas: [] }),
         getTable: async () => ({ schema: "public", name: "x", columns: [] }),
         getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),

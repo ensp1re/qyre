@@ -30,6 +30,11 @@ describe("SqliteAdapter integration", () => {
       CREATE UNIQUE INDEX idx_humb_demo_users_email ON humb_demo_users(email);
       CREATE TABLE humb_demo_empty (id INTEGER PRIMARY KEY, note TEXT);
       CREATE TABLE humb_demo_composite (a INTEGER, b INTEGER, PRIMARY KEY (a, b));
+      CREATE TABLE humb_demo_orders (
+        id INTEGER PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES humb_demo_users(id),
+        total REAL NOT NULL
+      );
       INSERT INTO humb_demo_users (name, email) VALUES
         ('Ada Lovelace', 'ada@example.com'),
         ('Alan Turing', 'alan@example.com'),
@@ -64,7 +69,9 @@ describe("SqliteAdapter integration", () => {
     const table = await adapter.getTable("main", "humb_demo_users");
 
     expect(table.columns.map((column) => column.name)).toEqual(["id", "name", "email"]);
-    expect(table.columns.find((column) => column.name === "id")?.isPrimaryKey).toBe(true);
+    const idColumn = table.columns.find((column) => column.name === "id");
+    expect(idColumn?.isPrimaryKey).toBe(true);
+    expect(idColumn?.isForeignKey).toBe(false);
     expect(table.columns.find((column) => column.name === "name")?.nullable).toBe(false);
 
     const emailIndex = table.indexes?.find((index) => index.name === "idx_humb_demo_users_email");
@@ -74,6 +81,16 @@ describe("SqliteAdapter integration", () => {
     expect(emailIndex?.columns).toEqual(["email"]);
 
     expect(table.rowCount).toBe(3);
+  });
+
+  it("reports the connected engine's name and version", async () => {
+    expect(await adapter.getVersion()).toMatch(/^SQLite \d/);
+  });
+
+  it("flags a column referencing another table as a foreign key", async () => {
+    const table = await adapter.getTable("main", "humb_demo_orders");
+    expect(table.columns.find((column) => column.name === "user_id")?.isForeignKey).toBe(true);
+    expect(table.columns.find((column) => column.name === "total")?.isForeignKey).toBe(false);
   });
 
   it("marks a composite primary key's auto-index as primary, without an integer-rowid PK needing one", async () => {

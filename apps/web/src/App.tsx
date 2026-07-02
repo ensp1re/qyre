@@ -246,6 +246,7 @@ export function App(): ReactNode {
       <StatusBar
         status={status}
         engine={overview.data?.engine}
+        engineVersion={health?.engineVersion}
         schema={selected?.schema}
         lastQueryMs={lastQueryMs}
       />

@@ -77,6 +77,40 @@ scope"), multi-connection UI, settings panel content.
     (shell layout, SQL Editor, Tables, Schema, Files+backend, Console+backend, engine-version/FK
     backend additions, theme toggle) - too broad for one slice, split per
     `docs/PLANS.md`'s rule, same pattern as F008/F011.
+- 2026-07-02: DF-02 (shell layout).
+  - Rebuilt `apps/web`'s shell in `packages/ui`: `TitleBar`, `Sidebar` (wraps the restyled
+    `SchemaTree` with search + highlight + force-open-on-match + collapse-to-rail), `TabBar`,
+    `StatusBar` - all pure Tailwind against DF-01's tokens, no inline styles, per the acceptance
+    criteria in `docs/product-specs/dashboard-ui.md`.
+  - Split the old single-page layout's content across the new tabs instead of restyling it yet:
+    SQL Editor = existing `QueryRunner`, Tables = existing `RowsTable`, Schema = existing
+    single-table `TableDetail`. Decided this over building DF-05's full all-tables grid early,
+    since that's explicitly its own slice - reusing the existing single-table view keeps Schema
+    functioning (not a placeholder) without doing DF-05's work under DF-02's name. Files/Console
+    are placeholder empty states, as the behavior spec explicitly allows only for those two tabs.
+  - Set `class="dark"` on `apps/web/index.html`'s `<html>` since dark is the documented
+    default theme - the title bar's theme toggle button itself stays inert (chrome-only, same
+    precedent as the settings gear) until DF-09 wires persistence.
+  - Removed `Panel` and `StatusBadge` (`packages/ui`) - both became fully unused once the old
+    single-page layout and its "Database connection" panel were replaced by the new shell; per
+    the four-rules contract (remove dead code your own change orphans), not left as debt. The
+    status dot kept `StatusBadge`'s `data-testid="status-badge"`/`data-status` contract, moved
+    onto `TitleBar`, so existing e2e assertions needed no testid changes - only the
+    table-selection flow in `e2e/connect-and-inspect.spec.ts` was updated (select table -> now
+    switches to the Tables tab; a separate click on the Schema tab reveals `table-detail`) since
+    the tabbed layout genuinely changed when each is visible, not just cosmetically.
+  - Added `lucide-react` to `@humb/ui` for the shell's icons, per the icon library named in
+    `docs/references/design-system.md`.
+  - Live verification against a real Postgres fixture (docker `postgres:16-alpine` + the built
+    CLI) via the Preview tool caught a real bug not caught by any automated check: the search
+    highlight's `bg-[var(--c-blue)]/25` silently failed to generate a working Tailwind utility
+    (JIT can't apply an opacity modifier to a raw `var()` reference), silently falling back to
+    `<mark>`'s browser-default yellow - fixed with a `color-mix()` arbitrary value instead,
+    re-verified the tinted-blue highlight renders with correct inherited text color. Confirmed
+    search/highlight, table selection, tab switching, and sidebar collapse/expand in both light
+    and dark mode.
+  - `pnpm check` (format/lint/typecheck/test/build across all 10 packages) and
+    `pnpm test:e2e`/`pnpm test:e2e:full` all pass; commit `2b3179c`.
 
 ## Open decisions
 

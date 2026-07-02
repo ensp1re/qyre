@@ -82,11 +82,34 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   scaffolded but completely unused - zero regression risk, verified live via build/typecheck/e2e/a
   Preview screenshot); added `cn()` to `packages/ui`. Also introduced the `DF-##` ID series
   alongside `F###` (`docs/NAMING.md`, `scripts/check-features.mjs`) for frontend/design-driven work.
+  [PR #14](https://github.com/ensp1re/humb/pull/14), merged.
+- **DF-02 `passing`** (commit `2b3179c`): rebuilt `apps/web`'s shell to the actual IDE layout -
+  title bar (wordmark, connection breadcrumb, status dot, refresh, chrome-only theme/settings
+  placeholders), a collapsible sidebar with a searchable/highlightable schema tree (matches
+  force-open their ancestor group), a five-tab bar (SQL Editor/Tables/Schema/Files/Console), and a
+  status bar (connection, engine, current schema) - all pure Tailwind against DF-01's tokens, no
+  inline styles. Existing data flows were preserved, just redistributed across tabs instead of one
+  long page: SQL Editor hosts `QueryRunner`, Tables hosts `RowsTable`, Schema hosts the existing
+  single-table `TableDetail` (the full all-tables grid is DF-05's job, not built here); Files/Console
+  are placeholder empty states pending DF-06/DF-07's backends. Selecting a table in the sidebar
+  switches to the Tables tab. Dark is now the default theme on `<html>` per the design system - the
+  theme toggle itself stays inert until DF-09 wires persistence, same chrome-only precedent as the
+  settings gear. Removed `Panel` and `StatusBadge` from `packages/ui` (both became fully unused once
+  the old single-page layout and its "Database connection" panel were replaced); the status dot kept
+  the same `data-testid="status-badge"`/`data-status` contract, now on `TitleBar`, so existing e2e
+  assertions kept working with only the table-selection flow in
+  `e2e/connect-and-inspect.spec.ts` updated for the new tab-based navigation. Added `lucide-react` to
+  `@humb/ui` for the shell's icons. Caught and fixed a real bug during live Preview verification (not
+  caught by any automated check): the search-highlight's `bg-[var(--c-blue)]/25` silently failed to
+  generate a working Tailwind utility - Tailwind's JIT can't apply an opacity modifier to a raw
+  `var()` reference, so it fell back to `<mark>`'s default yellow; fixed with a `color-mix()`
+  arbitrary value instead. Verified live against a real Postgres fixture (docker `postgres:16-alpine`
+  - the built CLI): search/highlight, table selection, tab switching, and sidebar collapse/expand all
+    confirmed in both light and dark mode.
 
 ## In progress
 
-- None. DF-01's PR still needs to be opened (see Next steps); F009/F010/F011/DF-02..DF-09 are
-  `not_started` backlog.
+- None. F009/F010/F011/DF-03..DF-09 are `not_started` backlog.
 
 ## Known issues / blockers
 
@@ -101,6 +124,8 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Next steps
 
-1. Push the DF-01 branch and open its PR; record the PR URL as evidence once merged.
-2. Pick up DF-02 (shell layout - blocks every other DF slice visually), or F009/F010/F011 per the
-   user's stated leaning: SQLite → publish → UI/UX (UI/UX is now underway as the DF series).
+1. Push the DF-02 branch and open its PR; record the PR URL as evidence once merged.
+2. Pick up DF-03 (SQL Editor tab restyle) next - it's the first of the per-tab content slices now
+   that the shell exists; DF-04/DF-05 (Tables/Schema restyle) follow the same pattern. F009/F010/F011
+   remain backlog per the user's stated leaning (SQLite → publish → UI/UX, UI/UX now underway as the
+   DF series).

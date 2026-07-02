@@ -88,7 +88,10 @@ export function Sidebar({
                   selected={selected}
                   onSelect={(schema, table) => {
                     onSelect(schema, table);
-                    onOpenChange(false);
+                    // Only the mobile off-canvas drawer should auto-close on selection - the
+                    // desktop rail should stay open, since collapsing it every click is the
+                    // opposite of useful there.
+                    if (window.innerWidth < 768) onOpenChange(false);
                   }}
                 />
               )}

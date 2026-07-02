@@ -34,7 +34,7 @@ export function TableDetail({ table }: TableDetailProps): ReactNode {
             key={column.name}
             className={
               "flex items-center gap-2 px-3 py-1.5 font-mono text-[11px] hover:bg-accent/50" +
-              (index !== 0 ? " border-t border-border/40" : "")
+              (index !== 0 ? " border-t border-border-subtle" : "")
             }
           >
             <TypeIcon dataType={column.dataType} />

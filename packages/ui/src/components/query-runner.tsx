@@ -99,11 +99,11 @@ export function QueryRunner({
               </thead>
               <tbody>
                 {result.rows.map((row, rowIndex) => (
-                  <tr key={rowIndex} className="border-b border-border/50">
+                  <tr key={rowIndex} className="border-b border-border-subtle">
                     {result.columns.map((column) => (
                       <td
                         key={column}
-                        className="whitespace-nowrap border-r border-border/50 px-3 py-1.5 text-foreground/80"
+                        className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
                       >
                         {formatCell(row[column])}
                       </td>

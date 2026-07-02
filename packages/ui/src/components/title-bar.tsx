@@ -82,10 +82,15 @@ export function TitleBar({
         data-testid="status-badge"
         data-status={status}
         title={STATUS_LABEL[status]}
-        className="ml-3 flex shrink-0 items-center"
+        className="ml-3 flex shrink-0 items-center gap-1.5"
       >
         <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT_COLOR[status])} />
-        <span className="sr-only">{STATUS_LABEL[status]}</span>
+        <span
+          data-testid="connection-summary"
+          className="font-mono text-[11px] text-muted-foreground"
+        >
+          {STATUS_LABEL[status]}
+        </span>
       </span>
 
       <div className="ml-auto flex shrink-0 items-center gap-0.5">

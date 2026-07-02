@@ -139,8 +139,9 @@ export function RowsTable({
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Filter rows..."
-            aria-label="Filter rows"
+            placeholder="Filter this page..."
+            aria-label="Filter this page"
+            title="Filters only the rows currently loaded on this page, not the whole table"
             className="w-28 min-w-0 bg-transparent text-foreground outline-none placeholder:text-muted-foreground sm:w-36"
           />
           {search && (
@@ -168,7 +169,8 @@ export function RowsTable({
           <button
             type="button"
             onClick={exportCsv}
-            aria-label="Export as CSV"
+            aria-label="Export this page as CSV"
+            title="Exports the rows currently loaded on this page, not the whole table"
             className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <Download className="h-3 w-3" />
@@ -250,11 +252,11 @@ export function RowsTable({
                   key={index}
                   onClick={() => toggleRow(index)}
                   className={cn(
-                    "cursor-pointer border-b border-border/50 hover:bg-accent/40",
+                    "cursor-pointer border-b border-border-subtle hover:bg-accent/40",
                     selected.has(index) && "bg-primary/5"
                   )}
                 >
-                  <td className="w-8 border-r border-border/50 px-2 py-1.5 text-center">
+                  <td className="w-8 border-r border-border-subtle px-2 py-1.5 text-center">
                     <input
                       type="checkbox"
                       checked={selected.has(index)}
@@ -264,13 +266,13 @@ export function RowsTable({
                       aria-label={`Select row ${displayIndex + 1}`}
                     />
                   </td>
-                  <td className="w-8 border-r border-border/50 px-2 py-1.5 text-right text-muted-foreground/30">
+                  <td className="w-8 border-r border-border-subtle px-2 py-1.5 text-right text-muted-foreground/30">
                     {displayIndex + 1}
                   </td>
                   {rowPage.columns.map((columnName) => (
                     <td
                       key={columnName}
-                      className="whitespace-nowrap border-r border-border/50 px-3 py-1.5 text-foreground/80"
+                      className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
                     >
                       {row[columnName] === null || row[columnName] === undefined ? (
                         <span className="italic text-muted-foreground/30">null</span>
@@ -288,7 +290,10 @@ export function RowsTable({
 
       <div className="flex shrink-0 items-center justify-between border-t border-border bg-card px-3 py-1.5">
         <span className="font-mono text-[10px] text-muted-foreground">
-          {sorted.length} of {approxRowCount !== undefined ? `~${approxRowCount}` : sorted.length}{" "}
+          {sorted.length.toLocaleString()} of{" "}
+          {approxRowCount !== undefined
+            ? `~${approxRowCount.toLocaleString()}`
+            : sorted.length.toLocaleString()}{" "}
           rows
           {tableName && <> · {tableName}</>}
         </span>

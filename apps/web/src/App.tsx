@@ -93,7 +93,7 @@ export function App(): ReactNode {
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
             {status !== "connected" ? (
-              <p data-testid="connection-summary" className="text-[13px] text-muted-foreground">
+              <p className="text-[13px] text-muted-foreground">
                 {healthLoading
                   ? "Checking connection..."
                   : "No database is connected yet. Launch Humb with a Postgres or SQLite target to get started."}

@@ -23,7 +23,7 @@ export function TableDetail({ table }: TableDetailProps): ReactNode {
         <span className="font-mono text-[12px] font-medium text-foreground">{table.name}</span>
         {table.rowCount !== undefined && (
           <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-            ~{table.rowCount} row{table.rowCount === 1 ? "" : "s"}
+            ~{table.rowCount.toLocaleString()} row{table.rowCount === 1 ? "" : "s"}
           </span>
         )}
       </div>

@@ -9,34 +9,43 @@
  * Figma Make export). Semantic tokens only; component code should reference these via Tailwind
  * classes (bg-background, text-muted-foreground, ...) or var(--c-*) for the accent set below, never
  * raw hex.
+ *
+ * Color tokens are "R G B" triplets (not hex/rgba) so Tailwind's opacity modifiers work
+ * (bg-primary/10, text-foreground/70, ...) - Tailwind can only substitute <alpha-value> into a
+ * space-separated rgb() triplet, not into a var() holding a full color string. See
+ * apps/web/SUGGESTIONS.md #1 for the bug this fixes: every alpha-modified class on a themed color
+ * was silently compiling to nothing. `--border`/`--sidebar-border` are the one exception - they
+ * carry a fixed hairline alpha baked in on purpose (see --border-subtle below for the one softer
+ * variant actually needed, rather than letting every callsite invent its own alpha).
  */
 :root {
   color-scheme: light;
   --font-size: 13px;
-  --background: #f5f6f8;
-  --foreground: #1a1d23;
-  --card: #ffffff;
-  --card-foreground: #1a1d23;
-  --popover: #ffffff;
-  --popover-foreground: #1a1d23;
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  --secondary: #eef0f3;
-  --secondary-foreground: #1a1d23;
-  --muted: #eef0f3;
-  --muted-foreground: #64748b;
-  --accent: #e8eaed;
-  --accent-foreground: #1a1d23;
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
+  --background: 245 246 248;
+  --foreground: 26 29 35;
+  --card: 255 255 255;
+  --card-foreground: 26 29 35;
+  --popover: 255 255 255;
+  --popover-foreground: 26 29 35;
+  --primary: 37 99 235;
+  --primary-foreground: 255 255 255;
+  --secondary: 238 240 243;
+  --secondary-foreground: 26 29 35;
+  --muted: 238 240 243;
+  --muted-foreground: 91 107 128;
+  --accent: 232 234 237;
+  --accent-foreground: 26 29 35;
+  --destructive: 220 38 38;
+  --destructive-foreground: 255 255 255;
   --border: rgba(0, 0, 0, 0.08);
-  --input: #eef0f3;
-  --ring: #2563eb;
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --input: 238 240 243;
+  --ring: 37 99 235;
   --radius: 0.25rem;
-  --sidebar: #eff1f4;
-  --sidebar-foreground: #1a1d23;
-  --sidebar-accent: #e4e6ea;
-  --sidebar-accent-foreground: #1a1d23;
+  --sidebar: 239 241 244;
+  --sidebar-foreground: 26 29 35;
+  --sidebar-accent: 228 230 234;
+  --sidebar-accent-foreground: 26 29 35;
   --sidebar-border: rgba(0, 0, 0, 0.06);
   /* semantic accent colors (data-type icons, status dots, badges, SQL syntax highlighting) */
   --c-green: #16a34a;
@@ -49,29 +58,30 @@
 /* Dark is the primary/default theme for this product - see docs/references/design-system.md. */
 .dark {
   color-scheme: dark;
-  --background: #0a0d12;
-  --foreground: #cdd6e4;
-  --card: #10151c;
-  --card-foreground: #cdd6e4;
-  --popover: #161d27;
-  --popover-foreground: #cdd6e4;
-  --primary: #4a9eff;
-  --primary-foreground: #0a0d12;
-  --secondary: #161d27;
-  --secondary-foreground: #cdd6e4;
-  --muted: #161d27;
-  --muted-foreground: #5a6880;
-  --accent: #1a2535;
-  --accent-foreground: #cdd6e4;
-  --destructive: #e05c6a;
-  --destructive-foreground: #ffffff;
+  --background: 10 13 18;
+  --foreground: 205 214 228;
+  --card: 16 21 28;
+  --card-foreground: 205 214 228;
+  --popover: 22 29 39;
+  --popover-foreground: 205 214 228;
+  --primary: 74 158 255;
+  --primary-foreground: 10 13 18;
+  --secondary: 22 29 39;
+  --secondary-foreground: 205 214 228;
+  --muted: 22 29 39;
+  --muted-foreground: 127 142 166;
+  --accent: 26 37 53;
+  --accent-foreground: 205 214 228;
+  --destructive: 224 92 106;
+  --destructive-foreground: 255 255 255;
   --border: rgba(255, 255, 255, 0.06);
-  --input: #161d27;
-  --ring: #4a9eff;
-  --sidebar: #0d1219;
-  --sidebar-foreground: #cdd6e4;
-  --sidebar-accent: #161d27;
-  --sidebar-accent-foreground: #cdd6e4;
+  --border-subtle: rgba(255, 255, 255, 0.03);
+  --input: 22 29 39;
+  --ring: 74 158 255;
+  --sidebar: 13 18 25;
+  --sidebar-foreground: 205 214 228;
+  --sidebar-accent: 22 29 39;
+  --sidebar-accent-foreground: 205 214 228;
   --sidebar-border: rgba(255, 255, 255, 0.06);
   --c-green: #4fc46a;
   --c-amber: #e09a40;
@@ -96,6 +106,6 @@ body {
     Helvetica,
     Arial,
     sans-serif;
-  background: var(--background);
-  color: var(--foreground);
+  background: rgb(var(--background));
+  color: rgb(var(--foreground));
 }

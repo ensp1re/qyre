@@ -30,7 +30,7 @@ interface Node {
 const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
   connected: "var(--c-green)",
   disconnected: "var(--c-red)",
-  unconfigured: "var(--muted-foreground)"
+  unconfigured: "rgb(var(--muted-foreground))"
 };
 
 function buildTree(target: string | null, schemas: SchemaMetadata[]): Node {

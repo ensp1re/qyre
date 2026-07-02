@@ -6,6 +6,7 @@
  */
 export * from "./components/schema-tree.js";
 export * from "./components/sidebar.js";
+export * from "./components/spinner.js";
 export * from "./components/status-bar.js";
 export * from "./components/tab-bar.js";
 export * from "./components/table-detail.js";

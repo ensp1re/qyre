@@ -3,6 +3,7 @@ import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
 import { SchemaTree, type SelectedTable } from "./schema-tree.js";
+import { Spinner } from "./spinner.js";
 
 export interface SidebarProps {
   target: string | null;
@@ -70,8 +71,8 @@ export function Sidebar({
 
             <div className="min-h-0 flex-1">
               {isLoading ? (
-                <p className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                  Loading schemas...
+                <p className="flex items-center gap-1.5 px-3 py-2 font-mono text-[11px] text-muted-foreground">
+                  <Spinner /> Loading schemas...
                 </p>
               ) : isError ? (
                 <div className="px-3 py-2 font-mono text-[11px] text-muted-foreground">

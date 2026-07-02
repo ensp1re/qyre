@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseArgs, resolvePort } from "./index.js";
+import { parseArgs, resolveFilesRoot, resolvePort } from "./index.js";
 
 describe("parseArgs", () => {
   it("parses a target argument", () => {
@@ -13,6 +13,15 @@ describe("parseArgs", () => {
 
   it("returns an undefined target when none is given", () => {
     expect(parseArgs([]).target).toBeUndefined();
+  });
+
+  it("parses the --files-dir option", () => {
+    const args = parseArgs(["postgres://localhost/db", "--files-dir", "./sql"]);
+    expect(args.filesDir).toBe("./sql");
+  });
+
+  it("returns an undefined filesDir when the flag is omitted", () => {
+    expect(parseArgs(["postgres://localhost/db"]).filesDir).toBeUndefined();
   });
 });
 
@@ -31,5 +40,15 @@ describe("resolvePort", () => {
 
   it("ignores an invalid HUMB_PORT", () => {
     expect(resolvePort(undefined, { HUMB_PORT: "not-a-number" })).toBeUndefined();
+  });
+});
+
+describe("resolveFilesRoot", () => {
+  it("resolves a relative path against cwd", () => {
+    expect(resolveFilesRoot("./sql", "/home/user/project")).toBe("/home/user/project/sql");
+  });
+
+  it("returns undefined when no --files-dir flag was given", () => {
+    expect(resolveFilesRoot(undefined, "/home/user/project")).toBeUndefined();
   });
 });

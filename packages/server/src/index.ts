@@ -4,15 +4,22 @@
  * Exposes a small JSON API the browser UI consumes, plus a health endpoint used for verification.
  * The server never talks to a database directly; it goes through a {@link DatabaseAdapter}.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import fastifyStatic from "@fastify/static";
-import { DEFAULT_PORT, redactConnectionString, rowsQuerySchema, runQuerySchema } from "@humb/core";
-import type { ConnectionTarget, HealthResponse } from "@humb/core";
+import {
+  DEFAULT_PORT,
+  fileContentQuerySchema,
+  redactConnectionString,
+  rowsQuerySchema,
+  runQuerySchema
+} from "@humb/core";
+import type { ConnectionTarget, FileContent, FilesOverview, HealthResponse } from "@humb/core";
 import { ReadOnlyViolationError } from "@humb/driver-contract";
 import type { DatabaseAdapter } from "@humb/driver-contract";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
+import { buildFileTree, InvalidFilePathError, resolveSqlFilePath } from "./files.js";
 
 export interface CreateServerOptions {
   /** The connected (or to-be-connected) database adapter. */
@@ -27,6 +34,12 @@ export interface CreateServerOptions {
    * has something to open. When omitted, only the `/api/*` routes are registered.
    */
   webRoot?: string;
+  /**
+   * Absolute path to the one directory the Files tab may read `.sql` files from (the `--files-dir`
+   * CLI flag, resolved and validated at startup). Omitted means file browsing is disabled - see
+   * docs/product-specs/dashboard-ui.md's "Files tab security boundary".
+   */
+  filesRoot?: string;
 }
 
 function requireAdapter(adapter: DatabaseAdapter | undefined): DatabaseAdapter {
@@ -39,7 +52,7 @@ function requireAdapter(adapter: DatabaseAdapter | undefined): DatabaseAdapter {
 /** Build (but do not start) the Humb HTTP server. */
 export function createServer(options: CreateServerOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false });
-  const { adapter, target } = options;
+  const { adapter, target, filesRoot } = options;
 
   app.get("/api/health", async (): Promise<HealthResponse> => {
     let database: HealthResponse["database"] = "unconfigured";
@@ -93,6 +106,41 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
       }
       throw error;
     }
+  });
+
+  app.get("/api/files", async (): Promise<FilesOverview> => {
+    if (!filesRoot) return { enabled: false, tree: [] };
+    return { enabled: true, tree: buildFileTree(filesRoot) };
+  });
+
+  app.get<{ Querystring: Record<string, string> }>("/api/files/content", async (request, reply) => {
+    if (!filesRoot) {
+      return reply.status(503).send({ error: "File browsing is not configured." });
+    }
+    const parsed = fileContentQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Query must include ?path=<relative path>." });
+    }
+
+    let absolutePath: string;
+    try {
+      absolutePath = resolveSqlFilePath(filesRoot, parsed.data.path);
+    } catch (error) {
+      if (error instanceof InvalidFilePathError) {
+        return reply.status(400).send({ error: error.message });
+      }
+      throw error;
+    }
+
+    if (!existsSync(absolutePath) || !statSync(absolutePath).isFile()) {
+      return reply.status(404).send({ error: "File not found." });
+    }
+
+    const content: FileContent = {
+      path: parsed.data.path,
+      content: readFileSync(absolutePath, "utf-8")
+    };
+    return content;
   });
 
   if (options.webRoot && existsSync(join(options.webRoot, "index.html"))) {

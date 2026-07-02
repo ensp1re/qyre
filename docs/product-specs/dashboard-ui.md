@@ -52,15 +52,42 @@ into a UI-only change:
   in `information_schema.key_column_usage`/`table_constraints`; SQLite has it via
   `PRAGMA foreign_key_list`. Add as a genuinely engine-agnostic contract field, implemented per
   engine, same pattern as `IndexMetadata` (F003).
-- **Read-only file browsing (Files tab)**: needs its own security-scoped design before any backend
-  work starts - see `docs/SECURITY.md`'s untrusted-input rules. Do not implement as "read any path
-  the client asks for." Candidate scope: only files matching `*.sql` under a directory the CLI was
-  explicitly pointed at (e.g. via a new `--files-dir` flag), never arbitrary filesystem traversal
-  from the launch cwd. Decide and document the exact boundary as part of that `DF-##` entry before
-  writing the endpoint.
+- **Read-only file browsing (Files tab)**: security boundary decided below (DF-06).
 - **Recent activity/event log (Console tab)**: needs an in-memory ring buffer of recent query/health
   events on the server (no persistence requirement) and an endpoint to read it. Structured logging
   already exists (Fastify/pino) but isn't queryable by the frontend today.
+
+## Files tab security boundary (DF-06)
+
+Decided before writing any endpoint code, per `docs/SECURITY.md`'s untrusted-input rule and the
+"Backend gaps" note above. The server never reads an arbitrary path a client sends - the boundary
+is fixed at CLI startup, not per-request:
+
+- **Opt-in, not default-on**: file browsing is disabled unless the user passes a new `--files-dir
+  <dir>` CLI flag. With no flag, `GET /api/files` responds `{ enabled: false, tree: [] }` and the
+  Files tab shows an explanatory empty state - it never silently scans the launch cwd.
+- **One fixed root, resolved once at startup**: `--files-dir` is resolved to an absolute path and
+  validated (must exist and be a directory) when the CLI starts, exactly like the database target
+  itself. Every request is scoped to that single root for the life of the process.
+- **Extension allowlist**: only `*.sql` files are ever listed or readable. Directories are listed
+  (to preserve folder structure like `migrations/`, `queries/`) but pruned from the response if they
+  contain no `.sql` file anywhere below them, so the tree only ever shows SQL-relevant content.
+  `.`-prefixed entries and `node_modules` are skipped while walking, so pointing `--files-dir` at a
+  whole repo by mistake doesn't dump its entire tree.
+- **Per-request path validation on the content-read endpoint** (`GET /api/files/content?path=...`):
+  the `path` query value is untrusted client input even though the root is fixed. Reject any path
+  containing a `..` segment outright, require the extension to be `.sql`, then resolve it against
+  the root and require the resolved absolute path to still start with the root - this is what
+  actually stops traversal, not the extension check alone. A rejected path is a `400`, matching
+  F006's precedent for query-runner rejections (a client mistake, not a server fault).
+- **No symlink following**: the tree walk classifies entries via `fs.Dirent.isDirectory()`/
+  `isFile()`, which do not resolve symlinks - a symlink anywhere under the root (in either direction)
+  is silently excluded from the tree rather than followed, so it can't be used to escape the root.
+- **Why this shape**: Humb's server has no auth and binds to localhost only (`docs/SECURITY.md`'s
+  local-first boundary), so the real threat isn't another user on the machine - it's a malicious or
+  compromised web page in the same browser making an unauthenticated request to
+  `http://127.0.0.1:<port>/api/files/content?path=../../../../etc/passwd`. The fixed root + allowlist
+  - traversal check is what makes that request harmless regardless of what a client asks for.
 
 ## Out of scope
 

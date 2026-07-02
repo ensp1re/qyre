@@ -75,9 +75,9 @@
     },
     {
       "id": "F008",
-      "behavior": "CLI recognizes a SQLite file target (`npx humb ./app.db`) and the full connect-and-inspect journey (connection status, table list, columns, paginated rows, read-only query runner) works against it with zero credentials, per docs/product-specs/connect-and-inspect-sqlite.md. Also validates the driver-plugin architecture: a second engine is what actually proves packages/drivers/<engine> is reusable, not just designed to look reusable.",
-      "verification": "pnpm --filter @humb/sqlite test && pnpm --filter humb test && pnpm test:e2e:full",
-      "state": "not_started",
+      "behavior": "CLI recognizes a SQLite file target (`npx humb ./app.db`) and the full connect-and-inspect API surface (health, overview, table metadata, paginated rows, read-only query runner) works against it with zero credentials, per docs/product-specs/connect-and-inspect-sqlite.md. Also validates the driver-plugin architecture: a second engine is what actually proves packages/drivers/<engine> is reusable, not just designed to look reusable. Playwright coverage of the SQLite journey is split out as F011 (see docs/PLANS.md's rule on splitting oversized work) - this entry covers the backend adapter + CLI wiring, verified live end to end via the real HTTP path, not just package tests.",
+      "verification": "pnpm --filter @humb/core test && pnpm --filter @humb/driver-contract test && pnpm --filter @humb/sqlite test && pnpm --filter humb test",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,
@@ -102,6 +102,16 @@
       "evidence": null,
       "blockedReason": null,
       "spec": "README.md"
+    },
+    {
+      "id": "F011",
+      "behavior": "The Playwright connect-and-inspect journey (e2e/connect-and-inspect.spec.ts) covers SQLite, not just Postgres - parameterized by engine/fixture per docs/product-specs/connect-and-inspect-sqlite.md's \"Primary end-to-end journey\" section, not a duplicated spec. Split out from F008 (see that entry's evidence) because it also needs e2e/server.ts to start against either a Postgres or SQLite fixture depending on the run, which is its own real slice of work.",
+      "verification": "pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-sqlite.md"
     }
   ]
 }

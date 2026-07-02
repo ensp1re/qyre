@@ -7,6 +7,7 @@ import { parseConnectionTarget } from "@humb/core";
 import { resolveAdapter } from "@humb/driver-contract";
 import { postgresAdapterFactory } from "@humb/postgres";
 import { startServer } from "@humb/server";
+import { sqliteAdapterFactory } from "@humb/sqlite";
 import { Command } from "commander";
 import open from "open";
 
@@ -31,7 +32,10 @@ export function parseArgs(argv: string[]): CliArgs {
   program
     .name("humb")
     .description("Launch a local-first database management UI from your terminal.")
-    .argument("[target]", "database connection string, e.g. postgres://user:pass@host:5432/db")
+    .argument(
+      "[target]",
+      "database connection string (postgres://user:pass@host:5432/db) or a path to a SQLite file (./app.db)"
+    )
     .option("-p, --port <port>", "port for the local server", (value) => parseInt(value, 10))
     .allowExcessArguments(false)
     .exitOverride();
@@ -62,7 +66,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   const args = parseArgs(argv);
 
   const target = parseConnectionTarget(args.target);
-  const adapter = resolveAdapter([postgresAdapterFactory], target);
+  const adapter = resolveAdapter([postgresAdapterFactory, sqliteAdapterFactory], target);
   await adapter.connect();
 
   const port = resolvePort(args.port, process.env);

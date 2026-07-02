@@ -103,7 +103,9 @@ The primary end-to-end journey we protect (mirrors Postgres's, adapted for a fil
 
 This should be the **same Playwright spec** as Postgres's `connect-and-inspect.spec.ts`, parameterized
 by engine/fixture, not a duplicated spec - proves the UI is genuinely engine-agnostic rather than
-accidentally Postgres-shaped.
+accidentally Postgres-shaped. Tracked separately as **F011** (`docs/FEATURES.json`): F008 covers the
+backend adapter and CLI wiring, manually verified end to end over the real HTTP path (the same
+contract the UI already consumes unmodified); F011 is the Playwright automation of that same journey.
 
 ## Acceptance criteria
 

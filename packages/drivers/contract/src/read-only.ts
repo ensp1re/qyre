@@ -1,16 +1,16 @@
-import { ReadOnlyViolationError } from "@humb/driver-contract";
+import { ReadOnlyViolationError } from "./errors.js";
 
-export { ReadOnlyViolationError } from "@humb/driver-contract";
+export { ReadOnlyViolationError } from "./errors.js";
 
 const ALLOWED_LEADING_KEYWORDS = ["select", "with", "explain", "show", "table", "values"];
 
 // Data-modifying/DDL/permission keywords that must never appear anywhere in the statement, not just
-// as the leading keyword - Postgres allows *writable CTEs* (e.g.
-// `WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x`), which start with the allowed "with"
+// as the leading keyword - e.g. Postgres allows *writable CTEs*
+// (`WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x`), which start with the allowed "with"
 // keyword but perform a real DELETE. This list is a heuristic, defense-in-depth layer, not the
-// authoritative guarantee - the real backstop is running the query inside a Postgres
-// `READ ONLY` transaction (see the adapter's `runReadOnlyQuery`), which Postgres itself enforces
-// regardless of what this scan misses.
+// authoritative guarantee - every engine adapter's `runReadOnlyQuery` must also enforce read-only at
+// the engine level (a Postgres `READ ONLY` transaction, a SQLite read-only connection, etc.), which
+// catches whatever this scan misses.
 const FORBIDDEN_KEYWORDS = [
   "insert",
   "update",
@@ -44,7 +44,7 @@ function stripComments(sql: string): string {
  */
 function stripLiterals(sql: string): string {
   return sql
-    .replace(/\$([A-Za-z_][A-Za-z0-9_]*)?\$[\s\S]*?\$\1\$/g, " ") // dollar-quoted strings
+    .replace(/\$([A-Za-z_][A-Za-z0-9_]*)?\$[\s\S]*?\$\1\$/g, " ") // dollar-quoted strings (Postgres)
     .replace(/'(?:[^']|'')*'/g, " ") // single-quoted string literals
     .replace(/"(?:[^"]|"")*"/g, " "); // double-quoted identifiers
 }
@@ -55,9 +55,13 @@ function findForbiddenKeyword(sql: string): string | undefined {
 }
 
 /**
- * Assert that a SQL string is a single read-only statement.
- * Throws {@link ReadOnlyViolationError} otherwise. This is a defense-in-depth check; the adapter
- * also runs the query inside a `READ ONLY` transaction as the authoritative guarantee.
+ * Assert that a SQL string is a single read-only statement. Engine-agnostic: pure text scanning,
+ * shared by every engine adapter so the heuristic behaves identically regardless of which database
+ * is behind it.
+ *
+ * Throws {@link ReadOnlyViolationError} otherwise. This is a defense-in-depth check; each adapter's
+ * `runReadOnlyQuery` must also enforce read-only at the engine level as the authoritative guarantee
+ * (see this module's top-level comment).
  */
 export function assertReadOnly(sql: string): void {
   const withoutComments = stripComments(sql).trim();

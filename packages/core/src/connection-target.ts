@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { InvalidConnectionTargetError } from "./errors.js";
 import type { ConnectionTarget } from "./types/connection.js";
 
@@ -23,6 +26,23 @@ export function redactConnectionString(raw: string): string {
 }
 
 /**
+ * Resolve a candidate SQLite file path (bare path or `file:` URL) into a {@link ConnectionTarget}.
+ * Existence is checked here, at the parse boundary, so the CLI fails fast with the exact resolved
+ * path it looked for, matching Postgres's fail-fast-on-invalid-input behavior - see
+ * `docs/product-specs/connect-and-inspect-sqlite.md`.
+ */
+function resolveSqliteTarget(raw: string, path: string): ConnectionTarget {
+  const resolvedPath = resolve(path);
+  if (!existsSync(resolvedPath)) {
+    throw new InvalidConnectionTargetError(
+      `No file found at "${resolvedPath}". Expected a path to an existing SQLite file (e.g. ` +
+        "./app.db), or a Postgres connection string (postgres://user:pass@localhost:5432/mydb)."
+    );
+  }
+  return { engine: "sqlite", raw };
+}
+
+/**
  * Parse and validate a user-provided database target at the boundary.
  * Throws {@link InvalidConnectionTargetError} with actionable guidance on failure.
  */
@@ -30,27 +50,31 @@ export function parseConnectionTarget(input: string | undefined): ConnectionTarg
   const trimmed = input?.trim();
   if (!trimmed) {
     throw new InvalidConnectionTargetError(
-      "No database target provided. Expected a Postgres connection string, e.g. " +
-        "postgres://user:pass@localhost:5432/mydb"
+      "No database target provided. Expected a Postgres connection string (e.g. " +
+        "postgres://user:pass@localhost:5432/mydb) or a path to a SQLite file (e.g. ./app.db)."
     );
   }
 
-  let url: URL;
+  let url: URL | undefined;
   try {
     url = new URL(trimmed);
   } catch {
-    throw new InvalidConnectionTargetError(
-      `Could not parse "${redactConnectionString(trimmed)}" as a connection string. ` +
-        "Expected a Postgres URL like postgres://user:pass@localhost:5432/mydb"
-    );
+    url = undefined;
   }
 
-  if (!POSTGRES_PROTOCOLS.has(url.protocol)) {
+  if (url) {
+    if (POSTGRES_PROTOCOLS.has(url.protocol)) {
+      return { engine: "postgres", raw: trimmed };
+    }
+    if (url.protocol === "file:") {
+      return resolveSqliteTarget(trimmed, fileURLToPath(url));
+    }
     throw new InvalidConnectionTargetError(
       `Unsupported database target protocol "${url.protocol}". ` +
-        "Humb currently supports Postgres (postgres:// or postgresql://)."
+        "Humb currently supports Postgres (postgres:// or postgresql://) and SQLite (a file path)."
     );
   }
 
-  return { engine: "postgres", raw: trimmed };
+  // Not URL-shaped at all (e.g. `./app.db`, `data.sqlite`) - treat as a candidate SQLite file path.
+  return resolveSqliteTarget(trimmed, trimmed);
 }

@@ -34,6 +34,7 @@ const PUBLISH_ORDER = [
   "@humb/core",
   "@humb/driver-contract",
   "@humb/postgres",
+  "@humb/sqlite",
   "@humb/server",
   "@humb/ui",
   "humb"

@@ -1,0 +1,172 @@
+/**
+ * SQLite driver for Humb.
+ *
+ * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@humb/driver-contract`.
+ * See ARCHITECTURE.md and docs/product-specs/connect-and-inspect-sqlite.md.
+ */
+import { resolve } from "node:path";
+import type {
+  ColumnMetadata,
+  ConnectionTarget,
+  DatabaseOverview,
+  IndexMetadata,
+  RowPage,
+  SchemaMetadata,
+  TableMetadata
+} from "@humb/core";
+import { assertReadOnly, resolvePageRequest } from "@humb/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@humb/driver-contract";
+import Database from "better-sqlite3";
+
+export { assertReadOnly, ReadOnlyViolationError } from "@humb/driver-contract";
+
+/** SQLite has a single implicit namespace; the UI still expects a schema name, per the spec. */
+const MAIN_SCHEMA = "main";
+
+/** Quote a SQL identifier safely (SQLite uses the standard `"..."` convention, like Postgres). */
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
+
+interface TableInfoRow {
+  cid: number;
+  name: string;
+  type: string;
+  notnull: number;
+  dflt_value: unknown;
+  pk: number;
+}
+
+interface IndexListRow {
+  seq: number;
+  name: string;
+  unique: number;
+  origin: "c" | "u" | "pk";
+  partial: number;
+}
+
+interface IndexInfoRow {
+  seqno: number;
+  cid: number;
+  name: string;
+}
+
+/** Fetch index metadata for a table via SQLite's pragmas. */
+function fetchIndexes(db: Database.Database, table: string): IndexMetadata[] {
+  const indexList = db.pragma(`index_list(${quoteIdent(table)})`) as IndexListRow[];
+  return indexList.map((index) => {
+    const indexInfo = db.pragma(`index_info(${quoteIdent(index.name)})`) as IndexInfoRow[];
+    return {
+      name: index.name,
+      columns: indexInfo.map((column) => column.name),
+      unique: index.unique === 1,
+      primary: index.origin === "pk"
+    };
+  });
+}
+
+export class SqliteAdapter implements DatabaseAdapter {
+  public readonly engine = "sqlite";
+  private db: Database.Database | undefined;
+
+  constructor(private readonly target: ConnectionTarget) {}
+
+  private getDb(): Database.Database {
+    if (!this.db) {
+      throw new Error("SqliteAdapter is not connected. Call connect() first.");
+    }
+    return this.db;
+  }
+
+  async connect(): Promise<void> {
+    // The whole connection is opened read-only - the authoritative backstop, equivalent to
+    // @humb/postgres's READ ONLY transaction (see runReadOnlyQuery below and the product spec).
+    // SQLite itself refuses any write through this handle, regardless of what assertReadOnly's
+    // string scan misses.
+    this.db = new Database(resolve(this.target.raw), { readonly: true, fileMustExist: true });
+  }
+
+  async disconnect(): Promise<void> {
+    this.db?.close();
+    this.db = undefined;
+  }
+
+  async ping(): Promise<boolean> {
+    const row = this.getDb().prepare("SELECT 1 AS ok").get() as { ok: number } | undefined;
+    return row?.ok === 1;
+  }
+
+  async getOverview(): Promise<DatabaseOverview> {
+    const tables = this.getDb()
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+      )
+      .all() as Array<{ name: string }>;
+
+    const schemas: SchemaMetadata[] = [
+      { name: MAIN_SCHEMA, tables: tables.map((row) => row.name) }
+    ];
+
+    return { engine: "sqlite", schemas };
+  }
+
+  async getTable(schema: string, table: string): Promise<TableMetadata> {
+    const db = this.getDb();
+    const tableInfo = db.pragma(`table_info(${quoteIdent(table)})`) as TableInfoRow[];
+
+    const columns: ColumnMetadata[] = tableInfo.map((row) => ({
+      name: row.name,
+      // SQLite's declared column type is a free-form string (may even be empty) - "" reads
+      // awkwardly in the UI, so fall back to a neutral placeholder rather than an empty cell.
+      dataType: row.type || "any",
+      nullable: row.notnull === 0,
+      isPrimaryKey: row.pk > 0
+    }));
+
+    const indexes = fetchIndexes(db, table);
+
+    const { count } = db.prepare(`SELECT COUNT(*) AS count FROM ${quoteIdent(table)}`).get() as {
+      count: number;
+    };
+
+    return { schema, name: table, columns, indexes, rowCount: count };
+  }
+
+  async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {
+    const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
+
+    const stmt = this.getDb().prepare(`SELECT * FROM ${quoteIdent(table)} LIMIT ? OFFSET ?`);
+    const rows = stmt.all(safePageSize, offset) as Array<Record<string, unknown>>;
+
+    return {
+      columns: stmt.columns().map((column) => column.name),
+      rows,
+      page: safePage,
+      pageSize: safePageSize
+    };
+  }
+
+  async runReadOnlyQuery(sql: string): Promise<RowPage> {
+    assertReadOnly(sql);
+
+    // assertReadOnly is a heuristic string check; the read-only connection opened in connect() is
+    // the authoritative guarantee - SQLite refuses any write through this handle regardless of
+    // what the string check missed (see connect()'s comment).
+    const stmt = this.getDb().prepare(sql);
+    const rows = stmt.all() as Array<Record<string, unknown>>;
+
+    return {
+      columns: stmt.columns().map((column) => column.name),
+      rows,
+      page: 0,
+      pageSize: rows.length
+    };
+  }
+}
+
+/** Factory that creates {@link SqliteAdapter} instances for SQLite targets. */
+export const sqliteAdapterFactory: AdapterFactory = {
+  engine: "sqlite",
+  supports: (target) => target.engine === "sqlite",
+  create: (target) => new SqliteAdapter(target)
+};

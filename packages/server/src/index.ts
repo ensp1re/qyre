@@ -49,7 +49,13 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
     return {
       status: "ok",
       database,
-      target: target ? redactConnectionString(target.raw) : null
+      // A SQLite target's "raw" is a filesystem path, not a URL with credentials - nothing to
+      // redact, and redactConnectionString would otherwise mask it as "<unparseable...>".
+      target: target
+        ? target.engine === "sqlite"
+          ? target.raw
+          : redactConnectionString(target.raw)
+        : null
     };
   });
 

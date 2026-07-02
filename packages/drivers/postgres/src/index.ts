@@ -13,12 +13,11 @@ import type {
   SchemaMetadata,
   TableMetadata
 } from "@humb/core";
-import { resolvePageRequest } from "@humb/driver-contract";
+import { assertReadOnly, resolvePageRequest } from "@humb/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@humb/driver-contract";
 import { Pool } from "pg";
-import { assertReadOnly } from "./read-only.js";
 
-export { assertReadOnly, ReadOnlyViolationError } from "./read-only.js";
+export { assertReadOnly, ReadOnlyViolationError } from "@humb/driver-contract";
 
 const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
 

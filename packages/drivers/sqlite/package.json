@@ -1,5 +1,5 @@
 {
-  "name": "@humb/sqlite",
+  "name": "@humbdb/sqlite",
   "version": "0.0.0",
   "type": "module",
   "description": "SQLite driver for Humb.",
@@ -23,12 +23,12 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humb/core": "workspace:*",
-    "@humb/driver-contract": "workspace:*",
+    "@humbdb/core": "workspace:*",
+    "@humbdb/driver-contract": "workspace:*",
     "better-sqlite3": "^11.10.0"
   },
   "devDependencies": {
-    "@humb/config": "workspace:*",
+    "@humbdb/config": "workspace:*",
     "@types/better-sqlite3": "^7.6.13"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@humb/testing",
+  "name": "@humbdb/testing",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,11 +13,11 @@
     "clean": "rimraf .turbo"
   },
   "dependencies": {
-    "@humb/core": "workspace:*",
+    "@humbdb/core": "workspace:*",
     "pg": "^8.13.1"
   },
   "devDependencies": {
-    "@humb/config": "workspace:*",
+    "@humbdb/config": "workspace:*",
     "@types/pg": "^8.11.10"
   }
 }

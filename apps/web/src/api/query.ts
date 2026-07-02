@@ -1,4 +1,4 @@
-import type { RowPage } from "@humb/core";
+import type { RowPage } from "@humbdb/core";
 
 /** Run a read-only SQL query. Throws with the server's actual rejection reason on failure. */
 export async function runQuery(sql: string): Promise<RowPage> {

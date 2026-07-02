@@ -4,7 +4,7 @@
     {
       "name": "web-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@humb/web", "dev"],
+      "runtimeArgs": ["--filter", "@humbdb/web", "dev"],
       "port": 5173
     }
   ]

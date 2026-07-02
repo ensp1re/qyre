@@ -1,4 +1,4 @@
-import type { RowPage } from "@humb/core";
+import type { RowPage } from "@humbdb/core";
 import { Play } from "lucide-react";
 import type { KeyboardEvent, ReactNode, UIEvent } from "react";
 import { useRef } from "react";

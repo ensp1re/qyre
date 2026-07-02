@@ -1,4 +1,4 @@
-import type { FileNode } from "@humb/core";
+import type { FileNode } from "@humbdb/core";
 import { File, FileCode2, FolderOpen } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";

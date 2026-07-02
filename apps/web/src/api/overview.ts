@@ -1,4 +1,4 @@
-import type { DatabaseOverview } from "@humb/core";
+import type { DatabaseOverview } from "@humbdb/core";
 
 /** Fetch the database's schemas and tables. */
 export async function fetchOverview(): Promise<DatabaseOverview> {

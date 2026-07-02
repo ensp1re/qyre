@@ -1,5 +1,5 @@
 {
-  "name": "@humb/postgres",
+  "name": "@humbdb/postgres",
   "version": "0.0.0",
   "type": "module",
   "description": "PostgreSQL adapter for Humb.",
@@ -23,13 +23,13 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humb/core": "workspace:*",
-    "@humb/driver-contract": "workspace:*",
+    "@humbdb/core": "workspace:*",
+    "@humbdb/driver-contract": "workspace:*",
     "pg": "^8.13.1"
   },
   "devDependencies": {
-    "@humb/config": "workspace:*",
-    "@humb/testing": "workspace:*",
+    "@humbdb/config": "workspace:*",
+    "@humbdb/testing": "workspace:*",
     "@types/pg": "^8.11.10"
   }
 }

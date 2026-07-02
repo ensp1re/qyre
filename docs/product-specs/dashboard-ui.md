@@ -48,7 +48,7 @@ into a UI-only change:
   (Postgres) / `sqlite_version()` (SQLite) pragma, engine-agnostic on the `DatabaseAdapter`
   contract like everything else.
 - **Foreign-key metadata**: the Schema tab's FK badges need to know which columns reference another
-  table. `ColumnMetadata`/`IndexMetadata` in `@humb/core` have no FK concept yet - Postgres has this
+  table. `ColumnMetadata`/`IndexMetadata` in `@humbdb/core` have no FK concept yet - Postgres has this
   in `information_schema.key_column_usage`/`table_constraints`; SQLite has it via
   `PRAGMA foreign_key_list`. Add as a genuinely engine-agnostic contract field, implemented per
   engine, same pattern as `IndexMetadata` (F003).

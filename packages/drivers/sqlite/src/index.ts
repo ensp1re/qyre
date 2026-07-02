@@ -1,7 +1,7 @@
 /**
  * SQLite driver for Humb.
  *
- * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@humb/driver-contract`.
+ * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@humbdb/driver-contract`.
  * See ARCHITECTURE.md and docs/product-specs/connect-and-inspect-sqlite.md.
  */
 import { resolve } from "node:path";
@@ -13,12 +13,12 @@ import type {
   RowPage,
   SchemaMetadata,
   TableMetadata
-} from "@humb/core";
-import { assertReadOnly, resolvePageRequest } from "@humb/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@humb/driver-contract";
+} from "@humbdb/core";
+import { assertReadOnly, resolvePageRequest } from "@humbdb/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
 import Database from "better-sqlite3";
 
-export { assertReadOnly, ReadOnlyViolationError } from "@humb/driver-contract";
+export { assertReadOnly, ReadOnlyViolationError } from "@humbdb/driver-contract";
 
 /** SQLite has a single implicit namespace; the UI still expects a schema name, per the spec. */
 const MAIN_SCHEMA = "main";
@@ -91,7 +91,7 @@ export class SqliteAdapter implements DatabaseAdapter {
 
   async connect(): Promise<void> {
     // The whole connection is opened read-only - the authoritative backstop, equivalent to
-    // @humb/postgres's READ ONLY transaction (see runReadOnlyQuery below and the product spec).
+    // @humbdb/postgres's READ ONLY transaction (see runReadOnlyQuery below and the product spec).
     // SQLite itself refuses any write through this handle, regardless of what assertReadOnly's
     // string scan misses.
     this.db = new Database(resolve(this.target.raw), { readonly: true, fileMustExist: true });

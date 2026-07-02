@@ -27,7 +27,7 @@ scope"), multi-connection UI, settings panel content.
 - Per-slice: whatever `verification` each `DF-##` entry states, plus a re-run of
   `pnpm test:e2e:full`/`pnpm test:e2e` after every slice that touches `apps/web` - the redesign must
   never silently break the connect-and-inspect journey's existing assertions.
-- Visual: `pnpm dlx` the Preview tooling (or manual `pnpm --filter @humb/web dev`) to confirm each
+- Visual: `pnpm dlx` the Preview tooling (or manual `pnpm --filter @humbdb/web dev`) to confirm each
   slice renders correctly in both light and dark mode before marking it `passing` - `pnpm check`
   alone does not catch a visually broken UI.
 
@@ -67,7 +67,7 @@ scope"), multi-connection UI, settings panel content.
     fonts mapped to CSS custom properties in `src/index.css`, both `:root` and `.dark`) - Tailwind
     was scaffolded from the start but genuinely unused (zero component uses a Tailwind class), so
     this carries no regression risk to F001-F008's passing UI. Verified live: `pnpm --filter
-@humb/web build`/`typecheck` clean, no PostCSS warnings, `pnpm test:e2e` (@smoke) still passes,
+@humbdb/web build`/`typecheck` clean, no PostCSS warnings, `pnpm test:e2e` (@smoke) still passes,
     and a screenshot via the Preview tool confirms the app still renders correctly.
   - Added `cn()` (clsx + tailwind-merge) to `packages/ui/src/cn.ts`, matching `format-cell.ts`'s
     existing flat-utility-file precedent - the one piece of infra every future Tailwind/shadcn
@@ -100,7 +100,7 @@ scope"), multi-connection UI, settings panel content.
     table-selection flow in `e2e/connect-and-inspect.spec.ts` was updated (select table -> now
     switches to the Tables tab; a separate click on the Schema tab reveals `table-detail`) since
     the tabbed layout genuinely changed when each is visible, not just cosmetically.
-  - Added `lucide-react` to `@humb/ui` for the shell's icons, per the icon library named in
+  - Added `lucide-react` to `@humbdb/ui` for the shell's icons, per the icon library named in
     `docs/references/design-system.md`.
   - Live verification against a real Postgres fixture (docker `postgres:16-alpine` + the built
     CLI) via the Preview tool caught a real bug not caught by any automated check: the search
@@ -168,8 +168,8 @@ scope"), multi-connection UI, settings panel content.
     table): line numbers render, increment, and stay aligned with content through a 60-line query
     while scrolling, in both light and dark mode; a real query still runs and results still render
     below the editor.
-  - `pnpm --filter @humb/web build`/`typecheck` and `pnpm --filter @humb/ui build`/`typecheck`
-    clean. Started a real `postgres:16-alpine` container and re-ran `pnpm --filter @humb/postgres
+  - `pnpm --filter @humbdb/web build`/`typecheck` and `pnpm --filter @humbdb/ui build`/`typecheck`
+    clean. Started a real `postgres:16-alpine` container and re-ran `pnpm --filter @humbdb/postgres
 test` (11/11) and `pnpm test:e2e:full` (1/1) - no regression from the DF-02 baseline. `pnpm
 check` (format/lint/typecheck/test/build across all packages) passes; commit `39bfc95`.
 - 2026-07-02: DF-05 (Schema tab full-database grid, commit `3a51660`).
@@ -190,7 +190,7 @@ check` (format/lint/typecheck/test/build across all packages) passes; commit `39
     real test bug: the grid's own table-name text made the sidebar's prior `getByText(table)`
     assertion ambiguous (Playwright strict-mode violation, 3 matches). Fixed by scoping that
     assertion to a role locator instead of loosening the new one.
-  - `pnpm --filter @humb/web build`/`typecheck` and `pnpm --filter @humb/ui build`/`typecheck`
+  - `pnpm --filter @humbdb/web build`/`typecheck` and `pnpm --filter @humbdb/ui build`/`typecheck`
     clean. Re-ran `pnpm test:e2e:full` against a real `postgres:16-alpine` container - passes.
     `pnpm check` passes. Manually verified live via Preview against a real 3-table Postgres
     fixture (`humb_demo_users`/`orders`/`products`): all three cards render with correct PK
@@ -211,17 +211,17 @@ check` (format/lint/typecheck/test/build across all packages) passes; commit `39
     and non-`.sql` extensions, then requires the resolved absolute path to still start with the
     root (the actual traversal stopper, not the extension check alone); a rejected path is `400`,
     matching F006's precedent for query-runner rejections. New `FileNode`/`FilesOverview`/
-    `FileContent` types + `fileContentQuerySchema` in `@humb/core`, following the same
+    `FileContent` types + `fileContentQuerySchema` in `@humbdb/core`, following the same
     `types/`+`validation/` split every other endpoint uses.
   - Frontend: new `FilesBrowser` (`packages/ui`) - a folder/file tree plus a line-numbered preview
     pane, both inside one scrollable container so there's no separate-scroll-sync problem to solve
     (unlike DF-03's SQL Editor gutter, which has to sync scroll between a textarea and its own
     gutter). Wired into `App.tsx` via new `useFilesOverview`/`useFileContent` hooks, handling the
     same loading/error/empty/success states every other tab already does.
-  - `pnpm --filter @humb/server test` (30/30, new `files.ts` unit tests using real temp
+  - `pnpm --filter @humbdb/server test` (30/30, new `files.ts` unit tests using real temp
     directories/symlinks - no mocks - plus new route tests) and `pnpm --filter humb test` (11/11,
-    new `--files-dir`/`resolveFilesRoot` cases) pass. `pnpm --filter @humb/web build`/`typecheck`
-    and `pnpm --filter @humb/ui build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm
+    new `--files-dir`/`resolveFilesRoot` cases) pass. `pnpm --filter @humbdb/web build`/`typecheck`
+    and `pnpm --filter @humbdb/ui build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm
 test:e2e:full` against a real `postgres:16-alpine` container - no regression. `pnpm check`
     (full monorepo) passes.
   - Manually verified live via Preview + `curl` against a real `--files-dir` fixture (a
@@ -244,7 +244,7 @@ test:e2e:full` against a real `postgres:16-alpine` container - no regression. `p
     minor scope extension beyond the literal behavior text (which only mentions one endpoint) -
     justified the same way DF-04's CSV export was: it's read-only-adjacent (resets Humb's own
     diagnostic buffer, never touches the connected database) and directly matches the source
-    design's Clear button. New `ConsoleEvent`/`ConsoleEvents` types in `@humb/core`.
+    design's Clear button. New `ConsoleEvent`/`ConsoleEvents` types in `@humbdb/core`.
   - Frontend: new `ConsoleLog` (`packages/ui`) - a level-colored event stream with a Clear button
     and the source design's blinking-cursor flourish. New `useConsoleEvents` hook polls every 3s
     while connected via React Query's `refetchInterval`. Live verification in a headless Preview
@@ -256,9 +256,9 @@ test:e2e:full` against a real `postgres:16-alpine` container - no regression. `p
     button (`refresh()` in `App.tsx`) only ever refetched health and overview, never Files (added
     in DF-06) or the new Console data. Fixed by refetching both there too - confirmed via Preview
     that clicking Refresh now reveals events logged since the last poll.
-  - `pnpm --filter @humb/server test` (37/37, new `event-log.ts` unit tests plus new route tests
+  - `pnpm --filter @humbdb/server test` (37/37, new `event-log.ts` unit tests plus new route tests
     covering success/rejection/failure logging, connection transitions, and clearing) and the rest
-    of `pnpm test` pass. `pnpm --filter @humb/web build`/`typecheck` and `pnpm --filter @humb/ui
+    of `pnpm test` pass. `pnpm --filter @humbdb/web build`/`typecheck` and `pnpm --filter @humbdb/ui
 build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm test:e2e:full` against a real
     `postgres:16-alpine` container - no regression. `pnpm check` (full monorepo) passes.
   - Manually verified live via Preview against a real Postgres fixture: ran a successful query and
@@ -267,7 +267,7 @@ build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm test:e2e:full` against a 
     correct.
 - 2026-07-03: DF-08 (engine+version status bar, FK metadata, commit `c7173fb`) - the DF series'
   last slice.
-  - Added `DatabaseAdapter.getVersion(): Promise<string>` to `@humb/driver-contract`'s contract,
+  - Added `DatabaseAdapter.getVersion(): Promise<string>` to `@humbdb/driver-contract`'s contract,
     implemented per engine like every other engine-specific concern - resolved the open decision
     below in favor of a plain formatted string rather than a structured field, since the UI only
     ever needed to display it, not parse it further. Postgres parses `"PostgreSQL 16.4"` out of
@@ -289,7 +289,7 @@ build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm test:e2e:full` against a 
     `getVersion()` format assertion. Existing `DatabaseAdapter` mocks in
     `packages/server/src/index.test.ts` updated with `getVersion` for the new required contract
     method; new tests assert `engineVersion` is populated when connected and `null` otherwise.
-  - `pnpm test` (all packages, including the `@humb/postgres`/`@humb/sqlite` integration suites
+  - `pnpm test` (all packages, including the `@humbdb/postgres`/`@humbdb/sqlite` integration suites
     against a real Postgres container) and `pnpm test:e2e`/`pnpm test:e2e:full` against a real
     `postgres:16-alpine` container all pass; `pnpm check` (full monorepo) passes.
   - Manually verified live via Preview against a real Postgres fixture with a genuine FK

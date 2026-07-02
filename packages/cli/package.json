@@ -45,15 +45,15 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humb/core": "workspace:*",
-    "@humb/driver-contract": "workspace:*",
-    "@humb/postgres": "workspace:*",
-    "@humb/server": "workspace:*",
-    "@humb/sqlite": "workspace:*",
+    "@humbdb/core": "workspace:*",
+    "@humbdb/driver-contract": "workspace:*",
+    "@humbdb/postgres": "workspace:*",
+    "@humbdb/server": "workspace:*",
+    "@humbdb/sqlite": "workspace:*",
     "commander": "^12.1.0",
     "open": "^10.1.0"
   },
   "devDependencies": {
-    "@humb/config": "workspace:*"
+    "@humbdb/config": "workspace:*"
   }
 }

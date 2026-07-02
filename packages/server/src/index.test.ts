@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DatabaseAdapter } from "@humb/driver-contract";
-import { ReadOnlyViolationError } from "@humb/driver-contract";
+import type { DatabaseAdapter } from "@humbdb/driver-contract";
+import { ReadOnlyViolationError } from "@humbdb/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer } from "./index.js";
 

@@ -19,12 +19,12 @@
     "sourceMap": true,
     "esModuleInterop": true,
     "paths": {
-      "@humb/core": ["./packages/core/src/index.ts"],
-      "@humb/driver-contract": ["./packages/drivers/contract/src/index.ts"],
-      "@humb/postgres": ["./packages/drivers/postgres/src/index.ts"],
-      "@humb/server": ["./packages/server/src/index.ts"],
-      "@humb/ui": ["./packages/ui/src/index.tsx"],
-      "@humb/testing": ["./packages/testing/src/index.ts"]
+      "@humbdb/core": ["./packages/core/src/index.ts"],
+      "@humbdb/driver-contract": ["./packages/drivers/contract/src/index.ts"],
+      "@humbdb/postgres": ["./packages/drivers/postgres/src/index.ts"],
+      "@humbdb/server": ["./packages/server/src/index.ts"],
+      "@humbdb/ui": ["./packages/ui/src/index.tsx"],
+      "@humbdb/testing": ["./packages/testing/src/index.ts"]
     }
   }
 }

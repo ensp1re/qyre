@@ -6,7 +6,7 @@
  * SQLite file from there. If `packages/cli`'s web-root resolution regresses back to a
  * monorepo-relative path, this fails where a plain `pnpm build` would not.
  *
- * Rebuilds @humb/web and humb fresh so this is trustworthy standalone, not dependent on some prior
+ * Rebuilds @humbdb/web and humb fresh so this is trustworthy standalone, not dependent on some prior
  * build step having run correctly.
  *
  * Usage: node scripts/verify-npm-package.mjs
@@ -55,8 +55,8 @@ function waitForReady(child) {
   });
 }
 
-console.log("Building @humb/web and humb fresh...");
-run("pnpm", ["--filter", "@humb/web", "build"]);
+console.log("Building @humbdb/web and humb fresh...");
+run("pnpm", ["--filter", "@humbdb/web", "build"]);
 run("pnpm", ["--filter", "humb", "build"]);
 
 const packDir = mkdtempSync(join(tmpdir(), "humb-verify-pack-"));
@@ -90,11 +90,11 @@ const harnessPath = join(extractedRoot, "verify-harness.mjs");
 writeFileSync(
   harnessPath,
   `
-import { parseConnectionTarget } from "@humb/core";
-import { resolveAdapter } from "@humb/driver-contract";
-import { postgresAdapterFactory } from "@humb/postgres";
-import { sqliteAdapterFactory } from "@humb/sqlite";
-import { startServer } from "@humb/server";
+import { parseConnectionTarget } from "@humbdb/core";
+import { resolveAdapter } from "@humbdb/driver-contract";
+import { postgresAdapterFactory } from "@humbdb/postgres";
+import { sqliteAdapterFactory } from "@humbdb/sqlite";
+import { startServer } from "@humbdb/server";
 import { defaultWebRoot } from "humb";
 
 const target = parseConnectionTarget(${JSON.stringify(dbPath)});

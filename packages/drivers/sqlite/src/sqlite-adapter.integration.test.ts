@@ -1,7 +1,7 @@
 /**
  * Integration tests for {@link SqliteAdapter} against a real SQLite file.
  *
- * Unlike @humb/postgres's integration tests, these need no external service or env var - SQLite is
+ * Unlike @humbdb/postgres's integration tests, these need no external service or env var - SQLite is
  * just a local file, created fresh per test run. This is a real, product-relevant difference worth
  * proving, not just asserting: no HUMB_TEST_DATABASE_URL, no Postgres container, no CI service.
  */

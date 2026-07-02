@@ -9,12 +9,12 @@
  */
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ConnectionTarget } from "@humb/core";
-import { parseConnectionTarget } from "@humb/core";
-import type { DatabaseAdapter } from "@humb/driver-contract";
-import { resolveAdapter } from "@humb/driver-contract";
-import { postgresAdapterFactory } from "@humb/postgres";
-import { startServer } from "@humb/server";
+import type { ConnectionTarget } from "@humbdb/core";
+import { parseConnectionTarget } from "@humbdb/core";
+import type { DatabaseAdapter } from "@humbdb/driver-contract";
+import { resolveAdapter } from "@humbdb/driver-contract";
+import { postgresAdapterFactory } from "@humbdb/postgres";
+import { startServer } from "@humbdb/server";
 
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/web/dist");
 

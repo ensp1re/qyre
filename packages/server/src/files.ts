@@ -5,7 +5,7 @@
  */
 import { readdirSync } from "node:fs";
 import { extname, join, relative, resolve, sep } from "node:path";
-import type { FileNode } from "@humb/core";
+import type { FileNode } from "@humbdb/core";
 
 const SQL_EXTENSION = ".sql";
 const SKIPPED_DIR_NAMES = new Set(["node_modules"]);

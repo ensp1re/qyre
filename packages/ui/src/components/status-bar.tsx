@@ -1,4 +1,4 @@
-import type { ConnectionStatus, DatabaseEngine } from "@humb/core";
+import type { ConnectionStatus, DatabaseEngine } from "@humbdb/core";
 import { Clock } from "lucide-react";
 import type { ReactNode } from "react";
 

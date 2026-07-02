@@ -50,11 +50,11 @@ In scope (SQLite engine):
 - Read-only inspection: tables, columns, indexes, row counts.
 - Paginated table data browsing (reuses the existing engine-agnostic UI and pagination contract -
   no new frontend work required, only the adapter).
-- A read-only SQL query runner (SELECT-style statements only), reusing `@humb/driver-contract`'s
+- A read-only SQL query runner (SELECT-style statements only), reusing `@humbdb/driver-contract`'s
   `ReadOnlyViolationError` and the same heuristic-scan layer as Postgres (`assertReadOnly` logic
   should be shared/generalized from `packages/drivers/postgres/src/read-only.ts`, not
   copy-pasted - see `ARCHITECTURE.md`'s rule on reusing genuinely engine-agnostic logic).
-- Local server health and runtime diagnostics endpoints (reused as-is from `@humb/server` - `/api/health`
+- Local server health and runtime diagnostics endpoints (reused as-is from `@humbdb/server` - `/api/health`
   is engine-agnostic already).
 
 Out of scope (for now, SQLite engine):
@@ -68,7 +68,7 @@ Out of scope (for now, SQLite engine):
 ## Concepts that don't map 1:1 from Postgres
 
 - **No "schemas".** SQLite has a single implicit namespace (conventionally called `main`). The
-  adapter's `getOverview()` must still satisfy `@humb/core`'s `DatabaseOverview` shape (a list of
+  adapter's `getOverview()` must still satisfy `@humbdb/core`'s `DatabaseOverview` shape (a list of
   schemas, each with tables) for the UI to work unmodified - return one schema named `main`
   containing all user tables, not an empty or fabricated multi-schema structure.
 - **No "connection" in the network sense.** "Connected" in `/api/health` and `ConnectionStatus`

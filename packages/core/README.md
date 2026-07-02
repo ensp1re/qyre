@@ -1,4 +1,4 @@
-# @humb/core
+# @humbdb/core
 
 Shared domain types and contracts for Humb (connection targets, schema/table metadata, row pages).
 

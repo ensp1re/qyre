@@ -1,4 +1,4 @@
-import type { ConnectionTarget, DatabaseOverview, RowPage, TableMetadata } from "@humb/core";
+import type { ConnectionTarget, DatabaseOverview, RowPage, TableMetadata } from "@humbdb/core";
 
 /** A live, engine-specific connection to a single database. */
 export interface DatabaseAdapter {

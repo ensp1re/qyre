@@ -1,4 +1,4 @@
-import type { ConsoleEvents } from "@humb/core";
+import type { ConsoleEvents } from "@humbdb/core";
 
 /** Fetch the Console tab's recent connection/query events. */
 export async function fetchConsoleEvents(): Promise<ConsoleEvents> {

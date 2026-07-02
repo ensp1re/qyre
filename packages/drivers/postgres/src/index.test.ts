@@ -1,4 +1,4 @@
-import type { ConnectionTarget } from "@humb/core";
+import type { ConnectionTarget } from "@humbdb/core";
 import { describe, expect, it } from "vitest";
 import { postgresAdapterFactory } from "./index.js";
 

@@ -1,4 +1,4 @@
-import type { ColumnMetadata, RowPage } from "@humb/core";
+import type { ColumnMetadata, RowPage } from "@humbdb/core";
 import {
   ArrowUpDown,
   ChevronLeft,

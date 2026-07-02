@@ -1,4 +1,4 @@
-# @humb/ui
+# @humbdb/ui
 
 Reusable, presentation-only UI components for Humb's browser interface.
 

@@ -23,15 +23,15 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   paginated rows. Each of F001/F003 needed a real audit before being trustworthy - passing
   package-level tests hid real gaps (`HUMB_PORT` ignored, no static serving, indexes/rowCount
   unimplemented, a `pg` array-type parsing bug) - see PRs #3-#7 for the full history.
-- Architecture reorganization (PR #5, rules in `docs/CODE_ORGANIZATION.md`): `@humb/core` split into
-  `types/`/`validation/`/etc.; `@humb/ui` split into one component per file; renamed
+- Architecture reorganization (PR #5, rules in `docs/CODE_ORGANIZATION.md`): `@humbdb/core` split into
+  `types/`/`validation/`/etc.; `@humbdb/ui` split into one component per file; renamed
   `db-adapter`/`db-postgres` to `packages/drivers/contract`/`packages/drivers/postgres`
-  (`@humb/driver-contract`/`@humb/postgres`).
+  (`@humbdb/driver-contract`/`@humbdb/postgres`).
 - `docs/FEATURES.json` gained a `commitHash` field (PR #8's follow-up): `passing` features must
   record the actual pushed git SHA, not just prose, enforced by `scripts/check-features.mjs`.
 - Structure guides added: `apps/web/STRUCTURE.md` (feature-based growth path) and
   `packages/server/STRUCTURE.md` (Fastify plugin/route growth path) - see PR #9.
-- `.local/` added to `.gitignore` (personal, never-committed scratch scripts); `@humb/testing`
+- `.local/` added to `.gitignore` (personal, never-committed scratch scripts); `@humbdb/testing`
   gained a generic `runStatements()` helper to support this without adding new root dependencies.
 - **F006 `passing`** (PR #10): read-only SQL query runner. Auditing it found a real, exploitable
   security bug - a writable CTE bypassed the leading-keyword read-only check and actually deleted
@@ -51,17 +51,17 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   cleanly. Added a regression test (`postgres-adapter.integration.test.ts`) that reproduces the exact
   failure via `pg_terminate_backend` on an idle pooled connection against a real database - confirmed
   it fails without the fix and passes with it. Broadened F007's verification command to also run
-  `pnpm --filter @humb/postgres test`, matching F006's precedent, since the fix lives there, not in
-  `@humb/server`.
+  `pnpm --filter @humbdb/postgres test`, matching F006's precedent, since the fix lives there, not in
+  `@humbdb/server`.
 - Backlog planning (PR #12): added F008 (SQLite driver, with a full product spec at
   `docs/product-specs/connect-and-inspect-sqlite.md`), F009 (README rewrite), F010 (npm publish, incl.
   `scripts/publish.mjs` for lockstep version bump + release). No product code changed.
 - **F008 `passing`** ([PR #13](https://github.com/ensp1re/humb/pull/13), merged): SQLite as Humb's
   second engine (`npx humb ./app.db`). See `docs/exec-plans/active/0002-sqlite-engine.md` for full
-  detail (F011, its e2e slice, is still open there). In short: generalized `@humb/core`'s
+  detail (F011, its e2e slice, is still open there). In short: generalized `@humbdb/core`'s
   `parseConnectionTarget` from Postgres-only to engine-detecting (this was the real blocker to any
-  second engine, not a missing driver package); moved `assertReadOnly` from `@humb/postgres` to
-  `@humb/driver-contract` so both engines share it; built `@humb/sqlite` on `better-sqlite3` with the
+  second engine, not a missing driver package); moved `assertReadOnly` from `@humbdb/postgres` to
+  `@humbdb/driver-contract` so both engines share it; built `@humbdb/sqlite` on `better-sqlite3` with the
   whole connection opened `readonly: true` as the authoritative read-only backstop (verified live,
   independent of the string-scan heuristic); wired `sqliteAdapterFactory` into the CLI. Caught and
   fixed a real bug during live verification (not package tests, which all passed): `/api/health`
@@ -88,7 +88,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   searchable/highlightable schema tree, a five-tab bar (SQL Editor/Tables/Schema/Files/Console),
   and a status bar, all pure Tailwind against DF-01's tokens, no inline styles. Existing data flows
   were preserved, just redistributed across tabs instead of one long page. Files/Console are
-  placeholder empty states pending DF-06/DF-07's backends. Added `lucide-react` to `@humb/ui` for
+  placeholder empty states pending DF-06/DF-07's backends. Added `lucide-react` to `@humbdb/ui` for
   the shell's icons.
 - **DF-02 correction, DF-04 `passing`, DF-09 `passing`** (commit `0238265`): the user flagged that
   DF-02's first pass had captured DF-01's token doc correctly but drifted from
@@ -119,7 +119,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   `onScroll` handler - the source design (`github.com/ensp1re/UserDashboard`'s `SqlEditor`) never
   needed this since its query never scrolls, so there was no reference behavior to copy. Verified
   live via Preview against a real SQLite fixture: line numbers align and stay synced while
-  scrolling a 60-line query, in both light and dark mode. Re-ran `pnpm --filter @humb/postgres
+  scrolling a 60-line query, in both light and dark mode. Re-ran `pnpm --filter @humbdb/postgres
 test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - no regression.
 - **DF-05 `passing`** (commit `3a51660`, [PR #21](https://github.com/ensp1re/humb/pull/21)): the
   Schema tab no longer requires a sidebar selection - a new `SchemaGrid`
@@ -144,11 +144,11 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   fixed - rejects `..` segments and non-`.sql` extensions, then requires the resolved path to still
   start with the root (the actual traversal stopper); a rejected path is `400`, matching F006's
   precedent. New `FileNode`/`FilesOverview`/`FileContent` types + `fileContentQuerySchema` in
-  `@humb/core`; new `FilesBrowser` (`packages/ui`) - tree + preview share one scrollable container,
+  `@humbdb/core`; new `FilesBrowser` (`packages/ui`) - tree + preview share one scrollable container,
   so there's no separate-scroll-sync problem like DF-03's gutter had. Verified live via Preview +
   curl against a real `--files-dir` fixture: tree shows only `.sql` files, selection/preview works,
   a traversal attempt returns `400` with no leaked content, and the disabled-state message renders
-  correctly with no flag - all in both light and dark mode. `pnpm --filter @humb/server test`
+  correctly with no flag - all in both light and dark mode. `pnpm --filter @humbdb/server test`
   (30/30, real temp-dir/symlink fixtures, no mocks) and `pnpm --filter humb test` (11/11) pass;
   `pnpm test:e2e:full` against a real `postgres:16-alpine` container - no regression.
 - **DF-07 `passing`** (commit `185e1ae`, [PR #23](https://github.com/ensp1re/humb/pull/23)): the
@@ -160,7 +160,7 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   observation) when `ping()`'s result actually changes. New `GET /api/console` (read) and
   `DELETE /api/console` (clear - safe, since it only resets Humb's own diagnostic buffer, not the
   connected database, matching DF-04's CSV-export precedent). New `ConsoleEvent`/`ConsoleEvents`
-  types in `@humb/core`; new `ConsoleLog` (`packages/ui`) - level-colored stream with a Clear
+  types in `@humbdb/core`; new `ConsoleLog` (`packages/ui`) - level-colored stream with a Clear
   action; `useConsoleEvents` polls every 3s while connected (paused by React Query when the tab
   loses focus - confirmed that's why a headless Preview session never saw the auto-poll fire on
   its own, not a bug). Fixed a real, pre-existing gap surfaced while wiring this up: the title
@@ -168,7 +168,7 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   Console data - `refresh()` now refetches both. Verified live via Preview against a real Postgres
   fixture: a successful and a rejected query both appear with correct level colors after a manual
   refresh; Clear empties the log; both light and dark mode render correctly. `pnpm --filter
-@humb/server test` (37/37) and `pnpm test:e2e:full` against a real `postgres:16-alpine`
+@humbdb/server test` (37/37) and `pnpm test:e2e:full` against a real `postgres:16-alpine`
   container - no regression.
 - **DF-08 `passing`** (commit `c7173fb`, [PR #24](https://github.com/ensp1re/humb/pull/24)): the
   DF series' last two deferred backend gaps. New `DatabaseAdapter.getVersion(): Promise<string>`,
@@ -218,7 +218,7 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   `defaultWebRoot(here)` is now exported and takes an explicit directory (a testable pure function
   like `resolvePort`/`resolveFilesRoot`) - tries the bundled `dist/web` first, falls back to the
   old monorepo-relative path for local dev/test. New `turbo.json` task dependency
-  (`humb#build -> @humb/web#build`) since there's no `package.json` edge between them for turbo to
+  (`humb#build -> @humbdb/web#build`) since there's no `package.json` edge between them for turbo to
   infer build order from. Added npm-discoverability metadata (keywords, homepage, repository,
   bugs) to `packages/cli/package.json`. New `scripts/verify-npm-package.mjs` (F010's second
   verification command) packs the `humb` package exactly as `pnpm publish` would, extracts it into

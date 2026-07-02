@@ -1,4 +1,4 @@
-import type { RowPage } from "@humb/core";
+import type { RowPage } from "@humbdb/core";
 
 /** Fetch a page of rows for a table. */
 export async function fetchRows(

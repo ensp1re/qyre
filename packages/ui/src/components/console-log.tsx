@@ -1,4 +1,4 @@
-import type { ConsoleEvent } from "@humb/core";
+import type { ConsoleEvent } from "@humbdb/core";
 import { Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 

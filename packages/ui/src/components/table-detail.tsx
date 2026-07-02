@@ -1,5 +1,5 @@
 import type { TableMetadata } from "@humb/core";
-import { Table2 } from "lucide-react";
+import { Link, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { TypeIcon } from "./type-icon.js";
 
@@ -38,8 +38,14 @@ export function TableDetail({ table }: TableDetailProps): ReactNode {
           >
             <TypeIcon dataType={column.dataType} />
             <span
-              className={column.isPrimaryKey ? "" : "text-foreground/80"}
-              style={column.isPrimaryKey ? { color: "var(--c-amber)" } : undefined}
+              className={column.isPrimaryKey || column.isForeignKey ? "" : "text-foreground/80"}
+              style={{
+                color: column.isPrimaryKey
+                  ? "var(--c-amber)"
+                  : column.isForeignKey
+                    ? "var(--c-blue)"
+                    : undefined
+              }}
             >
               {column.name}
             </span>
@@ -52,6 +58,18 @@ export function TableDetail({ table }: TableDetailProps): ReactNode {
                 }}
               >
                 PK
+              </span>
+            )}
+            {column.isForeignKey && (
+              <span
+                className="flex items-center gap-0.5 rounded-[2px] border px-1 text-[8px]"
+                style={{
+                  color: "var(--c-blue)",
+                  borderColor: "color-mix(in srgb, var(--c-blue) 30%, transparent)"
+                }}
+              >
+                <Link className="h-2 w-2" />
+                FK
               </span>
             )}
             <span className="ml-auto text-[9px] text-muted-foreground/40">{column.dataType}</span>

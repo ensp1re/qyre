@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 export interface StatusBarProps {
   status: ConnectionStatus;
   engine?: DatabaseEngine;
+  engineVersion?: string | null;
   schema?: string;
   lastQueryMs?: number;
 }
@@ -25,20 +26,24 @@ function Separator(): ReactNode {
   return <span className="text-border">·</span>;
 }
 
-/**
- * Bottom chrome bar: connection status, engine, current schema, encoding. Engine version is
- * deferred to DF-08 (needs a new HealthResponse field) - engine name alone is already available
- * from DatabaseOverview.
- */
-export function StatusBar({ status, engine, schema, lastQueryMs }: StatusBarProps): ReactNode {
+/** Bottom chrome bar: connection status, engine + version, current schema, encoding. */
+export function StatusBar({
+  status,
+  engine,
+  engineVersion,
+  schema,
+  lastQueryMs
+}: StatusBarProps): ReactNode {
+  const engineLabel = engineVersion ?? engine;
+
   return (
     <footer className="flex h-6 shrink-0 items-center justify-between gap-3 border-t border-border bg-sidebar px-3 sm:px-4 font-mono text-[10px]">
       <div className="flex min-w-0 items-center gap-3 text-muted-foreground/60">
         <span style={{ color: STATUS_COLOR[status] }}>{STATUS_LABEL[status]}</span>
-        {engine && (
+        {engineLabel && (
           <>
             <Separator />
-            <span className="hidden sm:inline">{engine}</span>
+            <span className="hidden sm:inline">{engineLabel}</span>
           </>
         )}
         {schema && (

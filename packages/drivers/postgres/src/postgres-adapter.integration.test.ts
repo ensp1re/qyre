@@ -41,7 +41,9 @@ describe("PostgresAdapter integration", () => {
     expect(table.columns.map((column) => column.name)).toEqual(
       expect.arrayContaining(["id", "name", "email"])
     );
-    expect(table.columns.find((column) => column.name === "id")?.isPrimaryKey).toBe(true);
+    const idColumn = table.columns.find((column) => column.name === "id");
+    expect(idColumn?.isPrimaryKey).toBe(true);
+    expect(idColumn?.isForeignKey).toBe(false);
 
     const primaryIndex = table.indexes?.find((index) => index.primary);
     expect(primaryIndex).toBeDefined();
@@ -49,6 +51,29 @@ describe("PostgresAdapter integration", () => {
     expect(primaryIndex?.unique).toBe(true);
 
     expect(table.rowCount).toBeGreaterThanOrEqual(0);
+  });
+
+  it("reports the connected engine's name and version", async () => {
+    expect(await adapter.getVersion()).toMatch(/^PostgreSQL \d/);
+  });
+
+  it("flags a column referencing another table as a foreign key", async () => {
+    await runStatements(databaseUrl, [
+      "DROP TABLE IF EXISTS humb_test_orders",
+      `CREATE TABLE humb_test_orders (
+         id serial PRIMARY KEY,
+         user_id integer NOT NULL REFERENCES ${FIXTURE.table}(id),
+         total numeric(10,2) NOT NULL
+       )`
+    ]);
+
+    try {
+      const table = await adapter.getTable(FIXTURE.schema, "humb_test_orders");
+      expect(table.columns.find((column) => column.name === "user_id")?.isForeignKey).toBe(true);
+      expect(table.columns.find((column) => column.name === "total")?.isForeignKey).toBe(false);
+    } finally {
+      await runStatements(databaseUrl, ["DROP TABLE IF EXISTS humb_test_orders"]);
+    }
   });
 
   it("returns a page of rows", async () => {

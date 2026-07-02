@@ -195,16 +195,51 @@ check` (format/lint/typecheck/test/build across all packages) passes; commit `39
     fixture (`humb_demo_users`/`orders`/`products`): all three cards render with correct PK
     badges/type icons/index footers/row counts, wraps responsively at tablet width, correct in
     both light and dark mode.
+- 2026-07-02: DF-06 (Files tab, commit `36791ae`).
+  - Resolved the "Files tab security scoping" open decision below before writing any endpoint
+    code, per `docs/SECURITY.md`'s untrusted-input rule: documented the full boundary in
+    `docs/product-specs/dashboard-ui.md`'s new "Files tab security boundary" section - opt-in only
+    via a new `--files-dir <dir>` CLI flag (resolved/validated at startup; no flag means disabled),
+    one fixed root for the process's lifetime, `*.sql` extension allowlist, directories pruned if
+    they contain no `.sql` file anywhere below them, `.`-prefixed entries/`node_modules` skipped,
+    no symlink following (`fs.Dirent.isDirectory()`/`isFile()` don't resolve them).
+  - Backend: `packages/server/src/files.ts` (`buildFileTree`, `resolveSqlFilePath` +
+    `InvalidFilePathError`) wired into `GET /api/files` (tree, or `{enabled:false}` when
+    unconfigured) and `GET /api/files/content?path=...`. The content endpoint validates the
+    client-supplied path defensively even though the root itself is fixed - rejects `..` segments
+    and non-`.sql` extensions, then requires the resolved absolute path to still start with the
+    root (the actual traversal stopper, not the extension check alone); a rejected path is `400`,
+    matching F006's precedent for query-runner rejections. New `FileNode`/`FilesOverview`/
+    `FileContent` types + `fileContentQuerySchema` in `@humb/core`, following the same
+    `types/`+`validation/` split every other endpoint uses.
+  - Frontend: new `FilesBrowser` (`packages/ui`) - a folder/file tree plus a line-numbered preview
+    pane, both inside one scrollable container so there's no separate-scroll-sync problem to solve
+    (unlike DF-03's SQL Editor gutter, which has to sync scroll between a textarea and its own
+    gutter). Wired into `App.tsx` via new `useFilesOverview`/`useFileContent` hooks, handling the
+    same loading/error/empty/success states every other tab already does.
+  - `pnpm --filter @humb/server test` (30/30, new `files.ts` unit tests using real temp
+    directories/symlinks - no mocks - plus new route tests) and `pnpm --filter humb test` (11/11,
+    new `--files-dir`/`resolveFilesRoot` cases) pass. `pnpm --filter @humb/web build`/`typecheck`
+    and `pnpm --filter @humb/ui build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm
+test:e2e:full` against a real `postgres:16-alpine` container - no regression. `pnpm check`
+    (full monorepo) passes.
+  - Manually verified live via Preview + `curl` against a real `--files-dir` fixture (a
+    `migrations/` folder plus a top-level `schema.sql`, and a `notes.txt` that correctly never
+    appears): tree renders only the `.sql` files, selecting a file switches the preview, a
+    traversal attempt (`?path=../../../../etc/passwd.sql`) returns `400` with no leaked file
+    content, and the disabled-state message renders correctly when no `--files-dir` is passed -
+    confirmed in both light and dark mode.
 
 ## Open decisions
 
-- Files tab security scoping (which directory, which extensions, opt-in flag vs. default-on) - not
-  decided; flagged in `docs/product-specs/dashboard-ui.md`, to be resolved when DF-06 is picked up.
+- ~~Files tab security scoping~~ - resolved by DF-06; see
+  `docs/product-specs/dashboard-ui.md`'s "Files tab security boundary" section.
 - Whether FK metadata (`DF-08`) is added to `@humb/core`'s `ColumnMetadata` directly or as a new
   field alongside `IndexMetadata` - decide when DF-08 is scoped, following F003's precedent for how
   `IndexMetadata` itself was added.
-- Order of remaining DF-06..DF-08 pickup - not fixed; pick per session same as the F-series.
-  (DF-03/DF-04/DF-05/DF-09 all shipped ahead of the originally-declared order - DF-04/DF-09 folded
-  into the DF-02 correction pass since user feedback pointed straight at Tables/dark-mode; DF-03
-  and DF-05 picked up next as the smallest remaining backend-free slices - not a sign the declared
+- Order of remaining DF-07..DF-08 pickup - not fixed; pick per session same as the F-series.
+  (DF-03/DF-04/DF-05/DF-06/DF-09 all shipped ahead of the originally-declared order - DF-04/DF-09
+  folded into the DF-02 correction pass since user feedback pointed straight at Tables/dark-mode;
+  DF-03, DF-05, and DF-06 picked up next in roughly ascending order of new-backend-capability
+  needed - not a sign the declared
   split doesn't hold.)

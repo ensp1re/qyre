@@ -133,10 +133,28 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   proving the behavior actually changed - this made the sidebar's table-name assertion ambiguous
   (`getByText` now also matched the grid), fixed by scoping it to a role locator. Verified live
   via Preview against a real 3-table Postgres fixture in both light/dark mode and at tablet width.
+- **DF-06 `passing`** (commit `36791ae`, [PR #22](https://github.com/ensp1re/humb/pull/22)): the
+  Files tab is real now, backed by a new security-scoped filesystem endpoint. Documented the
+  security boundary in `docs/product-specs/dashboard-ui.md` _before_ writing any endpoint code, per
+  `docs/SECURITY.md`: opt-in only via a new `--files-dir <dir>` CLI flag (resolved/validated at
+  startup - no flag means `GET /api/files` returns `{ enabled: false, tree: [] }`, never a silent
+  scan of the launch cwd), one fixed root for the process's lifetime, `*.sql` extension allowlist,
+  directories pruned if they contain no `.sql` file anywhere below them, no symlink following.
+  `GET /api/files/content?path=...` validates client input defensively even though the root is
+  fixed - rejects `..` segments and non-`.sql` extensions, then requires the resolved path to still
+  start with the root (the actual traversal stopper); a rejected path is `400`, matching F006's
+  precedent. New `FileNode`/`FilesOverview`/`FileContent` types + `fileContentQuerySchema` in
+  `@humb/core`; new `FilesBrowser` (`packages/ui`) - tree + preview share one scrollable container,
+  so there's no separate-scroll-sync problem like DF-03's gutter had. Verified live via Preview +
+  curl against a real `--files-dir` fixture: tree shows only `.sql` files, selection/preview works,
+  a traversal attempt returns `400` with no leaked content, and the disabled-state message renders
+  correctly with no flag - all in both light and dark mode. `pnpm --filter @humb/server test`
+  (30/30, real temp-dir/symlink fixtures, no mocks) and `pnpm --filter humb test` (11/11) pass;
+  `pnpm test:e2e:full` against a real `postgres:16-alpine` container - no regression.
 
 ## In progress
 
-- None. F009/F010/F011/DF-06..DF-08 are `not_started` backlog.
+- None. F009/F010/F011/DF-07/DF-08 are `not_started` backlog.
 
 ## Known issues / blockers
 
@@ -145,13 +163,12 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 - F011 (Playwright e2e coverage for SQLite) is `not_started`; the UI itself needs no changes (it's
   already engine-agnostic, verified live against SQLite over the same HTTP contract) - only
   `e2e/server.ts` needs to support starting against either engine's fixture.
-- DF-06 (Files tab) and DF-07 (Console tab) both need new backend capability, not just restyling -
-  DF-06 in particular needs a real security-scoping decision before any filesystem-reading endpoint
-  is written (`docs/product-specs/dashboard-ui.md`).
+- DF-07 (Console tab) needs new backend capability (an in-memory ring buffer + endpoint), not just
+  restyling.
 
 ## Next steps
 
-1. Pick up DF-06 (Files tab - needs the security-scoping decision first), DF-07 (Console tab), or
-   DF-08 (engine+version status bar, FK metadata) next - DF-03/DF-04/DF-05/DF-09 are all done.
+1. Pick up DF-07 (Console tab - needs a new in-memory ring buffer + endpoint) or DF-08
+   (engine+version status bar, FK metadata) next - DF-03/DF-04/DF-05/DF-06/DF-09 are all done.
    F009/F010/F011 remain backlog per the user's stated leaning (SQLite → publish → UI/UX, UI/UX now
    underway as the DF series).

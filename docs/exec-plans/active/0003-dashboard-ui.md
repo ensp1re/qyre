@@ -155,7 +155,7 @@ scope"), multi-connection UI, settings panel content.
     FOUC via `document.documentElement.classList`/`localStorage` after a hard reload), and the
     mobile drawer opening/backdrop-dismissing/auto-closing on table selection.
   - `pnpm check` and `pnpm test:e2e`/`pnpm test:e2e:full` all pass; commit `0238265`.
-- 2026-07-02: DF-03 (SQL Editor line-numbered gutter, commit `36c0be6`).
+- 2026-07-02: DF-03 (SQL Editor line-numbered gutter, commit `39bfc95`).
   - The DF-02 correction pass gave `QueryRunner` a light restyle (bordered container, run button,
     `Cmd/Ctrl+Enter`) but explicitly deferred the source design's line-numbered gutter to this
     slice - the only piece of `SqlEditor` (`github.com/ensp1re/UserDashboard`) not yet ported.
@@ -170,7 +170,7 @@ scope"), multi-connection UI, settings panel content.
   - `pnpm --filter @humb/web build`/`typecheck` and `pnpm --filter @humb/ui build`/`typecheck`
     clean. Started a real `postgres:16-alpine` container and re-ran `pnpm --filter @humb/postgres
 test` (11/11) and `pnpm test:e2e:full` (1/1) - no regression from the DF-02 baseline. `pnpm
-check` (format/lint/typecheck/test/build across all packages) passes; commit `36c0be6`.
+check` (format/lint/typecheck/test/build across all packages) passes; commit `39bfc95`.
 
 ## Open decisions
 

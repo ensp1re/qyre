@@ -112,7 +112,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   shares the same `open` state as the desktop collapse-to-rail); tab bar scrolls horizontally;
   title/status bars hide secondary text at narrow widths. Verified live via Preview across
   desktop/tablet/mobile and both themes against a real Postgres fixture.
-- **DF-03 `passing`** (commit `36c0be6`): added the SQL Editor's line-numbered gutter, the one
+- **DF-03 `passing`** (commit `39bfc95`): added the SQL Editor's line-numbered gutter, the one
   piece of `QueryRunner` left unstyled after the DF-02 correction pass. A scrollable line-number
   column (`packages/ui/src/components/query-runner.tsx`) stays in sync with the textarea via a
   real `onScroll` handler - the source design (`github.com/ensp1re/UserDashboard`'s `SqlEditor`)

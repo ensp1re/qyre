@@ -6,6 +6,13 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "humb#build": {
+      // The CLI bundles apps/web's build into its own dist/web at build time (F010), so it must
+      // build after @humb/web even though there's no package.json dependency edge between them
+      // (the CLI serves static files, it doesn't import from @humb/web).
+      "dependsOn": ["^build", "@humb/web#build"],
+      "outputs": ["dist/**"]
+    },
     "typecheck": {
       "dependsOn": ["^build"]
     },

@@ -3,6 +3,25 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Launch a local-first database management UI from your terminal.",
+  "keywords": [
+    "database",
+    "postgres",
+    "postgresql",
+    "sqlite",
+    "cli",
+    "gui",
+    "ide",
+    "database-gui",
+    "database-client",
+    "read-only"
+  ],
+  "homepage": "https://github.com/ensp1re/humb#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ensp1re/humb.git",
+    "directory": "packages/cli"
+  },
+  "bugs": "https://github.com/ensp1re/humb/issues",
   "license": "MIT",
   "bin": {
     "humb": "./dist/bin.js"

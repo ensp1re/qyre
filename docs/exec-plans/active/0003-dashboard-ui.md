@@ -229,6 +229,41 @@ test:e2e:full` against a real `postgres:16-alpine` container - no regression. `p
     traversal attempt (`?path=../../../../etc/passwd.sql`) returns `400` with no leaked file
     content, and the disabled-state message renders correctly when no `--files-dir` is passed -
     confirmed in both light and dark mode.
+- 2026-07-02: DF-07 (Console tab, commit `185e1ae`).
+  - Added a bounded in-memory event log (`packages/server/src/event-log.ts`, `EventLog` - a plain
+    array with the oldest entry dropped past 200; not a literal ring-buffer data structure, that
+    complexity isn't worth it at this size) with no persistence requirement, per the behavior
+    entry.
+  - Wired it to two real event sources already inside the server rather than inventing synthetic
+    data: `POST /api/query` logs `info` on success (duration + row count), `warn` when
+    `ReadOnlyViolationError` rejects a query, `error` for any other adapter failure; `GET
+/api/health` logs a transition (not every poll, and never the very first observation - that's
+    the baseline, not a notable event) when `ping()`'s result actually changes.
+  - New `GET /api/console` (read) and `DELETE /api/console` (clear) routes. Clear is a deliberate,
+    minor scope extension beyond the literal behavior text (which only mentions one endpoint) -
+    justified the same way DF-04's CSV export was: it's read-only-adjacent (resets Humb's own
+    diagnostic buffer, never touches the connected database) and directly matches the source
+    design's Clear button. New `ConsoleEvent`/`ConsoleEvents` types in `@humb/core`.
+  - Frontend: new `ConsoleLog` (`packages/ui`) - a level-colored event stream with a Clear button
+    and the source design's blinking-cursor flourish. New `useConsoleEvents` hook polls every 3s
+    while connected via React Query's `refetchInterval`. Live verification in a headless Preview
+    session showed the auto-poll never firing - traced to `document.hasFocus()` being `false` in
+    that context, which is exactly the scenario React Query's default
+    `refetchIntervalInBackground: false` is designed to skip; not a bug, and correct behavior for
+    a real user's focused tab.
+  - That investigation surfaced a real, pre-existing gap instead: the title bar's global Refresh
+    button (`refresh()` in `App.tsx`) only ever refetched health and overview, never Files (added
+    in DF-06) or the new Console data. Fixed by refetching both there too - confirmed via Preview
+    that clicking Refresh now reveals events logged since the last poll.
+  - `pnpm --filter @humb/server test` (37/37, new `event-log.ts` unit tests plus new route tests
+    covering success/rejection/failure logging, connection transitions, and clearing) and the rest
+    of `pnpm test` pass. `pnpm --filter @humb/web build`/`typecheck` and `pnpm --filter @humb/ui
+build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm test:e2e:full` against a real
+    `postgres:16-alpine` container - no regression. `pnpm check` (full monorepo) passes.
+  - Manually verified live via Preview against a real Postgres fixture: ran a successful query and
+    a rejected one, confirmed both appear in the Console tab with correct level colors after a
+    manual refresh; Clear empties the log (`"No events yet."` renders); both light and dark mode
+    correct.
 
 ## Open decisions
 
@@ -237,9 +272,8 @@ test:e2e:full` against a real `postgres:16-alpine` container - no regression. `p
 - Whether FK metadata (`DF-08`) is added to `@humb/core`'s `ColumnMetadata` directly or as a new
   field alongside `IndexMetadata` - decide when DF-08 is scoped, following F003's precedent for how
   `IndexMetadata` itself was added.
-- Order of remaining DF-07..DF-08 pickup - not fixed; pick per session same as the F-series.
-  (DF-03/DF-04/DF-05/DF-06/DF-09 all shipped ahead of the originally-declared order - DF-04/DF-09
-  folded into the DF-02 correction pass since user feedback pointed straight at Tables/dark-mode;
-  DF-03, DF-05, and DF-06 picked up next in roughly ascending order of new-backend-capability
-  needed - not a sign the declared
-  split doesn't hold.)
+- DF-08 is the only remaining `DF-##` slice - no ordering decision left to make. (DF-03/DF-04/
+  DF-05/DF-06/DF-07/DF-09 all shipped ahead of the originally-declared order - DF-04/DF-09 folded
+  into the DF-02 correction pass since user feedback pointed straight at Tables/dark-mode; DF-03,
+  DF-05, DF-06, and DF-07 picked up next in roughly ascending order of new-backend-capability
+  needed - not a sign the declared split doesn't hold.)

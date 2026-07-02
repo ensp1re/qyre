@@ -121,10 +121,22 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   live via Preview against a real SQLite fixture: line numbers align and stay synced while
   scrolling a 60-line query, in both light and dark mode. Re-ran `pnpm --filter @humb/postgres
 test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - no regression.
+- **DF-05 `passing`** (commit `3a51660`, [PR #21](https://github.com/ensp1re/humb/pull/21)): the
+  Schema tab no longer requires a sidebar selection - a new `SchemaGrid`
+  (`packages/ui/src/components/schema-grid.tsx`) lays out every table in the database as a card,
+  reusing `TableDetail`'s exact column-row pattern (PK badge, `TypeIcon`, indexes, row count)
+  unchanged rather than inventing a new one. A new `useAllTables` hook (`apps/web`) fans the
+  existing single-table `/api/tables/:schema/:table` endpoint out across every table via
+  `useQueries`, sharing its query key with `useTable` so an already-viewed table is served from
+  cache. FK badges stay deferred to DF-08 (no backend FK metadata yet). Strengthened
+  `e2e/connect-and-inspect.spec.ts` to assert the grid renders before any table selection,
+  proving the behavior actually changed - this made the sidebar's table-name assertion ambiguous
+  (`getByText` now also matched the grid), fixed by scoping it to a role locator. Verified live
+  via Preview against a real 3-table Postgres fixture in both light/dark mode and at tablet width.
 
 ## In progress
 
-- None. F009/F010/F011/DF-05..DF-08 are `not_started` backlog.
+- None. F009/F010/F011/DF-06..DF-08 are `not_started` backlog.
 
 ## Known issues / blockers
 
@@ -139,7 +151,7 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 
 ## Next steps
 
-1. Pick up DF-05 (Schema tab full all-tables grid), DF-06 (Files tab - needs the security-scoping
-   decision first), DF-07 (Console tab), or DF-08 (engine+version status bar, FK metadata) next -
-   DF-03/DF-04/DF-09 are all done. F009/F010/F011 remain backlog per the user's stated leaning
-   (SQLite → publish → UI/UX, UI/UX now underway as the DF series).
+1. Pick up DF-06 (Files tab - needs the security-scoping decision first), DF-07 (Console tab), or
+   DF-08 (engine+version status bar, FK metadata) next - DF-03/DF-04/DF-05/DF-09 are all done.
+   F009/F010/F011 remain backlog per the user's stated leaning (SQLite → publish → UI/UX, UI/UX now
+   underway as the DF series).

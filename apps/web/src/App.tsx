@@ -3,6 +3,7 @@ import {
   QueryRunner,
   RowsTable,
   Sidebar,
+  Spinner,
   StatusBar,
   TabBar,
   TableDetail,
@@ -93,10 +94,14 @@ export function App(): ReactNode {
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
             {status !== "connected" ? (
-              <p className="text-[13px] text-muted-foreground">
-                {healthLoading
-                  ? "Checking connection..."
-                  : "No database is connected yet. Launch Humb with a Postgres or SQLite target to get started."}
+              <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                {healthLoading ? (
+                  <>
+                    <Spinner /> Checking connection...
+                  </>
+                ) : (
+                  "No database is connected yet. Launch Humb with a Postgres or SQLite target to get started."
+                )}
               </p>
             ) : tab === "sql-editor" ? (
               <QueryRunner
@@ -113,7 +118,9 @@ export function App(): ReactNode {
                   Select a table from the sidebar.
                 </p>
               ) : rows.isLoading ? (
-                <p className="text-[13px] text-muted-foreground">Loading rows...</p>
+                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                  <Spinner /> Loading rows...
+                </p>
               ) : rows.isError ? (
                 <p className="text-[13px] text-muted-foreground">
                   Failed to load rows.{" "}
@@ -145,7 +152,9 @@ export function App(): ReactNode {
                   Select a table from the sidebar.
                 </p>
               ) : table.isLoading ? (
-                <p className="text-[13px] text-muted-foreground">Loading table...</p>
+                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                  <Spinner /> Loading table...
+                </p>
               ) : table.isError ? (
                 <p className="text-[13px] text-muted-foreground">
                   Failed to load table metadata.{" "}

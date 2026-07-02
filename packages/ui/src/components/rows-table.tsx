@@ -189,7 +189,7 @@ export function RowsTable({
       </div>
 
       {columns.length > 0 && (
-        <div className="flex shrink-0 overflow-x-auto border-b border-border bg-card">
+        <div className="flex shrink-0 overflow-x-auto overflow-y-hidden border-b border-border bg-card">
           <div className="w-8 shrink-0 border-r border-border" />
           <div className="w-8 shrink-0 border-r border-border" />
           {rowPage.columns.map((columnName) => {

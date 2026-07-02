@@ -2,6 +2,7 @@ import type { RowPage } from "@humb/core";
 import { Play } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { formatCell } from "../format-cell.js";
+import { Spinner } from "./spinner.js";
 
 export interface QueryRunnerProps {
   sql: string;
@@ -43,7 +44,11 @@ export function QueryRunner({
           disabled={!canRun}
           className="flex items-center gap-1.5 rounded-[3px] bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          <Play className="h-2.5 w-2.5" />
+          {isRunning ? (
+            <Spinner className="h-2.5 w-2.5 text-primary-foreground" />
+          ) : (
+            <Play className="h-2.5 w-2.5" />
+          )}
           {isRunning ? "Running..." : "Run"}
         </button>
         <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">

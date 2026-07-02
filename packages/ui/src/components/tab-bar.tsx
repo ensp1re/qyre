@@ -22,7 +22,7 @@ export function TabBar({ active, onChange }: TabBarProps): ReactNode {
   return (
     <div
       role="tablist"
-      className="flex shrink-0 items-end gap-0.5 overflow-x-auto border-b border-border bg-card px-2 pt-1"
+      className="flex shrink-0 items-end gap-0.5 overflow-x-auto overflow-y-hidden border-b border-border bg-card px-2 pt-1"
     >
       {TABS.map(({ id, label, icon: Icon }) => {
         const isActive = id === active;

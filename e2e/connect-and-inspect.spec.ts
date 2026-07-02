@@ -20,13 +20,16 @@ test("@full connect to Postgres and inspect a table", async ({ page }) => {
   // F002: the UI reports the database is connected.
   await expect(page.getByTestId("status-badge")).toHaveAttribute("data-status", "connected");
 
-  // F004: the navigation tree lists the fixture table; selecting it shows its columns.
+  // F004: the navigation tree lists the fixture table; selecting it switches to the Tables tab.
   await expect(page.getByText(FIXTURE.table)).toBeVisible();
   await page.getByRole("button", { name: FIXTURE.table }).click();
-  await expect(page.getByTestId("table-detail")).toBeVisible();
-  await expect(page.getByTestId("table-detail").getByText("email")).toBeVisible();
 
   // F005: a page of the fixture's actual rows is visible.
   await expect(page.getByTestId("rows-table").getByText("ada@example.com")).toBeVisible();
   await expect(page.getByTestId("rows-table").getByText("grace@example.com")).toBeVisible();
+
+  // F004: the Schema tab shows the selected table's columns.
+  await page.getByRole("tab", { name: "Schema" }).click();
+  await expect(page.getByTestId("table-detail")).toBeVisible();
+  await expect(page.getByTestId("table-detail").getByText("email")).toBeVisible();
 });

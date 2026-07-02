@@ -2,16 +2,17 @@ import type { ConnectionStatus } from "@humb/core";
 import {
   QueryRunner,
   RowsTable,
+  SchemaGrid,
   Sidebar,
   Spinner,
   StatusBar,
   TabBar,
-  TableDetail,
   TitleBar,
   type ShellTab
 } from "@humb/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { useAllTables } from "./hooks/use-all-tables.js";
 import { useHealth } from "./hooks/use-health.js";
 import { useOverview } from "./hooks/use-overview.js";
 import { useRows } from "./hooks/use-rows.js";
@@ -41,6 +42,7 @@ export function App(): ReactNode {
   const overview = useOverview({ enabled: status === "connected" });
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page);
+  const allTables = useAllTables(overview.data?.schemas);
   const runQuery = useRunQuery();
 
   function selectTable(schema: string, tableName: string): void {
@@ -147,28 +149,26 @@ export function App(): ReactNode {
                 />
               ) : null
             ) : tab === "schema" ? (
-              !selected ? (
-                <p className="text-[13px] text-muted-foreground">
-                  Select a table from the sidebar.
-                </p>
-              ) : table.isLoading ? (
+              allTables.isLoading ? (
                 <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                  <Spinner /> Loading table...
+                  <Spinner /> Loading tables...
                 </p>
-              ) : table.isError ? (
+              ) : allTables.isError ? (
                 <p className="text-[13px] text-muted-foreground">
-                  Failed to load table metadata.{" "}
+                  Failed to load one or more tables.{" "}
                   <button
                     type="button"
-                    onClick={() => table.refetch()}
+                    onClick={() => allTables.refetch()}
                     className="text-primary underline"
                   >
                     Retry
                   </button>
                 </p>
-              ) : table.data ? (
-                <TableDetail table={table.data} />
-              ) : null
+              ) : allTables.tables.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">No tables found.</p>
+              ) : (
+                <SchemaGrid tables={allTables.tables} />
+              )
             ) : tab === "files" ? (
               <p className="text-[13px] text-muted-foreground">
                 File browsing needs a scoped read-only endpoint - coming in DF-06.

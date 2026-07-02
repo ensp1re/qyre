@@ -8,9 +8,8 @@ export interface TableDetailProps {
 }
 
 /**
- * Columns, primary key, indexes, and approximate row count for a single table. A full
- * all-tables grid (docs/references/design-system.md's Schema tab) is DF-05's job - this is the
- * single-table view, styled to match that same column-row pattern.
+ * Columns, primary key, indexes, and approximate row count for a single table. Also reused as
+ * each card in `SchemaGrid`, the Schema tab's full-database overview.
  */
 export function TableDetail({ table }: TableDetailProps): ReactNode {
   return (

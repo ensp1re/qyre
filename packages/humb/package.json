@@ -1,0 +1,35 @@
+{
+  "name": "humb",
+  "version": "0.0.2",
+  "type": "module",
+  "description": "Launch a local-first database management UI from your terminal. Bare-named alias for @humbdb/humb, published only so `npx humb` and `npm install -g humb` work.",
+  "keywords": [
+    "database",
+    "postgres",
+    "postgresql",
+    "sqlite",
+    "cli",
+    "gui",
+    "ide",
+    "database-gui",
+    "database-client",
+    "read-only"
+  ],
+  "homepage": "https://github.com/ensp1re/humb#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ensp1re/humb.git",
+    "directory": "packages/humb"
+  },
+  "bugs": "https://github.com/ensp1re/humb/issues",
+  "license": "MIT",
+  "bin": {
+    "humb": "./bin.js"
+  },
+  "files": [
+    "bin.js"
+  ],
+  "dependencies": {
+    "@humbdb/humb": "workspace:*"
+  }
+}

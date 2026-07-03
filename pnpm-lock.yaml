@@ -188,6 +188,12 @@ importers:
         specifier: ^7.6.13
         version: 7.6.13
 
+  packages/humb:
+    dependencies:
+      '@humbdb/humb':
+        specifier: workspace:*
+        version: link:../cli
+
   packages/server:
     dependencies:
       '@fastify/static':

@@ -37,7 +37,9 @@ const PUBLISH_ORDER = [
   "@humbdb/sqlite",
   "@humbdb/server",
   "@humbdb/ui",
-  "@humbdb/humb"
+  "@humbdb/humb",
+  // Bare-named alias package (packages/humb) - depends on @humbdb/humb, so it must publish last.
+  "humb"
 ];
 
 function run(command, commandArgs, options = {}) {

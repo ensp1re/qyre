@@ -19,6 +19,23 @@ single engine's behavior, not the whole product.
   Editor/Tables/Schema/Files/Console tabs, status bar) sitting on top of any engine's data contract.
   Tracked as the `DF-##` series (`docs/NAMING.md`), not `F###`. See
   `docs/references/design-system.md` for the design tokens.
+- [`sql-editor.md`](sql-editor.md) - two engine-agnostic SQL Editor enhancements: query history
+  (a right-anchored drawer, `localStorage`-backed) and schema-aware autocomplete (keywords + table
+  names), which also means migrating the editor off a plain `<textarea>` onto CodeMirror 6. Tracked
+  as F012 (history) and F013 (autocomplete + editor migration).
+- [`connect-and-inspect-mysql.md`](connect-and-inspect-mysql.md) - the MySQL engine contract, closest
+  to Postgres's of any engine so far (network server, real SQL, transaction-level read-only
+  backstop) - only the differences (identifier quoting, schema/database terminology, row-count
+  strategy) are called out. Tracked as F014.
+- [`connect-and-inspect-mongodb.md`](connect-and-inspect-mongodb.md) - MongoDB, deliberately scoped
+  to basic read-only browsing (databases/collections/documents) rather than a full port of the
+  SQL-shaped contract - no query runner, and a weaker (code-level, not driver-level) read-only
+  guarantee, both explicitly called out rather than glossed over. Tracked as F015; depends on F016.
+- [`structured-cell-values.md`](structured-cell-values.md) - an expandable tree viewer for any
+  object/array cell value in `RowsTable`/`QueryRunner`'s result table, replacing today's flat
+  `JSON.stringify`-to-text handling. Engine-agnostic by design (benefits Postgres/MySQL `json`/`jsonb`
+  columns today), and a hard prerequisite for MongoDB's documents (F015) to render usably. Tracked as
+  F016.
 
 ## Rules
 

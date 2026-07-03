@@ -114,6 +114,56 @@
       "spec": "docs/product-specs/connect-and-inspect-sqlite.md"
     },
     {
+      "id": "F012",
+      "behavior": "The SQL Editor gains a query history drawer (icon in the toolbar, slides in from the right, one card per past query). Clicking a card prefills the editor with that query's text without auto-running it. Only successful queries are recorded, stored in localStorage (not server-side), capped at 50 entries, deduped on consecutive re-runs.",
+      "verification": "pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm --filter @humbdb/web build && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F013",
+      "behavior": "The SQL Editor migrates from a plain <textarea> to CodeMirror 6 and gains schema-aware autocomplete: SQL keyword completion (SELECT, FROM, WHERE, etc.) and real table-name completion after FROM/JOIN, sourced from the already-fetched schema data (no new backend endpoint). Column-name completion is explicitly deferred. Existing behavior (Ctrl/Cmd+Enter to run, toolbar, design tokens in both themes) is preserved exactly.",
+      "verification": "pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm --filter @humbdb/web build && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F014",
+      "behavior": "MySQL as Humb's third engine (npx humb mysql://...): read-only inspection (schemas/tables/columns/indexes/row counts), paginated row browsing, and the read-only SQL query runner - reusing @humbdb/driver-contract's shared assertReadOnly heuristic plus an authoritative START TRANSACTION READ ONLY backstop (mirrors F006's Postgres precedent). Playwright coverage extends the same connect-and-inspect.spec.ts as a third project/fixture, per F011's precedent, not a duplicated spec.",
+      "verification": "pnpm --filter @humbdb/core test && pnpm --filter @humbdb/driver-contract test && pnpm --filter @humbdb/mysql test && pnpm --filter @humbdb/humb test && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-mysql.md"
+    },
+    {
+      "id": "F015",
+      "behavior": "MongoDB as a fourth engine (npx humb mongodb://...), deliberately scoped to basic read-only browsing only: databases as schemas, collections as tables, best-effort sampled field lists per collection, paginated document browsing (each page's columns are the union of fields observed on that page, not just a table-level sample). No query runner (the SQL Editor tab is not usable against a Mongo connection) and no driver-level read-only backstop - enforced instead by the adapter's code never calling any Mongo write API, explicitly weaker than every other engine's guarantee (see docs/product-specs/connect-and-inspect-mongodb.md's \"Read-only enforcement\" section). Depends on F016 (structured-cell viewer) shipping first - nested document fields are unusable as flat JSON text.",
+      "verification": "pnpm --filter @humbdb/core test && pnpm --filter @humbdb/driver-contract test && pnpm --filter @humbdb/mongodb test && pnpm --filter @humbdb/humb test && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-mongodb.md"
+    },
+    {
+      "id": "F016",
+      "behavior": "RowsTable and QueryRunner's result table gain a real, expandable tree viewer for any object/array cell value, replacing today's flat JSON.stringify-to-text handling in formatCell. Engine-agnostic and useful today (Postgres/MySQL json/jsonb columns already hit this path) - not Mongo-specific, though it's a hard prerequisite for F015's documents to render usably. Read-only viewing only, no inline editing.",
+      "verification": "pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm --filter @humbdb/web build && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/structured-cell-values.md"
+    },
+    {
       "id": "DF-01",
       "behavior": "The dashboard UI redesign (source: github.com/ensp1re/UserDashboard, a private Figma Make export) is read and documented before any view is ported: docs/references/design-system.md captures the full token set (colors light/dark, typography, radius, component patterns), .claude/skills/humb-design-system/SKILL.md makes it discoverable to future UI work, and docs/product-specs/dashboard-ui.md defines the engine-agnostic UI contract plus the backend gaps the design surfaces. The real tokens are wired into apps/web's Tailwind config (previously scaffolded but entirely unused) so the rules are backed by a working build, not just prose - with zero regression to the current passing UI, since no component uses a Tailwind class yet.",
       "verification": "pnpm --filter @humbdb/web build && pnpm --filter @humbdb/web typecheck && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm test:e2e",

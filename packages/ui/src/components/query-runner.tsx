@@ -1,8 +1,16 @@
 import type { RowPage } from "@humbdb/core";
+import { autocompletion } from "@codemirror/autocomplete";
+import { StandardSQL, sql as sqlLanguage } from "@codemirror/lang-sql";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { Prec } from "@codemirror/state";
+import { EditorView, keymap } from "@codemirror/view";
+import { tags } from "@lezer/highlight";
+import { basicSetup } from "codemirror";
 import { History, Play } from "lucide-react";
-import type { KeyboardEvent, ReactNode, UIEvent } from "react";
-import { useRef } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { formatCell } from "../format-cell.js";
+import { createSqlCompletionSource } from "../sql-completion.js";
 import { ErrorState } from "./error-state.js";
 import { Spinner } from "./spinner.js";
 
@@ -15,7 +23,65 @@ export interface QueryRunnerProps {
   error?: string;
   /** Opens the query history drawer (F012) - rendered by the caller, not this component. */
   onOpenHistory: () => void;
+  /**
+   * Table names for schema-aware autocomplete after FROM/JOIN (F013), sourced by the caller from
+   * already-fetched schema data - this package must not fetch data itself (FRONTEND.md).
+   */
+  tableNames?: readonly string[];
 }
+
+const sqlHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: "var(--c-purple)" },
+  { tag: tags.string, color: "var(--c-blue)" },
+  { tag: [tags.number, tags.bool, tags.null], color: "var(--c-green)" },
+  { tag: tags.comment, color: "rgb(var(--muted-foreground))", fontStyle: "italic" },
+  { tag: [tags.typeName, tags.propertyName], color: "var(--c-amber)" },
+  { tag: tags.operator, color: "rgb(var(--foreground) / 0.8)" }
+]);
+
+const editorTheme = EditorView.theme({
+  "&": {
+    height: "100%",
+    fontSize: "12px",
+    backgroundColor: "rgb(var(--background))",
+    color: "rgb(var(--foreground))"
+  },
+  "&.cm-focused": { outline: "none" },
+  ".cm-content": {
+    fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace",
+    caretColor: "var(--c-blue)",
+    padding: "12px 0"
+  },
+  ".cm-line": { padding: "0 12px" },
+  ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--c-blue)" },
+  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
+    backgroundColor: "rgb(var(--primary) / 0.25)"
+  },
+  ".cm-gutters": {
+    backgroundColor: "rgb(var(--background))",
+    color: "rgb(var(--muted-foreground) / 0.5)",
+    border: "none",
+    borderRight: "1px solid var(--border)"
+  },
+  ".cm-activeLine": { backgroundColor: "rgb(var(--accent) / 0.4)" },
+  ".cm-activeLineGutter": {
+    backgroundColor: "transparent",
+    color: "rgb(var(--muted-foreground))"
+  },
+  ".cm-tooltip": {
+    backgroundColor: "rgb(var(--popover))",
+    border: "1px solid var(--border)",
+    borderRadius: "3px"
+  },
+  ".cm-tooltip.cm-tooltip-autocomplete ul": {
+    fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace",
+    fontSize: "11px"
+  },
+  ".cm-tooltip-autocomplete ul li[aria-selected]": {
+    backgroundColor: "rgb(var(--accent))",
+    color: "rgb(var(--accent-foreground))"
+  }
+});
 
 /** A read-only SQL query box: SELECT-style statements only, enforced server-side. */
 export function QueryRunner({
@@ -25,24 +91,73 @@ export function QueryRunner({
   isRunning,
   result,
   error,
-  onOpenHistory
+  onOpenHistory,
+  tableNames = []
 }: QueryRunnerProps): ReactNode {
   const canRun = !isRunning && sql.trim().length > 0;
   const lineCount = sql.split("\n").length;
-  const gutterRef = useRef<HTMLDivElement>(null);
 
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
-    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-      event.preventDefault();
-      if (canRun) onRun();
-    }
-  }
+  const editorParentRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const onSqlChangeRef = useRef(onSqlChange);
+  const onRunRef = useRef(onRun);
+  const canRunRef = useRef(canRun);
+  const tableNamesRef = useRef(tableNames);
+  onSqlChangeRef.current = onSqlChange;
+  onRunRef.current = onRun;
+  canRunRef.current = canRun;
+  tableNamesRef.current = tableNames;
 
-  function handleScroll(event: UIEvent<HTMLTextAreaElement>): void {
-    if (gutterRef.current) {
-      gutterRef.current.scrollTop = event.currentTarget.scrollTop;
+  useEffect(() => {
+    if (!editorParentRef.current) return;
+
+    const view = new EditorView({
+      doc: sql,
+      parent: editorParentRef.current,
+      extensions: [
+        basicSetup,
+        sqlLanguage({ dialect: StandardSQL }),
+        syntaxHighlighting(sqlHighlightStyle),
+        autocompletion({ override: [createSqlCompletionSource(() => tableNamesRef.current)] }),
+        // Prec.highest so this beats basicSetup's own defaultKeymap binding for the same chord
+        // (Mod-Enter is bound there to insertBlankLine) - otherwise that fires first and this
+        // handler never runs.
+        Prec.highest(
+          keymap.of([
+            {
+              key: "Mod-Enter",
+              run: () => {
+                if (canRunRef.current) onRunRef.current();
+                return true;
+              }
+            }
+          ])
+        ),
+        EditorView.lineWrapping,
+        editorTheme,
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) onSqlChangeRef.current(update.state.doc.toString());
+        })
+      ]
+    });
+    viewRef.current = view;
+
+    return () => {
+      view.destroy();
+      viewRef.current = null;
+    };
+    // Mounted once; the `sql` prop's own changes are synced by the effect below instead of
+    // recreating the whole editor (which would lose undo history/selection on every keystroke).
+  }, []);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (current !== sql) {
+      view.dispatch({ changes: { from: 0, to: current.length, insert: sql } });
     }
-  }
+  }, [sql]);
 
   return (
     <div
@@ -82,28 +197,7 @@ export function QueryRunner({
       </div>
 
       <div className="flex min-h-[8rem] flex-1 overflow-hidden">
-        <div
-          ref={gutterRef}
-          aria-hidden="true"
-          className="shrink-0 select-none overflow-hidden border-r border-border bg-background pr-3 pt-3 text-right font-mono text-[11px] text-muted-foreground/30"
-          style={{ minWidth: "44px" }}
-        >
-          {Array.from({ length: lineCount }, (_, index) => (
-            <div key={index} style={{ lineHeight: "20px" }}>
-              {index + 1}
-            </div>
-          ))}
-        </div>
-        <textarea
-          value={sql}
-          onChange={(event) => onSqlChange(event.target.value)}
-          onKeyDown={handleKeyDown}
-          onScroll={handleScroll}
-          placeholder="SELECT * FROM my_table LIMIT 10"
-          spellCheck={false}
-          className="flex-1 resize-none overflow-auto bg-background p-3 font-mono text-[12px] leading-5 text-foreground outline-none"
-          style={{ caretColor: "var(--c-blue)" }}
-        />
+        <div ref={editorParentRef} data-testid="query-editor" className="min-w-0 flex-1" />
       </div>
 
       {error && (

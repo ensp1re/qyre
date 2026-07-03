@@ -26,7 +26,8 @@ test("@full SQL Editor records a successful query and prefills it from history",
   await page.getByRole("tab", { name: "SQL Editor" }).click();
 
   const sql = `SELECT * FROM ${FIXTURE.table}`;
-  await page.locator("textarea").fill(sql);
+  const editor = page.getByTestId("query-editor").locator(".cm-content");
+  await editor.fill(sql);
   await page.getByRole("button", { name: "Run" }).click();
   await expect(page.getByTestId("query-result")).toBeVisible();
 
@@ -36,10 +37,10 @@ test("@full SQL Editor records a successful query and prefills it from history",
 
   // Clear the editor first so the next assertion actually proves the click prefilled it, rather
   // than the text already being there from the Run above.
-  await page.locator("textarea").fill("");
+  await editor.fill("");
   await card.click();
 
-  await expect(page.locator("textarea")).toHaveValue(sql);
+  await expect(editor).toHaveText(sql);
   // The drawer is always mounted (position: fixed, slid off-screen via a transform when closed) -
   // Playwright's toBeVisible() doesn't detect that as hidden since the element still has a real
   // bounding box, so assert the actual closed-state class instead.

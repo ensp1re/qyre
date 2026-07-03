@@ -91,6 +91,22 @@ describe("PostgresAdapter integration", () => {
     await expect(adapter.runReadOnlyQuery(`DELETE FROM ${FIXTURE.table}`)).rejects.toThrow();
   });
 
+  it("treats a double-quoted value most people write out of habit as a string literal", async () => {
+    // Reproduces the real bug report: Postgres reserves "" for identifiers, so this used to fail
+    // with `column "Alan Turing" does not exist` instead of matching the row.
+    const result = await adapter.runReadOnlyQuery(
+      `SELECT * FROM ${FIXTURE.table} WHERE name="Alan Turing"`
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]?.name).toBe("Alan Turing");
+  });
+
+  it("still treats a double-quoted real column name as an identifier, not a string", async () => {
+    const result = await adapter.runReadOnlyQuery(`SELECT "name" FROM ${FIXTURE.table}`);
+    expect(result.columns).toEqual(["name"]);
+    expect(result.rows).toHaveLength(FIXTURE.rowCount);
+  });
+
   it("rejects a writable CTE end to end and does not actually delete anything", async () => {
     const before = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
 

@@ -329,13 +329,14 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   FK-constrained fixture: Schema tab PK/FK badges, Tables tab pagination, and a SQL Editor query
   using a double-quoted string value (MySQL's own default dialect behavior - confirmed distinct from
   F018's Postgres-only fix, no adapter-side coercion needed here).
-- **F016 `passing`** (commit `57fd354`, first pass `070f995`): structured (object/array) cell
-  values. `CellValue` (`packages/ui/src/components/cell-value.tsx`) replaces `formatCell`'s flat
-  `JSON.stringify`-to-text handling in `RowsTable`/`QueryRunner` with a compact single-line chip
-  (`{ N keys }` / `[ N items ]`) that never grows the row; clicking it opens `CellValueDrawer`
-  (right-anchored, `QueryHistoryDrawer`'s pattern) with an expandable tree - root expanded, deeper
-  levels built lazily on click - syntax-colored primitives, the source column name, and a
-  copy-as-JSON button. Engine-agnostic and already live for Postgres/MySQL `jsonb`/`json` columns,
+- **F016 `passing`** (commit `16dfd4b`; redesign `57fd354`, first pass `070f995`): structured
+  (object/array) cell values. `CellValue` (`packages/ui/src/components/cell-value.tsx`) replaces
+  `formatCell`'s flat `JSON.stringify`-to-text handling in `RowsTable`/`QueryRunner` with a
+  compact single-line chip (`{ N keys }` / `[ N items ]` plus a dimmed truncated JSON preview for
+  scanability) that never grows the row; clicking it opens `CellValueDrawer` (right-anchored,
+  `QueryHistoryDrawer`'s pattern) with an expandable tree - root expanded, deeper levels built
+  lazily on click - syntax-colored primitives, the source column name, a copy-as-JSON button with
+  a check-flash confirmation, and Esc/backdrop/X to close. Engine-agnostic and already live for Postgres/MySQL `jsonb`/`json` columns,
   not Mongo-specific - a prerequisite for F015. The first pass (`070f995`) expanded the tree inline
   inside the cell; the user flagged that it blew up row heights and broke the table layout, so it
   was redesigned to the chip + drawer split the same day (the spec's original out-of-scope note

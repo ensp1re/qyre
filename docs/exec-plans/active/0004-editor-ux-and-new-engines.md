@@ -189,6 +189,13 @@ department="Support"` failed with `column "Support" does not exist`. Not a Humb 
   primitives, the source column name, and copy-as-JSON. Spec's Behavior/Acceptance sections
   revised to match; e2e spec now walks chip -> drawer -> three levels -> close. Still next up:
   F015 (MongoDB).
+- 2026-07-03: F016 polish (commit `16dfd4b`) after the user asked whether chip + drawer is the
+  best-in-class UX: the pattern matched Supabase/TablePlus/DataGrip already, but three gaps
+  didn't - identical `{ N keys }` chips made rows indistinguishable without opening each drawer
+  (fixed: dimmed truncated JSON preview in the chip, capped at 80 chars/280px), no Esc-to-close
+  (fixed), and no copy confirmation (fixed: green check flash). Deliberately not added, possible
+  future follow-ups: a raw-JSON/tree view toggle in the drawer, search within a document, and
+  keeping the drawer pinned while clicking between cells.
 
 ## Open decisions
 

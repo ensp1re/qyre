@@ -142,6 +142,12 @@ Out of scope (decided while scoping, not left ambiguous):
   inserted right after F012 in priority order per the user's explicit request. Wrote
   `docs/product-specs/error-handling.md` and the `FEATURES.json` entry; not yet implemented.
 - 2026-07-03: Implemented F017 (commit `053b023`). Next up: F013.
+- 2026-07-03: Implemented F013 (commit `d315870`) - see `FEATURES.json`'s evidence for full detail.
+  Migrated `QueryRunner` to CodeMirror 6 with schema-aware autocomplete (keywords + table names).
+  Found and fixed a real bug during live verification: CodeMirror's own `defaultKeymap` binds
+  `Mod-Enter` to `insertBlankLine`, silently intercepting the Ctrl/Cmd+Enter-to-run binding (it was
+  inserting a blank line instead of running the query) - fixed with `Prec.highest`. Next up: F014
+  (MySQL).
 
 ## Open decisions
 

@@ -267,6 +267,24 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   `pnpm test:e2e`/`test:e2e:full` (both projects) pass. Manually verified live via Preview:
   reproduced the exact original bug report (`SELECT * FROM orders_items`) and confirmed it now shows
   the real Postgres message centered with a working Retry, in both themes.
+- **F013 `passing`** (commit `d315870`): `QueryRunner` (`packages/ui`) migrated from a plain
+  `<textarea>` + hand-rolled gutter to CodeMirror 6 (`@codemirror/lang-sql`,
+  `@codemirror/autocomplete`, `codemirror`'s `basicSetup`), reskinned to the design system's tokens
+  in both themes. New `packages/ui/src/sql-completion.ts` (unit-tested): schema-aware completion -
+  read-only-relevant SQL keywords everywhere, real table names after `FROM`/`JOIN` sourced from a new
+  `tableNames` prop `apps/web` derives from the already-fetched schema overview (no new backend
+  endpoint, no fetching inside `packages/ui`). Column-name completion is explicitly out of scope.
+  Preserves the `sql`/`onSqlChange`/`onRun` prop contract and `data-testid="query-runner"` exactly.
+  Found and fixed a real bug live: CodeMirror's own `defaultKeymap` binds `Mod-Enter` to
+  `insertBlankLine`, silently intercepting the Ctrl/Cmd+Enter-to-run binding (confirmed via a real
+  Playwright run - it was inserting a blank line instead of running) - fixed with `Prec.highest`.
+  Updated `e2e/query-history.spec.ts` for CodeMirror's contenteditable `.cm-content`; new
+  `e2e/sql-editor-autocomplete.spec.ts` covers keyword completion, table-name completion, and the
+  Ctrl/Cmd+Enter run path on both engine projects. `pnpm --filter @humbdb/ui test`/build/typecheck,
+  `pnpm --filter @humbdb/web` build/typecheck, `pnpm test:e2e:full` (both projects, run twice) and
+  `pnpm test:e2e` all pass; `pnpm check` (full monorepo) passes. Manually verified live via Preview:
+  syntax highlighting and editor chrome correct in both themes, a real query runs and returns
+  results.
 
 ## In progress
 
@@ -294,9 +312,10 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 
 ## Next steps
 
-1. Pick up F013 (SQL Editor autocomplete + CodeMirror 6 migration) next - see
+1. Pick up F014 (MySQL as Humb's third engine) next - see
    `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan. Queued after it, in
-   order: F014 (MySQL engine), F016 (structured-cell viewer), F015 (MongoDB engine, basic browse
-   only - depends on F016). All were scoped with the user in this session before being added to
-   `docs/FEATURES.json` - see that plan's specs (`sql-editor.md`, `connect-and-inspect-mysql.md`,
-   `structured-cell-values.md`, `connect-and-inspect-mongodb.md`) for the decisions already made.
+   order: F016 (structured-cell viewer), F015 (MongoDB engine, basic browse only - depends on F016).
+   All were scoped with the user in this session before being added to `docs/FEATURES.json` - see
+   that plan's specs (`connect-and-inspect-mysql.md`, `structured-cell-values.md`,
+   `connect-and-inspect-mongodb.md`) for the decisions already made. MySQL client library choice
+   (e.g. `mysql2`) is still an open decision - see the plan's "Open decisions".

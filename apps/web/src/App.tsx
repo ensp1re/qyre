@@ -53,6 +53,7 @@ export function App(): ReactNode {
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page);
   const allTables = useAllTables(overview.data?.schemas);
+  const tableNames = (overview.data?.schemas ?? []).flatMap((schema) => schema.tables);
   const filesOverview = useFilesOverview({ enabled: status === "connected" });
   const fileContent = useFileContent(selectedFilePath);
   const consoleEvents = useConsoleEvents({ enabled: status === "connected" });
@@ -138,6 +139,7 @@ export function App(): ReactNode {
                 result={runQuery.data}
                 error={runQuery.error instanceof Error ? runQuery.error.message : undefined}
                 onOpenHistory={() => setHistoryOpen(true)}
+                tableNames={tableNames}
               />
             ) : tab === "tables" ? (
               !selected ? (

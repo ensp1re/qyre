@@ -117,9 +117,9 @@
       "id": "F012",
       "behavior": "The SQL Editor gains a query history drawer (icon in the toolbar, slides in from the right, one card per past query). Clicking a card prefills the editor with that query's text without auto-running it. Only successful queries are recorded, stored in localStorage (not server-side), capped at 50 entries, deduped on consecutive re-runs.",
       "verification": "pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm --filter @humbdb/web build && pnpm test:e2e:full",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "8f86d9a",
+      "evidence": "commit 8f86d9a: new QueryHistoryDrawer (packages/ui, presentation-only) opened via a new toolbar icon button on QueryRunner (onOpenHistory callback); new useQueryHistory hook (apps/web, localStorage key humb-query-history, matches useTheme's existing localStorage pattern) capped at 50 entries, re-running a query already in history moves it to the front instead of duplicating it, only recorded on runQuery's onSuccess (never on a rejected/failed query). New e2e/query-history.spec.ts (@full) proves the run -> appears in history -> click -> prefills journey on both engine projects. Adding a second @full spec against the same live Postgres surfaced a real, pre-existing concurrency bug in @humbdb/testing's setupFixture: DROP+CREATE isn't safe under concurrent Playwright workers (two concurrent CREATE TABLEs raced pg_class's uniqueness constraint) - fixed by running the whole operation on one session under a Postgres advisory lock, benefiting every current and future @full Postgres test, not just this one. pnpm --filter @humbdb/ui build/typecheck and pnpm --filter @humbdb/web build/typecheck clean; pnpm test:e2e/test:e2e:full (both engine projects, run twice back-to-back to confirm the race fix is robust) pass; pnpm check (full monorepo) passes. Manually verified live via Preview against a real Postgres fixture: empty state before any query, a successful query appears with a correct relative timestamp, clicking a card prefills without auto-running (confirmed the stale result table stays put, proving no re-run happened), re-running the same query dedupes (still 1 entry, not 2), a rejected DELETE (blocked by read-only enforcement) is correctly never recorded, history survives a full page reload, and both light and dark mode render correctly.",
       "blockedReason": null,
       "spec": "docs/product-specs/sql-editor.md"
     },
@@ -162,6 +162,16 @@
       "evidence": null,
       "blockedReason": null,
       "spec": "docs/product-specs/structured-cell-values.md"
+    },
+    {
+      "id": "F017",
+      "behavior": "A single Fastify setErrorHandler normalizes every route's uncaught-error response into one consistent { error: string } shape (the real underlying message, not Fastify's generic reason phrase) - found a real bug while testing F012: POST /api/query only special-cased ReadOnlyViolationError, so any other failure (e.g. a bad table name) fell through to Fastify's default handler, and the frontend read the wrong field (body.error, literally \"Internal Server Error\") instead of the real Postgres message sitting in body.message. New shared ErrorState UI component (packages/ui) - occupies the same visual footprint the loaded view would, message centered, Retry action - replaces today's inconsistent inline error text across QueryRunner's result area, RowsTable, SchemaGrid, FilesBrowser, and ConsoleLog. Also distinguishes a genuine network-unreachable failure (friendlier message) from a real server-returned error (shows the actual message).",
+      "verification": "pnpm --filter @humbdb/server test && pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm --filter @humbdb/web build && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/error-handling.md"
     },
     {
       "id": "DF-01",

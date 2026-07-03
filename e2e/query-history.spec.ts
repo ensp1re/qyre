@@ -1,0 +1,47 @@
+import {
+  FIXTURE,
+  requireTestDatabaseUrl,
+  requireTestSqlitePath,
+  setupFixture,
+  setupSqliteFixture
+} from "@humbdb/testing";
+import { expect, test } from "@playwright/test";
+
+/**
+ * F012: a successful SQL Editor query is recorded in history; selecting a history card prefills
+ * the editor without running it. Engine-agnostic UI/localStorage behavior - runs on both projects
+ * (see playwright.config.ts) not because it differs per engine, but to match this repo's existing
+ * per-spec convention (smoke.spec.ts also runs on both).
+ */
+test("@full SQL Editor records a successful query and prefills it from history", async ({
+  page
+}, testInfo) => {
+  if (testInfo.project.name === "sqlite") {
+    setupSqliteFixture(requireTestSqlitePath());
+  } else {
+    await setupFixture(requireTestDatabaseUrl());
+  }
+
+  await page.goto("/");
+  await page.getByRole("tab", { name: "SQL Editor" }).click();
+
+  const sql = `SELECT * FROM ${FIXTURE.table}`;
+  await page.locator("textarea").fill(sql);
+  await page.getByRole("button", { name: "Run" }).click();
+  await expect(page.getByTestId("query-result")).toBeVisible();
+
+  await page.getByRole("button", { name: "Query history" }).click();
+  const card = page.getByTestId("query-history-card").first();
+  await expect(card).toContainText(sql);
+
+  // Clear the editor first so the next assertion actually proves the click prefilled it, rather
+  // than the text already being there from the Run above.
+  await page.locator("textarea").fill("");
+  await card.click();
+
+  await expect(page.locator("textarea")).toHaveValue(sql);
+  // The drawer is always mounted (position: fixed, slid off-screen via a transform when closed) -
+  // Playwright's toBeVisible() doesn't detect that as hidden since the element still has a real
+  // bounding box, so assert the actual closed-state class instead.
+  await expect(page.getByTestId("query-history-drawer")).toHaveClass(/translate-x-full/);
+});

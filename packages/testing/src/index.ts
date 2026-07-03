@@ -58,23 +58,42 @@ export const FIXTURE = {
   rowCount: 3
 } as const;
 
+/** Arbitrary fixed key for setupFixture's advisory lock - scoped to this one fixture, not shared. */
+const FIXTURE_LOCK_KEY = 958312;
+
 /**
  * Create a small, deterministic fixture table in the target database.
- * Idempotent: safe to run repeatedly.
+ * Idempotent: safe to run repeatedly - including concurrently, from multiple Playwright workers
+ * running different @full specs against the same live database at once. The DROP+CREATE isn't
+ * naturally race-safe (two concurrent CREATE TABLEs can violate pg_class's uniqueness constraint
+ * before either commits), so the whole operation runs on one session under a Postgres advisory
+ * lock (pg_advisory_lock must run on the same connection as its matching unlock, hence checking out
+ * a single Client via pool.connect() rather than pool.query(), which may hand different calls to
+ * different pooled connections) - concurrent callers simply queue up instead of racing.
  */
 export async function setupFixture(connectionString: string): Promise<void> {
-  await runStatements(connectionString, [
-    `DROP TABLE IF EXISTS ${FIXTURE.table}`,
-    `CREATE TABLE ${FIXTURE.table} (
-       id serial PRIMARY KEY,
-       name text NOT NULL,
-       email text NOT NULL
-     )`,
-    `INSERT INTO ${FIXTURE.table} (name, email) VALUES
-       ('Ada Lovelace', 'ada@example.com'),
-       ('Alan Turing', 'alan@example.com'),
-       ('Grace Hopper', 'grace@example.com')`
-  ]);
+  const pool = new Pool({ connectionString });
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock($1)", [FIXTURE_LOCK_KEY]);
+    try {
+      await client.query(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
+      await client.query(`CREATE TABLE ${FIXTURE.table} (
+         id serial PRIMARY KEY,
+         name text NOT NULL,
+         email text NOT NULL
+       )`);
+      await client.query(`INSERT INTO ${FIXTURE.table} (name, email) VALUES
+         ('Ada Lovelace', 'ada@example.com'),
+         ('Alan Turing', 'alan@example.com'),
+         ('Grace Hopper', 'grace@example.com')`);
+    } finally {
+      await client.query("SELECT pg_advisory_unlock($1)", [FIXTURE_LOCK_KEY]);
+    }
+  } finally {
+    client.release();
+    await pool.end();
+  }
 }
 
 /**

@@ -17,3 +17,4 @@ export * from "./components/title-bar.js";
 export * from "./components/type-icon.js";
 export * from "./components/rows-table.js";
 export * from "./components/query-runner.js";
+export * from "./components/query-history-drawer.js";

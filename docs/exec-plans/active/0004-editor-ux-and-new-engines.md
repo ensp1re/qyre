@@ -2,27 +2,40 @@
 
 Status: Active
 Owner: unassigned
-Linked features: F012, F013, F014, F015, F016 (`docs/FEATURES.json`)
+Linked features: F012, F017, F013, F014, F015, F016 (`docs/FEATURES.json`)
 
 ## Objective
 
-Five feature slices (four requested together in one session, F016 identified while scoping F015),
-queued in this priority order (agreed with the user):
+Six feature slices (four requested together in one session; F016 identified while scoping F015;
+F017 identified while testing F012), queued in this priority order (agreed with the user):
 
-1. **F012** - SQL Editor query history (a right-anchored drawer, `localStorage`-backed).
-2. **F013** - SQL Editor autocomplete (keywords + table names), which requires migrating the editor
+1. **F012** - SQL Editor query history (a right-anchored drawer, `localStorage`-backed). Done.
+2. **F017** - error handling: a global Fastify error handler plus a shared `ErrorState` UI component,
+   replacing today's inconsistent inline error text everywhere.
+3. **F013** - SQL Editor autocomplete (keywords + table names), which requires migrating the editor
    off a plain `<textarea>` onto CodeMirror 6.
-3. **F014** - MySQL as a third engine.
-4. **F016** - structured/nested cell viewer (`RowsTable`/`QueryRunner`), engine-agnostic, a hard
+4. **F014** - MySQL as a third engine.
+5. **F016** - structured/nested cell viewer (`RowsTable`/`QueryRunner`), engine-agnostic, a hard
    prerequisite for F015.
-5. **F015** - MongoDB as a fourth engine, scoped to basic read-only browsing only.
+6. **F015** - MongoDB as a fourth engine, scoped to basic read-only browsing only.
 
-F012 goes first because it needs no editor migration (smallest, lowest-risk). F013 goes second
-because it's the bigger, riskier UI change (editor migration) and should land before new engines add
-more surface area for that migration to have touched. F014 goes next as an additive new package,
-independent of the SQL Editor work. F016 goes before F015 despite being identified later (and having
-a higher ID number, per `docs/NAMING.md`'s "IDs are never reused or renumbered" rule) - F015's
-documents render mostly as nested fields, which are unusable as flat JSON text without F016 first.
+F012 goes first because it needs no editor migration (smallest, lowest-risk). F017 goes next -
+found while testing F012 (a real query-error bug), and the user asked for it explicitly as the next
+task right after F012, ahead of F013, despite F013 having been next in line before this came up.
+F013 goes after that because it's the bigger, riskier UI change (editor migration) and should land
+before new engines add more surface area for that migration to have touched. F014 goes next as an
+additive new package, independent of the SQL Editor work. F016 goes before F015 despite being
+identified later (and having a higher ID number, per `docs/NAMING.md`'s "IDs are never reused or
+renumbered" rule) - F015's documents render mostly as nested fields, which are unusable as flat JSON
+text without F016 first.
+
+F017 exists because testing F012 surfaced a real bug, not just a UX gap: running a query against a
+non-existent table showed a raw, useless error (see that feature's `FEATURES.json` behavior and
+`docs/product-specs/error-handling.md` for the root cause - `POST /api/query` re-throws any
+non-`ReadOnlyViolationError` failure, which falls through to Fastify's default handler and returns
+the wrong field for the frontend to read). The user asked to scope this broadly - server AND UI,
+across every data-driven view (Tables/Schema/Files/Console, not just the SQL Editor) - rather than a
+narrow one-off fix to the single route that happened to surface it.
 
 F016 exists because of a real design question raised while scoping F015: should MongoDB get its own
 bespoke document-rendering UI, or should the web UI/server be made genuinely adaptive to any engine
@@ -40,6 +53,7 @@ supported") for what F015 actually needs.
 In scope: exactly what each linked feature's spec says. See:
 
 - `docs/product-specs/sql-editor.md` (F012, F013)
+- `docs/product-specs/error-handling.md` (F017)
 - `docs/product-specs/connect-and-inspect-mysql.md` (F014)
 - `docs/product-specs/structured-cell-values.md` (F016)
 - `docs/product-specs/connect-and-inspect-mongodb.md` (F015)
@@ -60,6 +74,9 @@ Out of scope (decided while scoping, not left ambiguous):
 
 - F012: `pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build/typecheck`, plus
   `pnpm test:e2e:full` for the prefill-from-history journey.
+- F017: `pnpm --filter @humbdb/server test && pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build/typecheck && pnpm --filter @humbdb/web build`, plus `pnpm test:e2e:full` -
+  a query against a fixture-guaranteed-missing table exercises the real-message-surfaces-correctly
+  path without needing a new fixture.
 - F013: same package-level commands as F012, plus `pnpm test:e2e:full` covering both the editor
   migration (existing Ctrl/Cmd+Enter, toolbar) and new autocomplete behavior.
 - F014: `pnpm --filter @humbdb/core test && pnpm --filter @humbdb/driver-contract test && pnpm --filter @humbdb/mysql test && pnpm --filter humb test`, plus `pnpm test:e2e:full` (a third
@@ -77,6 +94,12 @@ Out of scope (decided while scoping, not left ambiguous):
 
 ## Risks and blockers
 
+- **F017's global error handler must not swallow existing specific error handling.**
+  `ReadOnlyViolationError`'s explicit 400 (F006) must keep working exactly as it does today - the
+  global `setErrorHandler` is the catch-all beneath route-level handling, not a replacement for it.
+  Verify both cases explicitly: a read-only violation still returns its existing message/400, and a
+  genuine unexpected error (bad table name) now returns the _real_ message instead of Fastify's
+  generic reason phrase.
 - **Editor migration (F013) is the riskiest single change in this plan.** CodeMirror 6's default
   styling must be reskinned to match `docs/references/design-system.md`, in both light and dark
   mode, without regressing the existing toolbar/gutter/Ctrl+Enter behavior. Do this as its own
@@ -110,6 +133,15 @@ Out of scope (decided while scoping, not left ambiguous):
   what makes the UI "adaptive to every database" rather than special-cased per engine. Rejected a
   SQL-to-MongoDB translation layer as an alternative to F015's "no query runner" scope (too large and
   correctness-risky for what F015 needs - see F015's spec).
+- 2026-07-03: Implemented F012 (commit `8f86d9a`). Also fixed a real concurrency bug in
+  `@humbdb/testing`'s `setupFixture` (Postgres advisory lock around DROP+CREATE), surfaced by adding
+  a second `@full` spec against the same live database - see F012's `FEATURES.json` evidence.
+- 2026-07-03: Follow-up fix on F012 - moved the history toolbar icon from next to Run/the
+  Ctrl+Enter hint to the right-aligned group with the line count, per feedback.
+- 2026-07-03: While testing F012, found a real bug (see "Objective" above) and scoped it as F017,
+  inserted right after F012 in priority order per the user's explicit request. Wrote
+  `docs/product-specs/error-handling.md` and the `FEATURES.json` entry; not yet implemented.
+  Next up: F017.
 
 ## Open decisions
 

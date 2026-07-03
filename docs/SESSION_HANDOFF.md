@@ -329,6 +329,24 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   FK-constrained fixture: Schema tab PK/FK badges, Tables tab pagination, and a SQL Editor query
   using a double-quoted string value (MySQL's own default dialect behavior - confirmed distinct from
   F018's Postgres-only fix, no adapter-side coercion needed here).
+- **F016 `passing`** (commit `070f995`): expandable tree viewer for structured (object/array) cell
+  values. New `CellValue` component (`packages/ui/src/components/cell-value.tsx`) replaces
+  `formatCell`'s flat `JSON.stringify`-to-text handling in `RowsTable`/`QueryRunner` - a collapsed
+  summary (`{ N keys }` / `[ N items ]`) expands inline on click, recursing into its own nested
+  values, lazily (a collapsed cell never builds its nested view). Engine-agnostic and already live
+  for Postgres/MySQL `jsonb`/`json` columns, not Mongo-specific - a prerequisite for F015. Found and
+  fixed two real bugs during verification, not just a coverage gap: (1) the first pass at an e2e
+  fixture (a second Postgres table with one `jsonb` column) made the Schema tab render two
+  `table-detail` cards, breaking `connect-and-inspect.spec.ts`'s singular-card assertion under
+  concurrent `@full` specs - fixed by adding the jsonb column (`profile`, populated for one row
+  only) to the existing shared `humb_demo_users` fixture table instead; (2) a primitive value
+  nested inside an expanded structured value rendered as a bare text node with no element boundary
+  of its own, indistinguishable from its sibling key label to Playwright or any DOM consumer -
+  fixed by wrapping `CellValue`'s primitive branch in its own `<span>` (no visual change). Verified:
+  `pnpm --filter @humbdb/ui test/build/typecheck`, `pnpm --filter @humbdb/web build`, `pnpm check`,
+  and `pnpm test:e2e:full` (new `e2e/structured-cell-values.spec.ts`, Postgres-only via
+  `test.skip`, all pass) - plus a manual live Preview pass expanding the same cell three levels deep
+  in both the Tables tab and a SQL Editor result.
 
 ## In progress
 
@@ -365,8 +383,8 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 
 ## Next steps
 
-1. Pick up F016 (structured/nested cell viewer for `RowsTable`/`QueryRunner`) next - see
-   `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan. Queued after it:
-   F015 (MongoDB engine, basic browse only - depends on F016). Both were scoped with the user in
-   this session before being added to `docs/FEATURES.json` - see that plan's specs
-   (`structured-cell-values.md`, `connect-and-inspect-mongodb.md`) for the decisions already made.
+1. Pick up F015 (MongoDB engine, basic browse only, no query runner - see
+   `docs/product-specs/connect-and-inspect-mongodb.md`) next - see
+   `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan; this is that
+   plan's last remaining slice. F016 (its structured-cell-viewer prerequisite) is now `passing`, so
+   Mongo documents have a working rendering path already in place.

@@ -169,6 +169,18 @@ department="Support"` failed with `column "Support" does not exist`. Not a Humb 
   and a reproduced `setupSqliteFixture` concurrency race once total Playwright parallelism went up
   (fixed the same way F012 fixed the analogous Postgres race). Next up: F016 (structured-cell
   viewer).
+- 2026-07-03: Implemented F016 (commit `070f995`) - see `FEATURES.json`'s evidence for full detail.
+  New `CellValue` component (`packages/ui/src/components/cell-value.tsx`) replaces `formatCell`'s
+  flat-text rendering in `RowsTable`/`QueryRunner` for object/array values with a recursive,
+  lazily-expanding tree. Found and fixed two real bugs during live/e2e verification, not just a
+  coverage gap: (1) the original plan for verifying against "a Postgres jsonb fixture column"
+  turned into a second fixture _table_ on the first pass, which made the Schema tab render two
+  table-detail cards and broke `connect-and-inspect.spec.ts`'s singular-card assertion under
+  concurrent `@full` specs - fixed by adding the jsonb column to the existing shared
+  `humb_demo_users` fixture instead (populated for one row only); (2) a primitive value nested
+  inside an expanded structured value rendered as a bare text node with no element boundary of its
+  own (indistinguishable from its sibling key label to Playwright or any other DOM consumer) - fixed
+  by wrapping `CellValue`'s primitive branch in its own `<span>`. Next up: F015 (MongoDB).
 
 ## Open decisions
 

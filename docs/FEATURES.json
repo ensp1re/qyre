@@ -157,9 +157,9 @@
       "id": "F016",
       "behavior": "RowsTable and QueryRunner's result table gain a real, expandable tree viewer for any object/array cell value, replacing today's flat JSON.stringify-to-text handling in formatCell. Engine-agnostic and useful today (Postgres/MySQL json/jsonb columns already hit this path) - not Mongo-specific, though it's a hard prerequisite for F015's documents to render usably. Read-only viewing only, no inline editing.",
       "verification": "pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm --filter @humbdb/web build && pnpm test:e2e:full",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "070f995",
+      "evidence": "commit 070f995: pnpm --filter @humbdb/ui test/build/typecheck and pnpm --filter @humbdb/web build all pass (new CellValue component + cell-value.test.ts for summarizeStructuredValue). pnpm test:e2e:full passes (10/12, 2 correctly skipped on sqlite/mysql) including a new e2e/structured-cell-values.spec.ts against a real Postgres jsonb column, three levels deep (object -> object -> array), in both the Tables tab and a SQL Editor query result. Also manually verified live via the preview tool against a real Postgres container: expanded the same jsonb cell through all 3 nested levels down to its primitive array items in both tabs, screenshots confirmed. Added the jsonb column to the existing shared `humb_demo_users` fixture (populated for one row only) rather than a second table - a second table would make the Schema tab render two table-detail cards and broke connect-and-inspect.spec.ts's singular-card assertion under concurrent @full specs (caught live during verification, fixed by extending the existing fixture instead). Also fixed a real bug found during e2e authoring: a primitive value nested inside an expanded structured value rendered as a bare text node with no element boundary, so Playwright (and any DOM consumer) couldn't target it independently of its sibling key label - fixed by wrapping CellValue's primitive branch in its own `<span>`.",
       "blockedReason": null,
       "spec": "docs/product-specs/structured-cell-values.md"
     },

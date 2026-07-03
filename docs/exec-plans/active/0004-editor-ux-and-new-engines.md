@@ -110,6 +110,10 @@ Out of scope (decided while scoping, not left ambiguous):
   what makes the UI "adaptive to every database" rather than special-cased per engine. Rejected a
   SQL-to-MongoDB translation layer as an alternative to F015's "no query runner" scope (too large and
   correctness-risky for what F015 needs - see F015's spec).
+- 2026-07-03: Implemented F012 (commit `8f86d9a`). Also fixed a real concurrency bug in
+  `@humbdb/testing`'s `setupFixture` (Postgres advisory lock around DROP+CREATE), surfaced by adding
+  a second `@full` spec against the same live database - see F012's `FEATURES.json` evidence.
+  Next up: F013.
 
 ## Open decisions
 

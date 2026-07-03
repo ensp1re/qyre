@@ -241,6 +241,20 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   write `dist/` concurrently once a second `webServer` entry existed. `pnpm test:e2e` and
   `pnpm test:e2e:full` (real Postgres container, both projects, run twice to confirm idempotency)
   and `pnpm check` all pass.
+- **F012 `passing`** (commit `8f86d9a`): new `QueryHistoryDrawer` (packages/ui) opened from a new
+  toolbar icon on `QueryRunner`, listing past successful queries most recent first; clicking a card
+  prefills the editor without running it. New `useQueryHistory` hook (apps/web, `localStorage`,
+  matches `useTheme`'s existing pattern) capped at 50 entries, re-running a query already in history
+  moves it to the front instead of duplicating it, only recorded on a successful run. New
+  `e2e/query-history.spec.ts` (`@full`) proves the full journey on both engine projects. Adding a
+  second `@full` spec against the same live Postgres surfaced a real, pre-existing concurrency bug:
+  `@humbdb/testing`'s `setupFixture` DROP+CREATE wasn't safe under concurrent Playwright workers
+  (two concurrent `CREATE TABLE`s raced `pg_class`'s uniqueness constraint) - fixed with a Postgres
+  advisory lock around the whole operation, benefiting every `@full` Postgres test, not just this
+  one. `pnpm --filter @humbdb/ui`/`@humbdb/web` build/typecheck, `pnpm test:e2e`/`test:e2e:full`
+  (both projects, run twice), and `pnpm check` all pass. Manually verified live via Preview: empty
+  state, correct relative timestamps, prefill-without-running, dedup-on-rerun, a rejected query
+  never recorded, persistence across reload, both themes.
 
 ## In progress
 
@@ -260,9 +274,10 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 
 ## Next steps
 
-1. Pick up F012 (SQL Editor query history) next - see `docs/exec-plans/active/0004-editor-ux-and-new-engines.md`
-   for the full plan. Queued after it, in order: F013 (autocomplete + CodeMirror 6 migration), F014
-   (MySQL engine), F015 (MongoDB engine, basic browse only). All four were scoped with the user in
-   this session before being added to `docs/FEATURES.json` - see that plan's specs
-   (`docs/product-specs/sql-editor.md`, `connect-and-inspect-mysql.md`, `connect-and-inspect-mongodb.md`)
+1. Pick up F013 (SQL Editor autocomplete + CodeMirror 6 migration) next - see
+   `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan. Queued after it, in
+   order: F014 (MySQL engine), F016 (structured-cell viewer), F015 (MongoDB engine, basic browse
+   only - depends on F016). All were scoped with the user in this session before being added to
+   `docs/FEATURES.json` - see that plan's specs (`docs/product-specs/sql-editor.md`,
+   `connect-and-inspect-mysql.md`, `structured-cell-values.md`, `connect-and-inspect-mongodb.md`)
    for the decisions already made (editor migration, autocomplete depth, history scope, Mongo scope).

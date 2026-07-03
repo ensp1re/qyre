@@ -13,6 +13,8 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { cn } from "../cn.js";
 import { formatCell } from "../format-cell.js";
+import { CellValueDrawer } from "./cell-value-drawer.js";
+import type { StructuredValue } from "./cell-value.js";
 import { CellValue } from "./cell-value.js";
 import { TypeIcon } from "./type-icon.js";
 
@@ -68,6 +70,10 @@ export function RowsTable({
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [inspected, setInspected] = useState<{
+    column: string;
+    value: StructuredValue;
+  } | null>(null);
 
   const columnByName = useMemo(
     () => new Map(columns.map((column) => [column.name, column])),
@@ -278,7 +284,10 @@ export function RowsTable({
                       {row[columnName] === null || row[columnName] === undefined ? (
                         <span className="italic text-muted-foreground/30">null</span>
                       ) : (
-                        <CellValue value={row[columnName]} />
+                        <CellValue
+                          value={row[columnName]}
+                          onInspect={(value) => setInspected({ column: columnName, value })}
+                        />
                       )}
                     </td>
                   ))}
@@ -320,6 +329,14 @@ export function RowsTable({
           </button>
         </div>
       </div>
+
+      {inspected && (
+        <CellValueDrawer
+          column={inspected.column}
+          value={inspected.value}
+          onClose={() => setInspected(null)}
+        />
+      )}
     </div>
   );
 }

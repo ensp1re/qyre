@@ -8,8 +8,10 @@ import { tags } from "@lezer/highlight";
 import { basicSetup } from "codemirror";
 import { History, Play } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createSqlCompletionSource } from "../sql-completion.js";
+import { CellValueDrawer } from "./cell-value-drawer.js";
+import type { StructuredValue } from "./cell-value.js";
 import { CellValue } from "./cell-value.js";
 import { ErrorState } from "./error-state.js";
 import { Spinner } from "./spinner.js";
@@ -96,6 +98,10 @@ export function QueryRunner({
 }: QueryRunnerProps): ReactNode {
   const canRun = !isRunning && sql.trim().length > 0;
   const lineCount = sql.split("\n").length;
+  const [inspected, setInspected] = useState<{
+    column: string;
+    value: StructuredValue;
+  } | null>(null);
 
   const editorParentRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -237,7 +243,10 @@ export function QueryRunner({
                         key={column}
                         className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
                       >
-                        <CellValue value={row[column]} />
+                        <CellValue
+                          value={row[column]}
+                          onInspect={(value) => setInspected({ column, value })}
+                        />
                       </td>
                     ))}
                   </tr>
@@ -246,6 +255,14 @@ export function QueryRunner({
             </table>
           )}
         </div>
+      )}
+
+      {inspected && (
+        <CellValueDrawer
+          column={inspected.column}
+          value={inspected.value}
+          onClose={() => setInspected(null)}
+        />
       )}
     </div>
   );

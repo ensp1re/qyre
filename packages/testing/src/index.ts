@@ -6,6 +6,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
+import mysql from "mysql2/promise";
 import { Pool } from "pg";
 
 /** Environment variable that holds the Postgres URL used by integration and end-to-end tests. */
@@ -13,6 +14,9 @@ export const TEST_DB_ENV = "HUMB_TEST_DATABASE_URL";
 
 /** Environment variable that holds the SQLite fixture file path used by end-to-end tests. */
 export const TEST_SQLITE_ENV = "HUMB_TEST_SQLITE_PATH";
+
+/** Environment variable that holds the MySQL URL used by integration and end-to-end tests. */
+export const TEST_MYSQL_ENV = "HUMB_TEST_MYSQL_URL";
 
 /** Whether a test database is configured in the environment. */
 export function isTestDatabaseConfigured(): boolean {
@@ -49,6 +53,24 @@ export function requireTestSqlitePath(): string {
     );
   }
   return path;
+}
+
+/**
+ * Return the configured MySQL test database URL, or throw an actionable error.
+ * We never silently skip required verification - see docs/RELIABILITY.md.
+ */
+export function requireTestMysqlUrl(): string {
+  const url = process.env[TEST_MYSQL_ENV]?.trim();
+  if (!url) {
+    throw new Error(
+      `${TEST_MYSQL_ENV} is not set. This verification requires a MySQL database.\n` +
+        `Set it, for example:\n` +
+        `  export ${TEST_MYSQL_ENV}="mysql://root:root@localhost:3306/humb_test"\n` +
+        `or start one with Docker:\n` +
+        `  docker run --rm -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=humb_test -p 3306:3306 mysql:8`
+    );
+  }
+  return url;
 }
 
 /** The fixture table the connect-and-inspect journey expects to find. */
@@ -123,27 +145,72 @@ export function ensureSqliteFile(path: string): void {
 
 /**
  * Create the same fixture table/rows as {@link setupFixture}'s Postgres version, in a SQLite file.
- * Idempotent: safe to run repeatedly. Opens its own read-write connection and closes it when done -
- * the long-lived e2e server holds a separate read-only connection to the same file (see
- * docs/product-specs/connect-and-inspect-sqlite.md's read-only enforcement).
+ * Idempotent: safe to run repeatedly - including concurrently, from multiple Playwright workers
+ * running different @full specs against the same fixture file at once. Without this, DROP+CREATE
+ * isn't race-safe across separate processes (each statement auto-commits on its own, so another
+ * process's DROP+CREATE can interleave between this one's DROP and CREATE) - the exact same class
+ * of bug setupFixture's Postgres advisory lock already fixes, reproduced here once a third @full
+ * engine project pushed total worker parallelism higher (F014). Fixed the same way: the whole
+ * DROP+CREATE+INSERT sequence runs in one transaction (SQLite's own file lock is then held for the
+ * whole sequence, not per-statement), with a busy_timeout so a concurrent writer waits for the lock
+ * instead of immediately failing with SQLITE_BUSY. Opens its own read-write connection and closes
+ * it when done - the long-lived e2e server holds a separate read-only connection to the same file
+ * (see docs/product-specs/connect-and-inspect-sqlite.md's read-only enforcement).
  */
 export function setupSqliteFixture(path: string): void {
   ensureSqliteFile(path);
   const db = new Database(path);
   try {
-    db.exec(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
-    db.exec(
-      `CREATE TABLE ${FIXTURE.table} (
-         id INTEGER PRIMARY KEY,
-         name TEXT NOT NULL,
-         email TEXT NOT NULL
-       )`
-    );
-    const insertRow = db.prepare(`INSERT INTO ${FIXTURE.table} (name, email) VALUES (?, ?)`);
-    insertRow.run("Ada Lovelace", "ada@example.com");
-    insertRow.run("Alan Turing", "alan@example.com");
-    insertRow.run("Grace Hopper", "grace@example.com");
+    db.pragma("busy_timeout = 5000");
+    db.transaction(() => {
+      db.exec(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
+      db.exec(
+        `CREATE TABLE ${FIXTURE.table} (
+           id INTEGER PRIMARY KEY,
+           name TEXT NOT NULL,
+           email TEXT NOT NULL
+         )`
+      );
+      const insertRow = db.prepare(`INSERT INTO ${FIXTURE.table} (name, email) VALUES (?, ?)`);
+      insertRow.run("Ada Lovelace", "ada@example.com");
+      insertRow.run("Alan Turing", "alan@example.com");
+      insertRow.run("Grace Hopper", "grace@example.com");
+    })();
   } finally {
     db.close();
+  }
+}
+
+/** Arbitrary fixed name for setupMysqlFixture's named lock - scoped to this one fixture, not shared. */
+const MYSQL_FIXTURE_LOCK_NAME = "humb_fixture_lock";
+
+/**
+ * Create the same fixture table/rows as {@link setupFixture}'s Postgres version, in MySQL.
+ * Idempotent and safe under concurrent Playwright workers, matching setupFixture's Postgres
+ * advisory-lock precedent - MySQL's equivalent is a named lock (`GET_LOCK`/`RELEASE_LOCK`), which
+ * likewise must run on one held connection (`pool.getConnection()`, not `pool.query()`).
+ */
+export async function setupMysqlFixture(connectionString: string): Promise<void> {
+  const pool = mysql.createPool(connectionString);
+  const connection = await pool.getConnection();
+  try {
+    await connection.query("SELECT GET_LOCK(?, 10)", [MYSQL_FIXTURE_LOCK_NAME]);
+    try {
+      await connection.query(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
+      await connection.query(`CREATE TABLE ${FIXTURE.table} (
+         id INT AUTO_INCREMENT PRIMARY KEY,
+         name VARCHAR(255) NOT NULL,
+         email VARCHAR(255) NOT NULL
+       )`);
+      await connection.query(`INSERT INTO ${FIXTURE.table} (name, email) VALUES
+         ('Ada Lovelace', 'ada@example.com'),
+         ('Alan Turing', 'alan@example.com'),
+         ('Grace Hopper', 'grace@example.com')`);
+    } finally {
+      await connection.query("SELECT RELEASE_LOCK(?)", [MYSQL_FIXTURE_LOCK_NAME]);
+    }
+  } finally {
+    connection.release();
+    await pool.end();
   }
 }

@@ -300,6 +300,35 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   and `pnpm check` both pass; `pnpm test:e2e:full` - no regression. Manually verified live via
   Preview: the exact reported query now returns rows, and a real double-quoted column reference
   still resolves as an identifier.
+- **F014 `passing`** (commit `9ccde55`): MySQL as Humb's third engine. New `@humbdb/mysql`
+  (`mysql2/promise`) mirrors `@humbdb/postgres`'s shape - backtick identifier quoting, exact
+  `COUNT(*)` row counts, a `START TRANSACTION READ ONLY` backstop proven live by opening it directly
+  (bypassing the adapter and `assertReadOnly`) and confirming MySQL itself refuses a write, and a
+  `pool.on("error", ...)` listener (F007 precedent) attached to the promise pool's underlying
+  callback pool. `packages/core` gained `mysql://` detection; `packages/cli` wired
+  `mysqlAdapterFactory` in. New `"mysql"` Playwright project/e2e fixture
+  (`setupMysqlFixture`/`requireTestMysqlUrl` in `@humbdb/testing`, a MySQL named-lock mirroring
+  `setupFixture`'s Postgres advisory-lock precedent). Found and fixed two real bugs while wiring
+  this up: (1) every e2e `webServer` instance was silently inheriting every test-DB env var at once
+  (Playwright's config process sets them all and spawns every instance from that same process), so
+  the old "whichever var is truthy" engine selection in `e2e/server.ts` was routing the new `"mysql"`
+  project to SQLite instead - fixed with an explicit `HUMB_E2E_ENGINE` env var per `webServer`
+  entry, confirmed via direct per-port health-endpoint checks; (2) a real, reproduced concurrency
+  race in `setupSqliteFixture` (DROP+CREATE not race-safe across concurrent Playwright workers, once
+  a third engine project pushed total parallelism higher) - fixed the same way F012 fixed the
+  analogous Postgres race (the whole sequence now runs in one transaction with a `busy_timeout`),
+  confirmed via 4 repeated full-parallelism `pnpm test:e2e:full` runs with zero flakes afterward.
+  Also needed a `tsconfig.base.json` `"@humbdb/mysql"` `paths` entry (tsx/tsc resolve every other
+  workspace package straight to its source file this way, not through `node_modules` - a brand-new
+  package silently fails to resolve without one - found by empirically tracing why `@humbdb/mysql`
+  alone failed to import from `e2e/server.ts` when every other driver package worked) and
+  `turbo.json`'s `"test"` task env allowlist extended to `HUMB_TEST_MYSQL_URL`. `pnpm --filter
+@humbdb/mysql test` (13/13, unit + integration against a real MySQL 8 container) and `pnpm check`
+  both pass; `pnpm test:e2e:full` (all three engine projects, run 4x) and `pnpm test:e2e` pass with
+  zero flakes. Manually verified live via Preview against a real MySQL container with an
+  FK-constrained fixture: Schema tab PK/FK badges, Tables tab pagination, and a SQL Editor query
+  using a double-quoted string value (MySQL's own default dialect behavior - confirmed distinct from
+  F018's Postgres-only fix, no adapter-side coercion needed here).
 
 ## In progress
 
@@ -324,13 +353,20 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   recreate it: `docker run --rm -d --name humb-rename-pg -e POSTGRES_PASSWORD=postgres -p 5433:5432 postgres:16-alpine`,
   then reseed (`pnpm exec tsx .local/seed-dev-data.ts postgres://postgres:postgres@localhost:5433/postgres`
   for the large dev dataset; `setupFixture` from `@humbdb/testing` for the small e2e fixture table).
+  Note it has accumulated the full dev-seed dataset (11 tables) across sessions, not just the
+  fixture table - a Schema-tab assertion that expects exactly one `table-detail` card will fail
+  against it (harmless environmental noise, not a regression; verified F014 against a throwaway
+  clean container instead - see that entry's evidence).
+- The local MySQL fixture container (`humb-mysql`, port 3307, `MYSQL_ROOT_PASSWORD=root` /
+  `MYSQL_DATABASE=humb_test`) likewise does not persist across a Docker Desktop restart - recreate
+  it with `docker run --rm -d --name humb-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=humb_test -p 3307:3306 mysql:8`
+  (takes longer than Postgres to become ready on first boot); `setupMysqlFixture` from
+  `@humbdb/testing` creates the e2e fixture table.
 
 ## Next steps
 
-1. Pick up F014 (MySQL as Humb's third engine) next - see
-   `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan. Queued after it, in
-   order: F016 (structured-cell viewer), F015 (MongoDB engine, basic browse only - depends on F016).
-   All were scoped with the user in this session before being added to `docs/FEATURES.json` - see
-   that plan's specs (`connect-and-inspect-mysql.md`, `structured-cell-values.md`,
-   `connect-and-inspect-mongodb.md`) for the decisions already made. MySQL client library choice
-   (e.g. `mysql2`) is still an open decision - see the plan's "Open decisions".
+1. Pick up F016 (structured/nested cell viewer for `RowsTable`/`QueryRunner`) next - see
+   `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan. Queued after it:
+   F015 (MongoDB engine, basic browse only - depends on F016). Both were scoped with the user in
+   this session before being added to `docs/FEATURES.json` - see that plan's specs
+   (`structured-cell-values.md`, `connect-and-inspect-mongodb.md`) for the decisions already made.

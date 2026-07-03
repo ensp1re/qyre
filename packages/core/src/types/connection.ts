@@ -1,5 +1,5 @@
-/** Database engines Humb can target. Postgres is supported first, SQLite second. */
-export type DatabaseEngine = "postgres" | "sqlite";
+/** Database engines Humb can target. Postgres is supported first, SQLite second, MySQL third. */
+export type DatabaseEngine = "postgres" | "sqlite" | "mysql";
 
 /** A parsed, validated database connection target. */
 export interface ConnectionTarget {

@@ -6,8 +6,14 @@ intentional open-source project. These rules are enforced by review and, where p
 ## Packages
 
 - Public packages are published under the `@humbdb/` scope: `@humbdb/core`, `@humbdb/server`,
-  `@humbdb/driver-contract`, `@humbdb/postgres`, `@humbdb/ui`.
-- The CLI package is published as the bare name `humb` (this is the user-facing binary).
+  `@humbdb/driver-contract`, `@humbdb/postgres`, `@humbdb/ui`, `@humbdb/humb` (the CLI
+  implementation).
+- `packages/humb` publishes a second package under the bare name `humb` - a thin alias with no
+  logic of its own beyond a `bin.js` that imports `@humbdb/humb/bin`, published purely so
+  `npx humb` and `npm install -g humb` work (npx resolves an unscoped command name straight to an
+  unscoped package name; it has no way to know `@humbdb/humb`'s bin is also called `humb`). Both
+  packages must stay in lockstep (see `scripts/publish.mjs`'s `PUBLISH_ORDER`); the bare package
+  publishes last since it depends on `@humbdb/humb`.
 - Internal-only packages set `"private": true` and are excluded from publishing:
   `@humbdb/web`, `@humbdb/config`, `@humbdb/testing`.
 - Workspace folder names use short kebab-case nouns: `cli`, `server`, `core`, `ui`, `config`,

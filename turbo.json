@@ -6,10 +6,12 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
-    "humb#build": {
+    "@humbdb/humb#build": {
       // The CLI bundles apps/web's build into its own dist/web at build time (F010), so it must
       // build after @humbdb/web even though there's no package.json dependency edge between them
-      // (the CLI serves static files, it doesn't import from @humbdb/web).
+      // (the CLI serves static files, it doesn't import from @humbdb/web). This key must match the
+      // CLI's package.json "name" (@humbdb/humb) - it went stale silently once before, during the
+      // @humbdb scope rename, because turbo doesn't error on a task key matching zero packages.
       "dependsOn": ["^build", "@humbdb/web#build"],
       "outputs": ["dist/**"]
     },

@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Verify the `humb` package actually works standalone outside this monorepo (F010) - not just that
- * the build succeeds. Packs it exactly as `pnpm publish` would, extracts that tarball into a fresh
- * temp directory with no relationship to this repo, and starts the real server against a real
- * SQLite file from there. If `packages/cli`'s web-root resolution regresses back to a
- * monorepo-relative path, this fails where a plain `pnpm build` would not.
+ * Verify the `@humbdb/humb` package actually works standalone outside this monorepo (F010) - not
+ * just that the build succeeds. Packs it exactly as `pnpm publish` would, extracts that tarball
+ * into a fresh temp directory with no relationship to this repo, and starts the real server
+ * against a real SQLite file from there. If `packages/cli`'s web-root resolution regresses back to
+ * a monorepo-relative path, this fails where a plain `pnpm build` would not.
  *
- * Rebuilds @humbdb/web and humb fresh so this is trustworthy standalone, not dependent on some prior
- * build step having run correctly.
+ * Rebuilds @humbdb/web and @humbdb/humb fresh so this is trustworthy standalone, not dependent on
+ * some prior build step having run correctly.
  *
  * Usage: node scripts/verify-npm-package.mjs
  */
@@ -55,14 +55,14 @@ function waitForReady(child) {
   });
 }
 
-console.log("Building @humbdb/web and humb fresh...");
+console.log("Building @humbdb/web and @humbdb/humb fresh...");
 run("pnpm", ["--filter", "@humbdb/web", "build"]);
-run("pnpm", ["--filter", "humb", "build"]);
+run("pnpm", ["--filter", "@humbdb/humb", "build"]);
 
 const packDir = mkdtempSync(join(tmpdir(), "humb-verify-pack-"));
 const standaloneDir = mkdtempSync(join(tmpdir(), "humb-verify-standalone-"));
 
-console.log("Packing the humb package (same tarball `pnpm publish` would produce)...");
+console.log("Packing the @humbdb/humb package (same tarball `pnpm publish` would produce)...");
 execFileSync("pnpm", ["pack", "--pack-destination", packDir], { cwd: cliRoot });
 const tarball = readdirSync(packDir)[0];
 
@@ -95,7 +95,7 @@ import { resolveAdapter } from "@humbdb/driver-contract";
 import { postgresAdapterFactory } from "@humbdb/postgres";
 import { sqliteAdapterFactory } from "@humbdb/sqlite";
 import { startServer } from "@humbdb/server";
-import { defaultWebRoot } from "humb";
+import { defaultWebRoot } from "@humbdb/humb";
 
 const target = parseConnectionTarget(${JSON.stringify(dbPath)});
 const adapter = resolveAdapter([postgresAdapterFactory, sqliteAdapterFactory], target);

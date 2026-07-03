@@ -119,3 +119,33 @@ Constraints on the migration:
   the Files tab's read-only SQL preview (DF-06, if it also uses a shared editor component) is
   unaffected if left as plain text - this spec only requires the migration for the SQL Editor tab
   itself.
+
+## Double-quoted string values (Postgres)
+
+### Behavior
+
+SQL reserves double quotes (`"..."`) for identifiers (columns/tables) and single quotes (`'...'`)
+for string literals - but Postgres is the strictest of Humb's engines about this: it always throws
+`column "X" does not exist` for `WHERE col="X"`, where most other tools are more forgiving (MySQL
+treats `"..."` as a string by default; SQLite falls back to treating a double-quoted token as a
+string whenever it doesn't match a real identifier - a documented quirk, see
+[sqlite.org/quirks.html](https://sqlite.org/quirks.html)). Since most people reach for `""` out of
+habit, Humb smooths this over for Postgres specifically:
+
+- Before executing a query against Postgres, any double-quoted token in the SQL text that does not
+  match a real column or table name in the connected database is rewritten to an equivalent
+  single-quoted string literal.
+- A double-quoted token that **does** match a real column or table name (including a legitimately
+  quoted case-sensitive identifier) is left untouched - this never changes the meaning of a query
+  that already runs successfully today.
+- This is Postgres-only: SQLite already tolerates it natively; MySQL (F014) already treats `"..."`
+  as a string by default, so neither engine needs the rewrite.
+
+### Acceptance criteria
+
+- `SELECT * FROM employees WHERE department="Support"` returns matching rows instead of erroring,
+  when `"Support"` matches no real column/table name.
+- `SELECT "department" FROM employees` (a real column, double-quoted) still works as a column
+  reference, not a string literal.
+- A single-quoted value (`department='Support'`) is unaffected - this only changes double-quote
+  handling.

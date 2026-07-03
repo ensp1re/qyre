@@ -285,6 +285,21 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   `pnpm test:e2e` all pass; `pnpm check` (full monorepo) passes. Manually verified live via Preview:
   syntax highlighting and editor chrome correct in both themes, a real query runs and returns
   results.
+- **F018 `passing`** (commit `a316bd3`): the read-only query runner tolerates double-quoted string
+  values against Postgres (e.g. `WHERE department="Support"`) - found live by the user right after
+  F013 shipped. Not a Humb bug (SQL reserves `""` for identifiers, `''` for strings), but Postgres
+  is stricter about it than MySQL (treats `"..."` as a string by default) or SQLite (falls back to
+  a string when the token isn't a real identifier). New `coerceUnknownQuotedIdentifiers`
+  (`packages/drivers/postgres`) rewrites a double-quoted token to a single-quoted string literal
+  only when it matches no real column/table name in the connected database (fetched via
+  `information_schema`, skipped entirely when the query has no double quotes) - a token that does
+  match a real identifier is left untouched, so no currently-working query changes meaning.
+  Postgres-only; tracked separately from plan 0004's six slices since it isn't one of them - see
+  `docs/product-specs/sql-editor.md`'s new "Double-quoted string values" section. `pnpm --filter
+@humbdb/postgres test` (20/20, new unit + integration tests reproducing the exact reported query)
+  and `pnpm check` both pass; `pnpm test:e2e:full` - no regression. Manually verified live via
+  Preview: the exact reported query now returns rows, and a real double-quoted column reference
+  still resolves as an identifier.
 
 ## In progress
 

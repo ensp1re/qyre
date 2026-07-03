@@ -26,6 +26,47 @@ function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
+/**
+ * Postgres reserves double quotes for identifiers - unlike MySQL (which treats them as strings by
+ * default) and SQLite (which falls back to treating a double-quoted token as a string when it
+ * doesn't match a real identifier - a documented quirk, see sqlite.org/quirks.html). Most people
+ * write "value" out of habit; Postgres alone throws `column "value" does not exist` for it.
+ *
+ * Rewrites a double-quoted token to a single-quoted string literal only when it doesn't match any
+ * real column or table name in the connected database - this never changes a query that already
+ * works today (e.g. a legitimately quoted case-sensitive column name is left untouched).
+ */
+export function coerceUnknownQuotedIdentifiers(
+  sql: string,
+  knownIdentifiers: ReadonlySet<string>
+): string {
+  return sql.replace(/"((?:[^"]|"")*)"/g, (match, inner: string) => {
+    const unescaped = inner.replace(/""/g, '"');
+    if (knownIdentifiers.has(unescaped)) return match;
+    return `'${unescaped.replace(/'/g, "''")}'`;
+  });
+}
+
+/** Every real table and column name in the connected database, for {@link coerceUnknownQuotedIdentifiers}. */
+async function fetchKnownIdentifiers(pool: Pool): Promise<Set<string>> {
+  const [tables, columns] = await Promise.all([
+    pool.query<{ table_name: string }>(
+      `SELECT table_name FROM information_schema.tables WHERE table_schema <> ALL($1::text[])`,
+      [SYSTEM_SCHEMAS]
+    ),
+    pool.query<{ column_name: string }>(
+      `SELECT DISTINCT column_name FROM information_schema.columns
+        WHERE table_schema <> ALL($1::text[])`,
+      [SYSTEM_SCHEMAS]
+    )
+  ]);
+
+  const identifiers = new Set<string>();
+  for (const row of tables.rows) identifiers.add(row.table_name);
+  for (const row of columns.rows) identifiers.add(row.column_name);
+  return identifiers;
+}
+
 /** Fetch index metadata for a table via Postgres's system catalogs. */
 async function fetchIndexes(pool: Pool, schema: string, table: string): Promise<IndexMetadata[]> {
   const result = await pool.query<{
@@ -225,7 +266,11 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async runReadOnlyQuery(sql: string): Promise<RowPage> {
-    assertReadOnly(sql);
+    // Only worth the extra round trip when the query actually contains a double-quoted token.
+    const rewritten = sql.includes('"')
+      ? coerceUnknownQuotedIdentifiers(sql, await fetchKnownIdentifiers(this.getPool()))
+      : sql;
+    assertReadOnly(rewritten);
 
     // assertReadOnly is a heuristic string check and can be bypassed (e.g. a writable CTE like
     // `WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x` starts with the allowed "with"
@@ -235,7 +280,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     const client = await this.getPool().connect();
     try {
       await client.query("BEGIN TRANSACTION READ ONLY");
-      const result = await client.query(sql);
+      const result = await client.query(rewritten);
       await client.query("COMMIT");
       return {
         columns: result.fields.map((field) => field.name),

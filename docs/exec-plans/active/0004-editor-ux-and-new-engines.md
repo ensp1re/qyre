@@ -4,6 +4,10 @@ Status: Active
 Owner: unassigned
 Linked features: F012, F017, F013, F014, F015, F016 (`docs/FEATURES.json`)
 
+F018 is a related but separate bug fix (not one of this plan's six slices) - found live while the
+user was trying F013, tracked in `docs/FEATURES.json` and `docs/product-specs/sql-editor.md`'s new
+"Double-quoted string values" section. See the progress log below.
+
 ## Objective
 
 Six feature slices (four requested together in one session; F016 identified while scoping F015;
@@ -148,6 +152,16 @@ Out of scope (decided while scoping, not left ambiguous):
   `Mod-Enter` to `insertBlankLine`, silently intercepting the Ctrl/Cmd+Enter-to-run binding (it was
   inserting a blank line instead of running the query) - fixed with `Prec.highest`. Next up: F014
   (MySQL).
+- 2026-07-03: User hit a real bug live while trying F013: `SELECT * FROM employees WHERE
+department="Support"` failed with `column "Support" does not exist`. Not a Humb bug - standard
+  SQL reserves `""` for identifiers - but confirmed Postgres is stricter about it than MySQL
+  (treats `"..."` as a string by default) or SQLite (falls back to a string when the token isn't a
+  real identifier, a documented quirk). Asked the user how strictly to handle it before writing any
+  code - confirmed rewriting only double-quoted tokens that match no real identifier (never
+  changing a currently-working query), Postgres-only. Scoped and implemented as F018 (commit
+  `a316bd3`), tracked separately from this plan's six slices since it isn't one of them - see
+  `docs/product-specs/sql-editor.md`'s new "Double-quoted string values" section and F018's
+  `FEATURES.json` evidence.
 
 ## Open decisions
 

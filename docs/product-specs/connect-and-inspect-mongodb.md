@@ -62,10 +62,18 @@ Mongo's concepts are mapped rather than modeled from scratch:
   metadata (`_id` is the closest analog to a primary key and should be flagged as such via
   `isPrimaryKey`, but there is no foreign key concept to detect).
 - **"Rows" = documents.** `getRows()` returns a page of a collection's documents, each document
-  flattened into a `Record<string, unknown>` shape `RowPage` already expects (nested
-  objects/arrays within a document render as their JSON representation in a cell, reusing the
-  existing `formatCell` handling for non-primitive values rather than inventing a new document
-  viewer for this pass).
+  mapped into a `Record<string, unknown>` shape `RowPage` already expects. A page's **column set is
+  the union of fields observed across that specific page's documents** (not just `getTable()`'s
+  separate top-of-collection sample) - documents in the same collection can have different fields,
+  so a fixed column set computed once at the table level could otherwise show blank columns for a
+  page where no document happens to have that field, or miss a field that's common on this page but
+  wasn't in the sample. A document missing a field present on other rows in the same page renders
+  that cell empty, the same way a SQL `NULL` already does - no special-casing needed.
+  Nested objects/arrays within a document render via the structured-cell viewer
+  (`docs/product-specs/structured-cell-values.md`, F016) - **this engine depends on F016 shipping
+  first**, since a real Mongo document's nested fields are unusable as flat JSON text in a table
+  cell (unlike Postgres's occasional `jsonb` column, nesting is the common case here, not the
+  exception).
 - **No indexes reported for v1** - MongoDB index metadata (`db.collection.getIndexes()`) is real and
   fetchable, but not required for the basic-browse promise; a legitimate fast-follow once this ships,
   not a blocker.
@@ -123,7 +131,9 @@ the same way it was necessary before the SQL query runner shipped for Postgres/S
 - Running the CLI against a reachable MongoDB database results in a browser UI that shows the
   database is connected.
 - The UI can list at least databases and collections for the connected database.
-- Selecting a collection shows its best-effort observed fields and a first page of documents.
+- Selecting a collection shows its best-effort observed fields and a first page of documents; a
+  document with a nested object/array field renders it via the structured-cell viewer (F016),
+  expandable rather than flattened to raw JSON text.
 - The SQL Editor tab does not silently accept or attempt to run SQL against a Mongo connection.
 - No write operation is ever issued by Humb's own code against the connection (see "Read-only
   enforcement").

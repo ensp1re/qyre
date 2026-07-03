@@ -145,13 +145,23 @@
     },
     {
       "id": "F015",
-      "behavior": "MongoDB as a fourth engine (npx humb mongodb://...), deliberately scoped to basic read-only browsing only: databases as schemas, collections as tables, best-effort sampled field lists per collection, paginated document browsing. No query runner (the SQL Editor tab is not usable against a Mongo connection) and no driver-level read-only backstop - enforced instead by the adapter's code never calling any Mongo write API, explicitly weaker than every other engine's guarantee (see docs/product-specs/connect-and-inspect-mongodb.md's \"Read-only enforcement\" section).",
+      "behavior": "MongoDB as a fourth engine (npx humb mongodb://...), deliberately scoped to basic read-only browsing only: databases as schemas, collections as tables, best-effort sampled field lists per collection, paginated document browsing (each page's columns are the union of fields observed on that page, not just a table-level sample). No query runner (the SQL Editor tab is not usable against a Mongo connection) and no driver-level read-only backstop - enforced instead by the adapter's code never calling any Mongo write API, explicitly weaker than every other engine's guarantee (see docs/product-specs/connect-and-inspect-mongodb.md's \"Read-only enforcement\" section). Depends on F016 (structured-cell viewer) shipping first - nested document fields are unusable as flat JSON text.",
       "verification": "pnpm --filter @humbdb/core test && pnpm --filter @humbdb/driver-contract test && pnpm --filter @humbdb/mongodb test && pnpm --filter @humbdb/humb test && pnpm test:e2e:full",
       "state": "not_started",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-mongodb.md"
+    },
+    {
+      "id": "F016",
+      "behavior": "RowsTable and QueryRunner's result table gain a real, expandable tree viewer for any object/array cell value, replacing today's flat JSON.stringify-to-text handling in formatCell. Engine-agnostic and useful today (Postgres/MySQL json/jsonb columns already hit this path) - not Mongo-specific, though it's a hard prerequisite for F015's documents to render usably. Read-only viewing only, no inline editing.",
+      "verification": "pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm --filter @humbdb/web build && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/structured-cell-values.md"
     },
     {
       "id": "DF-01",

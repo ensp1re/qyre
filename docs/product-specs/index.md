@@ -30,7 +30,12 @@ single engine's behavior, not the whole product.
 - [`connect-and-inspect-mongodb.md`](connect-and-inspect-mongodb.md) - MongoDB, deliberately scoped
   to basic read-only browsing (databases/collections/documents) rather than a full port of the
   SQL-shaped contract - no query runner, and a weaker (code-level, not driver-level) read-only
-  guarantee, both explicitly called out rather than glossed over. Tracked as F015.
+  guarantee, both explicitly called out rather than glossed over. Tracked as F015; depends on F016.
+- [`structured-cell-values.md`](structured-cell-values.md) - an expandable tree viewer for any
+  object/array cell value in `RowsTable`/`QueryRunner`'s result table, replacing today's flat
+  `JSON.stringify`-to-text handling. Engine-agnostic by design (benefits Postgres/MySQL `json`/`jsonb`
+  columns today), and a hard prerequisite for MongoDB's documents (F015) to render usably. Tracked as
+  F016.
 
 ## Rules
 

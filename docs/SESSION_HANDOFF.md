@@ -255,15 +255,30 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   (both projects, run twice), and `pnpm check` all pass. Manually verified live via Preview: empty
   state, correct relative timestamps, prefill-without-running, dedup-on-rerun, a rejected query
   never recorded, persistence across reload, both themes.
+- **F017 `passing`** (commit `053b023`): a single Fastify `app.setErrorHandler` (`packages/server`)
+  normalizes every route's uncaught-error response into `{ error: <real message> }`, fixing the
+  actual bug found while testing F012 (Fastify's default handler put the real detail in `message`,
+  not `error`, and the frontend read the wrong field). New shared `fetchJson`
+  (`apps/web/src/api/fetch-json.ts`) replacing every `api/*.ts` fetcher's own bespoke error logic,
+  distinguishing a network-unreachable failure from a real server error. New shared `ErrorState`
+  component (`packages/ui`) - centered, same footprint as the loaded view, Retry action - replacing
+  inconsistent inline error text in `QueryRunner`, `RowsTable`, `SchemaGrid`, `FilesBrowser`
+  (tree-load and per-file content-load), and `ConsoleLog`. `pnpm check` (full monorepo) and
+  `pnpm test:e2e`/`test:e2e:full` (both projects) pass. Manually verified live via Preview:
+  reproduced the exact original bug report (`SELECT * FROM orders_items`) and confirmed it now shows
+  the real Postgres message centered with a working Retry, in both themes.
 
 ## In progress
 
-- Also outstanding from this session (unrelated to F011): publishing the bare `humb` npm package
-  (`packages/humb`) alongside `@humbdb/humb` failed with a 403 - npm's name-similarity policy
-  flagged it as too close to existing packages (`humps`/`htm`/`dumi`/`pump`/`umi`). A dispute was
-  filed with npm support; once cleared, retry with `node scripts/publish.mjs --only humb`. All
+- Also outstanding from this session (unrelated to F011/F012/F017): publishing the bare `humb` npm
+  package (`packages/humb`) alongside `@humbdb/humb` failed with a 403 - npm's name-similarity
+  policy flagged it as too close to existing packages (`humps`/`htm`/`dumi`/`pump`/`umi`). A dispute
+  was filed with npm support; once cleared, retry with `node scripts/publish.mjs --only humb`. All
   `@humbdb/*` packages published fine at `0.0.3` in the meantime - `npx @humbdb/humb@latest`
-  already works.
+  already works. A later retry also hit a 401/404 from an expired local npm auth token (unrelated to
+  the dispute) - fixed by `npm login`; keep the two failure modes distinct when retrying.
+  `scripts/publish.mjs`'s `run()` helper now reports a failed command with one clean line instead of
+  a raw Node stack trace ([PR #38](https://github.com/ensp1re/humb/pull/38), merged).
 
 ## Known issues / blockers
 
@@ -271,15 +286,17 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   above) - no code changes needed once it clears, just the retry command.
 - An animated demo (GIF or asciicast) for the README remains a legitimate follow-up - F009 shipped
   with static screenshots instead (see that entry's evidence for why).
+- The local Postgres fixture container (`humb-rename-pg`, port 5433) does not persist across a
+  Docker Desktop restart - if `pnpm test:e2e:full`/manual Preview testing gets `ECONNREFUSED`,
+  recreate it: `docker run --rm -d --name humb-rename-pg -e POSTGRES_PASSWORD=postgres -p 5433:5432 postgres:16-alpine`,
+  then reseed (`pnpm exec tsx .local/seed-dev-data.ts postgres://postgres:postgres@localhost:5433/postgres`
+  for the large dev dataset; `setupFixture` from `@humbdb/testing` for the small e2e fixture table).
 
 ## Next steps
 
-1. Pick up F017 (error handling: a global Fastify error handler + shared `ErrorState` UI component)
-   next - see `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan. Found
-   while testing F012 (a real bug: `POST /api/query` leaks Fastify's default error shape instead of
-   the real Postgres message), and the user asked for it to jump the queue ahead of F013. Queued
-   after it, in order: F013 (SQL Editor autocomplete + CodeMirror 6 migration), F014 (MySQL engine),
-   F016 (structured-cell viewer), F015 (MongoDB engine, basic browse only - depends on F016). All
-   were scoped with the user in this session before being added to `docs/FEATURES.json` - see that
-   plan's specs (`docs/product-specs/error-handling.md`, `sql-editor.md`, `connect-and-inspect-mysql.md`,
+1. Pick up F013 (SQL Editor autocomplete + CodeMirror 6 migration) next - see
+   `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan. Queued after it, in
+   order: F014 (MySQL engine), F016 (structured-cell viewer), F015 (MongoDB engine, basic browse
+   only - depends on F016). All were scoped with the user in this session before being added to
+   `docs/FEATURES.json` - see that plan's specs (`sql-editor.md`, `connect-and-inspect-mysql.md`,
    `structured-cell-values.md`, `connect-and-inspect-mongodb.md`) for the decisions already made.

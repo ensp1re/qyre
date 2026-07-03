@@ -1,6 +1,6 @@
-import { Braces, Copy, X } from "lucide-react";
+import { Braces, Check, Copy, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { StructuredValue } from "./cell-value.js";
 import { isStructuredValue, summarizeStructuredValue } from "./cell-value.js";
 
@@ -102,6 +102,16 @@ function TreeNode({
  * open; deeper levels expand on click, built lazily.
  */
 export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps): ReactNode {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} aria-hidden="true" />
@@ -122,10 +132,18 @@ export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps
             <button
               type="button"
               aria-label="Copy as JSON"
-              onClick={() => void navigator.clipboard.writeText(JSON.stringify(value, null, 2))}
+              onClick={() => {
+                void navigator.clipboard.writeText(JSON.stringify(value, null, 2));
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }}
               className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
             >
-              <Copy className="h-3 w-3" />
+              {copied ? (
+                <Check className="h-3 w-3" style={{ color: "var(--c-green)" }} />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
             </button>
             <button
               type="button"

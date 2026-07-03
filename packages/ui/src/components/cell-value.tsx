@@ -19,6 +19,15 @@ export function summarizeStructuredValue(value: StructuredValue): string {
 }
 
 /**
+ * One-line truncated JSON preview shown next to the chip's count, so rows with different content
+ * are distinguishable at a glance without opening the drawer. Exported for unit testing.
+ */
+export function previewStructuredValue(value: StructuredValue, maxChars = 80): string {
+  const json = JSON.stringify(value);
+  return json.length <= maxChars ? json : `${json.slice(0, maxChars - 1)}…`;
+}
+
+/**
  * Renders one table cell value: a plain string/number/boolean renders exactly like formatCell's
  * flat text (unchanged); an object/array renders as a compact single-line chip that never grows
  * the row - clicking it reports the value via `onInspect`, and the caller opens a
@@ -44,10 +53,11 @@ export function CellValue({
         event.stopPropagation();
         onInspect(value);
       }}
-      className="flex items-center gap-1 whitespace-nowrap rounded-[2px] border border-border bg-accent/40 px-1.5 py-px text-[10px] text-muted-foreground hover:border-primary/50 hover:text-foreground"
+      className="flex max-w-[280px] items-center gap-1 whitespace-nowrap rounded-[2px] border border-border bg-accent/40 px-1.5 py-px text-[10px] text-muted-foreground hover:border-primary/50 hover:text-foreground"
     >
       <Icon className="h-2.5 w-2.5 shrink-0" style={{ color: "var(--c-amber)" }} />
-      {summarizeStructuredValue(value)}
+      <span className="shrink-0">{summarizeStructuredValue(value)}</span>
+      <span className="truncate text-muted-foreground/50">{previewStructuredValue(value)}</span>
     </button>
   );
 }

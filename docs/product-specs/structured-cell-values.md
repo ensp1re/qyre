@@ -32,12 +32,13 @@ itself now never changes size.
 - A cell whose value is a plain string, number, boolean, or `null`/`undefined` renders exactly as
   today (`formatCell`'s existing primitive path is unchanged).
 - A cell whose value is an object or array renders as a compact, single-line summary chip (e.g.
-  `{ 3 keys }` or `[ 5 items ]`) that never grows the row. Clicking the chip opens a
-  right-anchored inspector drawer (following the query-history drawer's pattern) showing the value
-  as an expandable tree - keys/values or array items - recursively, so a nested object inside a
-  nested object is still explorable rather than falling back to a JSON string once you're more
-  than one level deep. The drawer shows the source column name and offers copy-as-JSON; it closes
-  via its close button or the backdrop.
+  `{ 3 keys }` or `[ 5 items ]`) plus a dimmed, truncated one-line JSON preview, so rows with
+  different content are distinguishable at a glance - and the row never grows. Clicking the chip
+  opens a right-anchored inspector drawer (following the query-history drawer's pattern) showing
+  the value as an expandable tree - keys/values or array items - recursively, so a nested object
+  inside a nested object is still explorable rather than falling back to a JSON string once you're
+  more than one level deep. The drawer shows the source column name and offers copy-as-JSON (with
+  visible confirmation); it closes via its close button, the backdrop, or Esc.
 - Expansion state is local to that drawer instance (not persisted across reloads or synced
   anywhere) - this is a viewer, not new application state.
 - Values that are themselves very large (e.g. a huge array or deeply nested document) should not

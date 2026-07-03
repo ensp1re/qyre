@@ -61,4 +61,8 @@ test("@full structured jsonb cell values open an inspector drawer, three levels 
   await expect(
     page.getByTestId("cell-value-drawer").getByRole("button", { name: "account: { 1 key }" })
   ).toBeVisible();
+
+  // Esc also closes the drawer.
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("cell-value-drawer")).not.toBeVisible();
 });

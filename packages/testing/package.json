@@ -14,10 +14,12 @@
   },
   "dependencies": {
     "@humbdb/core": "workspace:*",
+    "better-sqlite3": "^11.10.0",
     "pg": "^8.13.1"
   },
   "devDependencies": {
     "@humbdb/config": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/pg": "^8.11.10"
   }
 }

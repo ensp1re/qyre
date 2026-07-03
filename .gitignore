@@ -14,5 +14,6 @@ CLAUDE.md
 .local/
 playwright-report/
 test-results/
+e2e/.fixtures/
 docs/generated/*
 !docs/generated/.gitkeep

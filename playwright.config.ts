@@ -1,13 +1,31 @@
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Playwright config for Humb's end-to-end tests.
  *
  * - `@smoke` specs run with no database (just the built UI) and gate `pnpm test:e2e`.
- * - `@full` specs require HUMB_TEST_DATABASE_URL and run via `pnpm test:e2e:full`.
+ * - `@full` specs run against two live servers, one per engine (see e2e/server.ts), gated by
+ *   `pnpm test:e2e:full` and matching `docs/product-specs/connect-and-inspect-sqlite.md`'s "same
+ *   spec, parameterized by engine/fixture" requirement:
+ *   - "postgres" project: requires HUMB_TEST_DATABASE_URL.
+ *   - "sqlite" project: self-contained, no setup required - the fixture file is created on the fly.
+ *   Both projects run every spec (including @smoke), since @humbdb/web build's built once up front
+ *   by the test:e2e/test:e2e:full npm scripts, not by either webServer command, to avoid two
+ *   `vite build` processes racing to write apps/web/dist at once.
  *
  * See docs/RELIABILITY.md.
  */
+const sqliteFixturePath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "e2e/.fixtures/sqlite.db"
+);
+// Set on process.env (not just passed via webServer's `env` below) so the "sqlite" project's test
+// files - which run in Playwright's own worker processes, not the spawned webServer command - can
+// also read it via requireTestSqlitePath().
+process.env.HUMB_TEST_SQLITE_PATH = sqliteFixturePath;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -15,21 +33,34 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://localhost:4173",
     trace: "on-first-retry"
   },
   projects: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] }
+      name: "postgres",
+      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:4173" }
+    },
+    {
+      name: "sqlite",
+      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:4175" }
     }
   ],
-  webServer: {
-    // Runs the real Humb server (serving both the API and the built web app on one port), not a
-    // separate vite-preview process with no backend behind it - see e2e/server.ts.
-    command: "pnpm --filter @humbdb/web build && pnpm exec tsx e2e/server.ts",
-    url: "http://localhost:4173",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000
-  }
+  webServer: [
+    {
+      command: "pnpm exec tsx e2e/server.ts",
+      url: "http://localhost:4173",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000
+    },
+    {
+      command: "pnpm exec tsx e2e/server.ts",
+      url: "http://localhost:4175",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      // HUMB_TEST_SQLITE_PATH is already on process.env (set above) and inherited automatically.
+      env: {
+        HUMB_E2E_PORT: "4175"
+      }
+    }
+  ]
 });

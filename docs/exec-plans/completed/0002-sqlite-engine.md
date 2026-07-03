@@ -1,6 +1,6 @@
 # Plan 0002: SQLite Engine
 
-Status: Active
+Status: Completed
 Owner: unassigned
 Linked features: F008, F011 (`docs/FEATURES.json`)
 
@@ -74,11 +74,17 @@ Out of scope: remote SQLite/Turso URLs (open product decision, not yet made - se
   - Split the Playwright e2e coverage out as F011 rather than pushing it through in the same pass
     (per `docs/PLANS.md`'s splitting rule) - it needs `e2e/server.ts` to start against either engine
     depending on the run, which is a distinct slice of work from the adapter/CLI itself.
+- 2026-07-03: Implemented F011 ([PR #35](https://github.com/ensp1re/humb/pull/35)). `e2e/server.ts`
+  took an engine/fixture flag (`HUMB_TEST_SQLITE_PATH`/`HUMB_E2E_PORT`) rather than SQLite getting a
+  wholly separate webServer script, so both engines share the exact same server-startup code path;
+  Playwright's `webServer`/`projects` became arrays (`postgres`, `sqlite`) so the one
+  `connect-and-inspect.spec.ts` runs against both. `@humbdb/testing` gained SQLite fixture helpers
+  mirroring the Postgres ones. Both engines' fixture data uses the identical table/row shape so the
+  spec's assertions needed zero engine-specific branching beyond which setup call to make. This plan
+  is now fully complete: F008 and F011 both `passing`.
 
 ## Open decisions
 
 - Whether/how to support remote SQLite (a downloaded `.db` over HTTP(S)) or Turso/libSQL
   (`libsql://` URLs) - surfaced but not decided; see `.local/suggestions.md` (not agent-loaded).
   F008 as implemented is local-file-only.
-- Whether F011's `e2e/server.ts` should take an engine/fixture flag, or whether SQLite gets its own
-  lightweight webServer entry - decide when F011 is picked up.

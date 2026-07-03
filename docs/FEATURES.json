@@ -107,9 +107,9 @@
       "id": "F011",
       "behavior": "The Playwright connect-and-inspect journey (e2e/connect-and-inspect.spec.ts) covers SQLite, not just Postgres - parameterized by engine/fixture per docs/product-specs/connect-and-inspect-sqlite.md's \"Primary end-to-end journey\" section, not a duplicated spec. Split out from F008 (see that entry's evidence) because it also needs e2e/server.ts to start against either a Postgres or SQLite fixture depending on the run, which is its own real slice of work.",
       "verification": "pnpm test:e2e:full",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "126ad1b",
+      "evidence": "commit 126ad1b (PR #35, https://github.com/ensp1re/humb/pull/35): playwright.config.ts now runs two projects (\"postgres\", \"sqlite\") against two webServer instances (e2e/server.ts, parameterized by HUMB_TEST_SQLITE_PATH/HUMB_E2E_PORT); the @humbdb/web build step moved out of the webServer commands into the test:e2e/test:e2e:full npm scripts themselves so it runs once instead of racing two vite build processes writing dist/ concurrently. @humbdb/testing gained SQLite equivalents of the existing Postgres fixture helpers (ensureSqliteFile, setupSqliteFixture, requireTestSqlitePath) producing the same table/rows shape, so e2e/connect-and-inspect.spec.ts's assertions hold unmodified for either engine - the spec branches only its fixture setup call on testInfo.project.name, proving the UI is genuinely engine-agnostic rather than accidentally Postgres-shaped. Added the missing @humbdb/sqlite tsconfig path mapping (tsconfig.base.json) needed for tsx to resolve it from e2e/server.ts. Verified: pnpm test:e2e (both projects boot and pass @smoke); pnpm test:e2e:full against a real Postgres container (both projects pass the full journey, run twice back-to-back to confirm both fixtures are idempotent); pnpm check (full monorepo) passes.",
       "blockedReason": null,
       "spec": "docs/product-specs/connect-and-inspect-sqlite.md"
     },

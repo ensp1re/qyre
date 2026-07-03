@@ -7,7 +7,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Current state
 
-- Date: 2026-07-02
+- Date: 2026-07-03
 - Latest commit: see `git log --oneline -1 origin/main`
 - Build status: builds (`pnpm build`)
 - Test status: unit + integration tests pass (`pnpm test`, with `HUMB_TEST_DATABASE_URL` set); smoke
@@ -58,7 +58,8 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   `scripts/publish.mjs` for lockstep version bump + release). No product code changed.
 - **F008 `passing`** ([PR #13](https://github.com/ensp1re/humb/pull/13), merged): SQLite as Humb's
   second engine (`npx humb ./app.db`). See `docs/exec-plans/active/0002-sqlite-engine.md` for full
-  detail (F011, its e2e slice, is still open there). In short: generalized `@humbdb/core`'s
+  detail (F011, its e2e slice, is now also `passing` - see this file's "Completed" entry below). In
+  short: generalized `@humbdb/core`'s
   `parseConnectionTarget` from Postgres-only to engine-detecting (this was the real blocker to any
   second engine, not a missing driver package); moved `assertReadOnly` from `@humbdb/postgres` to
   `@humbdb/driver-contract` so both engines share it; built `@humbdb/sqlite` on `better-sqlite3` with the
@@ -66,7 +67,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
   independent of the string-scan heuristic); wired `sqliteAdapterFactory` into the CLI. Caught and
   fixed a real bug during live verification (not package tests, which all passed): `/api/health`
   redacted a SQLite path as `<unparseable connection string>` since redaction assumed every target is
-  a URL. Scoped to backend + CLI - Playwright e2e coverage split out as **F011** (`not_started`).
+  a URL. Scoped to backend + CLI - Playwright e2e coverage split out as **F011** (now `passing`).
 - Moved `docs/exec-plans/active/0001-postgres-inspection.md` to `completed/` (F001-F007 all
   `passing`).
 - **DF-01 `passing`** (dashboard UI redesign, foundation slice): the user shared a private design
@@ -228,21 +229,37 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   monorepo's `apps/web/dist`. `node scripts/verify-npm-package.mjs` and
   `node scripts/publish.mjs --dry-run` both pass; `pnpm test`/`pnpm test:e2e`/`pnpm test:e2e:full`
   (real `postgres:16-alpine` container) and `pnpm check` all pass.
+- **F011 `passing`** (commit `126ad1b`, [PR #35](https://github.com/ensp1re/humb/pull/35)):
+  `e2e/connect-and-inspect.spec.ts` now runs once per engine via two Playwright projects
+  (`postgres`, `sqlite`) against two `webServer` instances, instead of only ever exercising
+  Postgres - the same spec body, branching only its fixture setup call on
+  `testInfo.project.name`, proving the UI is genuinely engine-agnostic. `@humbdb/testing` gained
+  SQLite equivalents of the Postgres fixture helpers (`ensureSqliteFile`, `setupSqliteFixture`,
+  `requireTestSqlitePath`) producing the identical table/rows shape so the spec's assertions hold
+  unmodified. Moved the `@humbdb/web` build step out of the `webServer` commands into the
+  `test:e2e`/`test:e2e:full` npm scripts themselves, avoiding two `vite build` processes racing to
+  write `dist/` concurrently once a second `webServer` entry existed. `pnpm test:e2e` and
+  `pnpm test:e2e:full` (real Postgres container, both projects, run twice to confirm idempotency)
+  and `pnpm check` all pass.
 
 ## In progress
 
-- None. F011 is `not_started` backlog.
+- Also outstanding from this session (unrelated to F011): publishing the bare `humb` npm package
+  (`packages/humb`) alongside `@humbdb/humb` failed with a 403 - npm's name-similarity policy
+  flagged it as too close to existing packages (`humps`/`htm`/`dumi`/`pump`/`umi`). A dispute was
+  filed with npm support; once cleared, retry with `node scripts/publish.mjs --only humb`. All
+  `@humbdb/*` packages published fine at `0.0.3` in the meantime - `npx @humbdb/humb@latest`
+  already works.
 
 ## Known issues / blockers
 
-- F011 (Playwright e2e coverage for SQLite) is `not_started`; the UI itself needs no changes (it's
-  already engine-agnostic, verified live against SQLite over the same HTTP contract) - only
-  `e2e/server.ts` needs to support starting against either engine's fixture.
+- The bare `humb` npm package is blocked pending npm's name-dispute review (see "In progress"
+  above) - no code changes needed once it clears, just the retry command.
 - An animated demo (GIF or asciicast) for the README remains a legitimate follow-up - F009 shipped
   with static screenshots instead (see that entry's evidence for why).
 
 ## Next steps
 
-1. Pick up F011 (SQLite Playwright e2e coverage) next - F009 and F010 are both done, closing out
-   the user's original leaning (SQLite → publish → UI/UX) except this last piece of SQLite e2e
-   coverage.
+1. All F-series and DF-series features in `docs/FEATURES.json` are now `passing` - no active
+   feature slice. Pick a follow-up from "Known issues / blockers" above (the bare `humb` publish
+   retry, or the README animated demo), or promote new scope into `docs/FEATURES.json`.

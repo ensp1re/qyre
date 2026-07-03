@@ -218,6 +218,9 @@ importers:
       '@humbdb/core':
         specifier: workspace:*
         version: link:../core
+      better-sqlite3:
+        specifier: ^11.10.0
+        version: 11.10.0
       pg:
         specifier: ^8.13.1
         version: 8.22.0
@@ -225,6 +228,9 @@ importers:
       '@humbdb/config':
         specifier: workspace:*
         version: link:../config
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
       '@types/pg':
         specifier: ^8.11.10
         version: 8.20.0

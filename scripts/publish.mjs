@@ -8,6 +8,13 @@
  * together before publishing is enough; no manual dependency-range rewriting is needed.
  *
  * Usage: node scripts/publish.mjs [patch|minor|major] [--dry-run]
+ *
+ * To retry publishing a single package that failed last time (e.g. a registry hiccup, or a
+ * name-policy block that's since been cleared) without re-bumping or re-checking everything:
+ *   node scripts/publish.mjs --only <package-name> [--dry-run]
+ * This publishes that one package at its current (already-committed) version - no version bump,
+ * no `pnpm check`, no git commit/tag. Only use it to finish a release that already ran the full
+ * flow above and got everything else published; it does not start a new release on its own.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -18,8 +25,16 @@ const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-const bumpType = args.find((arg) => !arg.startsWith("--")) ?? "patch";
-if (!["patch", "minor", "major"].includes(bumpType)) {
+const onlyFlagIndex = args.indexOf("--only");
+const onlyPackage = onlyFlagIndex !== -1 ? args[onlyFlagIndex + 1] : null;
+if (onlyFlagIndex !== -1 && !onlyPackage) {
+  console.error("--only requires a package name, e.g. --only humb");
+  process.exit(1);
+}
+const bumpType = onlyPackage
+  ? null
+  : (args.find((arg, i) => !arg.startsWith("--") && args[i - 1] !== "--only") ?? "patch");
+if (!onlyPackage && !["patch", "minor", "major"].includes(bumpType)) {
   console.error(`Unknown bump type "${bumpType}". Use patch, minor, or major.`);
   process.exit(1);
 }
@@ -78,6 +93,25 @@ if (missingFromOrder.length > 0) {
 
 const packagesByName = new Map(publishable.map((pkg) => [pkg.name, pkg]));
 const orderedPackages = PUBLISH_ORDER.map((name) => packagesByName.get(name)).filter(Boolean);
+
+// --only: publish a single already-versioned package and stop, skipping the bump/check/commit
+// steps below entirely (see the usage note at the top of this file).
+if (onlyPackage) {
+  const pkg = packagesByName.get(onlyPackage);
+  if (!pkg) {
+    console.error(`"${onlyPackage}" is not a publishable workspace package.`);
+    process.exit(1);
+  }
+  const version = readPackageJson(join(pkg.path, "package.json")).version;
+  console.log(`${dryRun ? "[dry run] " : ""}Publishing ${pkg.name}@${version} only...`);
+  if (dryRun) {
+    console.log("\nDry run: stopping before publish.");
+    process.exit(0);
+  }
+  run("pnpm", ["publish", "--access", "public"], { cwd: pkg.path });
+  console.log(`\nPublished ${pkg.name}@${version}.`);
+  process.exit(0);
+}
 
 // 3. Lockstep version: bump off the CLI package's current version, since that's the version users
 // actually see.

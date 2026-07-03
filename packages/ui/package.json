@@ -1,6 +1,6 @@
 {
   "name": "@humbdb/ui",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "description": "Reusable presentational UI components for Humb.",
   "license": "MIT",

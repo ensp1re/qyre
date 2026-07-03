@@ -1,6 +1,6 @@
 {
   "name": "humb",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "description": "Launch a local-first database management UI from your terminal. Bare-named alias for @humbdb/humb, published only so `npx humb` and `npm install -g humb` work.",
   "keywords": [

@@ -1,18 +1,32 @@
-import { FIXTURE, requireTestDatabaseUrl, setupFixture } from "@humbdb/testing";
+import {
+  FIXTURE,
+  requireTestDatabaseUrl,
+  requireTestSqlitePath,
+  setupFixture,
+  setupSqliteFixture
+} from "@humbdb/testing";
 import { expect, test } from "@playwright/test";
 
 /**
- * Full end-to-end journey: connect and inspect a Postgres table.
+ * Full end-to-end journey: connect and inspect a table. Runs once per engine project (see
+ * playwright.config.ts) against the same fixture shape (table/columns/rows), so this proves the UI
+ * is genuinely engine-agnostic rather than accidentally Postgres-shaped - see
+ * docs/product-specs/connect-and-inspect-sqlite.md's "same spec, parameterized by engine/fixture"
+ * requirement (F011).
  *
- * Requires HUMB_TEST_DATABASE_URL. If it is missing, this test FAILS with an actionable message -
- * we never silently skip required verification (see docs/RELIABILITY.md).
+ * The "postgres" project requires HUMB_TEST_DATABASE_URL; if it's missing, this test FAILS with an
+ * actionable message - we never silently skip required verification (see docs/RELIABILITY.md). The
+ * "sqlite" project is self-contained (no setup required).
  *
- * This is the verification command for features F002/F004/F005, all covered below. Run it with
- * `pnpm test:e2e:full`.
+ * This is the verification command for features F002/F004/F005/F011, all covered below. Run it
+ * with `pnpm test:e2e:full`.
  */
-test("@full connect to Postgres and inspect a table", async ({ page }) => {
-  const databaseUrl = requireTestDatabaseUrl();
-  await setupFixture(databaseUrl);
+test("@full connect and inspect a table", async ({ page }, testInfo) => {
+  if (testInfo.project.name === "sqlite") {
+    setupSqliteFixture(requireTestSqlitePath());
+  } else {
+    await setupFixture(requireTestDatabaseUrl());
+  }
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Humb" })).toBeVisible();

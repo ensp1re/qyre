@@ -2,4 +2,4 @@
 
 Plans currently driving work. One plan should have one clearly owned current step.
 
-- [`0002-sqlite-engine.md`](0002-sqlite-engine.md) - F011 (SQLite e2e coverage) still open.
+- None. All feature slices are `passing`; see `docs/exec-plans/completed/`.

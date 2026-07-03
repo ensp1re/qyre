@@ -2,6 +2,7 @@ import type { ConnectionStatus } from "@humbdb/core";
 import {
   ConsoleLog,
   FilesBrowser,
+  QueryHistoryDrawer,
   QueryRunner,
   RowsTable,
   SchemaGrid,
@@ -19,6 +20,7 @@ import { useClearConsole, useConsoleEvents } from "./hooks/use-console.js";
 import { useFileContent, useFilesOverview } from "./hooks/use-files.js";
 import { useHealth } from "./hooks/use-health.js";
 import { useOverview } from "./hooks/use-overview.js";
+import { useQueryHistory } from "./hooks/use-query-history.js";
 import { useRows } from "./hooks/use-rows.js";
 import { useRunQuery } from "./hooks/use-run-query.js";
 import { useTable } from "./hooks/use-table.js";
@@ -42,7 +44,9 @@ export function App(): ReactNode {
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [lastQueryMs, setLastQueryMs] = useState<number>();
   const [selectedFilePath, setSelectedFilePath] = useState<string>();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const queryHistory = useQueryHistory();
 
   const overview = useOverview({ enabled: status === "connected" });
   const table = useTable(selected?.schema, selected?.table);
@@ -72,8 +76,16 @@ export function App(): ReactNode {
   function runSql(): void {
     const start = performance.now();
     runQuery.mutate(querySql, {
-      onSuccess: () => setLastQueryMs(Math.round(performance.now() - start))
+      onSuccess: () => {
+        setLastQueryMs(Math.round(performance.now() - start));
+        queryHistory.record(querySql);
+      }
     });
+  }
+
+  function selectFromHistory(sql: string): void {
+    setQuerySql(sql);
+    setHistoryOpen(false);
   }
 
   return (
@@ -124,6 +136,7 @@ export function App(): ReactNode {
                 isRunning={runQuery.isPending}
                 result={runQuery.data}
                 error={runQuery.error instanceof Error ? runQuery.error.message : undefined}
+                onOpenHistory={() => setHistoryOpen(true)}
               />
             ) : tab === "tables" ? (
               !selected ? (
@@ -249,6 +262,13 @@ export function App(): ReactNode {
         engineVersion={health?.engineVersion}
         schema={selected?.schema}
         lastQueryMs={lastQueryMs}
+      />
+
+      <QueryHistoryDrawer
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        entries={queryHistory.entries}
+        onSelect={selectFromHistory}
       />
     </div>
   );

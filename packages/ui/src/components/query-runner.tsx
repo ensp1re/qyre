@@ -1,5 +1,5 @@
 import type { RowPage } from "@humbdb/core";
-import { Play } from "lucide-react";
+import { History, Play } from "lucide-react";
 import type { KeyboardEvent, ReactNode, UIEvent } from "react";
 import { useRef } from "react";
 import { formatCell } from "../format-cell.js";
@@ -12,6 +12,8 @@ export interface QueryRunnerProps {
   isRunning: boolean;
   result?: RowPage;
   error?: string;
+  /** Opens the query history drawer (F012) - rendered by the caller, not this component. */
+  onOpenHistory: () => void;
 }
 
 /** A read-only SQL query box: SELECT-style statements only, enforced server-side. */
@@ -21,7 +23,8 @@ export function QueryRunner({
   onRun,
   isRunning,
   result,
-  error
+  error,
+  onOpenHistory
 }: QueryRunnerProps): ReactNode {
   const canRun = !isRunning && sql.trim().length > 0;
   const lineCount = sql.split("\n").length;
@@ -62,6 +65,14 @@ export function QueryRunner({
         <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
           ⌘ Enter
         </span>
+        <button
+          type="button"
+          aria-label="Query history"
+          onClick={onOpenHistory}
+          className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+        >
+          <History className="h-3 w-3" />
+        </button>
         <span className="ml-auto font-mono text-[10px] text-muted-foreground">
           {lineCount} line{lineCount === 1 ? "" : "s"}
         </span>

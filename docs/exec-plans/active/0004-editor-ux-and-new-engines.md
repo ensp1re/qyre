@@ -11,7 +11,7 @@ F017 identified while testing F012), queued in this priority order (agreed with 
 
 1. **F012** - SQL Editor query history (a right-anchored drawer, `localStorage`-backed). Done.
 2. **F017** - error handling: a global Fastify error handler plus a shared `ErrorState` UI component,
-   replacing today's inconsistent inline error text everywhere.
+   replacing today's inconsistent inline error text everywhere. Done.
 3. **F013** - SQL Editor autocomplete (keywords + table names), which requires migrating the editor
    off a plain `<textarea>` onto CodeMirror 6.
 4. **F014** - MySQL as a third engine.
@@ -141,7 +141,7 @@ Out of scope (decided while scoping, not left ambiguous):
 - 2026-07-03: While testing F012, found a real bug (see "Objective" above) and scoped it as F017,
   inserted right after F012 in priority order per the user's explicit request. Wrote
   `docs/product-specs/error-handling.md` and the `FEATURES.json` entry; not yet implemented.
-  Next up: F017.
+- 2026-07-03: Implemented F017 (commit `053b023`). Next up: F013.
 
 ## Open decisions
 

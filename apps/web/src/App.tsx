@@ -1,6 +1,7 @@
 import type { ConnectionStatus } from "@humbdb/core";
 import {
   ConsoleLog,
+  ErrorState,
   FilesBrowser,
   QueryHistoryDrawer,
   QueryRunner,
@@ -148,16 +149,12 @@ export function App(): ReactNode {
                   <Spinner /> Loading rows...
                 </p>
               ) : rows.isError ? (
-                <p className="text-[13px] text-muted-foreground">
-                  Failed to load rows.{" "}
-                  <button
-                    type="button"
-                    onClick={() => rows.refetch()}
-                    className="text-primary underline"
-                  >
-                    Retry
-                  </button>
-                </p>
+                <ErrorState
+                  message={
+                    rows.error instanceof Error ? rows.error.message : "Failed to load rows."
+                  }
+                  onRetry={() => rows.refetch()}
+                />
               ) : rows.data ? (
                 <RowsTable
                   rowPage={rows.data}
@@ -178,16 +175,10 @@ export function App(): ReactNode {
                   <Spinner /> Loading tables...
                 </p>
               ) : allTables.isError ? (
-                <p className="text-[13px] text-muted-foreground">
-                  Failed to load one or more tables.{" "}
-                  <button
-                    type="button"
-                    onClick={() => allTables.refetch()}
-                    className="text-primary underline"
-                  >
-                    Retry
-                  </button>
-                </p>
+                <ErrorState
+                  message={allTables.error?.message ?? "Failed to load one or more tables."}
+                  onRetry={() => allTables.refetch()}
+                />
               ) : allTables.tables.length === 0 ? (
                 <p className="text-[13px] text-muted-foreground">No tables found.</p>
               ) : (
@@ -199,16 +190,14 @@ export function App(): ReactNode {
                   <Spinner /> Loading files...
                 </p>
               ) : filesOverview.isError ? (
-                <p className="text-[13px] text-muted-foreground">
-                  Failed to load files.{" "}
-                  <button
-                    type="button"
-                    onClick={() => filesOverview.refetch()}
-                    className="text-primary underline"
-                  >
-                    Retry
-                  </button>
-                </p>
+                <ErrorState
+                  message={
+                    filesOverview.error instanceof Error
+                      ? filesOverview.error.message
+                      : "Failed to load files."
+                  }
+                  onRetry={() => filesOverview.refetch()}
+                />
               ) : !filesOverview.data?.enabled ? (
                 <p className="text-[13px] text-muted-foreground">
                   File browsing is disabled. Launch Humb with{" "}
@@ -226,7 +215,14 @@ export function App(): ReactNode {
                   onSelectFile={setSelectedFilePath}
                   content={fileContent.data?.content}
                   isContentLoading={fileContent.isLoading}
-                  contentError={fileContent.isError ? "Failed to load file." : undefined}
+                  contentError={
+                    fileContent.isError
+                      ? fileContent.error instanceof Error
+                        ? fileContent.error.message
+                        : "Failed to load file."
+                      : undefined
+                  }
+                  onRetryContent={() => fileContent.refetch()}
                 />
               )
             ) : tab === "console" ? (
@@ -235,16 +231,14 @@ export function App(): ReactNode {
                   <Spinner /> Loading console...
                 </p>
               ) : consoleEvents.isError ? (
-                <p className="text-[13px] text-muted-foreground">
-                  Failed to load console events.{" "}
-                  <button
-                    type="button"
-                    onClick={() => consoleEvents.refetch()}
-                    className="text-primary underline"
-                  >
-                    Retry
-                  </button>
-                </p>
+                <ErrorState
+                  message={
+                    consoleEvents.error instanceof Error
+                      ? consoleEvents.error.message
+                      : "Failed to load console events."
+                  }
+                  onRetry={() => consoleEvents.refetch()}
+                />
               ) : (
                 <ConsoleLog
                   events={consoleEvents.data?.events ?? []}

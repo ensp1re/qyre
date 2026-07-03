@@ -3,6 +3,7 @@ import { File, FileCode2, FolderOpen } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "../cn.js";
+import { ErrorState } from "./error-state.js";
 import { Spinner } from "./spinner.js";
 
 export interface FilesBrowserProps {
@@ -12,6 +13,7 @@ export interface FilesBrowserProps {
   content?: string;
   isContentLoading?: boolean;
   contentError?: string;
+  onRetryContent?: () => void;
 }
 
 function TreeRow({
@@ -100,7 +102,8 @@ export function FilesBrowser({
   onSelectFile,
   content,
   isContentLoading,
-  contentError
+  contentError,
+  onRetryContent
 }: FilesBrowserProps): ReactNode {
   const lines = content?.split("\n") ?? [];
 
@@ -134,7 +137,7 @@ export function FilesBrowser({
             <Spinner /> Loading file...
           </p>
         ) : contentError ? (
-          <p className="p-3 text-[13px] text-muted-foreground">{contentError}</p>
+          <ErrorState message={contentError} onRetry={() => onRetryContent?.()} />
         ) : content === undefined ? (
           <p className="p-3 font-mono text-[11px] text-muted-foreground">No file selected.</p>
         ) : (

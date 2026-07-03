@@ -5,6 +5,7 @@
  * `components/`, shadcn-style. See FRONTEND.md and docs/CODE_ORGANIZATION.md.
  */
 export * from "./components/console-log.js";
+export * from "./components/error-state.js";
 export * from "./components/files-browser.js";
 export * from "./components/schema-grid.js";
 export * from "./components/schema-tree.js";

@@ -20,10 +20,13 @@ export function useAllTables(schemas: SchemaMetadata[] | undefined) {
     }))
   });
 
+  const firstError = results.find((result) => result.error)?.error;
+
   return {
     tables: results.map((result) => result.data).filter((t): t is TableMetadata => Boolean(t)),
     isLoading: results.some((result) => result.isLoading),
     isError: results.some((result) => result.isError),
+    error: firstError instanceof Error ? firstError : undefined,
     refetch: () => results.forEach((result) => void result.refetch())
   };
 }

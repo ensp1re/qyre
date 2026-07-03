@@ -3,6 +3,7 @@ import { History, Play } from "lucide-react";
 import type { KeyboardEvent, ReactNode, UIEvent } from "react";
 import { useRef } from "react";
 import { formatCell } from "../format-cell.js";
+import { ErrorState } from "./error-state.js";
 import { Spinner } from "./spinner.js";
 
 export interface QueryRunnerProps {
@@ -106,13 +107,9 @@ export function QueryRunner({
       </div>
 
       {error && (
-        <p
-          data-testid="query-error"
-          className="border-t border-border px-3 py-2 font-mono text-[11px]"
-          style={{ color: "var(--c-red)" }}
-        >
-          {error}
-        </p>
+        <div data-testid="query-error" className="h-40 shrink-0 border-t border-border">
+          <ErrorState message={error} onRetry={onRun} />
+        </div>
       )}
 
       {result && !error && (

@@ -1,19 +1,12 @@
 import type { ConsoleEvents } from "@humbdb/core";
+import { fetchJson } from "./fetch-json.js";
 
 /** Fetch the Console tab's recent connection/query events. */
-export async function fetchConsoleEvents(): Promise<ConsoleEvents> {
-  const response = await fetch("/api/console");
-  if (!response.ok) {
-    throw new Error(`Failed to load console events (status ${response.status})`);
-  }
-  return (await response.json()) as ConsoleEvents;
+export function fetchConsoleEvents(): Promise<ConsoleEvents> {
+  return fetchJson<ConsoleEvents>("/api/console");
 }
 
 /** Clear the server's in-memory event log. */
-export async function clearConsoleEvents(): Promise<ConsoleEvents> {
-  const response = await fetch("/api/console", { method: "DELETE" });
-  if (!response.ok) {
-    throw new Error(`Failed to clear console events (status ${response.status})`);
-  }
-  return (await response.json()) as ConsoleEvents;
+export function clearConsoleEvents(): Promise<ConsoleEvents> {
+  return fetchJson<ConsoleEvents>("/api/console", { method: "DELETE" });
 }

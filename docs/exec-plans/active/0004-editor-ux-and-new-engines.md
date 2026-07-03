@@ -162,13 +162,18 @@ department="Support"` failed with `column "Support" does not exist`. Not a Humb 
   `a316bd3`), tracked separately from this plan's six slices since it isn't one of them - see
   `docs/product-specs/sql-editor.md`'s new "Double-quoted string values" section and F018's
   `FEATURES.json` evidence.
+- 2026-07-03: Implemented F014 (commit `9ccde55`) - see `FEATURES.json`'s evidence for full detail.
+  New `@humbdb/mysql` on `mysql2/promise`, mirroring `@humbdb/postgres`'s shape. Found and fixed two
+  real bugs while wiring up the third e2e engine project: every webServer instance was silently
+  inheriting every test-DB env var at once (fixed with an explicit `HUMB_E2E_ENGINE` per instance),
+  and a reproduced `setupSqliteFixture` concurrency race once total Playwright parallelism went up
+  (fixed the same way F012 fixed the analogous Postgres race). Next up: F016 (structured-cell
+  viewer).
 
 ## Open decisions
 
 - Whether F015 needs any Playwright e2e coverage at all, or whether package-level integration tests
   plus a manual live pass are sufficient given there's no query runner to exercise - decide when
   F015 is picked up.
-- MySQL client library choice (e.g. `mysql2`) - decide when F014 is picked up; no library has been
-  evaluated yet.
 - MongoDB client library is the official `mongodb` driver by default (no reason to deviate) - decide
   final version pin when F015 is picked up.

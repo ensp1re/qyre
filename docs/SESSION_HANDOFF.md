@@ -260,6 +260,9 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 
 ## Next steps
 
-1. All F-series and DF-series features in `docs/FEATURES.json` are now `passing` - no active
-   feature slice. Pick a follow-up from "Known issues / blockers" above (the bare `humb` publish
-   retry, or the README animated demo), or promote new scope into `docs/FEATURES.json`.
+1. Pick up F012 (SQL Editor query history) next - see `docs/exec-plans/active/0004-editor-ux-and-new-engines.md`
+   for the full plan. Queued after it, in order: F013 (autocomplete + CodeMirror 6 migration), F014
+   (MySQL engine), F015 (MongoDB engine, basic browse only). All four were scoped with the user in
+   this session before being added to `docs/FEATURES.json` - see that plan's specs
+   (`docs/product-specs/sql-editor.md`, `connect-and-inspect-mysql.md`, `connect-and-inspect-mongodb.md`)
+   for the decisions already made (editor migration, autocomplete depth, history scope, Mongo scope).

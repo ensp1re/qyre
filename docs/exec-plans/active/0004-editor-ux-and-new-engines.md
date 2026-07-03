@@ -181,6 +181,14 @@ department="Support"` failed with `column "Support" does not exist`. Not a Humb 
   inside an expanded structured value rendered as a bare text node with no element boundary of its
   own (indistinguishable from its sibling key label to Playwright or any other DOM consumer) - fixed
   by wrapping `CellValue`'s primitive branch in its own `<span>`. Next up: F015 (MongoDB).
+- 2026-07-03: F016 redesigned (commit `57fd354`) after user feedback that the inline expansion
+  broke the table layout (row heights blew up, "not comfortable and not user friendly") - the
+  exact outcome the spec's original out-of-scope note anticipated. The cell is now a compact
+  single-line chip that never grows the row; clicking it opens a new right-anchored
+  `CellValueDrawer` (`QueryHistoryDrawer`'s pattern) with the expandable tree, syntax-colored
+  primitives, the source column name, and copy-as-JSON. Spec's Behavior/Acceptance sections
+  revised to match; e2e spec now walks chip -> drawer -> three levels -> close. Still next up:
+  F015 (MongoDB).
 
 ## Open decisions
 

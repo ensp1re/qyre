@@ -329,24 +329,28 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   FK-constrained fixture: Schema tab PK/FK badges, Tables tab pagination, and a SQL Editor query
   using a double-quoted string value (MySQL's own default dialect behavior - confirmed distinct from
   F018's Postgres-only fix, no adapter-side coercion needed here).
-- **F016 `passing`** (commit `070f995`): expandable tree viewer for structured (object/array) cell
-  values. New `CellValue` component (`packages/ui/src/components/cell-value.tsx`) replaces
-  `formatCell`'s flat `JSON.stringify`-to-text handling in `RowsTable`/`QueryRunner` - a collapsed
-  summary (`{ N keys }` / `[ N items ]`) expands inline on click, recursing into its own nested
-  values, lazily (a collapsed cell never builds its nested view). Engine-agnostic and already live
-  for Postgres/MySQL `jsonb`/`json` columns, not Mongo-specific - a prerequisite for F015. Found and
-  fixed two real bugs during verification, not just a coverage gap: (1) the first pass at an e2e
-  fixture (a second Postgres table with one `jsonb` column) made the Schema tab render two
-  `table-detail` cards, breaking `connect-and-inspect.spec.ts`'s singular-card assertion under
-  concurrent `@full` specs - fixed by adding the jsonb column (`profile`, populated for one row
-  only) to the existing shared `humb_demo_users` fixture table instead; (2) a primitive value
-  nested inside an expanded structured value rendered as a bare text node with no element boundary
-  of its own, indistinguishable from its sibling key label to Playwright or any DOM consumer -
-  fixed by wrapping `CellValue`'s primitive branch in its own `<span>` (no visual change). Verified:
+- **F016 `passing`** (commit `57fd354`, first pass `070f995`): structured (object/array) cell
+  values. `CellValue` (`packages/ui/src/components/cell-value.tsx`) replaces `formatCell`'s flat
+  `JSON.stringify`-to-text handling in `RowsTable`/`QueryRunner` with a compact single-line chip
+  (`{ N keys }` / `[ N items ]`) that never grows the row; clicking it opens `CellValueDrawer`
+  (right-anchored, `QueryHistoryDrawer`'s pattern) with an expandable tree - root expanded, deeper
+  levels built lazily on click - syntax-colored primitives, the source column name, and a
+  copy-as-JSON button. Engine-agnostic and already live for Postgres/MySQL `jsonb`/`json` columns,
+  not Mongo-specific - a prerequisite for F015. The first pass (`070f995`) expanded the tree inline
+  inside the cell; the user flagged that it blew up row heights and broke the table layout, so it
+  was redesigned to the chip + drawer split the same day (the spec's original out-of-scope note
+  anticipated exactly this) - spec Behavior/Acceptance revised to match. Bugs found and fixed
+  along the way: (1) a second e2e fixture table made the Schema tab render two `table-detail`
+  cards, breaking `connect-and-inspect.spec.ts`'s singular-card assertion under concurrent `@full`
+  specs - fixed by adding the jsonb column (`profile`, populated for one row only) to the existing
+  shared `humb_demo_users` fixture table instead; (2) a primitive value nested inside an expanded
+  structured value rendered as a bare text node with no element boundary of its own - fixed by
+  wrapping the primitive branch in its own `<span>`. Verified:
   `pnpm --filter @humbdb/ui test/build/typecheck`, `pnpm --filter @humbdb/web build`, `pnpm check`,
-  and `pnpm test:e2e:full` (new `e2e/structured-cell-values.spec.ts`, Postgres-only via
-  `test.skip`, all pass) - plus a manual live Preview pass expanding the same cell three levels deep
-  in both the Tables tab and a SQL Editor result.
+  and `pnpm test:e2e:full` (`e2e/structured-cell-values.spec.ts` walks chip -> drawer -> three
+  nested levels -> close, Postgres-only via `test.skip`, all pass) - plus a manual live Preview
+  pass (chip row height 29.75px vs 27.25px plain rows; drawer expanded to the primitive array
+  items in both the Tables tab and a SQL Editor result).
 
 ## In progress
 

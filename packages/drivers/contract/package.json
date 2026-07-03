@@ -1,6 +1,6 @@
 {
   "name": "@humbdb/driver-contract",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "description": "Engine-agnostic database adapter contracts for Humb.",
   "license": "MIT",

@@ -164,6 +164,16 @@
       "spec": "docs/product-specs/structured-cell-values.md"
     },
     {
+      "id": "F017",
+      "behavior": "A single Fastify setErrorHandler normalizes every route's uncaught-error response into one consistent { error: string } shape (the real underlying message, not Fastify's generic reason phrase) - found a real bug while testing F012: POST /api/query only special-cased ReadOnlyViolationError, so any other failure (e.g. a bad table name) fell through to Fastify's default handler, and the frontend read the wrong field (body.error, literally \"Internal Server Error\") instead of the real Postgres message sitting in body.message. New shared ErrorState UI component (packages/ui) - occupies the same visual footprint the loaded view would, message centered, Retry action - replaces today's inconsistent inline error text across QueryRunner's result area, RowsTable, SchemaGrid, FilesBrowser, and ConsoleLog. Also distinguishes a genuine network-unreachable failure (friendlier message) from a real server-returned error (shows the actual message).",
+      "verification": "pnpm --filter @humbdb/server test && pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm --filter @humbdb/web build && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/error-handling.md"
+    },
+    {
       "id": "DF-01",
       "behavior": "The dashboard UI redesign (source: github.com/ensp1re/UserDashboard, a private Figma Make export) is read and documented before any view is ported: docs/references/design-system.md captures the full token set (colors light/dark, typography, radius, component patterns), .claude/skills/humb-design-system/SKILL.md makes it discoverable to future UI work, and docs/product-specs/dashboard-ui.md defines the engine-agnostic UI contract plus the backend gaps the design surfaces. The real tokens are wired into apps/web's Tailwind config (previously scaffolded but entirely unused) so the rules are backed by a working build, not just prose - with zero regression to the current passing UI, since no component uses a Tailwind class yet.",
       "verification": "pnpm --filter @humbdb/web build && pnpm --filter @humbdb/web typecheck && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm test:e2e",

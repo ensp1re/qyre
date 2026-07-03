@@ -36,6 +36,11 @@ single engine's behavior, not the whole product.
   `JSON.stringify`-to-text handling. Engine-agnostic by design (benefits Postgres/MySQL `json`/`jsonb`
   columns today), and a hard prerequisite for MongoDB's documents (F015) to render usably. Tracked as
   F016.
+- [`error-handling.md`](error-handling.md) - a single Fastify `setErrorHandler` normalizing every
+  route's error responses (found a real bug while testing F012: `/api/query` was leaking Fastify's
+  default `{error: "Internal Server Error"}` shape instead of the real Postgres error message), plus
+  a shared `ErrorState` UI component replacing today's inconsistent inline error text across
+  `QueryRunner`/`RowsTable`/`SchemaGrid`/`FilesBrowser`/`ConsoleLog`. Tracked as F017.
 
 ## Rules
 

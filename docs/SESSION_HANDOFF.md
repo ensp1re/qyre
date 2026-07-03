@@ -274,10 +274,12 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 
 ## Next steps
 
-1. Pick up F013 (SQL Editor autocomplete + CodeMirror 6 migration) next - see
-   `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan. Queued after it, in
-   order: F014 (MySQL engine), F016 (structured-cell viewer), F015 (MongoDB engine, basic browse
-   only - depends on F016). All were scoped with the user in this session before being added to
-   `docs/FEATURES.json` - see that plan's specs (`docs/product-specs/sql-editor.md`,
-   `connect-and-inspect-mysql.md`, `structured-cell-values.md`, `connect-and-inspect-mongodb.md`)
-   for the decisions already made (editor migration, autocomplete depth, history scope, Mongo scope).
+1. Pick up F017 (error handling: a global Fastify error handler + shared `ErrorState` UI component)
+   next - see `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan. Found
+   while testing F012 (a real bug: `POST /api/query` leaks Fastify's default error shape instead of
+   the real Postgres message), and the user asked for it to jump the queue ahead of F013. Queued
+   after it, in order: F013 (SQL Editor autocomplete + CodeMirror 6 migration), F014 (MySQL engine),
+   F016 (structured-cell viewer), F015 (MongoDB engine, basic browse only - depends on F016). All
+   were scoped with the user in this session before being added to `docs/FEATURES.json` - see that
+   plan's specs (`docs/product-specs/error-handling.md`, `sql-editor.md`, `connect-and-inspect-mysql.md`,
+   `structured-cell-values.md`, `connect-and-inspect-mongodb.md`) for the decisions already made.

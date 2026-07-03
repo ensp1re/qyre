@@ -57,8 +57,19 @@ const PUBLISH_ORDER = [
   "humb"
 ];
 
+/**
+ * Runs a command with its own stdout/stderr streamed straight through (so e.g. npm's own error
+ * output is still visible in real time). On failure, prints one clean summary line and exits with
+ * the child's real status code, instead of letting the raw execFileSync exception crash the whole
+ * process with a Node-internals stack trace that has nothing to do with the actual failure.
+ */
 function run(command, commandArgs, options = {}) {
-  execFileSync(command, commandArgs, { stdio: "inherit", cwd: repoRoot, ...options });
+  try {
+    execFileSync(command, commandArgs, { stdio: "inherit", cwd: repoRoot, ...options });
+  } catch (error) {
+    console.error(`\nCommand failed: ${command} ${commandArgs.join(" ")}`);
+    process.exit(typeof error.status === "number" ? error.status : 1);
+  }
 }
 
 function runCapture(command, commandArgs) {

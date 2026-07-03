@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { cn } from "../cn.js";
 import { formatCell } from "../format-cell.js";
+import { CellValue } from "./cell-value.js";
 import { TypeIcon } from "./type-icon.js";
 
 export interface RowsTableProps {
@@ -277,7 +278,7 @@ export function RowsTable({
                       {row[columnName] === null || row[columnName] === undefined ? (
                         <span className="italic text-muted-foreground/30">null</span>
                       ) : (
-                        formatCell(row[columnName])
+                        <CellValue value={row[columnName]} />
                       )}
                     </td>
                   ))}

@@ -9,8 +9,8 @@ import { basicSetup } from "codemirror";
 import { History, Play } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
-import { formatCell } from "../format-cell.js";
 import { createSqlCompletionSource } from "../sql-completion.js";
+import { CellValue } from "./cell-value.js";
 import { ErrorState } from "./error-state.js";
 import { Spinner } from "./spinner.js";
 
@@ -237,7 +237,7 @@ export function QueryRunner({
                         key={column}
                         className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
                       >
-                        {formatCell(row[column])}
+                        <CellValue value={row[column]} />
                       </td>
                     ))}
                   </tr>

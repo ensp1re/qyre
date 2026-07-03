@@ -4,6 +4,7 @@
  * This package must not fetch data or import server/adapter packages. One component per file under
  * `components/`, shadcn-style. See FRONTEND.md and docs/CODE_ORGANIZATION.md.
  */
+export * from "./components/cell-value.js";
 export * from "./components/console-log.js";
 export * from "./components/error-state.js";
 export * from "./components/files-browser.js";

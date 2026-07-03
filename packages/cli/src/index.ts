@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseConnectionTarget } from "@humbdb/core";
 import { resolveAdapter } from "@humbdb/driver-contract";
+import { mysqlAdapterFactory } from "@humbdb/mysql";
 import { postgresAdapterFactory } from "@humbdb/postgres";
 import { startServer } from "@humbdb/server";
 import { sqliteAdapterFactory } from "@humbdb/sqlite";
@@ -47,7 +48,7 @@ export function parseArgs(argv: string[]): CliArgs {
     .description("Launch a local-first database management UI from your terminal.")
     .argument(
       "[target]",
-      "database connection string (postgres://user:pass@host:5432/db) or a path to a SQLite file (./app.db)"
+      "database connection string (postgres://user:pass@host:5432/db, mysql://user:pass@host:3306/db) or a path to a SQLite file (./app.db)"
     )
     .option("-p, --port <port>", "port for the local server", (value) => parseInt(value, 10))
     .option(
@@ -88,7 +89,10 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   const args = parseArgs(argv);
 
   const target = parseConnectionTarget(args.target);
-  const adapter = resolveAdapter([postgresAdapterFactory, sqliteAdapterFactory], target);
+  const adapter = resolveAdapter(
+    [postgresAdapterFactory, sqliteAdapterFactory, mysqlAdapterFactory],
+    target
+  );
   await adapter.connect();
 
   const filesRoot = resolveFilesRoot(args.filesDir, process.cwd());

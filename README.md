@@ -9,6 +9,8 @@ choose, no account, no heavy GUI to install.**
 
 ```bash
 npx humb postgres://user:pass@localhost:5432/mydb
+# or MySQL
+npx humb mysql://user:pass@localhost:3306/mydb
 # or, for SQLite - zero credentials, just a file path
 npx humb ./app.db
 ```
@@ -48,11 +50,11 @@ pnpm dev          # run packages in watch mode
 
 ## Status
 
-Postgres and SQLite are both fully supported engines today: connect, browse the schema (tables,
-columns, indexes, primary/foreign keys, approximate row counts), page through rows, run read-only
-SQL queries, browse `.sql` files near the launch target, and watch a live log of recent
-connection/query activity. New engines plug in as independent `packages/drivers/<engine>` adapter
-packages and are picked up by the same detection path - no changes to the CLI, server, or UI.
+Postgres, MySQL, and SQLite are all fully supported engines today: connect, browse the schema
+(tables, columns, indexes, primary/foreign keys, row counts), page through rows, run read-only SQL
+queries, browse `.sql` files near the launch target, and watch a live log of recent connection/query
+activity. New engines plug in as independent `packages/drivers/<engine>` adapter packages and are
+picked up by the same detection path - no changes to the CLI, server, or UI.
 
 ## Security: read-only today, enforced by the database itself
 
@@ -61,10 +63,10 @@ could work around with a clever query:
 
 - Every query is scanned and rejected up front if it isn't `SELECT`/`WITH`/`EXPLAIN`/`SHOW`/
   `TABLE`/`VALUES` - but that scan is only the first layer.
-- The authoritative backstop is the database connection itself. Postgres queries run inside a real
-  `READ ONLY` transaction; SQLite's connection is opened with `readonly: true`. Even a disguised
-  write - a writable CTE, a stored function that hides a `DELETE` behind an innocuous `SELECT` -
-  gets refused by the database, not by Humb's string check.
+- The authoritative backstop is the database connection itself. Postgres and MySQL queries run
+  inside a real `READ ONLY` transaction; SQLite's connection is opened with `readonly: true`. Even
+  a disguised write - a writable CTE, a stored function that hides a `DELETE` behind an innocuous
+  `SELECT` - gets refused by the database, not by Humb's string check.
 - Humb binds to `127.0.0.1` only and never transmits your database's contents, schema, or
   credentials anywhere off your machine.
 

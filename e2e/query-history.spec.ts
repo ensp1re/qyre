@@ -1,23 +1,27 @@
 import {
   FIXTURE,
   requireTestDatabaseUrl,
+  requireTestMysqlUrl,
   requireTestSqlitePath,
   setupFixture,
+  setupMysqlFixture,
   setupSqliteFixture
 } from "@humbdb/testing";
 import { expect, test } from "@playwright/test";
 
 /**
  * F012: a successful SQL Editor query is recorded in history; selecting a history card prefills
- * the editor without running it. Engine-agnostic UI/localStorage behavior - runs on both projects
+ * the editor without running it. Engine-agnostic UI/localStorage behavior - runs on every project
  * (see playwright.config.ts) not because it differs per engine, but to match this repo's existing
- * per-spec convention (smoke.spec.ts also runs on both).
+ * per-spec convention (smoke.spec.ts also runs on all of them).
  */
 test("@full SQL Editor records a successful query and prefills it from history", async ({
   page
 }, testInfo) => {
   if (testInfo.project.name === "sqlite") {
     setupSqliteFixture(requireTestSqlitePath());
+  } else if (testInfo.project.name === "mysql") {
+    await setupMysqlFixture(requireTestMysqlUrl());
   } else {
     await setupFixture(requireTestDatabaseUrl());
   }

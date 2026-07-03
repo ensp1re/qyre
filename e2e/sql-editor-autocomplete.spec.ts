@@ -1,8 +1,10 @@
 import {
   FIXTURE,
   requireTestDatabaseUrl,
+  requireTestMysqlUrl,
   requireTestSqlitePath,
   setupFixture,
+  setupMysqlFixture,
   setupSqliteFixture
 } from "@humbdb/testing";
 import { expect, test } from "@playwright/test";
@@ -10,13 +12,15 @@ import { expect, test } from "@playwright/test";
 /**
  * F013: the SQL Editor (CodeMirror 6) offers read-only SQL keyword completion and real table-name
  * completion after FROM/JOIN, and still runs via Ctrl/Cmd+Enter after the textarea -> CodeMirror
- * migration. Engine-agnostic - runs on both projects like query-history.spec.ts.
+ * migration. Engine-agnostic - runs on every project like query-history.spec.ts.
  */
 test("@full SQL Editor autocompletes keywords and table names, and still runs via Ctrl/Cmd+Enter", async ({
   page
 }, testInfo) => {
   if (testInfo.project.name === "sqlite") {
     setupSqliteFixture(requireTestSqlitePath());
+  } else if (testInfo.project.name === "mysql") {
+    await setupMysqlFixture(requireTestMysqlUrl());
   } else {
     await setupFixture(requireTestDatabaseUrl());
   }

@@ -24,8 +24,13 @@ describe("parseConnectionTarget", () => {
     expect(() => parseConnectionTarget("not a url")).toThrow(InvalidConnectionTargetError);
   });
 
+  it("accepts mysql:// urls", () => {
+    const target = parseConnectionTarget("mysql://user:pass@localhost:3306/mydb");
+    expect(target.engine).toBe("mysql");
+  });
+
   it("rejects unsupported protocols", () => {
-    expect(() => parseConnectionTarget("mysql://localhost/db")).toThrow(
+    expect(() => parseConnectionTarget("mongodb://localhost/db")).toThrow(
       InvalidConnectionTargetError
     );
   });

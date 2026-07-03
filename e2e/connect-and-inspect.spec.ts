@@ -1,8 +1,10 @@
 import {
   FIXTURE,
   requireTestDatabaseUrl,
+  requireTestMysqlUrl,
   requireTestSqlitePath,
   setupFixture,
+  setupMysqlFixture,
   setupSqliteFixture
 } from "@humbdb/testing";
 import { expect, test } from "@playwright/test";
@@ -14,16 +16,19 @@ import { expect, test } from "@playwright/test";
  * docs/product-specs/connect-and-inspect-sqlite.md's "same spec, parameterized by engine/fixture"
  * requirement (F011).
  *
- * The "postgres" project requires HUMB_TEST_DATABASE_URL; if it's missing, this test FAILS with an
- * actionable message - we never silently skip required verification (see docs/RELIABILITY.md). The
- * "sqlite" project is self-contained (no setup required).
+ * The "postgres" project requires HUMB_TEST_DATABASE_URL and the "mysql" project requires
+ * HUMB_TEST_MYSQL_URL; if either is missing, this test FAILS with an actionable message - we never
+ * silently skip required verification (see docs/RELIABILITY.md). The "sqlite" project is
+ * self-contained (no setup required).
  *
- * This is the verification command for features F002/F004/F005/F011, all covered below. Run it
- * with `pnpm test:e2e:full`.
+ * This is the verification command for features F002/F004/F005/F011/F014, all covered below. Run
+ * it with `pnpm test:e2e:full`.
  */
 test("@full connect and inspect a table", async ({ page }, testInfo) => {
   if (testInfo.project.name === "sqlite") {
     setupSqliteFixture(requireTestSqlitePath());
+  } else if (testInfo.project.name === "mysql") {
+    await setupMysqlFixture(requireTestMysqlUrl());
   } else {
     await setupFixture(requireTestDatabaseUrl());
   }

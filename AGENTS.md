@@ -87,4 +87,7 @@ A change is done only when all of these are true:
 2. Update [`docs/QUALITY_SCORE.md`](docs/QUALITY_SCORE.md) if any area meaningfully changed.
 3. Record deferred work in [`docs/exec-plans/tech-debt-tracker.md`](docs/exec-plans/tech-debt-tracker.md).
 4. Move finished plans to [`docs/exec-plans/completed/`](docs/exec-plans/completed/).
-5. Update [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md) and leave a clean, restartable state.
+5. Update [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md) and leave a clean, restartable state -
+   including compressing older "Completed" entries per that file's own maintenance note once it's
+   grown past a screenful; a fresh agent needs a one-line summary of last week's work, not the full
+   story (that already lives in `docs/FEATURES.json`'s `evidence` field and the PR itself).

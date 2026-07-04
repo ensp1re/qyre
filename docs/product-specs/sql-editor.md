@@ -161,3 +161,22 @@ habit, Humb smooths this over for Postgres specifically:
 - `SELECT * FROM "public"."users"` runs unmodified - schema-qualified names resolve correctly.
 - `SELECT "a" FROM (SELECT 1 AS a) sub` runs unmodified - a double-quoted reference to a
   query-local column alias is not coerced into a string literal.
+
+## Multi-statement / semicolon detection (all engines)
+
+### Behavior
+
+`@humbdb/driver-contract`'s `assertReadOnly` rejects a query containing more than one SQL
+statement - the read-only query runner only ever executes exactly one statement per request. The
+`;`-count check runs against the same literal-and-comment-stripped text the forbidden-keyword scan
+already uses, not raw SQL, so a data value that happens to contain a semicolon (a URL, an encoded
+blob, free text) is not mistaken for a second statement. A single trailing `;` (a habit carried over
+from other SQL tools) is still tolerated.
+
+### Acceptance criteria
+
+- `SELECT 'a;b' AS x` (or the equivalent with a double-quoted identifier) runs unmodified -
+  the `;` lives inside a literal, not between two statements.
+- `SELECT 'a;b' AS x; DROP TABLE users` is still rejected - a real second statement outside any
+  literal is still a real second statement.
+- `SELECT 'a;b' AS x;` (single statement, trailing semicolon) is still accepted.

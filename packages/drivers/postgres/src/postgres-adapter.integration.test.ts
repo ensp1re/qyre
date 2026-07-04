@@ -91,6 +91,16 @@ describe("PostgresAdapter integration", () => {
     await expect(adapter.runReadOnlyQuery(`DELETE FROM ${FIXTURE.table}`)).rejects.toThrow();
   });
 
+  it("runs a read-only query whose string literal contains a semicolon (F021 regression)", async () => {
+    // Previously: assertReadOnly checked for `;` against raw SQL, so filtering by any value
+    // containing a semicolon (a URL, encoded blob, free text) was wrongly rejected as
+    // "multiple statements".
+    const result = await adapter.runReadOnlyQuery(
+      `SELECT * FROM ${FIXTURE.table} WHERE name = 'a;b'`
+    );
+    expect(result.rows).toHaveLength(0);
+  });
+
   it("treats a double-quoted value most people write out of habit as a string literal", async () => {
     // Reproduces the real bug report: Postgres reserves "" for identifiers, so this used to fail
     // with `column "Alan Turing" does not exist` instead of matching the row.

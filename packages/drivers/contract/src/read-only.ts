@@ -70,7 +70,10 @@ export function assertReadOnly(sql: string): void {
   }
 
   const withoutTrailingSemicolon = withoutComments.replace(/;\s*$/, "");
-  if (withoutTrailingSemicolon.includes(";")) {
+  // Check for a `;` against literal/identifier-stripped text (same as the forbidden-keyword scan
+  // below), not raw SQL - otherwise a data value that happens to contain a semicolon (a URL, a
+  // free-text field, an encoded blob) is wrongly rejected as "multiple statements".
+  if (stripLiterals(withoutTrailingSemicolon).includes(";")) {
     throw new ReadOnlyViolationError(
       "Multiple statements are not allowed in the read-only query runner."
     );

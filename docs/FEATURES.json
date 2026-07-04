@@ -297,7 +297,7 @@
       "id": "F021",
       "behavior": "`assertReadOnly` (packages/drivers/contract) no longer rejects valid read-only queries whose string literals contain a `;` or a reserved keyword - the semicolon/statement-count check runs against the same literal-and-comment-stripped text the keyword scan already uses, not raw SQL. `SELECT 'a;b' AS x` is accepted.",
       "verification": "pnpm --filter @humbdb/driver-contract test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

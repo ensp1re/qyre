@@ -65,4 +65,22 @@ describe("assertReadOnly", () => {
   it("does not false-positive on a quoted identifier containing a forbidden word", () => {
     expect(() => assertReadOnly('SELECT "update" FROM settings')).not.toThrow();
   });
+
+  it("does not false-positive on a string literal containing a semicolon", () => {
+    expect(() => assertReadOnly("SELECT 'a;b' AS x")).not.toThrow();
+  });
+
+  it("does not false-positive on a quoted identifier containing a semicolon", () => {
+    expect(() => assertReadOnly('SELECT "a;b" FROM users')).not.toThrow();
+  });
+
+  it("still rejects two real statements separated by a semicolon outside any literal", () => {
+    expect(() => assertReadOnly("SELECT 'a;b' AS x; DROP TABLE users")).toThrow(
+      ReadOnlyViolationError
+    );
+  });
+
+  it("still tolerates a single trailing semicolon after a string literal containing one", () => {
+    expect(() => assertReadOnly("SELECT 'a;b' AS x;")).not.toThrow();
+  });
 });

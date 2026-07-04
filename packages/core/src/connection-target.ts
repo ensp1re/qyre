@@ -11,6 +11,13 @@ const MONGODB_PROTOCOLS = new Set(["mongodb:", "mongodb+srv:"]);
 /** Default local port Humb's server listens on. */
 export const DEFAULT_PORT = 7717;
 
+// Postgres (`pg`) and MySQL (`mysql2`) both accept a credential in the query string (e.g.
+// `?password=...`) as an alternative to the `user:pass@host` form, and MongoDB accepts a client
+// certificate passphrase the same way - none of that is covered by masking `url.password` alone.
+// Matched case-insensitively against the whole key so close variants (`pwd`, `sslpassword`,
+// `tlsCertificateKeyFilePassword`) are covered without hard-coding every engine's exact spelling.
+const CREDENTIAL_QUERY_PARAM_PATTERN = /password|pwd|secret|token/i;
+
 /**
  * Redact credentials from a connection string so it is safe to log.
  * Returns a best-effort redacted form; on parse failure returns a generic mask.
@@ -20,6 +27,11 @@ export function redactConnectionString(raw: string): string {
     const url = new URL(raw);
     if (url.password) {
       url.password = "***";
+    }
+    for (const key of url.searchParams.keys()) {
+      if (CREDENTIAL_QUERY_PARAM_PATTERN.test(key)) {
+        url.searchParams.set(key, "***");
+      }
     }
     return url.toString();
   } catch {

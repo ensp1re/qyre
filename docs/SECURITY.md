@@ -12,7 +12,9 @@ rules are first-class.
 
 - Never hard-code secrets in source, tests, or docs.
 - Connection strings may contain passwords: never log them in full. Redact credentials in logs,
-  errors, screenshots, and diagnostics.
+  errors, screenshots, and diagnostics - including a credential passed as a query parameter (e.g.
+  `?password=...`, MySQL/Mongo's alternative to the `user:pass@host` form), not only the standard
+  URL-userinfo form (`@humbdb/core`'s `redactConnectionString`, F024).
 - Real credentials never go in the repo. Use `.env` (gitignored) and `.env.example` for templates.
 
 ## Database safety (read-only)

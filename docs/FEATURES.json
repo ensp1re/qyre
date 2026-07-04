@@ -327,9 +327,9 @@
       "id": "F024",
       "behavior": "`redactConnectionString` (packages/core) also masks credentials passed as connection-string query parameters (e.g. `?password=...`), not just the `user:pass@host` form, so `/api/health`'s `target` field never surfaces a query-param password.",
       "verification": "pnpm --filter @humbdb/core test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9762d70",
+      "evidence": "commit 9762d70: redactConnectionString only masked url.password (the user:pass@host form); pg/mysql2 also accept ?password=... in the query string, and MongoDB accepts a TLS client-cert passphrase the same way, none of which was redacted. Now scans url.searchParams for credential-shaped keys (matched case-insensitively against a password|pwd|secret|token pattern - covers password, pwd, sslpassword, tlsCertificateKeyFilePassword, etc.) and masks their values. pnpm --filter @humbdb/core test passes (24/24: 4 new cases - ?password=, ?pwd=, MongoDB's tlsCertificateKeyFilePassword, and an unrelated param like sslmode left untouched). Rebuilt @humbdb/core and re-ran pnpm --filter @humbdb/server test (37/37, no regression - /api/health consumes redactConnectionString). format/lint/typecheck all pass. docs/SECURITY.md's credential-redaction bullet updated to mention query-param credentials explicitly.",
       "blockedReason": null,
       "spec": "docs/SECURITY.md"
     },

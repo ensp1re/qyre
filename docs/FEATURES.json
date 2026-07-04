@@ -337,7 +337,7 @@
       "id": "F025",
       "behavior": "The local API server rejects requests whose `Host` header is not `127.0.0.1:<port>`/`localhost:<port>`, closing the DNS-rebinding vector against the unauthenticated localhost API.",
       "verification": "pnpm --filter @humbdb/server test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

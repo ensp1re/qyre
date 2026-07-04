@@ -7,6 +7,10 @@ rules are first-class.
 
 - Humb binds to localhost only. It must never expose the server on a public interface by default.
 - Humb must never transmit database contents, schemas, or credentials off the local machine.
+- The server has no authentication, so a malicious page the developer visits could otherwise reach
+  it via DNS rebinding (resolving its own hostname to `127.0.0.1`). Every request is rejected unless
+  its `Host` header is a loopback hostname (`127.0.0.1`, `localhost`, or the IPv6 loopback) -
+  `packages/server/src/index.ts`'s `onRequest` hook, F025.
 
 ## Secrets and credentials
 

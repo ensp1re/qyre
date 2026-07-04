@@ -80,7 +80,21 @@ gotchas in "Known issues / blockers").
   drawers share a new `useFocusTrap` hook (traps Tab, restores focus to the trigger on close); the
   Cmd/Ctrl+Enter hint is platform-aware and repeated as the Run button's `title`. Every
   fix verified live via Preview with real focus/keyboard events - see `docs/FEATURES.json` for
-  evidence per feature. PR #54 (open as of this writing).
+  evidence per feature. Merged via [PR #54](https://github.com/ensp1re/humb/pull/54).
+- **F041-F046 `passing`** (batch 2, reliability & server hardening, on
+  `feature/F041-F046-reliability-batch`): the 6 query hooks named in that tech-debt row
+  (`use-health`/`use-overview`/`use-table`/`use-rows`/`use-files`/`use-console`) share a bounded
+  2-retry policy instead of `retry: false`; `/api/health` reports `pingLatencyMs`/`lastError`
+  (surfaced as a status-bar tooltip); the CLI's `SIGINT`/`SIGTERM` handler gets a shutdown timeout, a
+  re-entrancy guard, and a non-zero exit on teardown failure via a new testable
+  `createShutdownHandler`; static assets are compressed (`@fastify/compress`) and hashed bundle
+  assets get a long immutable `Cache-Control` while `index.html` stays `no-cache`; MongoDB's
+  `normalizeBsonValue` gives `Timestamp`/`Code`/`BSONRegExp`/the native `RegExp` the driver actually
+  decodes a BSON regex into by default/`MinKey`/`MaxKey`/`BSONSymbol` each a dedicated branch
+  (verified live end-to-end against a real MongoDB container, which is also what caught the
+  native-`RegExp` case - `BSONRegExp` alone wasn't enough); Postgres/MySQL/SQLite no longer
+  re-export `assertReadOnly`/`ReadOnlyViolationError` verbatim. See `docs/FEATURES.json` for
+  evidence per feature. PR not yet opened as of this writing.
 
 ## In progress
 
@@ -111,13 +125,9 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-Batch 1 (F034-F040) is `passing`; F041-F062 are `not_started` in `docs/FEATURES.json` and queued as
-3 more batches/PRs, in order:
+Batches 1-2 (F034-F046) are `passing`; F047-F062 are `not_started` in `docs/FEATURES.json` and
+queued as 2 more batches/PRs, in order:
 
-- **Batch 2, F041-F046 (Reliability & server hardening)**: query-hook retry policy, richer
-  `/api/health` (ping latency/last error), CLI `SIGINT`/`SIGTERM` hardening (timeout/re-entrancy/exit
-  code), static-asset compression/cache-control, MongoDB BSON `Timestamp`/rare-type fix,
-  `assertReadOnly` re-export cleanup. Branch: `feature/F041-F046-reliability-batch`.
 - **Batch 3, F047-F053 (Performance & architecture cleanup)**: shared tuning-constants module,
   Postgres `getTable` round-trip consolidation, shared `SqlAdapterBase`, `runReadOnlyQuery` result
   cap, `RowsTable`/query-result virtualization, `App.tsx` decomposition, an engine-list-lockstep
@@ -131,7 +141,7 @@ Batch 1 (F034-F040) is `passing`; F041-F062 are `not_started` in `docs/FEATURES.
 Each batch's exact scope/behavior is already recorded per-feature in `docs/FEATURES.json` (state
 `not_started`, `spec` pointing at the relevant product-spec doc or `null`) - a fresh session can pick
 up the next batch directly from there without re-deriving scope. Before starting: re-read this file's
-"Known issues / blockers" (the bare `humb` npm package dispute is the one open item), open Batch 1's
-PR if it isn't open yet, then branch for the next batch. The 6 tech-debt rows still deferred (see
-"Completed") need their own product-spec pass before implementation - don't fold them into these
-batches without doing that first.
+"Known issues / blockers" (the bare `humb` npm package dispute is the one open item), open Batch 2's
+PR if it isn't open yet, then branch Batch 3 off `main` (not off Batch 2's branch, so each PR's diff
+stays independent). The 6 tech-debt rows still deferred (see "Completed") need their own product-spec
+pass before implementation - don't fold them into these batches without doing that first.

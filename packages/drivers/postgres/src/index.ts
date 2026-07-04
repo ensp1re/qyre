@@ -37,6 +37,91 @@ function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
+/** Find the index just past the closing quote of a `'...'` literal starting at `sql[start]`. */
+function skipSingleQuotedLiteral(sql: string, start: number): number {
+  let i = start + 1;
+  while (i < sql.length) {
+    if (sql[i] === "'") {
+      if (sql[i + 1] === "'") {
+        i += 2;
+        continue;
+      }
+      return i + 1;
+    }
+    i += 1;
+  }
+  return sql.length;
+}
+
+/** Find the index just past the closing quote of a `"..."` token starting at `sql[start]`. */
+function skipDoubleQuotedToken(sql: string, start: number): number {
+  let i = start + 1;
+  while (i < sql.length) {
+    if (sql[i] === '"') {
+      if (sql[i + 1] === '"') {
+        i += 2;
+        continue;
+      }
+      return i + 1;
+    }
+    i += 1;
+  }
+  return sql.length;
+}
+
+/** If `sql[index]` starts a dollar-quote tag (`$$` or `$tag$`), return the full tag, else undefined. */
+function matchDollarQuoteTag(sql: string, index: number): string | undefined {
+  return /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/.exec(sql.slice(index))?.[0];
+}
+
+/** Find the index just past the matching closing `tag` for a dollar-quoted block starting at `start`. */
+function skipDollarQuotedLiteral(sql: string, start: number, tag: string): number {
+  const closeIndex = sql.indexOf(tag, start + tag.length);
+  return closeIndex === -1 ? sql.length : closeIndex + tag.length;
+}
+
+/** Blank out `'...'`/dollar-quoted spans (preserving length) so alias-detection regexes below cannot be fooled by quote characters inside string data. Double-quoted tokens are left as-is - they're what those regexes look for (e.g. `AS "alias"`). */
+function maskStringLiterals(sql: string): string {
+  let result = "";
+  let i = 0;
+  while (i < sql.length) {
+    if (sql[i] === "'") {
+      const end = skipSingleQuotedLiteral(sql, i);
+      result += " ".repeat(end - i);
+      i = end;
+      continue;
+    }
+    const tag = matchDollarQuoteTag(sql, i);
+    if (tag) {
+      const end = skipDollarQuotedLiteral(sql, i, tag);
+      result += " ".repeat(end - i);
+      i = end;
+      continue;
+    }
+    result += sql[i];
+    i += 1;
+  }
+  return result;
+}
+
+/**
+ * Best-effort (regex heuristic, not a real SQL parser) detection of identifiers a query defines
+ * itself - CTE names (`WITH "recent" AS (...)`) and column/table aliases (`AS a`, `AS "Column"`)
+ * - so they aren't miscoerced merely for not appearing in `information_schema`, e.g.
+ * `SELECT "a" FROM (SELECT 1 AS a) sub`.
+ */
+function collectLocalIdentifiers(sql: string): Set<string> {
+  const masked = maskStringLiterals(sql);
+  const identifiers = new Set<string>();
+  for (const match of masked.matchAll(/"?([A-Za-z_][A-Za-z0-9_]*)"?\s+AS\s*\(/gi)) {
+    if (match[1]) identifiers.add(match[1]);
+  }
+  for (const match of masked.matchAll(/\bAS\s+"?([A-Za-z_][A-Za-z0-9_]*)"?/gi)) {
+    if (match[1]) identifiers.add(match[1]);
+  }
+  return identifiers;
+}
+
 /**
  * Postgres reserves double quotes for identifiers - unlike MySQL (which treats them as strings by
  * default) and SQLite (which falls back to treating a double-quoted token as a string when it
@@ -44,23 +129,60 @@ function quoteIdent(name: string): string {
  * write "value" out of habit; Postgres alone throws `column "value" does not exist` for it.
  *
  * Rewrites a double-quoted token to a single-quoted string literal only when it doesn't match any
- * real column or table name in the connected database - this never changes a query that already
- * works today (e.g. a legitimately quoted case-sensitive column name is left untouched).
+ * real schema/table/column name in the connected database, nor an identifier the query defines
+ * itself (an alias or CTE name) - this never changes a query that already works today (e.g. a
+ * legitimately quoted case-sensitive column name is left untouched). Tokenizes the SQL properly
+ * rather than regex-replacing raw text, so quotes inside `'...'` string literals and `$$...$$`
+ * dollar-quoted blocks are never mistaken for identifier quoting.
  */
 export function coerceUnknownQuotedIdentifiers(
   sql: string,
   knownIdentifiers: ReadonlySet<string>
 ): string {
-  return sql.replace(/"((?:[^"]|"")*)"/g, (match, inner: string) => {
-    const unescaped = inner.replace(/""/g, '"');
-    if (knownIdentifiers.has(unescaped)) return match;
-    return `'${unescaped.replace(/'/g, "''")}'`;
-  });
+  const localIdentifiers = collectLocalIdentifiers(sql);
+  let result = "";
+  let i = 0;
+  while (i < sql.length) {
+    if (sql[i] === "'") {
+      const end = skipSingleQuotedLiteral(sql, i);
+      result += sql.slice(i, end);
+      i = end;
+      continue;
+    }
+
+    const tag = matchDollarQuoteTag(sql, i);
+    if (tag) {
+      const end = skipDollarQuotedLiteral(sql, i, tag);
+      result += sql.slice(i, end);
+      i = end;
+      continue;
+    }
+
+    if (sql[i] === '"') {
+      const end = skipDoubleQuotedToken(sql, i);
+      const token = sql.slice(i, end);
+      const inner = token.slice(1, -1).replace(/""/g, '"');
+      result +=
+        knownIdentifiers.has(inner) || localIdentifiers.has(inner)
+          ? token
+          : `'${inner.replace(/'/g, "''")}'`;
+      i = end;
+      continue;
+    }
+
+    result += sql[i];
+    i += 1;
+  }
+  return result;
 }
 
-/** Every real table and column name in the connected database, for {@link coerceUnknownQuotedIdentifiers}. */
+/** Every real schema, table, and column name in the connected database, for {@link coerceUnknownQuotedIdentifiers}. */
 async function fetchKnownIdentifiers(pool: Pool): Promise<Set<string>> {
-  const [tables, columns] = await Promise.all([
+  const [schemas, tables, columns] = await Promise.all([
+    pool.query<{ schema_name: string }>(
+      `SELECT schema_name FROM information_schema.schemata WHERE schema_name <> ALL($1::text[])`,
+      [SYSTEM_SCHEMAS]
+    ),
     pool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema <> ALL($1::text[])`,
       [SYSTEM_SCHEMAS]
@@ -73,6 +195,7 @@ async function fetchKnownIdentifiers(pool: Pool): Promise<Set<string>> {
   ]);
 
   const identifiers = new Set<string>();
+  for (const row of schemas.rows) identifiers.add(row.schema_name);
   for (const row of tables.rows) identifiers.add(row.table_name);
   for (const row of columns.rows) identifiers.add(row.column_name);
   return identifiers;

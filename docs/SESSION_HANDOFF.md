@@ -451,17 +451,32 @@ test` (14/14: factory unit tests, the write-API source scan, and integration tes
   connection-string redaction gap, DNS-rebinding host check, Mongo pagination stability, Schema-tab
   fan-out, pool-error logging, health-poll dormancy, missing error boundary, schema-tree keyboard
   a11y, missing statement timeouts, stale-cache freshness policy). The Low-priority findings from
-  both passes plus every Part B (non-defect, improvement/design) suggestion became 36 new rows in
-  `docs/exec-plans/tech-debt-tracker.md`. No product code changed this session.
+  both passes plus every Part B (non-defect, improvement/design) suggestion became 35 new rows in
+  `docs/exec-plans/tech-debt-tracker.md`. No product code changed this session
+  ([PR #46](https://github.com/ensp1re/humb/pull/46)).
+- **F020 `passing`** (commit `3342268`): the Postgres query runner's `coerceUnknownQuotedIdentifiers`
+  regex-replaced every `"..."` token in the raw SQL text, so it also rewrote quotes inside `'...'`
+  string literals and `$$...$$` dollar-quoted blocks, and had no notion of schema names or
+  query-local aliases/CTE names - all three silently corrupted valid queries (confirmed live against
+  a real Postgres container before fixing anything, reproducing all three cases from the review).
+  Replaced the regex with a single-pass tokenizer that treats string literals and dollar-quoted
+  blocks as opaque spans; added schema names to the known-identifiers set
+  (`information_schema.schemata`); added a best-effort regex heuristic (`collectLocalIdentifiers`)
+  recognizing `AS alias`/`AS "alias"` and `name AS (...)` shapes so query-local aliases/CTE names
+  aren't miscoerced. `docs/product-specs/sql-editor.md`'s "Double-quoted string values" section
+  updated with the new behavior and acceptance criteria. `pnpm --filter @humbdb/postgres test`
+  (31/31: 15 unit tests including new cases for string-literal/dollar-quote/schema/alias/CTE
+  corruption, plus 3 new live integration tests reproducing each originally-reported case against a
+  real Postgres container) and `format:check`/`lint`/`typecheck` all pass.
 
 ## Next steps
 
-**F020-F033 are `not_started` and unprioritized among themselves** - pick one (Critical/security
-items - F023/F024/F025 - and the correctness bugs F020-F022 are good first picks) or ask the user
-which to tackle first; at most one may be `active` at a time. Every other feature in
-`docs/FEATURES.json` is `passing` (F001-F019, DF-01-DF-09). Before starting new work: re-read this
-file's "Known issues / blockers" (the bare `humb` npm package dispute is the one open item), or ask
-the user what they'd like next. If picking a new feature area instead, write its product spec under
-`docs/product-specs/` and add a `docs/FEATURES.json` entry before writing code (this repo's working
-contract - see `AGENTS.md`), and consider whether it warrants its own
+**F021-F033 are `not_started` and unprioritized among themselves** - pick one (the remaining
+Critical/security items - F023/F024/F025 - and the correctness bug F021, same file as F020, are good
+next picks) or ask the user which to tackle first; at most one may be `active` at a time. Every
+other feature in `docs/FEATURES.json` is `passing` (F001-F020, DF-01-DF-09). Before starting new
+work: re-read this file's "Known issues / blockers" (the bare `humb` npm package dispute is the one
+open item), or ask the user what they'd like next. If picking a new feature area instead, write its
+product spec under `docs/product-specs/` and add a `docs/FEATURES.json` entry before writing code
+(this repo's working contract - see `AGENTS.md`), and consider whether it warrants its own
 `docs/exec-plans/active/NNNN-*.md` plan doc if it's more than one slice.

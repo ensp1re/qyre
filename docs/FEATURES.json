@@ -287,9 +287,9 @@
       "id": "F020",
       "behavior": "The Postgres query runner's `coerceUnknownQuotedIdentifiers` (packages/drivers/postgres) no longer rewrites double-quoted text that lives inside string literals, dollar-quoted blocks, schema-qualified names, or query-local aliases/CTE names - only genuine bare-identifier quoting gets coerced. `SELECT 'he said \"hi\" loudly' FROM users`, `SELECT * FROM \"public\".\"users\"`, and `SELECT \"a\" FROM (SELECT 1 AS a) sub` all run unmodified.",
       "verification": "pnpm --filter @humbdb/postgres test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "3342268",
+      "evidence": "commit 3342268: replaced the regex-based `coerceUnknownQuotedIdentifiers` with a single-pass tokenizer that treats `'...'` string literals and `$$...$$`/`$tag$...$tag$` dollar-quoted blocks as opaque spans (never scanned for `\"`), added schema names to the known-identifiers set (new `information_schema.schemata` query in `fetchKnownIdentifiers`), and added a best-effort regex heuristic (`collectLocalIdentifiers`) recognizing `AS alias`/`AS \"alias\"` and `name AS (...)` shapes so query-local aliases/CTE names aren't miscoerced. `pnpm --filter @humbdb/postgres test` passes (31/31: 15 new/updated unit tests in `index.test.ts` covering all three originally-reported corruption cases plus dollar-quoting, and 3 new live integration tests in `postgres-adapter.integration.test.ts` reproducing each case end to end against a real Postgres container - string-literal quote corruption, schema-qualified table reference, and a query-local column alias). `pnpm --filter @humbdb/postgres typecheck`, `format:check`, and `lint` all pass. `docs/product-specs/sql-editor.md`'s \"Double-quoted string values\" section updated with the new behavior and acceptance criteria.",
       "blockedReason": null,
       "spec": "docs/product-specs/sql-editor.md"
     },

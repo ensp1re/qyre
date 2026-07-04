@@ -14,7 +14,7 @@ import type {
   SchemaMetadata,
   TableMetadata
 } from "@humbdb/core";
-import { assertReadOnly, resolvePageRequest } from "@humbdb/driver-contract";
+import { assertReadOnly, capResultRows, resolvePageRequest } from "@humbdb/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
 import Database from "better-sqlite3";
 
@@ -204,7 +204,7 @@ export class SqliteAdapter implements DatabaseAdapter {
     // assertReadOnly is a heuristic string check; the read-only connection opened in connect() is
     // the authoritative guarantee - SQLite refuses any write through this handle regardless of
     // what the string check missed (see connect()'s comment).
-    const stmt = this.getDb().prepare(sql).safeIntegers(true);
+    const stmt = this.getDb().prepare(capResultRows(sql)).safeIntegers(true);
     const rows = (stmt.all() as Array<Record<string, unknown>>).map(normalizeRow);
 
     return {

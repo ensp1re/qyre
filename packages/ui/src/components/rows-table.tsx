@@ -1,4 +1,5 @@
 import type { ColumnMetadata, RowPage } from "@humbdb/core";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowUpDown,
   ChevronLeft,
@@ -10,7 +11,7 @@ import {
   X
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { cn } from "../cn.js";
 import { formatCell } from "../format-cell.js";
 import { CellValueDrawer } from "./cell-value-drawer.js";
@@ -32,6 +33,11 @@ export interface RowsTableProps {
 }
 
 type SortDir = "asc" | "desc" | null;
+
+/** Approximate row height in px (matches the `py-1.5` cell padding + 11px font) - only an estimate
+ * the virtualizer (F051) uses to size the scrollbar before it measures real rows; rows are uniform
+ * height here so it doesn't need per-row re-measurement. */
+const ROW_HEIGHT_ESTIMATE = 30;
 
 const FORMULA_LEADING_CHARS = /^[=+\-@]/;
 
@@ -79,6 +85,7 @@ export function RowsTable({
     column: string;
     value: InspectableValue;
   } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const columnByName = useMemo(
     () => new Map(columns.map((column) => [column.name, column])),
@@ -106,6 +113,20 @@ export function RowsTable({
     });
     return copy;
   }, [filtered, sortCol, sortDir]);
+
+  // F051: only the visible rows (plus overscan) mount as DOM nodes, instead of every row in the
+  // current page - a wide table at the SQL Editor's 1000-row cap (F050) would otherwise mount
+  // thousands of cells.
+  const rowVirtualizer = useVirtualizer({
+    count: sorted.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 8
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const topPadding = virtualRows[0]?.start ?? 0;
+  const bottomPadding =
+    rowVirtualizer.getTotalSize() - (virtualRows[virtualRows.length - 1]?.end ?? 0);
 
   function handleSort(column: string): void {
     if (sortCol !== column) {
@@ -229,7 +250,7 @@ export function RowsTable({
           <p className="font-mono text-[11px] text-muted-foreground">No rows in this table.</p>
         </div>
       ) : (
-        <div data-testid="rows-table" className="flex-1 overflow-auto">
+        <div data-testid="rows-table" ref={scrollRef} className="flex-1 overflow-auto">
           <table className="w-full border-collapse font-mono text-[11px]">
             <thead className="sticky top-0 z-10 bg-card">
               <tr>
@@ -259,45 +280,61 @@ export function RowsTable({
               </tr>
             </thead>
             <tbody>
-              {sorted.map(({ row, index }, displayIndex) => (
-                <tr
-                  key={index}
-                  onClick={() => toggleRow(index)}
-                  className={cn(
-                    "cursor-pointer border-b border-border-subtle hover:bg-accent/40",
-                    selected.has(index) && "bg-primary/5"
-                  )}
-                >
-                  <td className="w-8 border-r border-border-subtle px-2 py-1.5 text-center">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(index)}
-                      onChange={() => toggleRow(index)}
-                      onClick={(event) => event.stopPropagation()}
-                      className="h-3 w-3 accent-primary"
-                      aria-label={`Select row ${displayIndex + 1}`}
-                    />
-                  </td>
-                  <td className="w-8 border-r border-border-subtle px-2 py-1.5 text-right text-muted-foreground/30">
-                    {displayIndex + 1}
-                  </td>
-                  {rowPage.columns.map((columnName) => (
-                    <td
-                      key={columnName}
-                      className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
-                    >
-                      {row[columnName] === null || row[columnName] === undefined ? (
-                        <span className="italic text-muted-foreground/30">null</span>
-                      ) : (
-                        <CellValue
-                          value={row[columnName]}
-                          onInspect={(value) => setInspected({ column: columnName, value })}
-                        />
-                      )}
-                    </td>
-                  ))}
+              {topPadding > 0 && (
+                <tr>
+                  <td colSpan={rowPage.columns.length + 2} style={{ height: topPadding }} />
                 </tr>
-              ))}
+              )}
+              {virtualRows.map((virtualRow) => {
+                const item = sorted[virtualRow.index];
+                if (!item) return null;
+                const { row, index } = item;
+                return (
+                  <tr
+                    key={index}
+                    data-index={virtualRow.index}
+                    onClick={() => toggleRow(index)}
+                    className={cn(
+                      "cursor-pointer border-b border-border-subtle hover:bg-accent/40",
+                      selected.has(index) && "bg-primary/5"
+                    )}
+                  >
+                    <td className="w-8 border-r border-border-subtle px-2 py-1.5 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(index)}
+                        onChange={() => toggleRow(index)}
+                        onClick={(event) => event.stopPropagation()}
+                        className="h-3 w-3 accent-primary"
+                        aria-label={`Select row ${virtualRow.index + 1}`}
+                      />
+                    </td>
+                    <td className="w-8 border-r border-border-subtle px-2 py-1.5 text-right text-muted-foreground/30">
+                      {virtualRow.index + 1}
+                    </td>
+                    {rowPage.columns.map((columnName) => (
+                      <td
+                        key={columnName}
+                        className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
+                      >
+                        {row[columnName] === null || row[columnName] === undefined ? (
+                          <span className="italic text-muted-foreground/30">null</span>
+                        ) : (
+                          <CellValue
+                            value={row[columnName]}
+                            onInspect={(value) => setInspected({ column: columnName, value })}
+                          />
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+              {bottomPadding > 0 && (
+                <tr>
+                  <td colSpan={rowPage.columns.length + 2} style={{ height: bottomPadding }} />
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

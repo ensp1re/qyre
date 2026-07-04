@@ -1,11 +1,11 @@
+import { MAX_PAGE_SIZE } from "@humbdb/core";
+
 /** A resolved, safely-bounded page request. */
 export interface ResolvedPageRequest {
   readonly page: number;
   readonly pageSize: number;
   readonly offset: number;
 }
-
-const MAX_PAGE_SIZE = 200;
 
 /**
  * Clamp a requested page/pageSize into safe, non-negative bounds. Shared by every engine adapter so

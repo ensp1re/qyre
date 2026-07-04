@@ -3,12 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchRows } from "../api/rows.js";
 import { QUERY_RETRY } from "./query-retry.js";
 
-const PAGE_SIZE = 25;
-
 interface RowsResult {
   rowPage: RowPage;
   hasMore: boolean;
 }
+
+// Deliberately a local constant, not imported from @humbdb/core's shared DEFAULT_PAGE_SIZE/
+// MAX_PAGE_SIZE (F047) - @humbdb/core bundles as one flat file, and this package's connection-target
+// module has Node-only imports (fs/path/url) that break Vite's browser build the moment any real
+// (non-type) value is imported from the barrel, confirmed live. Kept intentionally smaller than the
+// server's own default for a denser table view - see @humbdb/core/src/pagination.ts's doc comment
+// for the full explanation of why these are allowed to differ.
+const UI_PAGE_SIZE = 25;
 
 /**
  * React Query hook for a page of a table's rows. Keeps the previous page's rows visible while
@@ -28,8 +34,8 @@ export function useRows(schema: string | undefined, table: string | undefined, p
     queryKey: ["rows", schema, table, page],
     queryFn: async (): Promise<RowsResult> => {
       const [rowPage, nextPageProbe] = await Promise.all([
-        fetchRows(schema as string, table as string, page, PAGE_SIZE),
-        fetchRows(schema as string, table as string, (page + 1) * PAGE_SIZE, 1)
+        fetchRows(schema as string, table as string, page, UI_PAGE_SIZE),
+        fetchRows(schema as string, table as string, (page + 1) * UI_PAGE_SIZE, 1)
       ]);
       return { rowPage, hasMore: nextPageProbe.rows.length > 0 };
     },

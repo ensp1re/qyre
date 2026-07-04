@@ -397,7 +397,7 @@
       "id": "F031",
       "behavior": "Schema tree rows (`packages/ui/src/components/schema-tree.tsx`) are keyboard-focusable and operable (`Enter`/`Space` to activate, `ArrowRight`/`ArrowLeft` to expand/collapse) with proper `role=\"tree\"`/`role=\"treeitem\"` and `aria-expanded`/`aria-selected` semantics.",
       "verification": "pnpm --filter @humbdb/ui test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

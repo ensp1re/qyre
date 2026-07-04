@@ -106,19 +106,36 @@ function TreeRow({
   const isSelected =
     node.type === "table" && selected?.schema === node.schema && selected?.table === node.name;
 
+  function activate(): void {
+    if (hasChildren) setManualOpen((current) => !current);
+    if (node.type === "table" && node.schema) onSelect(node.schema, node.name);
+  }
+
   return (
     <div>
       <div
-        role={node.type === "table" ? "button" : undefined}
-        aria-pressed={node.type === "table" ? isSelected : undefined}
+        role="treeitem"
+        tabIndex={0}
+        aria-expanded={hasChildren ? open : undefined}
+        aria-selected={node.type === "table" ? isSelected : undefined}
+        aria-level={depth + 1}
         className={cn(
-          "mx-1 flex cursor-pointer select-none items-center gap-1.5 rounded-[2px] py-[3px] pr-2 hover:bg-sidebar-accent",
+          "mx-1 flex cursor-pointer select-none items-center gap-1.5 rounded-[2px] py-[3px] pr-2 outline-none hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-ring",
           isSelected && "bg-primary/10"
         )}
         style={{ paddingLeft: `${8 + depth * 14}px` }}
-        onClick={() => {
-          if (hasChildren) setManualOpen((current) => !current);
-          if (node.type === "table" && node.schema) onSelect(node.schema, node.name);
+        onClick={activate}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            activate();
+          } else if (event.key === "ArrowRight" && hasChildren && !open) {
+            event.preventDefault();
+            setManualOpen(true);
+          } else if (event.key === "ArrowLeft" && hasChildren && open) {
+            event.preventDefault();
+            setManualOpen(false);
+          }
         }}
       >
         {hasChildren ? (
@@ -161,7 +178,7 @@ function TreeRow({
       </div>
 
       {hasChildren && open && (
-        <div>
+        <div role="group">
           {node.children?.map((child) => (
             <TreeRow
               key={child.id}
@@ -225,7 +242,7 @@ export function SchemaTree({
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-1">
+      <nav role="tree" className="flex-1 overflow-y-auto py-1">
         {trimmedQuery.length > 1 && matchIds.size === 0 ? (
           <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
             no results

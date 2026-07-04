@@ -23,7 +23,9 @@ A single-page app shell:
   `SchemaTree`'s existing data, restyled). Search highlights matches and force-opens ancestor paths.
   The schema/table overview backing it polls every 30s while connected (F033), in addition to the
   manual Refresh button and React Query's default refetch-on-focus, so a table added/dropped
-  outside Humb doesn't stay invisible indefinitely.
+  outside Humb doesn't stay invisible indefinitely. Keyboard-operable (F031): each row is a real
+  `role="treeitem"` (nested under `role="tree"`/`role="group"`), focusable, with `Enter`/`Space` to
+  select/activate and `ArrowRight`/`ArrowLeft` to expand/collapse a schema.
 - **Tab bar**: SQL Editor, Tables, Schema, Files, Console (see "Tabs" below).
 - **Status bar**: connection status, engine + version, current schema/database, encoding.
 

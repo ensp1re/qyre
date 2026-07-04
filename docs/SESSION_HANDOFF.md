@@ -65,6 +65,22 @@ gotchas in "Known issues / blockers").
   `docs/FEATURES.json` for evidence per feature. Changing schema-tree rows from `role="button"` to
   `"treeitem"` (F031) broke two e2e locators, caught by a full `pnpm test:e2e:full` run and fixed in
   the same batch. **All of F001-F033 and DF-01-DF-09 are now `passing`.**
+- The remaining 29 (of 35) `tech-debt-tracker.md` rows were promoted into **F034-F062** and split
+  into 4 batches/PRs at the user's request (one per session, so a batch always fits) - see "Next
+  steps" for the full breakdown. The other 6 rows stay deferred (need a product-spec pass first:
+  `--demo` mode, switching DB connections without restart, `DatabaseAdapter` capability redesign,
+  full server-side sort/streamed export).
+- **F034-F040 `passing`** (batch 1, UX & accessibility polish, on `feature/F034-F040-ux-a11y-batch`):
+  empty-state copy lists all 4 engines instead of "Postgres or SQLite"; CSV export escapes leading
+  `=`/`+`/`-`/`@` against spreadsheet formula injection; `useRows` derives `hasMore` from a real
+  probe at the next page's offset instead of `rows.length === pageSize` (wrong on an exact-page-size
+  boundary - verified against the real 10,000-row `events` fixture and a purpose-built 25-row table);
+  schema-tree search hints at 1 character instead of silently showing the unfiltered tree; connection
+  status gets a distinct icon shape + `aria-label`, not color alone; the cell-value and query-history
+  drawers share a new `useFocusTrap` hook (traps Tab, restores focus to the trigger on close); the
+  Cmd/Ctrl+Enter hint is platform-aware and repeated as the Run button's `title`. Every
+  fix verified live via Preview with real focus/keyboard events - see `docs/FEATURES.json` for
+  evidence per feature. PR not yet opened as of this writing.
 
 ## In progress
 
@@ -95,13 +111,27 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-Every feature in `docs/FEATURES.json` is `passing` (F001-F033, DF-01-DF-09) - there is no queued
-next slice. The two-pass review that produced F020-F033 also left 35 non-defect/low-priority
-suggestions in `docs/exec-plans/tech-debt-tracker.md`; none are urgent, but that's the natural place
-to look for the next slice if the user doesn't have something else in mind. Before starting new
-work: re-read this file's "Known issues / blockers" (the bare `humb` npm package dispute is the one
-open item), or ask the user what they'd like next. If
-picking a new feature area instead, write its product spec under `docs/product-specs/` and add a
-`docs/FEATURES.json` entry before writing code (this repo's working contract - see `AGENTS.md`), and
-consider whether it warrants its own `docs/exec-plans/active/NNNN-*.md` plan doc if it's more than
-one slice.
+Batch 1 (F034-F040) is `passing`; F041-F062 are `not_started` in `docs/FEATURES.json` and queued as
+3 more batches/PRs, in order:
+
+- **Batch 2, F041-F046 (Reliability & server hardening)**: query-hook retry policy, richer
+  `/api/health` (ping latency/last error), CLI `SIGINT`/`SIGTERM` hardening (timeout/re-entrancy/exit
+  code), static-asset compression/cache-control, MongoDB BSON `Timestamp`/rare-type fix,
+  `assertReadOnly` re-export cleanup. Branch: `feature/F041-F046-reliability-batch`.
+- **Batch 3, F047-F053 (Performance & architecture cleanup)**: shared tuning-constants module,
+  Postgres `getTable` round-trip consolidation, shared `SqlAdapterBase`, `runReadOnlyQuery` result
+  cap, `RowsTable`/query-result virtualization, `App.tsx` decomposition, an engine-list-lockstep
+  test. Branch: `feature/F047-F053-perf-arch-batch`.
+- **Batch 4, F054-F062 (Testing, docs, devx & product quick wins)**: adapter-conformance test suite,
+  `@humbdb/ui` component tests, env-skip-guard + E2E axe checks, `.env.example`/`docker-compose.yml`,
+  `CONTRIBUTING.md`, engine-list drift fix + `check-readme.mjs` extension, connection-string/
+  troubleshooting doc, clickable FK columns, run-`.sql`-in-editor. Branch:
+  `feature/F054-F062-testing-docs-batch`.
+
+Each batch's exact scope/behavior is already recorded per-feature in `docs/FEATURES.json` (state
+`not_started`, `spec` pointing at the relevant product-spec doc or `null`) - a fresh session can pick
+up the next batch directly from there without re-deriving scope. Before starting: re-read this file's
+"Known issues / blockers" (the bare `humb` npm package dispute is the one open item), open Batch 1's
+PR if it isn't open yet, then branch for the next batch. The 6 tech-debt rows still deferred (see
+"Completed") need their own product-spec pass before implementation - don't fold them into these
+batches without doing that first.

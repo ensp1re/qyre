@@ -282,6 +282,146 @@
       "evidence": "commit 0238265: implemented ahead of schedule - DF-02's original pass left the toggle as an inert chrome-only placeholder, which turned out to be the actual mechanism behind a 'too dark, bad for the eyes' complaint (no way to leave dark mode). apps/web/src/hooks/use-theme.ts toggles the .dark class and persists to localStorage (`humb-theme`); apps/web/index.html gained a pre-paint inline script reading that key before React mounts so there's no flash of the wrong theme on load. Manually verified live: toggled to light, reloaded, confirmed the choice persisted with zero flash of dark before light applied (checked via document.documentElement.classList and localStorage directly in Preview). pnpm check and pnpm test:e2e/test:e2e:full pass.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F020",
+      "behavior": "The Postgres query runner's `coerceUnknownQuotedIdentifiers` (packages/drivers/postgres) no longer rewrites double-quoted text that lives inside string literals, dollar-quoted blocks, schema-qualified names, or query-local aliases/CTE names - only genuine bare-identifier quoting gets coerced. `SELECT 'he said \"hi\" loudly' FROM users`, `SELECT * FROM \"public\".\"users\"`, and `SELECT \"a\" FROM (SELECT 1 AS a) sub` all run unmodified.",
+      "verification": "pnpm --filter @humbdb/postgres test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F021",
+      "behavior": "`assertReadOnly` (packages/drivers/contract) no longer rejects valid read-only queries whose string literals contain a `;` or a reserved keyword - the semicolon/statement-count check runs against the same literal-and-comment-stripped text the keyword scan already uses, not raw SQL. `SELECT 'a;b' AS x` is accepted.",
+      "verification": "pnpm --filter @humbdb/driver-contract test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F022",
+      "behavior": "`GET /api/tables/:schema/:table/rows` returns a clean `400` with a readable error on invalid pagination params (e.g. `?page=abc`), matching `/api/query`'s `safeParse` pattern, instead of a `500` with a raw Zod issue dump.",
+      "verification": "pnpm --filter @humbdb/server test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/error-handling.md"
+    },
+    {
+      "id": "F023",
+      "behavior": "`GET /api/files/content` re-validates the *real* (symlink-resolved) path against the Files-tab root, not just the lexical path, so a symlink inside `--files-dir` can no longer be used to read a file outside the configured root.",
+      "verification": "pnpm --filter @humbdb/server test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F024",
+      "behavior": "`redactConnectionString` (packages/core) also masks credentials passed as connection-string query parameters (e.g. `?password=...`), not just the `user:pass@host` form, so `/api/health`'s `target` field never surfaces a query-param password.",
+      "verification": "pnpm --filter @humbdb/core test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SECURITY.md"
+    },
+    {
+      "id": "F025",
+      "behavior": "The local API server rejects requests whose `Host` header is not `127.0.0.1:<port>`/`localhost:<port>`, closing the DNS-rebinding vector against the unauthenticated localhost API.",
+      "verification": "pnpm --filter @humbdb/server test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SECURITY.md"
+    },
+    {
+      "id": "F026",
+      "behavior": "MongoDB's `getRows` applies a deterministic sort (`_id`) so paging forward never shows a duplicate or skipped document across separate page requests.",
+      "verification": "pnpm --filter @humbdb/mongodb test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-mongodb.md"
+    },
+    {
+      "id": "F027",
+      "behavior": "Opening the Schema tab issues one (or a few batched) lightweight server request(s) for per-table summaries instead of fanning `useAllTables` out into one HTTP request plus several catalog queries per table, so it scales to schemas with hundreds of tables.",
+      "verification": "pnpm --filter @humbdb/server test && pnpm --filter @humbdb/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F028",
+      "behavior": "Postgres/MySQL connection-pool error events are routed into the server's structured `EventLog` (visible in the Console tab) instead of a bare `console.error`, so a dropped connection is visible where a user watching Console would look for it.",
+      "verification": "pnpm --filter @humbdb/postgres test && pnpm --filter @humbdb/mysql test && pnpm --filter @humbdb/server test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F029",
+      "behavior": "`useHealth` polls on a modest interval (matching the Console poll's cadence) instead of only fetching once on mount, so the connection indicator and the server's connection-transition log entries reflect real disconnects/reconnects without a manual Refresh.",
+      "verification": "pnpm --filter @humbdb/web test && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F030",
+      "behavior": "A top-level React error boundary (plus a narrower one around the table/query result area) catches render errors and shows a recoverable fallback (reusing `ErrorState`) instead of white-screening the whole app.",
+      "verification": "pnpm --filter @humbdb/web test && pnpm --filter @humbdb/web build",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F031",
+      "behavior": "Schema tree rows (`packages/ui/src/components/schema-tree.tsx`) are keyboard-focusable and operable (`Enter`/`Space` to activate, `ArrowRight`/`ArrowLeft` to expand/collapse) with proper `role=\"tree\"`/`role=\"treeitem\"` and `aria-expanded`/`aria-selected` semantics.",
+      "verification": "pnpm --filter @humbdb/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F032",
+      "behavior": "Postgres/MySQL/MongoDB adapters set a sane default statement/query timeout (e.g. `statement_timeout`/`max_execution_time`/`maxTimeMS`, configurable) on the read-only query and row-fetch paths, so a runaway query fails fast with a clear error instead of hanging the request and holding a pool connection indefinitely.",
+      "verification": "pnpm --filter @humbdb/postgres test && pnpm --filter @humbdb/mysql test && pnpm --filter @humbdb/mongodb test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F033",
+      "behavior": "Overview/table/rows queries have an explicit freshness policy (a real `staleTime` and/or a light background refetch) instead of inheriting React Query's all-defaults cache, so a schema change in the connected database (table added/dropped, column changed) doesn't stay invisible until a manual Refresh.",
+      "verification": "pnpm --filter @humbdb/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
     }
   ]
 }

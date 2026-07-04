@@ -52,6 +52,19 @@ gotchas in "Known issues / blockers").
   query-param credentials are now redacted; the server rejects non-loopback `Host` headers
   (DNS-rebinding protection). See `docs/FEATURES.json` for full evidence per feature and PRs #47-#52
   (open, stacked on #46 as of this writing).
+- **F026-F033 `passing`** (remaining review defects, batched into one PR per the user's request to
+  save review overhead): MongoDB `getRows` sorts by `_id` for deterministic pagination; the Schema
+  tab now fetches every table via one batched `GET /api/tables` instead of one request per table;
+  Postgres/MySQL pool errors route into the Console tab's event log via a new
+  `DatabaseAdapter.onConnectionEvent` hook; `useHealth`/`useOverview` poll (3s/30s) so connection
+  status and schema drift surface without a manual Refresh; a new `ErrorBoundary` (top-level +
+  per-tab) replaces a full white-screen with a recoverable fallback; the schema tree is keyboard-
+  operable with real `role="tree"`/`"treeitem"` semantics; all three SQL/document adapters cap
+  query/row-fetch time via a shared `HUMB_STATEMENT_TIMEOUT_MS` env var. Every fix verified live
+  (Preview and/or real Postgres/MySQL/MongoDB containers), not just unit-tested - see
+  `docs/FEATURES.json` for evidence per feature. Changing schema-tree rows from `role="button"` to
+  `"treeitem"` (F031) broke two e2e locators, caught by a full `pnpm test:e2e:full` run and fixed in
+  the same batch. **All of F001-F033 and DF-01-DF-09 are now `passing`.**
 
 ## In progress
 
@@ -82,12 +95,12 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-Every feature in `docs/FEATURES.json` through **F025** is `passing`. **F026-F033 are `not_started`
-and unprioritized among themselves** (Mongo pagination stability, Schema-tab fan-out, pool-error
-logging, health-poll dormancy, missing error boundary, schema-tree keyboard a11y, missing statement
-timeouts, stale-cache freshness) - pick one or ask the user which to tackle first; at most one may
-be `active` at a time. Before starting new work: re-read this file's "Known issues / blockers" (the
-bare `humb` npm package dispute is the one open item), or ask the user what they'd like next. If
+Every feature in `docs/FEATURES.json` is `passing` (F001-F033, DF-01-DF-09) - there is no queued
+next slice. The two-pass review that produced F020-F033 also left 35 non-defect/low-priority
+suggestions in `docs/exec-plans/tech-debt-tracker.md`; none are urgent, but that's the natural place
+to look for the next slice if the user doesn't have something else in mind. Before starting new
+work: re-read this file's "Known issues / blockers" (the bare `humb` npm package dispute is the one
+open item), or ask the user what they'd like next. If
 picking a new feature area instead, write its product spec under `docs/product-specs/` and add a
 `docs/FEATURES.json` entry before writing code (this repo's working contract - see `AGENTS.md`), and
 consider whether it warrants its own `docs/exec-plans/active/NNNN-*.md` plan doc if it's more than

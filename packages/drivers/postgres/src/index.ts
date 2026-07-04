@@ -32,6 +32,20 @@ types.setTypeParser(types.builtins.TIMESTAMP, (value) => value);
 
 const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
 
+const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
+
+/**
+ * A heavyweight query (a huge unindexed scan, a cartesian join) would otherwise run to completion
+ * with no cap, tying up a pool connection and leaving the browser spinner spinning indefinitely.
+ * Configurable via `HUMB_STATEMENT_TIMEOUT_MS` (shared env var name across engines, read at
+ * `connect()` time rather than module load so tests can override it per case) so it can be tuned
+ * for a slow network/large database.
+ */
+function resolveStatementTimeoutMs(): number {
+  const raw = Number(process.env.HUMB_STATEMENT_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STATEMENT_TIMEOUT_MS;
+}
+
 /** Quote a SQL identifier safely. */
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
@@ -267,6 +281,7 @@ async function fetchRowCountEstimate(
 
 export class PostgresAdapter implements DatabaseAdapter {
   public readonly engine = "postgres";
+  public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
   private pool: Pool | undefined;
 
   constructor(private readonly target: ConnectionTarget) {}
@@ -279,12 +294,23 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async connect(): Promise<void> {
-    this.pool = new Pool({ connectionString: this.target.raw });
+    this.pool = new Pool({
+      connectionString: this.target.raw,
+      statement_timeout: resolveStatementTimeoutMs()
+    });
     // pg emits "error" on the pool when an idle client's connection is dropped by the
     // database (restart, network blip, admin kill). Without a listener, Node treats that as an
     // unhandled error and crashes the whole process - the opposite of what /api/health is for.
+    // Routed through onConnectionEvent (checked at fire time, so it's fine that the server wires
+    // it up after connect() returns) so it reaches the Console tab's event log, not just stderr -
+    // falls back to console.error if nothing ever set it.
     this.pool.on("error", (error) => {
-      console.error("Postgres pool error (connection dropped):", error.message);
+      const message = `Postgres pool error (connection dropped): ${error.message}`;
+      if (this.onConnectionEvent) {
+        this.onConnectionEvent("error", message);
+      } else {
+        console.error(message);
+      }
     });
   }
 

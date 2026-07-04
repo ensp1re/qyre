@@ -110,6 +110,10 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     webRoot: defaultWebRoot(dirname(fileURLToPath(import.meta.url))),
     filesRoot
   });
+  // Wired after startServer (not before adapter.connect() above) so the CLI doesn't need to
+  // construct its own EventLog - the pool "error" listener checks onConnectionEvent at fire time,
+  // not at connect()-time, so this order is fine (F028).
+  adapter.onConnectionEvent = (level, message) => server.eventLog.log(level, message);
   process.stdout.write(`Humb is running at ${server.url}\n`);
   await open(server.url);
 

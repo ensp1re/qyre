@@ -21,6 +21,11 @@ A single-page app shell:
   configuring beyond theme).
 - **Sidebar**: collapsible, searchable tree of the connected engine's structure (mirrors
   `SchemaTree`'s existing data, restyled). Search highlights matches and force-opens ancestor paths.
+  The schema/table overview backing it polls every 30s while connected (F033), in addition to the
+  manual Refresh button and React Query's default refetch-on-focus, so a table added/dropped
+  outside Humb doesn't stay invisible indefinitely. Keyboard-operable (F031): each row is a real
+  `role="treeitem"` (nested under `role="tree"`/`role="group"`), focusable, with `Enter`/`Space` to
+  select/activate and `ArrowRight`/`ArrowLeft` to expand/collapse a schema.
 - **Tab bar**: SQL Editor, Tables, Schema, Files, Console (see "Tabs" below).
 - **Status bar**: connection status, engine + version, current schema/database, encoding.
 
@@ -31,7 +36,11 @@ A single-page app shell:
 - **Tables**: paginated row browser (ports `RowsTable`) with client-side search/sort over the
   fetched page. No write affordances (see "Out of scope").
 - **Schema**: a grid of table cards, each showing its columns with PK/FK badges - a full-database
-  overview, distinct from the existing single-table `TableDetail`.
+  overview, distinct from the existing single-table `TableDetail`. Backed by one batched
+  `GET /api/tables` request (F027) that returns every table's metadata in a single response,
+  instead of the browser fanning one request out per table - the previous shape didn't scale to
+  schemas with hundreds of tables (hundreds of concurrent requests, each running its own catalog
+  queries). The per-table catalog query count itself is unchanged (tracked separately as tech debt).
 - **Files**: a read-only browser for SQL-related files near the launch target (saved queries,
   migrations if present) - **not yet backed by any API**; needs a new, carefully-scoped read-only
   filesystem endpoint (see "Backend gaps").

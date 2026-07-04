@@ -1,32 +1,24 @@
-import type { SchemaMetadata, TableMetadata } from "@humbdb/core";
-import { useQueries } from "@tanstack/react-query";
-import { fetchTable } from "../api/table.js";
+import { useQuery } from "@tanstack/react-query";
+import { fetchAllTables } from "../api/all-tables.js";
 
 /**
  * React Query hook for every table's metadata across all schemas - powers the Schema tab's
- * full-database grid. Shares its query key with useTable, so a table already viewed in the
- * Tables/Schema single-table flow is served from cache instead of refetched.
+ * full-database grid. One request via GET /api/tables (F027), replacing the previous one-request-
+ * per-table fan-out that didn't scale to schemas with hundreds of tables.
  */
-export function useAllTables(schemas: SchemaMetadata[] | undefined) {
-  const targets = (schemas ?? []).flatMap((schema) =>
-    schema.tables.map((table) => ({ schema: schema.name, table }))
-  );
-
-  const results = useQueries({
-    queries: targets.map(({ schema, table }) => ({
-      queryKey: ["table", schema, table],
-      queryFn: () => fetchTable(schema, table),
-      retry: false
-    }))
+export function useAllTables(options: { enabled: boolean }) {
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ["allTables"],
+    queryFn: fetchAllTables,
+    enabled: options.enabled,
+    retry: false
   });
 
-  const firstError = results.find((result) => result.error)?.error;
-
   return {
-    tables: results.map((result) => result.data).filter((t): t is TableMetadata => Boolean(t)),
-    isLoading: results.some((result) => result.isLoading),
-    isError: results.some((result) => result.isError),
-    error: firstError instanceof Error ? firstError : undefined,
-    refetch: () => results.forEach((result) => void result.refetch())
+    tables: data?.tables ?? [],
+    isLoading,
+    isError,
+    error: error instanceof Error ? error : undefined,
+    refetch
   };
 }

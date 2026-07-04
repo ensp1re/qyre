@@ -15,6 +15,7 @@ import {
   runQuerySchema
 } from "@humbdb/core";
 import type {
+  AllTablesResponse,
   ConnectionTarget,
   ConsoleEvents,
   FileContent,
@@ -26,6 +27,8 @@ import type { DatabaseAdapter } from "@humbdb/driver-contract";
 import Fastify from "fastify";
 import type { FastifyError, FastifyInstance } from "fastify";
 import { EventLog } from "./event-log.js";
+
+export { EventLog } from "./event-log.js";
 import { buildFileTree, InvalidFilePathError, resolveSqlFilePath } from "./files.js";
 
 export interface CreateServerOptions {
@@ -47,6 +50,13 @@ export interface CreateServerOptions {
    * docs/product-specs/dashboard-ui.md's "Files tab security boundary".
    */
   filesRoot?: string;
+  /**
+   * Shared event log instance. Omit to let `createServer` make its own (the common case, and what
+   * every existing test does) - only pass one in when a caller needs to log into the same log the
+   * server reads from, e.g. `startServer` handing it back so the CLI can wire an adapter's
+   * `onConnectionEvent` (F028) into the Console tab's event stream.
+   */
+  eventLog?: EventLog;
 }
 
 function requireAdapter(adapter: DatabaseAdapter | undefined): DatabaseAdapter {
@@ -77,7 +87,7 @@ function extractHostname(hostHeader: string): string {
 export function createServer(options: CreateServerOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false });
   const { adapter, target, filesRoot } = options;
-  const eventLog = new EventLog();
+  const eventLog = options.eventLog ?? new EventLog();
   let lastKnownStatus: HealthResponse["database"] | undefined;
 
   app.addHook("onRequest", async (request, reply) => {
@@ -146,6 +156,23 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
       return requireAdapter(adapter).getTable(schema, table);
     }
   );
+
+  // Backs the Schema tab (F027): previously the browser fanned useAllTables out into one HTTP
+  // request per table (plus several catalog queries within each), which could mean hundreds of
+  // concurrent requests on a large database. Fetching every table's metadata server-side in one
+  // request keeps the per-table catalog queries (unchanged, tracked separately as tech debt) off
+  // the browser's connection pool and out of per-table network round trips.
+  app.get("/api/tables", async (): Promise<AllTablesResponse> => {
+    const db = requireAdapter(adapter);
+    const overview = await db.getOverview();
+    const targets = overview.schemas.flatMap((schema) =>
+      schema.tables.map((table) => ({ schema: schema.name, table }))
+    );
+    const tables = await Promise.all(
+      targets.map(({ schema, table }) => db.getTable(schema, table))
+    );
+    return { tables };
+  });
 
   app.get<{ Params: { schema: string; table: string }; Querystring: Record<string, string> }>(
     "/api/tables/:schema/:table/rows",
@@ -249,18 +276,22 @@ export interface StartServerOptions extends CreateServerOptions {
 export interface RunningServer {
   app: FastifyInstance;
   url: string;
+  /** The server's event log - e.g. so the caller can wire an adapter's `onConnectionEvent` into it. */
+  eventLog: EventLog;
   close: () => Promise<void>;
 }
 
 /** Build and start the Humb HTTP server, listening on localhost. */
 export async function startServer(options: StartServerOptions = {}): Promise<RunningServer> {
-  const app = createServer(options);
+  const eventLog = options.eventLog ?? new EventLog();
+  const app = createServer({ ...options, eventLog });
   const port = options.port ?? DEFAULT_PORT;
   const host = options.host ?? "127.0.0.1";
   await app.listen({ port, host });
   return {
     app,
     url: `http://${host}:${port}`,
+    eventLog,
     close: () => app.close()
   };
 }

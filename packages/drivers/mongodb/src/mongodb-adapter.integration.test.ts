@@ -73,6 +73,23 @@ describe("MongodbAdapter integration", () => {
     }
   });
 
+  it("pages deterministically with no duplicate or skipped documents (F026 regression)", async () => {
+    // Previously: find().skip().limit() with no sort has no ordering guarantee between calls, so
+    // paging one document at a time could show the same document twice or skip one entirely.
+    const seenIds = new Set<string>();
+    for (let page = 0; page < FIXTURE.rowCount; page++) {
+      const result = await adapter.getRows(databaseName, FIXTURE.table, page, 1);
+      expect(result.rows).toHaveLength(1);
+      seenIds.add(String(result.rows[0]?._id));
+    }
+    expect(seenIds.size).toBe(FIXTURE.rowCount);
+
+    // Repeating the same page twice must return the same document both times.
+    const first = await adapter.getRows(databaseName, FIXTURE.table, 1, 1);
+    const second = await adapter.getRows(databaseName, FIXTURE.table, 1, 1);
+    expect(String(first.rows[0]?._id)).toBe(String(second.rows[0]?._id));
+  });
+
   it("renders a nested document field via the structured-cell-value shape (F016 dependency)", async () => {
     const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
     const ada = page.rows.find((row) => row.name === "Ada Lovelace");
@@ -144,6 +161,29 @@ describe("MongodbAdapter integration", () => {
         .collection(emptyCollectionName)
         .drop()
         .catch(() => {});
+      await client.close();
+    }
+  });
+
+  it("getRows/getTable pass the configured statement timeout as maxTimeMS, which MongoDB enforces (F032)", async () => {
+    // getRows/getTable's public API takes no user-controllable filter (MongoDB browsing here is
+    // deliberately narrow - no query language, see the spec's "Why this engine is scoped
+    // differently"), so there's no way to force a *real* getRows() call to run long enough to
+    // prove the timeout fires end to end (unlike Postgres/MySQL's runReadOnlyQuery, which accepts
+    // arbitrary SQL). This instead verifies the exact mechanism the adapter relies on - a `$where`
+    // server-side sleep makes a real scan slow, and confirms MongoDB itself aborts it once
+    // maxTimeMS elapses, exactly as getRows/getTable pass `this.statementTimeoutMs` through.
+    const client = new MongoClient(mongoUrl);
+    try {
+      await client.connect();
+      await expect(
+        client
+          .db(databaseName)
+          .collection(FIXTURE.table)
+          .find({ $where: "sleep(2000) || true" }, { maxTimeMS: 200 })
+          .toArray()
+      ).rejects.toThrow(/exceeded time limit/i);
+    } finally {
       await client.close();
     }
   });

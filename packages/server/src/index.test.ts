@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { DatabaseAdapter } from "@humbdb/driver-contract";
 import { ReadOnlyViolationError } from "@humbdb/driver-contract";
 import { describe, expect, it } from "vitest";
-import { createServer } from "./index.js";
+import { createServer, EventLog } from "./index.js";
 
 describe("createServer", () => {
   it("rejects a request with a non-loopback Host header (DNS-rebinding, F025)", async () => {
@@ -76,6 +76,40 @@ describe("createServer", () => {
     const app = createServer({ adapter });
     const response = await app.inject({ method: "GET", url: "/api/health" });
     expect(response.json()).toMatchObject({ database: "disconnected", engineVersion: null });
+    await app.close();
+  });
+
+  it("returns every table's metadata in one request (F027)", async () => {
+    const adapter: DatabaseAdapter = {
+      engine: "postgres",
+      connect: async () => {},
+      disconnect: async () => {},
+      ping: async () => true,
+      getVersion: async () => "PostgreSQL 16.0",
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [{ name: "public", tables: ["a", "b"] }]
+      }),
+      getTable: async (schema, table) => ({ schema, name: table, columns: [] }),
+      getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
+      runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
+    };
+    const app = createServer({ adapter });
+    const response = await app.inject({ method: "GET", url: "/api/tables" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      tables: [
+        { schema: "public", name: "a", columns: [] },
+        { schema: "public", name: "b", columns: [] }
+      ]
+    });
+    await app.close();
+  });
+
+  it("returns 503 for /api/tables when no adapter is configured", async () => {
+    const app = createServer();
+    const response = await app.inject({ method: "GET", url: "/api/tables" });
+    expect(response.statusCode).toBe(503);
     await app.close();
   });
 
@@ -175,6 +209,23 @@ describe("createServer", () => {
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: expect.any(String) });
+    await app.close();
+  });
+
+  it("reads console events through a shared EventLog instance passed in (F028)", async () => {
+    // Proves createServer's `eventLog` option is actually honored, not just accepted - startServer
+    // passes the same instance back to the caller (e.g. the CLI, to wire an adapter's
+    // onConnectionEvent into it) and expects GET /api/console to reflect anything logged into it.
+    const eventLog = new EventLog();
+    const app = createServer({ eventLog });
+    eventLog.log("error", "Postgres pool error (connection dropped): test");
+
+    const response = await app.inject({ method: "GET", url: "/api/console" });
+    expect(response.json()).toMatchObject({
+      events: [
+        expect.objectContaining({ level: "error", message: expect.stringContaining("test") })
+      ]
+    });
     await app.close();
   });
 

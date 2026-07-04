@@ -1,6 +1,7 @@
 import type { ConnectionStatus } from "@humbdb/core";
 import {
   ConsoleLog,
+  ErrorBoundary,
   ErrorState,
   FilesBrowser,
   QueryHistoryDrawer,
@@ -57,7 +58,7 @@ export function App(): ReactNode {
   const isMongo = overview.data?.engine === "mongodb";
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page);
-  const allTables = useAllTables(overview.data?.schemas);
+  const allTables = useAllTables({ enabled: status === "connected" });
   const tableNames = (overview.data?.schemas ?? []).flatMap((schema) => schema.tables);
   const filesOverview = useFilesOverview({ enabled: status === "connected" });
   const fileContent = useFileContent(selectedFilePath);
@@ -75,6 +76,7 @@ export function App(): ReactNode {
     void refetchHealth();
     if (status === "connected") {
       void overview.refetch();
+      void allTables.refetch();
       void filesOverview.refetch();
       void consoleEvents.refetch();
     }
@@ -136,139 +138,144 @@ export function App(): ReactNode {
           />
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
-            {status !== "connected" ? (
-              <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                {healthLoading ? (
-                  <>
-                    <Spinner /> Checking connection...
-                  </>
+            <ErrorBoundary
+              key={tab}
+              fallbackMessage="This tab hit an unexpected error rendering its content. Try switching tabs and back, or reload if it persists."
+            >
+              {status !== "connected" ? (
+                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                  {healthLoading ? (
+                    <>
+                      <Spinner /> Checking connection...
+                    </>
+                  ) : (
+                    "No database is connected yet. Launch Humb with a Postgres or SQLite target to get started."
+                  )}
+                </p>
+              ) : tab === "sql-editor" && isMongo ? (
+                <p className="text-[13px] text-muted-foreground">
+                  The SQL Editor is not available for MongoDB connections - browse collections
+                  directly from the Tables tab.
+                </p>
+              ) : tab === "sql-editor" ? (
+                <QueryRunner
+                  sql={querySql}
+                  onSqlChange={setQuerySql}
+                  onRun={runSql}
+                  isRunning={runQuery.isPending}
+                  result={runQuery.data}
+                  error={runQuery.error instanceof Error ? runQuery.error.message : undefined}
+                  onOpenHistory={() => setHistoryOpen(true)}
+                  tableNames={tableNames}
+                />
+              ) : tab === "tables" ? (
+                !selected ? (
+                  <p className="text-[13px] text-muted-foreground">
+                    Select a table from the sidebar.
+                  </p>
+                ) : rows.isLoading ? (
+                  <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                    <Spinner /> Loading rows...
+                  </p>
+                ) : rows.isError ? (
+                  <ErrorState
+                    message={
+                      rows.error instanceof Error ? rows.error.message : "Failed to load rows."
+                    }
+                    onRetry={() => rows.refetch()}
+                  />
+                ) : rows.data ? (
+                  <RowsTable
+                    rowPage={rows.data}
+                    columns={table.data?.columns}
+                    tableName={selected.table}
+                    approxRowCount={table.data?.rowCount}
+                    page={page}
+                    canGoPrevious={page > 0}
+                    canGoNext={rows.data.rows.length === rows.data.pageSize}
+                    onPrevious={() => setPage((current) => Math.max(0, current - 1))}
+                    onNext={() => setPage((current) => current + 1)}
+                    onRefresh={() => rows.refetch()}
+                  />
+                ) : null
+              ) : tab === "schema" ? (
+                allTables.isLoading ? (
+                  <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                    <Spinner /> Loading tables...
+                  </p>
+                ) : allTables.isError ? (
+                  <ErrorState
+                    message={allTables.error?.message ?? "Failed to load one or more tables."}
+                    onRetry={() => allTables.refetch()}
+                  />
+                ) : allTables.tables.length === 0 ? (
+                  <p className="text-[13px] text-muted-foreground">No tables found.</p>
                 ) : (
-                  "No database is connected yet. Launch Humb with a Postgres or SQLite target to get started."
-                )}
-              </p>
-            ) : tab === "sql-editor" && isMongo ? (
-              <p className="text-[13px] text-muted-foreground">
-                The SQL Editor is not available for MongoDB connections - browse collections
-                directly from the Tables tab.
-              </p>
-            ) : tab === "sql-editor" ? (
-              <QueryRunner
-                sql={querySql}
-                onSqlChange={setQuerySql}
-                onRun={runSql}
-                isRunning={runQuery.isPending}
-                result={runQuery.data}
-                error={runQuery.error instanceof Error ? runQuery.error.message : undefined}
-                onOpenHistory={() => setHistoryOpen(true)}
-                tableNames={tableNames}
-              />
-            ) : tab === "tables" ? (
-              !selected ? (
-                <p className="text-[13px] text-muted-foreground">
-                  Select a table from the sidebar.
-                </p>
-              ) : rows.isLoading ? (
-                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                  <Spinner /> Loading rows...
-                </p>
-              ) : rows.isError ? (
-                <ErrorState
-                  message={
-                    rows.error instanceof Error ? rows.error.message : "Failed to load rows."
-                  }
-                  onRetry={() => rows.refetch()}
-                />
-              ) : rows.data ? (
-                <RowsTable
-                  rowPage={rows.data}
-                  columns={table.data?.columns}
-                  tableName={selected.table}
-                  approxRowCount={table.data?.rowCount}
-                  page={page}
-                  canGoPrevious={page > 0}
-                  canGoNext={rows.data.rows.length === rows.data.pageSize}
-                  onPrevious={() => setPage((current) => Math.max(0, current - 1))}
-                  onNext={() => setPage((current) => current + 1)}
-                  onRefresh={() => rows.refetch()}
-                />
-              ) : null
-            ) : tab === "schema" ? (
-              allTables.isLoading ? (
-                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                  <Spinner /> Loading tables...
-                </p>
-              ) : allTables.isError ? (
-                <ErrorState
-                  message={allTables.error?.message ?? "Failed to load one or more tables."}
-                  onRetry={() => allTables.refetch()}
-                />
-              ) : allTables.tables.length === 0 ? (
-                <p className="text-[13px] text-muted-foreground">No tables found.</p>
-              ) : (
-                <SchemaGrid tables={allTables.tables} />
-              )
-            ) : tab === "files" ? (
-              filesOverview.isLoading ? (
-                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                  <Spinner /> Loading files...
-                </p>
-              ) : filesOverview.isError ? (
-                <ErrorState
-                  message={
-                    filesOverview.error instanceof Error
-                      ? filesOverview.error.message
-                      : "Failed to load files."
-                  }
-                  onRetry={() => filesOverview.refetch()}
-                />
-              ) : !filesOverview.data?.enabled ? (
-                <p className="text-[13px] text-muted-foreground">
-                  File browsing is disabled. Launch Humb with{" "}
-                  <code className="font-mono">--files-dir &lt;dir&gt;</code> to browse and preview{" "}
-                  <code className="font-mono">.sql</code> files.
-                </p>
-              ) : filesOverview.data.tree.length === 0 ? (
-                <p className="text-[13px] text-muted-foreground">
-                  No .sql files found under the configured files directory.
-                </p>
-              ) : (
-                <FilesBrowser
-                  tree={filesOverview.data.tree}
-                  selectedPath={selectedFilePath}
-                  onSelectFile={setSelectedFilePath}
-                  content={fileContent.data?.content}
-                  isContentLoading={fileContent.isLoading}
-                  contentError={
-                    fileContent.isError
-                      ? fileContent.error instanceof Error
-                        ? fileContent.error.message
-                        : "Failed to load file."
-                      : undefined
-                  }
-                  onRetryContent={() => fileContent.refetch()}
-                />
-              )
-            ) : tab === "console" ? (
-              consoleEvents.isLoading ? (
-                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                  <Spinner /> Loading console...
-                </p>
-              ) : consoleEvents.isError ? (
-                <ErrorState
-                  message={
-                    consoleEvents.error instanceof Error
-                      ? consoleEvents.error.message
-                      : "Failed to load console events."
-                  }
-                  onRetry={() => consoleEvents.refetch()}
-                />
-              ) : (
-                <ConsoleLog
-                  events={consoleEvents.data?.events ?? []}
-                  onClear={() => clearConsole.mutate()}
-                />
-              )
-            ) : null}
+                  <SchemaGrid tables={allTables.tables} />
+                )
+              ) : tab === "files" ? (
+                filesOverview.isLoading ? (
+                  <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                    <Spinner /> Loading files...
+                  </p>
+                ) : filesOverview.isError ? (
+                  <ErrorState
+                    message={
+                      filesOverview.error instanceof Error
+                        ? filesOverview.error.message
+                        : "Failed to load files."
+                    }
+                    onRetry={() => filesOverview.refetch()}
+                  />
+                ) : !filesOverview.data?.enabled ? (
+                  <p className="text-[13px] text-muted-foreground">
+                    File browsing is disabled. Launch Humb with{" "}
+                    <code className="font-mono">--files-dir &lt;dir&gt;</code> to browse and preview{" "}
+                    <code className="font-mono">.sql</code> files.
+                  </p>
+                ) : filesOverview.data.tree.length === 0 ? (
+                  <p className="text-[13px] text-muted-foreground">
+                    No .sql files found under the configured files directory.
+                  </p>
+                ) : (
+                  <FilesBrowser
+                    tree={filesOverview.data.tree}
+                    selectedPath={selectedFilePath}
+                    onSelectFile={setSelectedFilePath}
+                    content={fileContent.data?.content}
+                    isContentLoading={fileContent.isLoading}
+                    contentError={
+                      fileContent.isError
+                        ? fileContent.error instanceof Error
+                          ? fileContent.error.message
+                          : "Failed to load file."
+                        : undefined
+                    }
+                    onRetryContent={() => fileContent.refetch()}
+                  />
+                )
+              ) : tab === "console" ? (
+                consoleEvents.isLoading ? (
+                  <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                    <Spinner /> Loading console...
+                  </p>
+                ) : consoleEvents.isError ? (
+                  <ErrorState
+                    message={
+                      consoleEvents.error instanceof Error
+                        ? consoleEvents.error.message
+                        : "Failed to load console events."
+                    }
+                    onRetry={() => consoleEvents.refetch()}
+                  />
+                ) : (
+                  <ConsoleLog
+                    events={consoleEvents.data?.events ?? []}
+                    onClear={() => clearConsole.mutate()}
+                  />
+                )
+              ) : null}
+            </ErrorBoundary>
           </div>
         </div>
       </div>

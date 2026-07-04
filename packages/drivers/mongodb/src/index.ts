@@ -20,6 +20,21 @@ const SYSTEM_DATABASES = new Set(["admin", "local", "config"]);
 /** How many documents getTable() samples to build its best-effort observed-fields list. */
 const FIELD_SAMPLE_SIZE = 100;
 
+const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
+
+/**
+ * A heavyweight query (an unindexed scan over a huge collection) would otherwise run to
+ * completion with no cap, tying up the connection and leaving the browser spinner spinning
+ * indefinitely. Applied via `maxTimeMS` on the row-fetch and field-sampling paths - the server
+ * itself enforces the cutoff, unlike mysql2's client-side timeout. Configurable via
+ * `HUMB_STATEMENT_TIMEOUT_MS` (shared env var name across engines, read at `connect()` time
+ * rather than module load so tests can override it per case).
+ */
+function resolveStatementTimeoutMs(): number {
+  const raw = Number(process.env.HUMB_STATEMENT_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STATEMENT_TIMEOUT_MS;
+}
+
 /**
  * Recursively converts BSON values that don't serialize to anything useful over JSON into values
  * that do - confirmed live (see F019's precedent) that `JSON.stringify` on a raw driver response
@@ -68,6 +83,7 @@ function normalizeDocument(document: Record<string, unknown>): Record<string, un
 export class MongodbAdapter implements DatabaseAdapter {
   public readonly engine = "mongodb";
   private client: MongoClient | undefined;
+  private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;
 
   constructor(private readonly target: ConnectionTarget) {}
 
@@ -79,6 +95,7 @@ export class MongodbAdapter implements DatabaseAdapter {
   }
 
   async connect(): Promise<void> {
+    this.statementTimeoutMs = resolveStatementTimeoutMs();
     this.client = new MongoClient(this.target.raw);
     await this.client.connect();
   }
@@ -125,7 +142,9 @@ export class MongodbAdapter implements DatabaseAdapter {
 
     // Best-effort field list from a sample, not a full scan - a schemaless collection has no
     // authoritative column list (see the spec's "Concepts that don't map 1:1 from SQL engines").
-    const sample = await collection.aggregate([{ $sample: { size: FIELD_SAMPLE_SIZE } }]).toArray();
+    const sample = await collection
+      .aggregate([{ $sample: { size: FIELD_SAMPLE_SIZE } }], { maxTimeMS: this.statementTimeoutMs })
+      .toArray();
     const fieldNames = new Set<string>();
     for (const document of sample) {
       for (const key of Object.keys(document)) fieldNames.add(key);
@@ -152,10 +171,15 @@ export class MongodbAdapter implements DatabaseAdapter {
   async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
 
+    // MongoDB gives no ordering guarantee between separate find() calls without an explicit sort -
+    // skip/limit paging can then show the same document twice or skip one entirely, especially on
+    // a collection receiving writes. Sorting by _id (always present, always ordered) makes paging
+    // deterministic and repeatable.
     const documents = await this.getClient()
       .db(schema)
       .collection(table)
-      .find()
+      .find({}, { maxTimeMS: this.statementTimeoutMs })
+      .sort({ _id: 1 })
       .skip(offset)
       .limit(safePageSize)
       .toArray();

@@ -94,7 +94,7 @@ gotchas in "Known issues / blockers").
   (verified live end-to-end against a real MongoDB container, which is also what caught the
   native-`RegExp` case - `BSONRegExp` alone wasn't enough); Postgres/MySQL/SQLite no longer
   re-export `assertReadOnly`/`ReadOnlyViolationError` verbatim. See `docs/FEATURES.json` for
-  evidence per feature. PR not yet opened as of this writing.
+  evidence per feature. PR #55 (open as of this writing).
 
 ## In progress
 

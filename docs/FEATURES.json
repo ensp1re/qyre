@@ -307,9 +307,9 @@
       "id": "F022",
       "behavior": "`GET /api/tables/:schema/:table/rows` returns a clean `400` with a readable error on invalid pagination params (e.g. `?page=abc`), matching `/api/query`'s `safeParse` pattern, instead of a `500` with a raw Zod issue dump.",
       "verification": "pnpm --filter @humbdb/server test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "de28ebd",
+      "evidence": "commit de28ebd: the rows route called rowsQuerySchema.parse(), which threw a ZodError straight into the global error handler on invalid input - since ZodError carries no statusCode, the handler's 500 default applied, with a raw stringified array of Zod issues as the message. Switched to rowsQuerySchema.safeParse, returning a clean 400 with a readable message, matching /api/query's existing pattern. pnpm --filter @humbdb/server test passes (34/34, including a new test asserting 400 - not 500 - for ?page=abc). format/lint/typecheck all pass. docs/product-specs/error-handling.md updated: corrected its stale claim that the rows route didn't have this class of bug, and added an acceptance criterion for it.",
       "blockedReason": null,
       "spec": "docs/product-specs/error-handling.md"
     },

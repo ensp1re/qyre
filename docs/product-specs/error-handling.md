@@ -36,6 +36,15 @@ way `/api/query` does), but none of them have a consistent, deliberate error-res
 this is the right time to standardize it once, server-wide, rather than patching `/api/query` alone
 and leaving the same class of bug latent in every future route.
 
+**Update (F022):** one route was missed in the original pass - `GET /api/tables/:schema/:table/rows`
+called `rowsQuerySchema.parse(request.query)`, which throws a `ZodError` straight into the global
+error handler above on invalid input (e.g. `?page=abc`). Since a `ZodError` carries no
+`statusCode`, that handler's default (500) applied, and the error's `message` is a raw stringified
+array of Zod issues - a client-input-shaped problem (400, like `/api/query`'s own `safeParse`
+handling) reported as a server fault with an unreadable body. Fixed by switching to
+`rowsQuerySchema.safeParse` and returning a clean `400`, matching `/api/query`'s existing pattern -
+the fix this spec's Scope section already calls for, just not yet applied everywhere it should be.
+
 ## Scope
 
 In scope:
@@ -83,3 +92,5 @@ Out of scope (for now):
   regress into leaking Fastify's default `{statusCode, error, message}` shape unnoticed, since there
   is now exactly one place (the global error handler) that produces error responses for anything not
   already handled by a route's own specific `catch`.
+- `GET /api/tables/:schema/:table/rows?page=abc` (or any invalid pagination param) returns a clean
+  `400` with a readable message, not a `500` with a raw Zod issue dump.

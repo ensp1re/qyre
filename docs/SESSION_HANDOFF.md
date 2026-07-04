@@ -481,15 +481,25 @@ test` (14/14: factory unit tests, the write-API source scan, and integration tes
   on `@humbdb/driver-contract`'s built `dist` at runtime (tracked tech debt,
   `docs/exec-plans/tech-debt-tracker.md`) - rebuild `@humbdb/driver-contract` before re-running the
   Postgres suite after touching `read-only.ts`, or the old behavior will silently still be in effect.
+- **F022 `passing`** (commit `de28ebd`): `GET /api/tables/:schema/:table/rows` called
+  `rowsQuerySchema.parse()`, which throws a `ZodError` straight into the global error handler on
+  invalid input (e.g. `?page=abc`). Since `ZodError` carries no `statusCode`, the handler's 500
+  default applied, with a raw stringified array of Zod issues as the message - a client-input
+  problem reported as a server fault with an unreadable body. Switched to
+  `rowsQuerySchema.safeParse`, matching `/api/query`'s existing pattern: a clean 400 with a readable
+  message. `docs/product-specs/error-handling.md` updated - corrected its stale claim that the rows
+  route didn't have this class of bug, and added an acceptance criterion for it. `pnpm --filter
+@humbdb/server test` (34/34, including a new test asserting 400 for `?page=abc`) and
+  `format:check`/`lint`/`typecheck` all pass.
 
 ## Next steps
 
-**F022-F033 are `not_started` and unprioritized among themselves** - pick one (the remaining
-Critical/security items - F023/F024/F025 - are good next picks) or ask the user which to tackle
-first; at most one may be `active` at a time. Every other feature in `docs/FEATURES.json` is
-`passing` (F001-F021, DF-01-DF-09). Before starting new work: re-read this file's "Known issues /
-blockers" (the bare `humb` npm package dispute is the one open item), or ask the user what they'd
-like next. If picking a new feature area instead, write its product spec under
-`docs/product-specs/` and add a `docs/FEATURES.json` entry before writing code (this repo's working
-contract - see `AGENTS.md`), and consider whether it warrants its own
-`docs/exec-plans/active/NNNN-*.md` plan doc if it's more than one slice.
+**F023-F033 are `not_started` and unprioritized among themselves** - pick one (the remaining
+security items - F023/F024/F025 - are good next picks) or ask the user which to tackle first; at
+most one may be `active` at a time. Every other feature in `docs/FEATURES.json` is `passing`
+(F001-F022, DF-01-DF-09). Before starting new work: re-read this file's "Known issues / blockers"
+(the bare `humb` npm package dispute is the one open item), or ask the user what they'd like next.
+If picking a new feature area instead, write its product spec under `docs/product-specs/` and add a
+`docs/FEATURES.json` entry before writing code (this repo's working contract - see `AGENTS.md`), and
+consider whether it warrants its own `docs/exec-plans/active/NNNN-*.md` plan doc if it's more than
+one slice.

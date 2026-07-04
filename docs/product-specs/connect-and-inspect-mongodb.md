@@ -62,7 +62,10 @@ Mongo's concepts are mapped rather than modeled from scratch:
   metadata (`_id` is the closest analog to a primary key and should be flagged as such via
   `isPrimaryKey`, but there is no foreign key concept to detect).
 - **"Rows" = documents.** `getRows()` returns a page of a collection's documents, each document
-  mapped into a `Record<string, unknown>` shape `RowPage` already expects. A page's **column set is
+  mapped into a `Record<string, unknown>` shape `RowPage` already expects. Pages are ordered by
+  `_id` ascending (F026) - MongoDB gives no ordering guarantee between separate `find()` calls
+  without an explicit sort, so `skip()`/`limit()` alone can show the same document twice or skip one
+  entirely across page requests, especially on a collection receiving writes. A page's **column set is
   the union of fields observed across that specific page's documents** (not just `getTable()`'s
   separate top-of-collection sample) - documents in the same collection can have different fields,
   so a fixed column set computed once at the table level could otherwise show blank columns for a

@@ -73,6 +73,23 @@ describe("MongodbAdapter integration", () => {
     }
   });
 
+  it("pages deterministically with no duplicate or skipped documents (F026 regression)", async () => {
+    // Previously: find().skip().limit() with no sort has no ordering guarantee between calls, so
+    // paging one document at a time could show the same document twice or skip one entirely.
+    const seenIds = new Set<string>();
+    for (let page = 0; page < FIXTURE.rowCount; page++) {
+      const result = await adapter.getRows(databaseName, FIXTURE.table, page, 1);
+      expect(result.rows).toHaveLength(1);
+      seenIds.add(String(result.rows[0]?._id));
+    }
+    expect(seenIds.size).toBe(FIXTURE.rowCount);
+
+    // Repeating the same page twice must return the same document both times.
+    const first = await adapter.getRows(databaseName, FIXTURE.table, 1, 1);
+    const second = await adapter.getRows(databaseName, FIXTURE.table, 1, 1);
+    expect(String(first.rows[0]?._id)).toBe(String(second.rows[0]?._id));
+  });
+
   it("renders a nested document field via the structured-cell-value shape (F016 dependency)", async () => {
     const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
     const ada = page.rows.find((row) => row.name === "Ada Lovelace");

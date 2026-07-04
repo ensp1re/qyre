@@ -152,10 +152,15 @@ export class MongodbAdapter implements DatabaseAdapter {
   async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
 
+    // MongoDB gives no ordering guarantee between separate find() calls without an explicit sort -
+    // skip/limit paging can then show the same document twice or skip one entirely, especially on
+    // a collection receiving writes. Sorting by _id (always present, always ordered) makes paging
+    // deterministic and repeatable.
     const documents = await this.getClient()
       .db(schema)
       .collection(table)
       .find()
+      .sort({ _id: 1 })
       .skip(offset)
       .limit(safePageSize)
       .toArray();

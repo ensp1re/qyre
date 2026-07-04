@@ -20,7 +20,8 @@ test("@full structured jsonb cell values open an inspector drawer, three levels 
   await setupFixture(requireTestDatabaseUrl());
 
   await page.goto("/");
-  await page.getByRole("button", { name: FIXTURE.table }).click();
+  // Tree rows are role="treeitem", not "button" (F031's accessibility fix).
+  await page.getByRole("treeitem", { name: FIXTURE.table }).click();
 
   // Level 1 (in the table): the cell is a compact chip, not a raw JSON string.
   const rowsTable = page.getByTestId("rows-table");

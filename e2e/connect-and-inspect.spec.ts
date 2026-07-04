@@ -46,7 +46,8 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
   await expect(page.getByTestId("table-detail").getByText("email")).toBeVisible();
 
   // F004: the navigation tree lists the fixture table; selecting it switches to the Tables tab.
-  const navTableButton = page.getByRole("button", { name: FIXTURE.table });
+  // Tree rows are role="treeitem", not "button" (F031's accessibility fix).
+  const navTableButton = page.getByRole("treeitem", { name: FIXTURE.table });
   await expect(navTableButton).toBeVisible();
   await navTableButton.click();
 

@@ -7,7 +7,7 @@ Validated by `scripts/check-handoff.mjs` (all sections must be present).
 
 ## Current state
 
-- Date: 2026-07-03
+- Date: 2026-07-04
 - Latest commit: see `git log --oneline -1 origin/main`
 - Build status: builds (`pnpm build`)
 - Test status: unit + integration tests pass (`pnpm test`, with `HUMB_TEST_DATABASE_URL` set); smoke
@@ -443,12 +443,25 @@ test` (14/14: factory unit tests, the write-API source scan, and integration tes
   (takes longer than Postgres to become ready on first boot); `setupMysqlFixture` from
   `@humbdb/testing` creates the e2e fixture table.
 
+- Split the two-pass project review (`SUGGESTIONS.md`, `SUGGESTIONS_2.md` - the two-pass review
+  merged in [PR #45](https://github.com/ensp1re/humb/pull/45)) into tracked work, per each file's own
+  closing reminder, then deleted both review docs. Critical/High/Medium defect findings from both
+  passes became 14 new `not_started` `docs/FEATURES.json` entries, **F020-F033** (query-runner SQL
+  corruption, read-only false-positive rejection, rows-route 500, Files-tab symlink escape,
+  connection-string redaction gap, DNS-rebinding host check, Mongo pagination stability, Schema-tab
+  fan-out, pool-error logging, health-poll dormancy, missing error boundary, schema-tree keyboard
+  a11y, missing statement timeouts, stale-cache freshness policy). The Low-priority findings from
+  both passes plus every Part B (non-defect, improvement/design) suggestion became 36 new rows in
+  `docs/exec-plans/tech-debt-tracker.md`. No product code changed this session.
+
 ## Next steps
 
-Every feature in `docs/FEATURES.json` is currently `passing` (F001-F019, DF-01-DF-09) - there is no
-queued next slice. Before starting new work: check `docs/FEATURES.json` for anything not
-`passing`, re-read this file's "Known issues / blockers" (the bare `humb` npm package dispute is
-the one open item), or ask the user what they'd like next. If picking a new feature area, write its
-product spec under `docs/product-specs/` and add a `docs/FEATURES.json` entry before writing code
-(this repo's working contract - see `AGENTS.md`), and consider whether it warrants its own
+**F020-F033 are `not_started` and unprioritized among themselves** - pick one (Critical/security
+items - F023/F024/F025 - and the correctness bugs F020-F022 are good first picks) or ask the user
+which to tackle first; at most one may be `active` at a time. Every other feature in
+`docs/FEATURES.json` is `passing` (F001-F019, DF-01-DF-09). Before starting new work: re-read this
+file's "Known issues / blockers" (the bare `humb` npm package dispute is the one open item), or ask
+the user what they'd like next. If picking a new feature area instead, write its product spec under
+`docs/product-specs/` and add a `docs/FEATURES.json` entry before writing code (this repo's working
+contract - see `AGENTS.md`), and consider whether it warrants its own
 `docs/exec-plans/active/NNNN-*.md` plan doc if it's more than one slice.

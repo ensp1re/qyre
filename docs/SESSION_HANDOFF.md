@@ -503,12 +503,21 @@ test` (14/14: factory unit tests, the write-API source scan, and integration tes
   `pnpm --filter @humbdb/server test` (37/37: 3 new cases - a symlink escaping the root is rejected,
   a symlink to another in-root file is allowed, a nonexistent path still resolves lexically) and
   `format:check`/`lint`/`typecheck` all pass.
+- **F024 `passing`** (commit `9762d70`): `redactConnectionString` only masked `url.password` (the
+  `user:pass@host` form) - `pg`/`mysql2` also accept `?password=...` in the query string, and
+  MongoDB accepts a TLS client-cert passphrase the same way, none of which was redacted (could
+  surface in `/api/health`'s `target` field, shown in the UI, and in logs). Now scans
+  `url.searchParams` for credential-shaped keys (matched case-insensitively against a
+  `password|pwd|secret|token` pattern) and masks their values. `docs/SECURITY.md`'s
+  credential-redaction bullet updated to mention query-param credentials explicitly. `pnpm --filter
+@humbdb/core test` (24/24, 4 new cases) and `pnpm --filter @humbdb/server test` (37/37, no
+  regression - rebuilt `@humbdb/core` first) both pass; `format:check`/`lint`/`typecheck` all pass.
 
 ## Next steps
 
-**F024-F033 are `not_started` and unprioritized among themselves** - pick one (the remaining
-security items - F024/F025 - are good next picks) or ask the user which to tackle first; at most one
-may be `active` at a time. Every other feature in `docs/FEATURES.json` is `passing` (F001-F023,
+**F025-F033 are `not_started` and unprioritized among themselves** - pick one (F025, the
+DNS-rebinding host check, is the last security item) or ask the user which to tackle first; at most
+one may be `active` at a time. Every other feature in `docs/FEATURES.json` is `passing` (F001-F024,
 DF-01-DF-09). Before starting new work: re-read this file's "Known issues / blockers" (the bare
 `humb` npm package dispute is the one open item), or ask the user what they'd like next. If picking
 a new feature area instead, write its product spec under `docs/product-specs/` and add a

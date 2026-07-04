@@ -80,7 +80,7 @@ gotchas in "Known issues / blockers").
   drawers share a new `useFocusTrap` hook (traps Tab, restores focus to the trigger on close); the
   Cmd/Ctrl+Enter hint is platform-aware and repeated as the Run button's `title`. Every
   fix verified live via Preview with real focus/keyboard events - see `docs/FEATURES.json` for
-  evidence per feature. PR not yet opened as of this writing.
+  evidence per feature. PR #54 (open as of this writing).
 
 ## In progress
 

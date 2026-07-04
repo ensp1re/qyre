@@ -429,7 +429,7 @@
       "verification": "pnpm --filter @humbdb/web test && pnpm --filter @humbdb/web build",
       "state": "passing",
       "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: apps/web/src/App.tsx's disconnected empty-state now lists \"Postgres, MySQL, SQLite, or MongoDB\" instead of the stale \"Postgres or SQLite\". pnpm --filter @humbdb/web build/typecheck pass. Verified live via Preview: the copy renders correctly (this is a static string change with no branching logic).",
+      "evidence": "commit bebe4ec: apps/web/src/App.tsx's disconnected empty-state now lists \"Postgres, MySQL, SQLite, or MongoDB\" instead of the stale \"Postgres or SQLite\". pnpm --filter @humbdb/web build/typecheck pass. Verified live via Preview: the copy renders correctly (this is a static string change with no branching logic). PR: https://github.com/ensp1re/humb/pull/54.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },
@@ -439,7 +439,7 @@
       "verification": "pnpm --filter @humbdb/ui test",
       "state": "passing",
       "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: toCsv (packages/ui/src/components/rows-table.tsx) now prefixes a leading apostrophe on any cell value starting with =, +, -, or @ before CSV quoting, so Excel/Sheets treats it as text instead of executing it as a formula. Added rows-table.test.ts covering quoting, formula-prefix escaping, and the non-leading-character case (3/3 passing). pnpm --filter @humbdb/ui test (24/24) passes.",
+      "evidence": "commit bebe4ec: toCsv (packages/ui/src/components/rows-table.tsx) now prefixes a leading apostrophe on any cell value starting with =, +, -, or @ before CSV quoting, so Excel/Sheets treats it as text instead of executing it as a formula. Added rows-table.test.ts covering quoting, formula-prefix escaping, and the non-leading-character case (3/3 passing). pnpm --filter @humbdb/ui test (24/24) passes. PR: https://github.com/ensp1re/humb/pull/54.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },
@@ -449,7 +449,7 @@
       "verification": "pnpm --filter @humbdb/web test",
       "state": "passing",
       "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: apps/web/src/hooks/use-rows.ts's useRows now fetches the real page plus a 1-row probe at the next page's offset ((page + 1) * PAGE_SIZE) in parallel, and returns a real hasMore boolean instead of the rows.length === pageSize heuristic (wrong exactly on an exact-page-size boundary). Verified live against the real Postgres container: created a 25-row fixture table and confirmed canGoNext reads false on its one and only page (previously true, which would have fetched an empty next page); confirmed via curl against the 10,000-row events table that page 399 (the last full page) probes false while page 398 probes true. pnpm --filter @humbdb/web build/typecheck pass.",
+      "evidence": "commit bebe4ec: apps/web/src/hooks/use-rows.ts's useRows now fetches the real page plus a 1-row probe at the next page's offset ((page + 1) * PAGE_SIZE) in parallel, and returns a real hasMore boolean instead of the rows.length === pageSize heuristic (wrong exactly on an exact-page-size boundary). Verified live against the real Postgres container: created a 25-row fixture table and confirmed canGoNext reads false on its one and only page (previously true, which would have fetched an empty next page); confirmed via curl against the 10,000-row events table that page 399 (the last full page) probes false while page 398 probes true. pnpm --filter @humbdb/web build/typecheck pass. PR: https://github.com/ensp1re/humb/pull/54.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },
@@ -459,7 +459,7 @@
       "verification": "pnpm --filter @humbdb/ui test",
       "state": "passing",
       "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: schema-tree.tsx shows \"keep typing - search needs 2+ characters\" when the trimmed query is exactly 1 character, instead of silently rendering the unfiltered tree. Verified live via Preview: typing a single character shows the hint; clearing or typing a second character restores normal search/tree behavior. pnpm --filter @humbdb/ui test passes.",
+      "evidence": "commit bebe4ec: schema-tree.tsx shows \"keep typing - search needs 2+ characters\" when the trimmed query is exactly 1 character, instead of silently rendering the unfiltered tree. Verified live via Preview: typing a single character shows the hint; clearing or typing a second character restores normal search/tree behavior. pnpm --filter @humbdb/ui test passes. PR: https://github.com/ensp1re/humb/pull/54.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },
@@ -469,7 +469,7 @@
       "verification": "pnpm --filter @humbdb/ui test",
       "state": "passing",
       "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: the schema tree's connection row now renders CircleCheck/CircleAlert/Circle (connected/disconnected/unconfigured) with aria-label=\"Connection status: <label>\" instead of a single Circle colored via STATUS_DOT_COLOR alone, so color-blind users get a distinct shape plus a screen-reader label. Verified live via Preview: confirmed the rendered icon carries role=\"img\" and the expected aria-label for a connected session. pnpm --filter @humbdb/ui test passes.",
+      "evidence": "commit bebe4ec: the schema tree's connection row now renders CircleCheck/CircleAlert/Circle (connected/disconnected/unconfigured) with aria-label=\"Connection status: <label>\" instead of a single Circle colored via STATUS_DOT_COLOR alone, so color-blind users get a distinct shape plus a screen-reader label. Verified live via Preview: confirmed the rendered icon carries role=\"img\" and the expected aria-label for a connected session. pnpm --filter @humbdb/ui test passes. PR: https://github.com/ensp1re/humb/pull/54.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },
@@ -479,7 +479,7 @@
       "verification": "pnpm --filter @humbdb/ui test",
       "state": "passing",
       "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: a new shared useFocusTrap hook (packages/ui/src/use-focus-trap.ts) traps Tab/Shift+Tab within a container while active and restores focus to whatever had it beforehand on close; wired into both CellValueDrawer and QueryHistoryDrawer (each aside gets tabIndex=-1 as a focus fallback). Verified live via Preview with real focus + keyboard events (synthetic .click() alone doesn't move focus the way a real user click does, so the test explicitly focused the trigger first): opening either drawer moves focus to its first control, Tab/Shift+Tab wrap at the last/first focusable element, and closing restores focus to the original trigger (History button / inspected cell chip). pnpm --filter @humbdb/ui test passes.",
+      "evidence": "commit bebe4ec: a new shared useFocusTrap hook (packages/ui/src/use-focus-trap.ts) traps Tab/Shift+Tab within a container while active and restores focus to whatever had it beforehand on close; wired into both CellValueDrawer and QueryHistoryDrawer (each aside gets tabIndex=-1 as a focus fallback). Verified live via Preview with real focus + keyboard events (synthetic .click() alone doesn't move focus the way a real user click does, so the test explicitly focused the trigger first): opening either drawer moves focus to its first control, Tab/Shift+Tab wrap at the last/first focusable element, and closing restores focus to the original trigger (History button / inspected cell chip). pnpm --filter @humbdb/ui test passes. PR: https://github.com/ensp1re/humb/pull/54.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },
@@ -489,7 +489,7 @@
       "verification": "pnpm --filter @humbdb/web test && pnpm --filter @humbdb/ui test",
       "state": "passing",
       "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: query-runner.tsx's shortcut hint is now platform-aware (\u2318 Enter on Mac, Ctrl Enter elsewhere via navigator.platform), rendered as a bordered chip, and repeated as the Run button's title attribute so it's discoverable via hover, not only the one small always-visible label. Audited the app's other loading states (rows/tables/files/console) and found they already pair a Spinner with a specific noun (e.g. \"Loading rows...\"), not bare \"Loading...\" text, so no further change was needed there. Verified live via Preview at a desktop viewport width: the chip renders and the Run button's title reads \"Run query (\u2318 Enter)\". pnpm --filter @humbdb/web build/typecheck pass.",
+      "evidence": "commit bebe4ec: query-runner.tsx's shortcut hint is now platform-aware (\u2318 Enter on Mac, Ctrl Enter elsewhere via navigator.platform), rendered as a bordered chip, and repeated as the Run button's title attribute so it's discoverable via hover, not only the one small always-visible label. Audited the app's other loading states (rows/tables/files/console) and found they already pair a Spinner with a specific noun (e.g. \"Loading rows...\"), not bare \"Loading...\" text, so no further change was needed there. Verified live via Preview at a desktop viewport width: the chip renders and the Run button's title reads \"Run query (\u2318 Enter)\". pnpm --filter @humbdb/web build/typecheck pass. PR: https://github.com/ensp1re/humb/pull/54.",
       "blockedReason": null,
       "spec": "docs/product-specs/sql-editor.md"
     },

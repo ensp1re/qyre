@@ -100,15 +100,20 @@ export async function setupFixture(connectionString: string): Promise<void> {
     await client.query("SELECT pg_advisory_lock($1)", [FIXTURE_LOCK_KEY]);
     try {
       await client.query(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
+      // `profile` is jsonb, nullable, only populated for one row - exercises F016's expandable
+      // cell viewer (nested three levels deep: object -> object -> array) without needing a
+      // second table, which would make the Schema tab show 2 table-detail cards and break
+      // connect-and-inspect.spec.ts's singular assertion under concurrent @full specs.
       await client.query(`CREATE TABLE ${FIXTURE.table} (
          id serial PRIMARY KEY,
          name text NOT NULL,
-         email text NOT NULL
+         email text NOT NULL,
+         profile jsonb
        )`);
-      await client.query(`INSERT INTO ${FIXTURE.table} (name, email) VALUES
-         ('Ada Lovelace', 'ada@example.com'),
-         ('Alan Turing', 'alan@example.com'),
-         ('Grace Hopper', 'grace@example.com')`);
+      await client.query(`INSERT INTO ${FIXTURE.table} (name, email, profile) VALUES
+         ('Ada Lovelace', 'ada@example.com', '{"account":{"tags":["admin","beta"]}}'),
+         ('Alan Turing', 'alan@example.com', NULL),
+         ('Grace Hopper', 'grace@example.com', NULL)`);
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [FIXTURE_LOCK_KEY]);
     }

@@ -25,17 +25,26 @@ explore (expand/collapse nested structure), not a raw JSON string crammed into a
 
 ## Behavior
 
+Revised after the first implementation: inline expansion inside the cell blew up row heights and
+broke the table layout in practice (user feedback), so the viewer moved to a drawer - the cell
+itself now never changes size.
+
 - A cell whose value is a plain string, number, boolean, or `null`/`undefined` renders exactly as
   today (`formatCell`'s existing primitive path is unchanged).
-- A cell whose value is an object or array renders as a compact, expandable summary (e.g.
-  `{ 3 keys }` or `[ 5 items ]`) that expands inline on click to show its structure - keys/values or
-  array items - recursively, so a nested object inside a nested object is still explorable rather
-  than falling back to a JSON string once you're more than one level deep.
-- Expansion state is local to that cell/render (not persisted across reloads or synced anywhere) -
-  this is a viewer, not new application state.
+- A cell whose value is an object or array renders as a compact, single-line summary chip (e.g.
+  `{ 3 keys }` or `[ 5 items ]`) plus a dimmed, truncated one-line JSON preview, so rows with
+  different content are distinguishable at a glance - and the row never grows. Clicking the chip
+  opens a right-anchored inspector drawer (following the query-history drawer's pattern) showing
+  the value as an expandable tree - keys/values or array items - recursively, so a nested object
+  inside a nested object is still explorable rather than falling back to a JSON string once you're
+  more than one level deep. The drawer shows the source column name and offers copy-as-JSON (with
+  visible confirmation); it closes via its close button, the backdrop, or Esc.
+- Expansion state is local to that drawer instance (not persisted across reloads or synced
+  anywhere) - this is a viewer, not new application state.
 - Values that are themselves very large (e.g. a huge array or deeply nested document) should not
-  freeze the UI - render collapsed by default and only build the expanded view when the developer
-  actually expands it, rather than eagerly rendering every nested level up front.
+  freeze the UI - the drawer opens with only the root level expanded and builds deeper levels
+  lazily when the developer actually expands them, rather than eagerly rendering every nested
+  level up front.
 
 ## Scope
 
@@ -49,17 +58,18 @@ In scope:
 
 Out of scope (for now):
 
-- A dedicated full-screen/modal "document viewer" beyond the inline expandable cell - a legitimate
-  future enhancement if inline expansion proves too cramped for genuinely large documents, but not
-  required to prove the concept.
 - Search/filter within a single expanded document's fields.
+- Editing anything from the drawer (matches the read-only posture; copy-as-JSON is the only
+  affordance beyond viewing).
 
 ## Acceptance criteria
 
-- A Postgres table with a `jsonb` column showing a nested object renders that cell as an expandable
-  summary, not a raw JSON string, in both the Tables tab and a SQL Editor query result.
-- Expanding a cell reveals its nested keys/values (or array items); expanding a nested value within
-  that reveals further levels, to at least 3 levels deep without falling back to flat text.
+- A Postgres table with a `jsonb` column showing a nested object renders that cell as a compact
+  summary chip, not a raw JSON string, in both the Tables tab and a SQL Editor query result - and
+  the row's height stays single-line regardless of the value's size.
+- Clicking the chip opens the inspector drawer; expanding a nested value there reveals further
+  levels, to at least 3 levels deep without falling back to flat text. Closing the drawer returns
+  to the untouched table.
 - A primitive-valued cell (string/number/boolean/null) is visually unchanged from today.
 - Rendering a table page containing several structured-value cells does not visibly block the UI
-  (no long synchronous render pause) even before any cell is expanded.
+  (no long synchronous render pause) even before any drawer is opened.

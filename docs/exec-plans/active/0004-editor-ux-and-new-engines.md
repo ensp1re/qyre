@@ -4,9 +4,12 @@ Status: Active
 Owner: unassigned
 Linked features: F012, F017, F013, F014, F015, F016 (`docs/FEATURES.json`)
 
-F018 is a related but separate bug fix (not one of this plan's six slices) - found live while the
-user was trying F013, tracked in `docs/FEATURES.json` and `docs/product-specs/sql-editor.md`'s new
-"Double-quoted string values" section. See the progress log below.
+F018 and F019 are related but separate bug fixes (not among this plan's six slices). F018 was found
+live while the user was trying F013, tracked in `docs/FEATURES.json` and
+`docs/product-specs/sql-editor.md`'s new "Double-quoted string values" section. F019 was prompted
+by the user asking to systematically test every column type across all three engines while F016
+was fresh, tracked in `docs/FEATURES.json` and `docs/product-specs/column-type-fidelity.md`. See
+the progress log below.
 
 ## Objective
 
@@ -169,6 +172,44 @@ department="Support"` failed with `column "Support" does not exist`. Not a Humb 
   and a reproduced `setupSqliteFixture` concurrency race once total Playwright parallelism went up
   (fixed the same way F012 fixed the analogous Postgres race). Next up: F016 (structured-cell
   viewer).
+- 2026-07-03: Implemented F016 (commit `070f995`) - see `FEATURES.json`'s evidence for full detail.
+  New `CellValue` component (`packages/ui/src/components/cell-value.tsx`) replaces `formatCell`'s
+  flat-text rendering in `RowsTable`/`QueryRunner` for object/array values with a recursive,
+  lazily-expanding tree. Found and fixed two real bugs during live/e2e verification, not just a
+  coverage gap: (1) the original plan for verifying against "a Postgres jsonb fixture column"
+  turned into a second fixture _table_ on the first pass, which made the Schema tab render two
+  table-detail cards and broke `connect-and-inspect.spec.ts`'s singular-card assertion under
+  concurrent `@full` specs - fixed by adding the jsonb column to the existing shared
+  `humb_demo_users` fixture instead (populated for one row only); (2) a primitive value nested
+  inside an expanded structured value rendered as a bare text node with no element boundary of its
+  own (indistinguishable from its sibling key label to Playwright or any other DOM consumer) - fixed
+  by wrapping `CellValue`'s primitive branch in its own `<span>`. Next up: F015 (MongoDB).
+- 2026-07-03: F016 redesigned (commit `57fd354`) after user feedback that the inline expansion
+  broke the table layout (row heights blew up, "not comfortable and not user friendly") - the
+  exact outcome the spec's original out-of-scope note anticipated. The cell is now a compact
+  single-line chip that never grows the row; clicking it opens a new right-anchored
+  `CellValueDrawer` (`QueryHistoryDrawer`'s pattern) with the expandable tree, syntax-colored
+  primitives, the source column name, and copy-as-JSON. Spec's Behavior/Acceptance sections
+  revised to match; e2e spec now walks chip -> drawer -> three levels -> close. Still next up:
+  F015 (MongoDB).
+- 2026-07-03: F016 polish (commit `16dfd4b`) after the user asked whether chip + drawer is the
+  best-in-class UX: the pattern matched Supabase/TablePlus/DataGrip already, but three gaps
+  didn't - identical `{ N keys }` chips made rows indistinguishable without opening each drawer
+  (fixed: dimmed truncated JSON preview in the chip, capped at 80 chars/280px), no Esc-to-close
+  (fixed), and no copy confirmation (fixed: green check flash). Deliberately not added, possible
+  future follow-ups: a raw-JSON/tree view toggle in the drawer, search within a document, and
+  keeping the drawer pinned while clicking between cells.
+- 2026-07-03: User asked to systematically test every column type across all three engines while
+  F016 was fresh, not just JSON - scoped and implemented as F019 (commit `f850c43`), tracked
+  separately from this plan's six slices (same precedent as F018). Seeded a wide-type fixture
+  table against live Postgres/MySQL/SQLite and inspected actual JSON responses rather than
+  assuming driver defaults were safe - found and fixed three real defect categories (date/timestamp
+  timezone shift in Postgres+MySQL, BIGINT precision loss in MySQL+SQLite, confusing binary-value
+  rendering in all three) - see `docs/product-specs/column-type-fidelity.md` and F019's
+  `FEATURES.json` evidence for full detail, including two second-order regressions caught before
+  shipping (MySQL's blanket `bigNumberStrings` broke `ping()`/`rowCount`; SQLite's database-wide
+  `defaultSafeIntegers` would have broken internal pragma comparisons the same way). Still next up:
+  F015 (MongoDB).
 
 ## Open decisions
 

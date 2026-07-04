@@ -15,9 +15,20 @@ import type {
 } from "@humbdb/core";
 import { assertReadOnly, resolvePageRequest } from "@humbdb/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
-import { Pool } from "pg";
+import { Pool, types } from "pg";
 
 export { assertReadOnly, ReadOnlyViolationError } from "@humbdb/driver-contract";
+
+// pg's default parsers for `date` (OID 1082) and `timestamp without time zone` (OID 1114) build a
+// JS Date at local midnight/local wall-clock time, which then serializes to a shifted UTC instant
+// once Fastify JSON-encodes the response - e.g. a `date` of 2024-01-15 comes back as
+// "2024-01-14T22:00:00.000Z" on a UTC+2 server, the wrong calendar date entirely. Returning the raw
+// wire string instead sidesteps that round trip; `timestamptz` (1184) is untouched since it's
+// genuinely an absolute instant and converts to UTC correctly. This is a `pg`-module-wide setting
+// (types.setTypeParser has no per-Pool scope), acceptable since @humbdb/postgres is the only
+// consumer of this `pg` instance.
+types.setTypeParser(types.builtins.DATE, (value) => value);
+types.setTypeParser(types.builtins.TIMESTAMP, (value) => value);
 
 const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
 

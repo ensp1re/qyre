@@ -83,7 +83,32 @@ export class MysqlAdapter implements DatabaseAdapter {
   }
 
   async connect(): Promise<void> {
-    this.pool = mysql.createPool(this.target.raw);
+    this.pool = mysql.createPool({
+      uri: this.target.raw,
+      // Without `dateStrings`, mysql2 returns DATE/DATETIME/TIMESTAMP as JS Date objects built in
+      // the server's local time zone, which then serialize to a UTC instant shifted by that offset
+      // once Fastify JSON-encodes the response (confirmed live: a stored 2024-01-15 came back as
+      // "2024-01-14T22:00:00.000Z" on a UTC+2 server - the wrong calendar date). Raw strings
+      // sidestep that round trip, matching @humbdb/postgres's date/timestamp type-parser fix.
+      dateStrings: true,
+      // Without this, mysql2 returns every BIGINT-family (LONGLONG) value as a plain JS number,
+      // silently losing precision past Number.MAX_SAFE_INTEGER (confirmed live: a stored
+      // 9007199254740993 came back as 9007199254740992, off by one). The built-in
+      // `bigNumberStrings` option fixes that but stringifies by *type*, not magnitude - every
+      // LONGLONG field becomes a string even when small, including COUNT(*) and `SELECT 1`
+      // (confirmed live: broke ping()'s `=== 1` check and getTable()'s rowCount). This typeCast
+      // only stringifies when the actual value exceeds what a JS number can hold exactly, matching
+      // @humbdb/sqlite's normalizeRow and @humbdb/postgres/pg's native bigint-as-string behavior.
+      typeCast: (field, next) => {
+        if (field.type === "LONGLONG") {
+          const raw = field.string();
+          if (raw === null) return null;
+          const value = Number(raw);
+          return Number.isSafeInteger(value) ? value : raw;
+        }
+        return next();
+      }
+    });
     // Mirrors @humbdb/postgres's pool.on("error", ...): without a listener, an idle connection
     // dropped by the database (restart, network blip) would otherwise crash the whole process
     // instead of /api/health degrading to "disconnected" - see ARCHITECTURE.md's engine checklist

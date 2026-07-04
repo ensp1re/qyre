@@ -317,9 +317,9 @@
       "id": "F023",
       "behavior": "`GET /api/files/content` re-validates the *real* (symlink-resolved) path against the Files-tab root, not just the lexical path, so a symlink inside `--files-dir` can no longer be used to read a file outside the configured root.",
       "verification": "pnpm --filter @humbdb/server test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "65171f3",
+      "evidence": "commit 65171f3: resolveSqlFilePath only validated the lexical path, never the real one - a symlink inside --files-dir pointing outside it passed the lexical check and was readable, contradicting the security-boundary doc's no-symlink-following guarantee (which the tree walk already had, but the content-read endpoint never did). Fixed by resolving the path with realpathSync after the lexical check and re-asserting the result still starts within the root's own realpathSync'd form; a not-yet-existing path is left as-is since the caller's existsSync/statSync check already 404s it. pnpm --filter @humbdb/server test passes (37/37: 3 new cases - a symlink escaping the root is rejected, a symlink to another in-root file is allowed, a nonexistent path still resolves lexically for the caller's 404 path). format/lint/typecheck all pass. docs/product-specs/dashboard-ui.md's Files tab security boundary section updated to describe real-path validation, not just lexical.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },

@@ -24,6 +24,7 @@
       "@humbdb/postgres": ["./packages/drivers/postgres/src/index.ts"],
       "@humbdb/sqlite": ["./packages/drivers/sqlite/src/index.ts"],
       "@humbdb/mysql": ["./packages/drivers/mysql/src/index.ts"],
+      "@humbdb/mongodb": ["./packages/drivers/mongodb/src/index.ts"],
       "@humbdb/server": ["./packages/server/src/index.ts"],
       "@humbdb/ui": ["./packages/ui/src/index.tsx"],
       "@humbdb/testing": ["./packages/testing/src/index.ts"]

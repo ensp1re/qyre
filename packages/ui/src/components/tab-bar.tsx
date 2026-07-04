@@ -15,10 +15,13 @@ const TABS: { id: ShellTab; label: string; icon: LucideIcon }[] = [
 export interface TabBarProps {
   active: ShellTab;
   onChange: (tab: ShellTab) => void;
+  /** Tabs the caller has disabled, mapped to a reason shown as a tooltip (e.g. "not available for
+   * this engine") - unclickable rather than silently accepting an action that can never work. */
+  disabledTabs?: Partial<Record<ShellTab, string>>;
 }
 
 /** The IDE-style tab strip switching between the shell's five content panes. */
-export function TabBar({ active, onChange }: TabBarProps): ReactNode {
+export function TabBar({ active, onChange, disabledTabs = {} }: TabBarProps): ReactNode {
   return (
     <div
       role="tablist"
@@ -26,18 +29,24 @@ export function TabBar({ active, onChange }: TabBarProps): ReactNode {
     >
       {TABS.map(({ id, label, icon: Icon }) => {
         const isActive = id === active;
+        const disabledReason = disabledTabs[id];
         return (
           <button
             key={id}
             type="button"
             role="tab"
             aria-selected={isActive}
+            aria-disabled={Boolean(disabledReason)}
+            disabled={Boolean(disabledReason)}
+            title={disabledReason}
             onClick={() => onChange(id)}
             className={cn(
               "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-[3px] px-3 py-1.5 text-[11px] font-medium transition-colors",
-              isActive
-                ? "-mb-px border border-border border-b-background bg-background text-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              disabledReason
+                ? "cursor-not-allowed text-muted-foreground/40"
+                : isActive
+                  ? "-mb-px border border-border border-b-background bg-background text-foreground"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
             )}
           >
             <Icon className="h-3 w-3" />

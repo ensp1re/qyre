@@ -78,11 +78,19 @@ is fixed at CLI startup, not per-request:
   the `path` query value is untrusted client input even though the root is fixed. Reject any path
   containing a `..` segment outright, require the extension to be `.sql`, then resolve it against
   the root and require the resolved absolute path to still start with the root - this is what
-  actually stops traversal, not the extension check alone. A rejected path is a `400`, matching
-  F006's precedent for query-runner rejections (a client mistake, not a server fault).
-- **No symlink following**: the tree walk classifies entries via `fs.Dirent.isDirectory()`/
-  `isFile()`, which do not resolve symlinks - a symlink anywhere under the root (in either direction)
-  is silently excluded from the tree rather than followed, so it can't be used to escape the root.
+  actually stops lexical traversal, not the extension check alone. A rejected path is a `400`,
+  matching F006's precedent for query-runner rejections (a client mistake, not a server fault).
+- **No symlink following, on the tree _and_ the content-read endpoint (F023)**: the tree walk
+  classifies entries via `fs.Dirent.isDirectory()`/`isFile()`, which do not resolve symlinks - a
+  symlink anywhere under the root (in either direction) is silently excluded from the tree rather
+  than followed. The content-read endpoint reads whatever path it's given, though, so a symlink
+  _inside_ the root pointing outside it - pre-existing, or created by anything with filesystem
+  write access - could still be read even though the lexical check above passed (that check only
+  sees the symlink's own in-root path, not where it points). `resolveSqlFilePath` closes this:
+  after the lexical check, it resolves the path with `realpathSync` (following every symlink in the
+  chain) and re-asserts the result still starts with the root's own `realpathSync`'d form before
+  the caller ever reads it. A path that doesn't exist yet is left as-is - nothing to resolve, and
+  the caller's existing 404 handling covers it.
 - **Why this shape**: Humb's server has no auth and binds to localhost only (`docs/SECURITY.md`'s
   local-first boundary), so the real threat isn't another user on the machine - it's a malicious or
   compromised web page in the same browser making an unauthenticated request to

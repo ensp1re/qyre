@@ -3,7 +3,7 @@
  * documented in docs/product-specs/dashboard-ui.md's "Files tab security boundary" section - read
  * that before changing this file.
  */
-import { readdirSync } from "node:fs";
+import { readdirSync, realpathSync } from "node:fs";
 import { extname, join, relative, resolve, sep } from "node:path";
 import type { FileNode } from "@humbdb/core";
 
@@ -74,5 +74,24 @@ export function resolveSqlFilePath(rootDir: string, relativePath: string): strin
     throw new InvalidFilePathError("Path escapes the files directory.");
   }
 
-  return absolutePath;
+  // The lexical check above stops `..` traversal, but not a symlink inside rootDir whose target
+  // resolves outside it - buildFileTree excludes symlinks from listings, but this endpoint reads
+  // whatever path it's given, so a pre-existing (or attacker-created) symlink would otherwise
+  // bypass the boundary. realpathSync follows every symlink in the path; re-checking the result
+  // against the real (also symlink-resolved) root catches that. A path that doesn't exist yet has
+  // nothing to resolve - the caller's existsSync/statSync check handles that as a 404, not a
+  // security concern, so it's not an error here.
+  let realAbsolutePath: string;
+  try {
+    realAbsolutePath = realpathSync(absolutePath);
+  } catch {
+    return absolutePath;
+  }
+  const realRootDir = realpathSync(rootDir);
+  const realRootWithSep = realRootDir.endsWith(sep) ? realRootDir : realRootDir + sep;
+  if (!realAbsolutePath.startsWith(realRootWithSep)) {
+    throw new InvalidFilePathError("Path escapes the files directory.");
+  }
+
+  return realAbsolutePath;
 }

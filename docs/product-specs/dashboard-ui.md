@@ -36,7 +36,11 @@ A single-page app shell:
 - **Tables**: paginated row browser (ports `RowsTable`) with client-side search/sort over the
   fetched page. No write affordances (see "Out of scope").
 - **Schema**: a grid of table cards, each showing its columns with PK/FK badges - a full-database
-  overview, distinct from the existing single-table `TableDetail`.
+  overview, distinct from the existing single-table `TableDetail`. Backed by one batched
+  `GET /api/tables` request (F027) that returns every table's metadata in a single response,
+  instead of the browser fanning one request out per table - the previous shape didn't scale to
+  schemas with hundreds of tables (hundreds of concurrent requests, each running its own catalog
+  queries). The per-table catalog query count itself is unchanged (tracked separately as tech debt).
 - **Files**: a read-only browser for SQL-related files near the launch target (saved queries,
   migrations if present) - **not yet backed by any API**; needs a new, carefully-scoped read-only
   filesystem endpoint (see "Backend gaps").

@@ -58,7 +58,7 @@ export function App(): ReactNode {
   const isMongo = overview.data?.engine === "mongodb";
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page);
-  const allTables = useAllTables(overview.data?.schemas);
+  const allTables = useAllTables({ enabled: status === "connected" });
   const tableNames = (overview.data?.schemas ?? []).flatMap((schema) => schema.tables);
   const filesOverview = useFilesOverview({ enabled: status === "connected" });
   const fileContent = useFileContent(selectedFilePath);
@@ -76,6 +76,7 @@ export function App(): ReactNode {
     void refetchHealth();
     if (status === "connected") {
       void overview.refetch();
+      void allTables.refetch();
       void filesOverview.refetch();
       void consoleEvents.refetch();
     }

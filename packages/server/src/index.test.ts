@@ -79,6 +79,40 @@ describe("createServer", () => {
     await app.close();
   });
 
+  it("returns every table's metadata in one request (F027)", async () => {
+    const adapter: DatabaseAdapter = {
+      engine: "postgres",
+      connect: async () => {},
+      disconnect: async () => {},
+      ping: async () => true,
+      getVersion: async () => "PostgreSQL 16.0",
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [{ name: "public", tables: ["a", "b"] }]
+      }),
+      getTable: async (schema, table) => ({ schema, name: table, columns: [] }),
+      getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
+      runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
+    };
+    const app = createServer({ adapter });
+    const response = await app.inject({ method: "GET", url: "/api/tables" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      tables: [
+        { schema: "public", name: "a", columns: [] },
+        { schema: "public", name: "b", columns: [] }
+      ]
+    });
+    await app.close();
+  });
+
+  it("returns 503 for /api/tables when no adapter is configured", async () => {
+    const app = createServer();
+    const response = await app.inject({ method: "GET", url: "/api/tables" });
+    expect(response.statusCode).toBe(503);
+    await app.close();
+  });
+
   it("returns 503 for data endpoints when no adapter is configured", async () => {
     const app = createServer();
     const response = await app.inject({ method: "GET", url: "/api/overview" });

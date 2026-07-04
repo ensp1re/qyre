@@ -357,7 +357,7 @@
       "id": "F027",
       "behavior": "Opening the Schema tab issues one (or a few batched) lightweight server request(s) for per-table summaries instead of fanning `useAllTables` out into one HTTP request plus several catalog queries per table, so it scales to schemas with hundreds of tables.",
       "verification": "pnpm --filter @humbdb/server test && pnpm --filter @humbdb/web test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

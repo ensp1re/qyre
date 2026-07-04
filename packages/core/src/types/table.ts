@@ -23,3 +23,11 @@ export interface TableMetadata {
   readonly indexes?: IndexMetadata[];
   readonly rowCount?: number;
 }
+
+/**
+ * Every table's metadata across every schema in one response - backs the Schema tab (F027) so the
+ * browser makes one request instead of fanning one out per table.
+ */
+export interface AllTablesResponse {
+  readonly tables: TableMetadata[];
+}

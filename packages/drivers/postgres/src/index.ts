@@ -17,8 +17,6 @@ import { assertReadOnly, resolvePageRequest } from "@humbdb/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
 import { Pool, types } from "pg";
 
-export { assertReadOnly, ReadOnlyViolationError } from "@humbdb/driver-contract";
-
 // pg's default parsers for `date` (OID 1082) and `timestamp without time zone` (OID 1114) build a
 // JS Date at local midnight/local wall-clock time, which then serializes to a shifted UTC instant
 // once Fastify JSON-encodes the response - e.g. a `date` of 2024-01-15 comes back as

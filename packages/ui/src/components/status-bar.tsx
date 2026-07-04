@@ -8,6 +8,10 @@ export interface StatusBarProps {
   engineVersion?: string | null;
   schema?: string;
   lastQueryMs?: number;
+  /** Round-trip time of the health check this status is based on, in ms (F042). */
+  pingLatencyMs?: number | null;
+  /** The most recent ping failure's error message, shown as a tooltip while disconnected (F042). */
+  lastError?: string | null;
 }
 
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
@@ -32,14 +36,24 @@ export function StatusBar({
   engine,
   engineVersion,
   schema,
-  lastQueryMs
+  lastQueryMs,
+  pingLatencyMs,
+  lastError
 }: StatusBarProps): ReactNode {
   const engineLabel = engineVersion ?? engine;
+  const statusTitle =
+    status === "disconnected" && lastError
+      ? lastError
+      : pingLatencyMs != null
+        ? `ping ${pingLatencyMs}ms`
+        : undefined;
 
   return (
     <footer className="flex h-6 shrink-0 items-center justify-between gap-3 border-t border-border bg-sidebar px-3 sm:px-4 font-mono text-[10px]">
       <div className="flex min-w-0 items-center gap-3 text-muted-foreground/60">
-        <span style={{ color: STATUS_COLOR[status] }}>{STATUS_LABEL[status]}</span>
+        <span style={{ color: STATUS_COLOR[status] }} title={statusTitle}>
+          {STATUS_LABEL[status]}
+        </span>
         {engineLabel && (
           <>
             <Separator />

@@ -1,8 +1,14 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
-import { defaultWebRoot, parseArgs, resolveFilesRoot, resolvePort } from "./index.js";
+import { describe, expect, it, vi } from "vitest";
+import {
+  createShutdownHandler,
+  defaultWebRoot,
+  parseArgs,
+  resolveFilesRoot,
+  resolvePort
+} from "./index.js";
 
 describe("parseArgs", () => {
   it("parses a target argument", () => {
@@ -53,6 +59,72 @@ describe("resolveFilesRoot", () => {
 
   it("returns undefined when no --files-dir flag was given", () => {
     expect(resolveFilesRoot(undefined, "/home/user/project")).toBeUndefined();
+  });
+});
+
+describe("createShutdownHandler", () => {
+  it("closes the server and adapter, then exits 0 on success", async () => {
+    const close = vi.fn().mockResolvedValue(undefined);
+    const disconnect = vi.fn().mockResolvedValue(undefined);
+    const exit = vi.fn();
+    const log = vi.fn();
+    const shutdown = createShutdownHandler({ close, disconnect, exit, log });
+
+    await shutdown();
+
+    expect(close).toHaveBeenCalledOnce();
+    expect(disconnect).toHaveBeenCalledOnce();
+    expect(exit).toHaveBeenCalledWith(0);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("exits 1 and logs the reason when teardown throws", async () => {
+    const close = vi.fn().mockRejectedValue(new Error("pool is wedged"));
+    const disconnect = vi.fn().mockResolvedValue(undefined);
+    const exit = vi.fn();
+    const log = vi.fn();
+    const shutdown = createShutdownHandler({ close, disconnect, exit, log });
+
+    await shutdown();
+
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("pool is wedged"));
+    expect(disconnect).not.toHaveBeenCalled();
+  });
+
+  it("exits 1 once teardown exceeds the configured timeout, instead of hanging forever", async () => {
+    const close = vi.fn(() => new Promise<void>(() => {})); // never resolves
+    const disconnect = vi.fn().mockResolvedValue(undefined);
+    const exit = vi.fn();
+    const log = vi.fn();
+    const shutdown = createShutdownHandler({ close, disconnect, exit, log, timeoutMs: 10 });
+
+    await shutdown();
+
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("did not complete within 10ms"));
+  });
+
+  it("ignores a second signal while teardown is already in flight (re-entrancy guard)", async () => {
+    let resolveClose: () => void = () => {};
+    const close = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveClose = resolve;
+        })
+    );
+    const disconnect = vi.fn().mockResolvedValue(undefined);
+    const exit = vi.fn();
+    const log = vi.fn();
+    const shutdown = createShutdownHandler({ close, disconnect, exit, log });
+
+    const first = shutdown();
+    const second = shutdown();
+    resolveClose();
+    await Promise.all([first, second]);
+
+    expect(close).toHaveBeenCalledOnce();
+    expect(exit).toHaveBeenCalledOnce();
   });
 });
 

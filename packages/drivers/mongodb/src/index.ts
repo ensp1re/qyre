@@ -13,7 +13,19 @@ import type {
 } from "@humbdb/core";
 import { resolvePageRequest } from "@humbdb/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
-import { Binary, Decimal128, Long, MongoClient, ObjectId } from "mongodb";
+import {
+  Binary,
+  BSONRegExp,
+  BSONSymbol,
+  Code,
+  Decimal128,
+  Long,
+  MaxKey,
+  MinKey,
+  MongoClient,
+  ObjectId,
+  Timestamp
+} from "mongodb";
 
 const SYSTEM_DATABASES = new Set(["admin", "local", "config"]);
 
@@ -45,9 +57,19 @@ function resolveStatementTimeoutMs(): number {
  * so none of F019's Postgres/MySQL timezone-shift bug applies here) and are left untouched.
  * `Binary` converts to the same `{ type: "Buffer", data: [...] }` shape Node's own
  * `Buffer.prototype.toJSON()` produces, reusing F019's existing binary-value chip/hex-dump viewer
- * in `packages/ui` instead of inventing a second, inconsistent binary representation.
+ * in `packages/ui` instead of inventing a second, inconsistent binary representation. `Timestamp`,
+ * `Code`, `BSONRegExp`, `MinKey`, `MaxKey`, and `BSONSymbol` (F045) each get a dedicated branch
+ * instead of falling through to the generic object branch, which used to dump their internal
+ * fields verbatim (e.g. a `Timestamp` - which subclasses `Long` - would otherwise be misread as a
+ * signed 64-bit integer, destroying its `{t, i}` replication-timestamp semantics).
  */
-function normalizeBsonValue(value: unknown): unknown {
+export function normalizeBsonValue(value: unknown): unknown {
+  // Timestamp subclasses Long (a BSON quirk, not a real 64-bit counter) - it must be checked before
+  // the Long branch below, or its {t, i} replication-timestamp semantics get destroyed by Long's
+  // signed-64-bit-integer normalization.
+  if (value instanceof Timestamp) {
+    return { t: value.getHighBits() >>> 0, i: value.getLowBits() >>> 0 };
+  }
   if (value instanceof Long) {
     const big = value.toBigInt();
     return big >= BigInt(Number.MIN_SAFE_INTEGER) && big <= BigInt(Number.MAX_SAFE_INTEGER)
@@ -62,6 +84,28 @@ function normalizeBsonValue(value: unknown): unknown {
   }
   if (value instanceof ObjectId || value instanceof Date) {
     return value;
+  }
+  if (value instanceof Code) {
+    return { code: value.code, scope: value.scope ? normalizeBsonValue(value.scope) : undefined };
+  }
+  if (value instanceof BSONRegExp) {
+    return { pattern: value.pattern, options: value.options };
+  }
+  // The driver decodes a BSON regex into a native RegExp by default (only kept as BSONRegExp with
+  // the bsonRegExp: true client option, which this adapter doesn't set) - without this branch it
+  // fell through to the generic object branch, which reads no own enumerable properties off a
+  // RegExp (source/flags are prototype getters) and produced an empty {}.
+  if (value instanceof RegExp) {
+    return { pattern: value.source, options: value.flags };
+  }
+  if (value instanceof MinKey) {
+    return { $minKey: 1 };
+  }
+  if (value instanceof MaxKey) {
+    return { $maxKey: 1 };
+  }
+  if (value instanceof BSONSymbol) {
+    return value.toString();
   }
   if (Array.isArray(value)) {
     return value.map(normalizeBsonValue);

@@ -70,8 +70,11 @@ In scope:
 
 Out of scope (for now):
 
-- Retry backoff/auto-retry logic - Retry stays a manual, explicit user action (matches every existing
-  retry link's current behavior).
+- Auto-retrying a failure the user has already seen - `ErrorState`'s Retry stays a manual, explicit
+  action once an error is actually showing. This is distinct from F041's bounded (2-attempt, short
+  backoff) silent retry inside the query hooks themselves, which absorbs a single transient blip
+  _before_ anything reaches `ErrorState` at all - a persistent failure still surfaces exactly as
+  described above, just after those couple of quick retries instead of immediately.
 - Structured/typed error codes for programmatic handling - a plain human-readable message is enough
   for this pass; revisit if the UI ever needs to branch behavior on _which_ error occurred, not just
   display it.

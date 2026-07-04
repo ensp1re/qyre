@@ -18,8 +18,6 @@ import { assertReadOnly, resolvePageRequest } from "@humbdb/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
 import mysql from "mysql2/promise";
 
-export { assertReadOnly, ReadOnlyViolationError } from "@humbdb/driver-contract";
-
 const SYSTEM_SCHEMAS = ["information_schema", "mysql", "performance_schema", "sys"];
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchTable } from "../api/table.js";
+import { QUERY_RETRY } from "./query-retry.js";
 
 /** React Query hook for a single table's metadata. Only fetches once a table is selected. */
 export function useTable(schema: string | undefined, table: string | undefined) {
@@ -7,6 +8,6 @@ export function useTable(schema: string | undefined, table: string | undefined) 
     queryKey: ["table", schema, table],
     queryFn: () => fetchTable(schema as string, table as string),
     enabled: Boolean(schema && table),
-    retry: false
+    ...QUERY_RETRY
   });
 }

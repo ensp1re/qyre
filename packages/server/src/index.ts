@@ -6,6 +6,7 @@
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import fastifyCompress from "@fastify/compress";
 import fastifyStatic from "@fastify/static";
 import {
   DEFAULT_PORT,
@@ -89,6 +90,7 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   const { adapter, target, filesRoot } = options;
   const eventLog = options.eventLog ?? new EventLog();
   let lastKnownStatus: HealthResponse["database"] | undefined;
+  let lastError: string | null = null;
 
   app.addHook("onRequest", async (request, reply) => {
     const hostHeader = request.headers.host;
@@ -114,8 +116,17 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
 
   app.get("/api/health", async (): Promise<HealthResponse> => {
     let database: HealthResponse["database"] = "unconfigured";
+    let pingLatencyMs: number | null = null;
     if (adapter) {
-      database = (await adapter.ping().catch(() => false)) ? "connected" : "disconnected";
+      const pingStartedAt = performance.now();
+      try {
+        database = (await adapter.ping()) ? "connected" : "disconnected";
+        if (database === "connected") lastError = null;
+      } catch (error) {
+        database = "disconnected";
+        lastError = error instanceof Error ? error.message : String(error);
+      }
+      pingLatencyMs = Math.round(performance.now() - pingStartedAt);
     }
 
     // Log only actual transitions, not every poll - and never the very first observation (that's
@@ -141,7 +152,9 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
           ? target.raw
           : redactConnectionString(target.raw)
         : null,
-      engineVersion
+      engineVersion,
+      pingLatencyMs,
+      lastError
     };
   });
 
@@ -256,7 +269,24 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   });
 
   if (options.webRoot && existsSync(join(options.webRoot, "index.html"))) {
-    void app.register(fastifyStatic, { root: options.webRoot });
+    // Compresses responses (gzip/brotli, negotiated via Accept-Encoding) - most useful for the
+    // ~700KB JS bundle, negligible cost for the small JSON API responses (F044).
+    void app.register(fastifyCompress);
+    void app.register(fastifyStatic, {
+      root: options.webRoot,
+      // Disables @fastify/static's own default Cache-Control (public, max-age=0), which otherwise
+      // wins over setHeaders below by being applied after it.
+      cacheControl: false,
+      setHeaders: (res, path) => {
+        // Vite's build hashes every asset filename on content change, so those can be cached
+        // aggressively and immutably; index.html itself references those hashed filenames and must
+        // always be revalidated, or a stale cached copy would point at assets a redeploy removed.
+        res.setHeader(
+          "Cache-Control",
+          path.endsWith("index.html") ? "no-cache" : "public, max-age=31536000, immutable"
+        );
+      }
+    });
     app.setNotFoundHandler((request, reply) => {
       if (request.raw.url?.startsWith("/api/")) {
         return reply.status(404).send({ error: "Not found" });

@@ -85,6 +85,58 @@ export function resolveFilesRoot(filesDir: string | undefined, cwd: string): str
   return filesDir ? resolve(cwd, filesDir) : undefined;
 }
 
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 5000;
+
+export interface ShutdownDeps {
+  close: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  exit: (code: number) => void;
+  log: (message: string) => void;
+  timeoutMs?: number;
+}
+
+/**
+ * Builds a `SIGINT`/`SIGTERM` handler (F043). Three things a bare `process.on("SIGINT", shutdown)`
+ * didn't have: a timeout, so a wedged DB connection can't block Ctrl-C forever; a re-entrancy guard,
+ * so a second signal while teardown is already in flight doesn't start a second concurrent teardown;
+ * and a non-zero exit code on teardown failure, so a failed shutdown doesn't look identical to a
+ * clean one to whatever's watching the process's exit code (a shell script, a process manager).
+ */
+export function createShutdownHandler(deps: ShutdownDeps): () => Promise<void> {
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS;
+  let isShuttingDown = false;
+
+  return async function shutdown(): Promise<void> {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`Shutdown did not complete within ${timeoutMs}ms`)),
+        timeoutMs
+      );
+      timer.unref();
+    });
+
+    try {
+      await Promise.race([
+        (async () => {
+          await deps.close();
+          await deps.disconnect();
+        })(),
+        timeout
+      ]);
+      deps.exit(0);
+    } catch (error) {
+      deps.log(`Error during shutdown: ${error instanceof Error ? error.message : String(error)}`);
+      deps.exit(1);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
+
 /** Run the CLI. Returns the running server's URL. */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgs(argv);
@@ -117,11 +169,12 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   process.stdout.write(`Humb is running at ${server.url}\n`);
   await open(server.url);
 
-  const shutdown = async (): Promise<void> => {
-    await server.close();
-    await adapter.disconnect();
-    process.exit(0);
-  };
+  const shutdown = createShutdownHandler({
+    close: () => server.close(),
+    disconnect: () => adapter.disconnect(),
+    exit: (code) => process.exit(code),
+    log: (message) => process.stderr.write(`${message}\n`)
+  });
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 }

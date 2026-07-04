@@ -18,8 +18,6 @@ import { assertReadOnly, resolvePageRequest } from "@humbdb/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
 import Database from "better-sqlite3";
 
-export { assertReadOnly, ReadOnlyViolationError } from "@humbdb/driver-contract";
-
 /** SQLite has a single implicit namespace; the UI still expects a schema name, per the spec. */
 const MAIN_SCHEMA = "main";
 

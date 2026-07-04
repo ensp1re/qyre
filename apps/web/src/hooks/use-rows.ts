@@ -1,6 +1,7 @@
 import type { RowPage } from "@humbdb/core";
 import { useQuery } from "@tanstack/react-query";
 import { fetchRows } from "../api/rows.js";
+import { QUERY_RETRY } from "./query-retry.js";
 
 const PAGE_SIZE = 25;
 
@@ -33,7 +34,7 @@ export function useRows(schema: string | undefined, table: string | undefined, p
       return { rowPage, hasMore: nextPageProbe.rows.length > 0 };
     },
     enabled: Boolean(schema && table),
-    retry: false,
+    ...QUERY_RETRY,
     placeholderData: (previousData, previousQuery) => {
       const previousKey = previousQuery?.queryKey as [string, string, string, number] | undefined;
       return previousKey?.[1] === schema && previousKey?.[2] === table ? previousData : undefined;

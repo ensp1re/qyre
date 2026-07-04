@@ -6,6 +6,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
+import { MongoClient } from "mongodb";
 import mysql from "mysql2/promise";
 import { Pool } from "pg";
 
@@ -17,6 +18,9 @@ export const TEST_SQLITE_ENV = "HUMB_TEST_SQLITE_PATH";
 
 /** Environment variable that holds the MySQL URL used by integration and end-to-end tests. */
 export const TEST_MYSQL_ENV = "HUMB_TEST_MYSQL_URL";
+
+/** Environment variable that holds the MongoDB URL used by integration tests. */
+export const TEST_MONGO_ENV = "HUMB_TEST_MONGO_URL";
 
 /** Whether a test database is configured in the environment. */
 export function isTestDatabaseConfigured(): boolean {
@@ -68,6 +72,24 @@ export function requireTestMysqlUrl(): string {
         `  export ${TEST_MYSQL_ENV}="mysql://root:root@localhost:3306/humb_test"\n` +
         `or start one with Docker:\n` +
         `  docker run --rm -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=humb_test -p 3306:3306 mysql:8`
+    );
+  }
+  return url;
+}
+
+/**
+ * Return the configured MongoDB test database URL, or throw an actionable error.
+ * We never silently skip required verification - see docs/RELIABILITY.md.
+ */
+export function requireTestMongoUrl(): string {
+  const url = process.env[TEST_MONGO_ENV]?.trim();
+  if (!url) {
+    throw new Error(
+      `${TEST_MONGO_ENV} is not set. This verification requires a MongoDB database.\n` +
+        `Set it, for example:\n` +
+        `  export ${TEST_MONGO_ENV}="mongodb://localhost:27017/humb_test"\n` +
+        `or start one with Docker:\n` +
+        `  docker run --rm -p 27017:27017 mongo:7`
     );
   }
   return url;
@@ -217,5 +239,39 @@ export async function setupMysqlFixture(connectionString: string): Promise<void>
   } finally {
     connection.release();
     await pool.end();
+  }
+}
+
+/**
+ * Create the same fixture collection/documents as {@link setupFixture}'s Postgres version, in
+ * MongoDB - plus a nested `profile` field on one document (matching F016's structured-cell-value
+ * e2e fixture), since a Mongo document's nested fields are the common case this engine exists to
+ * browse (see docs/product-specs/connect-and-inspect-mongodb.md). Unlike setupFixture/
+ * setupMysqlFixture/setupSqliteFixture, this isn't guarded by a lock against concurrent Playwright
+ * workers - F015 has no Playwright e2e project (see that spec's "no query runner to exercise, no
+ * Mongo-shaped fixture" note), so this is only ever called by `@humbdb/mongodb`'s own integration
+ * test file, never from multiple processes racing against the same collection.
+ */
+export async function setupMongoFixture(connectionString: string): Promise<void> {
+  const databaseName = new URL(connectionString).pathname.slice(1) || "humb_test";
+  const client = new MongoClient(connectionString);
+  try {
+    await client.connect();
+    const db = client.db(databaseName);
+    await db
+      .collection(FIXTURE.table)
+      .drop()
+      .catch(() => {});
+    await db.collection(FIXTURE.table).insertMany([
+      {
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+        profile: { account: { tags: ["admin", "beta"] } }
+      },
+      { name: "Alan Turing", email: "alan@example.com" },
+      { name: "Grace Hopper", email: "grace@example.com" }
+    ]);
+  } finally {
+    await client.close();
   }
 }

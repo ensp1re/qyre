@@ -6,6 +6,7 @@ import type { ConnectionTarget } from "./types/connection.js";
 
 const POSTGRES_PROTOCOLS = new Set(["postgres:", "postgresql:"]);
 const MYSQL_PROTOCOLS = new Set(["mysql:"]);
+const MONGODB_PROTOCOLS = new Set(["mongodb:", "mongodb+srv:"]);
 
 /** Default local port Humb's server listens on. */
 export const DEFAULT_PORT = 7717;
@@ -53,7 +54,8 @@ export function parseConnectionTarget(input: string | undefined): ConnectionTarg
     throw new InvalidConnectionTargetError(
       "No database target provided. Expected a Postgres connection string (e.g. " +
         "postgres://user:pass@localhost:5432/mydb), a MySQL connection string (e.g. " +
-        "mysql://user:pass@localhost:3306/mydb), or a path to a SQLite file (e.g. ./app.db)."
+        "mysql://user:pass@localhost:3306/mydb), a MongoDB connection string (e.g. " +
+        "mongodb://localhost:27017/mydb), or a path to a SQLite file (e.g. ./app.db)."
     );
   }
 
@@ -71,13 +73,16 @@ export function parseConnectionTarget(input: string | undefined): ConnectionTarg
     if (MYSQL_PROTOCOLS.has(url.protocol)) {
       return { engine: "mysql", raw: trimmed };
     }
+    if (MONGODB_PROTOCOLS.has(url.protocol)) {
+      return { engine: "mongodb", raw: trimmed };
+    }
     if (url.protocol === "file:") {
       return resolveSqliteTarget(trimmed, fileURLToPath(url));
     }
     throw new InvalidConnectionTargetError(
       `Unsupported database target protocol "${url.protocol}". ` +
-        "Humb currently supports Postgres (postgres:// or postgresql://), MySQL (mysql://), and " +
-        "SQLite (a file path)."
+        "Humb currently supports Postgres (postgres:// or postgresql://), MySQL (mysql://), " +
+        "MongoDB (mongodb:// or mongodb+srv://), and SQLite (a file path)."
     );
   }
 

@@ -9,6 +9,7 @@
     "postgresql",
     "sqlite",
     "mysql",
+    "mongodb",
     "cli",
     "gui",
     "ide",
@@ -49,6 +50,7 @@
   "dependencies": {
     "@humbdb/core": "workspace:*",
     "@humbdb/driver-contract": "workspace:*",
+    "@humbdb/mongodb": "workspace:*",
     "@humbdb/mysql": "workspace:*",
     "@humbdb/postgres": "workspace:*",
     "@humbdb/server": "workspace:*",

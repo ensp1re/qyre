@@ -20,7 +20,7 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "env": ["HUMB_TEST_DATABASE_URL", "HUMB_TEST_MYSQL_URL"]
+      "env": ["HUMB_TEST_DATABASE_URL", "HUMB_TEST_MYSQL_URL", "HUMB_TEST_MONGO_URL"]
     },
     "lint": {},
     "dev": {

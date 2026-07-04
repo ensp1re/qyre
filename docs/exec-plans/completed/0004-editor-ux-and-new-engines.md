@@ -1,6 +1,6 @@
 # Plan 0004: SQL Editor UX and New Engines (MySQL, MongoDB)
 
-Status: Active
+Status: Done - all six slices passing.
 Owner: unassigned
 Linked features: F012, F017, F013, F014, F015, F016 (`docs/FEATURES.json`)
 
@@ -20,11 +20,11 @@ F017 identified while testing F012), queued in this priority order (agreed with 
 2. **F017** - error handling: a global Fastify error handler plus a shared `ErrorState` UI component,
    replacing today's inconsistent inline error text everywhere. Done.
 3. **F013** - SQL Editor autocomplete (keywords + table names), which requires migrating the editor
-   off a plain `<textarea>` onto CodeMirror 6.
-4. **F014** - MySQL as a third engine.
+   off a plain `<textarea>` onto CodeMirror 6. Done.
+4. **F014** - MySQL as a third engine. Done.
 5. **F016** - structured/nested cell viewer (`RowsTable`/`QueryRunner`), engine-agnostic, a hard
-   prerequisite for F015.
-6. **F015** - MongoDB as a fourth engine, scoped to basic read-only browsing only.
+   prerequisite for F015. Done.
+6. **F015** - MongoDB as a fourth engine, scoped to basic read-only browsing only. Done.
 
 F012 goes first because it needs no editor migration (smallest, lowest-risk). F017 goes next -
 found while testing F012 (a real query-error bug), and the user asked for it explicitly as the next
@@ -210,11 +210,18 @@ department="Support"` failed with `column "Support" does not exist`. Not a Humb 
   shipping (MySQL's blanket `bigNumberStrings` broke `ping()`/`rowCount`; SQLite's database-wide
   `defaultSafeIntegers` would have broken internal pragma comparisons the same way). Still next up:
   F015 (MongoDB).
+- 2026-07-04: Implemented F015 (commit `44a4f15`) - see `FEATURES.json`'s evidence for full detail.
+  New `@humbdb/mongodb` on the official `mongodb` driver (v7.4.0). Resolved both open decisions
+  below while picking this up: no Playwright e2e project for Mongo (package-level integration tests
+  against a real container, plus a manual live-verification pass, matched the spec's own suggested
+  bar - no query runner to exercise and the existing generic connect-and-inspect spec would need a
+  Mongo-shaped fixture); `mongodb` is the client library, no reason to deviate. Applied F019's
+  column-type-fidelity rigor proactively rather than discovering it live later: confirmed against a
+  real container before writing any fix that `Long`/`Decimal128` serialize to useless shapes by
+  default (`{high,low,unsigned}` and `{"$numberDecimal":...}`) and normalized them to a plain
+  number/string; reused F019's existing binary-value chip/hex-dump viewer for BSON `Binary` instead
+  of inventing a second representation. This is this plan's sixth and last slice - plan complete.
 
 ## Open decisions
 
-- Whether F015 needs any Playwright e2e coverage at all, or whether package-level integration tests
-  plus a manual live pass are sufficient given there's no query runner to exercise - decide when
-  F015 is picked up.
-- MongoDB client library is the official `mongodb` driver by default (no reason to deviate) - decide
-  final version pin when F015 is picked up.
+None remaining - both resolved when F015 was picked up (see the progress log entry above).

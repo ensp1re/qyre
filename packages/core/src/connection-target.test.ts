@@ -29,8 +29,20 @@ describe("parseConnectionTarget", () => {
     expect(target.engine).toBe("mysql");
   });
 
+  it("accepts mongodb:// urls", () => {
+    const target = parseConnectionTarget("mongodb://localhost:27017/mydb");
+    expect(target.engine).toBe("mongodb");
+  });
+
+  it("accepts mongodb+srv:// urls", () => {
+    const target = parseConnectionTarget(
+      "mongodb+srv://user:pass@cluster.example.mongodb.net/mydb"
+    );
+    expect(target.engine).toBe("mongodb");
+  });
+
   it("rejects unsupported protocols", () => {
-    expect(() => parseConnectionTarget("mongodb://localhost/db")).toThrow(
+    expect(() => parseConnectionTarget("redis://localhost/db")).toThrow(
       InvalidConnectionTargetError
     );
   });

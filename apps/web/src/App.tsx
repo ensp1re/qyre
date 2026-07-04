@@ -50,6 +50,11 @@ export function App(): ReactNode {
   const queryHistory = useQueryHistory();
 
   const overview = useOverview({ enabled: status === "connected" });
+  // MongoDB has no query runner in this pass - no SQL dialect for a read-only backstop to run
+  // inside (see docs/product-specs/connect-and-inspect-mongodb.md's "Why this engine is scoped
+  // differently"). The tab is disabled rather than left clickable and silently failing every
+  // query.
+  const isMongo = overview.data?.engine === "mongodb";
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page);
   const allTables = useAllTables(overview.data?.schemas);
@@ -117,7 +122,18 @@ export function App(): ReactNode {
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <TabBar active={tab} onChange={setTab} />
+          <TabBar
+            active={tab}
+            onChange={setTab}
+            disabledTabs={
+              isMongo
+                ? {
+                    "sql-editor":
+                      "Not available for MongoDB connections - browse collections directly."
+                  }
+                : undefined
+            }
+          />
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
             {status !== "connected" ? (
@@ -129,6 +145,11 @@ export function App(): ReactNode {
                 ) : (
                   "No database is connected yet. Launch Humb with a Postgres or SQLite target to get started."
                 )}
+              </p>
+            ) : tab === "sql-editor" && isMongo ? (
+              <p className="text-[13px] text-muted-foreground">
+                The SQL Editor is not available for MongoDB connections - browse collections
+                directly from the Tables tab.
               </p>
             ) : tab === "sql-editor" ? (
               <QueryRunner

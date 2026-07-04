@@ -491,15 +491,27 @@ test` (14/14: factory unit tests, the write-API source scan, and integration tes
   route didn't have this class of bug, and added an acceptance criterion for it. `pnpm --filter
 @humbdb/server test` (34/34, including a new test asserting 400 for `?page=abc`) and
   `format:check`/`lint`/`typecheck` all pass.
+- **F023 `passing`** (commit `65171f3`): `resolveSqlFilePath` (Files-tab content-read endpoint) only
+  validated the _lexical_ path, never the _real_ one - a symlink inside `--files-dir` pointing
+  outside it passed the lexical check and was readable, contradicting the security-boundary doc's
+  own no-symlink-following guarantee (the tree walk already had this via
+  `Dirent.isDirectory()`/`isFile()`, but the content-read endpoint never did). Fixed by resolving
+  the path with `realpathSync` after the lexical check and re-asserting the result still starts
+  within the root's own `realpathSync`'d form; a not-yet-existing path is left as-is since the
+  caller's `existsSync`/`statSync` check already 404s it. `docs/product-specs/dashboard-ui.md`'s
+  Files tab security boundary section updated to describe real-path validation, not just lexical.
+  `pnpm --filter @humbdb/server test` (37/37: 3 new cases - a symlink escaping the root is rejected,
+  a symlink to another in-root file is allowed, a nonexistent path still resolves lexically) and
+  `format:check`/`lint`/`typecheck` all pass.
 
 ## Next steps
 
-**F023-F033 are `not_started` and unprioritized among themselves** - pick one (the remaining
-security items - F023/F024/F025 - are good next picks) or ask the user which to tackle first; at
-most one may be `active` at a time. Every other feature in `docs/FEATURES.json` is `passing`
-(F001-F022, DF-01-DF-09). Before starting new work: re-read this file's "Known issues / blockers"
-(the bare `humb` npm package dispute is the one open item), or ask the user what they'd like next.
-If picking a new feature area instead, write its product spec under `docs/product-specs/` and add a
+**F024-F033 are `not_started` and unprioritized among themselves** - pick one (the remaining
+security items - F024/F025 - are good next picks) or ask the user which to tackle first; at most one
+may be `active` at a time. Every other feature in `docs/FEATURES.json` is `passing` (F001-F023,
+DF-01-DF-09). Before starting new work: re-read this file's "Known issues / blockers" (the bare
+`humb` npm package dispute is the one open item), or ask the user what they'd like next. If picking
+a new feature area instead, write its product spec under `docs/product-specs/` and add a
 `docs/FEATURES.json` entry before writing code (this repo's working contract - see `AGENTS.md`), and
 consider whether it warrants its own `docs/exec-plans/active/NNNN-*.md` plan doc if it's more than
 one slice.

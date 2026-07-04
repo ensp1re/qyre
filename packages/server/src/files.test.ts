@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -77,5 +77,29 @@ describe("resolveSqlFilePath", () => {
   it("rejects an absolute path that resolves outside the root", () => {
     const root = makeRoot();
     expect(() => resolveSqlFilePath(root, "/etc/passwd.sql")).toThrow(InvalidFilePathError);
+  });
+
+  it("rejects a symlink inside the root that points outside it (F023 regression)", () => {
+    // Previously: the lexical check only saw "evil.sql" (a path inside root), never that it
+    // actually pointed at a file outside the root, so the content endpoint would read it.
+    const root = makeRoot();
+    const outside = makeRoot();
+    writeFileSync(join(outside, "secret.sql"), "SELECT 'secret';");
+    symlinkSync(join(outside, "secret.sql"), join(root, "evil.sql"));
+
+    expect(() => resolveSqlFilePath(root, "evil.sql")).toThrow(InvalidFilePathError);
+  });
+
+  it("allows a symlink inside the root that points to another file also inside the root", () => {
+    const root = makeRoot();
+    writeFileSync(join(root, "real.sql"), "SELECT 1;");
+    symlinkSync(join(root, "real.sql"), join(root, "alias.sql"));
+
+    expect(resolveSqlFilePath(root, "alias.sql")).toBe(realpathSync(join(root, "real.sql")));
+  });
+
+  it("still resolves a normal path that does not exist yet (caller handles the 404)", () => {
+    const root = makeRoot();
+    expect(resolveSqlFilePath(root, "missing.sql")).toBe(join(root, "missing.sql"));
   });
 });

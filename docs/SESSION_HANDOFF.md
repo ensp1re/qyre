@@ -352,6 +352,35 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
   nested levels -> close, Postgres-only via `test.skip`, all pass) - plus a manual live Preview
   pass (chip row height 29.75px vs 27.25px plain rows; drawer expanded to the primitive array
   items in both the Tables tab and a SQL Editor result).
+- **F019 `passing`** (commit `f850c43`): cross-engine column type fidelity. Prompted by the user
+  asking to systematically test every column type across Postgres/MySQL/SQLite while F016 was
+  fresh - seeded a wide-type fixture table (`type_zoo`) against live containers and inspected the
+  actual JSON each engine's rows endpoint returned, rather than assuming driver defaults were safe.
+  Found and fixed three real defect categories (see
+  `docs/product-specs/column-type-fidelity.md` for full detail): (1) Postgres/MySQL
+  `date`/`timestamp without time zone` columns silently shifted by the server's local UTC offset
+  (confirmed live on a UTC+2 host: a stored `2024-01-15` came back as `"2024-01-14T22:00:00.000Z"`
+  - the wrong calendar date) - fixed with `pg`'s `types.setTypeParser` for OIDs 1082/1114 and
+    mysql2's `dateStrings: true`; (2) MySQL/SQLite `BIGINT`/`INTEGER` values silently lost precision
+    past `Number.MAX_SAFE_INTEGER` (confirmed live: a stored `9007199254740993` came back as
+    `9007199254740992`) - fixed with a magnitude-aware mysql2 `typeCast` and per-statement
+    `stmt.safeIntegers(true)` + a `normalizeRow` mapping in `@humbdb/sqlite`; (3) `bytea`/`blob`/`BLOB`
+    columns rendered as a confusing `{ type: "Buffer", data: [...] }` JSON chip - fixed with a new
+    `BinaryValue` chip (`binary · N bytes` + hex preview) and a `CellValueDrawer` hex-dump view (UTF-8
+    decode attempt + offset/hex/ASCII dump, capped at 1024 bytes). Caught two second-order
+    regressions before shipping, not just the primary bugs: MySQL's built-in `bigNumberStrings`
+    stringifies by column type not value magnitude, breaking `ping()`'s `=== 1` check and
+    `getTable()`'s `rowCount` (both backed by a `LONGLONG` `COUNT(*)`) - caught by
+    `@humbdb/mysql`'s own integration tests failing; SQLite's `defaultSafeIntegers` is database-wide
+    and would have flipped every internal pragma/`COUNT(*)` query to `BigInt` too, breaking
+    `notnull`/`unique` comparisons the same way - caught by tracing the API's scope before
+    committing, confirmed via `@humbdb/sqlite`'s existing integration tests still passing with the
+    per-statement version instead. Verified: `pnpm --filter @humbdb/postgres test` (20/20),
+    `pnpm --filter @humbdb/mysql test` (13/13), `pnpm --filter @humbdb/sqlite test` (14/14),
+    `pnpm --filter @humbdb/ui test` (18/18), `pnpm check` (real Postgres+MySQL), and
+    `pnpm test:e2e:full` all pass - zero regression to F016's jsonb chip/drawer flow. Manually
+    verified live via Preview: a `bytea` cell containing "hello world" decoded correctly in both the
+    compact chip and its hex-dump drawer.
 
 ## In progress
 

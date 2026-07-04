@@ -4,9 +4,12 @@ Status: Active
 Owner: unassigned
 Linked features: F012, F017, F013, F014, F015, F016 (`docs/FEATURES.json`)
 
-F018 is a related but separate bug fix (not one of this plan's six slices) - found live while the
-user was trying F013, tracked in `docs/FEATURES.json` and `docs/product-specs/sql-editor.md`'s new
-"Double-quoted string values" section. See the progress log below.
+F018 and F019 are related but separate bug fixes (not among this plan's six slices). F018 was found
+live while the user was trying F013, tracked in `docs/FEATURES.json` and
+`docs/product-specs/sql-editor.md`'s new "Double-quoted string values" section. F019 was prompted
+by the user asking to systematically test every column type across all three engines while F016
+was fresh, tracked in `docs/FEATURES.json` and `docs/product-specs/column-type-fidelity.md`. See
+the progress log below.
 
 ## Objective
 
@@ -196,6 +199,17 @@ department="Support"` failed with `column "Support" does not exist`. Not a Humb 
   (fixed), and no copy confirmation (fixed: green check flash). Deliberately not added, possible
   future follow-ups: a raw-JSON/tree view toggle in the drawer, search within a document, and
   keeping the drawer pinned while clicking between cells.
+- 2026-07-03: User asked to systematically test every column type across all three engines while
+  F016 was fresh, not just JSON - scoped and implemented as F019 (commit `f850c43`), tracked
+  separately from this plan's six slices (same precedent as F018). Seeded a wide-type fixture
+  table against live Postgres/MySQL/SQLite and inspected actual JSON responses rather than
+  assuming driver defaults were safe - found and fixed three real defect categories (date/timestamp
+  timezone shift in Postgres+MySQL, BIGINT precision loss in MySQL+SQLite, confusing binary-value
+  rendering in all three) - see `docs/product-specs/column-type-fidelity.md` and F019's
+  `FEATURES.json` evidence for full detail, including two second-order regressions caught before
+  shipping (MySQL's blanket `bigNumberStrings` broke `ping()`/`rowCount`; SQLite's database-wide
+  `defaultSafeIntegers` would have broken internal pragma comparisons the same way). Still next up:
+  F015 (MongoDB).
 
 ## Open decisions
 

@@ -80,7 +80,7 @@ gotchas in "Known issues / blockers").
   split into 5 per-tab components; a new `check-engine-lockstep.mjs` (wired into `check:state`)
   caught and fixed a real pre-existing drift - `@humbdb/mysql`/`@humbdb/mongodb` were both missing
   from `scripts/publish.mjs`'s `PUBLISH_ORDER`. See `docs/FEATURES.json` for evidence per feature.
-  PR not yet opened as of this writing.
+  PR #56 (open as of this writing).
 
 ## In progress
 

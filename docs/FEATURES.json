@@ -297,9 +297,9 @@
       "id": "F021",
       "behavior": "`assertReadOnly` (packages/drivers/contract) no longer rejects valid read-only queries whose string literals contain a `;` or a reserved keyword - the semicolon/statement-count check runs against the same literal-and-comment-stripped text the keyword scan already uses, not raw SQL. `SELECT 'a;b' AS x` is accepted.",
       "verification": "pnpm --filter @humbdb/driver-contract test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "e1a78ad",
+      "evidence": "commit e1a78ad: the multiple-statement guard checked for `;` against raw SQL (only comments stripped), so filtering by any value containing a semicolon was wrongly rejected. Now runs the same `;` check against `stripLiterals`-masked text the forbidden-keyword scan already uses. `pnpm --filter @humbdb/driver-contract test` passes (25/25: 4 new/updated unit tests in `read-only.test.ts` covering a semicolon inside a string literal, inside a double-quoted identifier, a real second statement still rejected, and a single trailing semicolon still tolerated). `pnpm --filter @humbdb/postgres test` passes (32/32, including a new live integration test against a real Postgres container reproducing the exact regression end to end). `docs/product-specs/sql-editor.md` gained a new \"Multi-statement / semicolon detection\" section documenting the contract and acceptance criteria.",
       "blockedReason": null,
       "spec": "docs/product-specs/sql-editor.md"
     },

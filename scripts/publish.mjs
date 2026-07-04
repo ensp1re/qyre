@@ -49,6 +49,8 @@ const PUBLISH_ORDER = [
   "@humbdb/core",
   "@humbdb/driver-contract",
   "@humbdb/postgres",
+  "@humbdb/mysql",
+  "@humbdb/mongodb",
   "@humbdb/sqlite",
   "@humbdb/server",
   "@humbdb/ui",

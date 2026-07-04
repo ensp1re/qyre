@@ -14,7 +14,12 @@ import type {
   SchemaMetadata,
   TableMetadata
 } from "@humbdb/core";
-import { assertReadOnly, resolvePageRequest } from "@humbdb/driver-contract";
+import {
+  assertReadOnly,
+  capResultRows,
+  resolvePageRequest,
+  runInReadOnlyTransaction
+} from "@humbdb/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
 import mysql from "mysql2/promise";
 
@@ -263,30 +268,32 @@ export class MysqlAdapter implements DatabaseAdapter {
   async runReadOnlyQuery(sql: string): Promise<RowPage> {
     assertReadOnly(sql);
 
-    // assertReadOnly is a heuristic string check and can be bypassed. Running inside a real
-    // START TRANSACTION READ ONLY is the authoritative guarantee - MySQL (InnoDB) itself refuses
-    // any data-modifying statement here, regardless of what the string check missed. Mirrors
-    // @humbdb/postgres's BEGIN TRANSACTION READ ONLY precedent (F006).
     const connection = await this.getPool().getConnection();
-    try {
-      await connection.query("START TRANSACTION READ ONLY");
-      const [rows, fields] = await connection.query<mysql.RowDataPacket[]>({
-        sql,
-        timeout: this.statementTimeoutMs
-      });
-      await connection.query("COMMIT");
-      return {
-        columns: fields.map((field) => field.name),
-        rows: rows as Array<Record<string, unknown>>,
-        page: 0,
-        pageSize: rows.length
-      };
-    } catch (error) {
-      await connection.query("ROLLBACK").catch(() => {});
-      throw error;
-    } finally {
-      connection.release();
-    }
+    return runInReadOnlyTransaction(
+      {
+        begin: async () => {
+          await connection.query("START TRANSACTION READ ONLY");
+        },
+        query: async (querySql) => {
+          const [rows, fields] = await connection.query<mysql.RowDataPacket[]>({
+            sql: querySql,
+            timeout: this.statementTimeoutMs
+          });
+          return {
+            columns: fields.map((field) => field.name),
+            rows: rows as Array<Record<string, unknown>>
+          };
+        },
+        commit: async () => {
+          await connection.query("COMMIT");
+        },
+        rollback: async () => {
+          await connection.query("ROLLBACK");
+        },
+        release: () => connection.release()
+      },
+      capResultRows(sql)
+    );
   }
 }
 

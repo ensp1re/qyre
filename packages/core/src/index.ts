@@ -15,6 +15,7 @@ export * from "./types/files.js";
 export * from "./types/console.js";
 export * from "./errors.js";
 export * from "./connection-target.js";
+export * from "./pagination.js";
 export * from "./validation/query.js";
 export * from "./validation/rows.js";
 export * from "./validation/files.js";

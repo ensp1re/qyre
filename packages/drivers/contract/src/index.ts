@@ -9,3 +9,5 @@ export * from "./errors.js";
 export * from "./resolve.js";
 export * from "./pagination.js";
 export * from "./read-only.js";
+export * from "./read-only-transaction.js";
+export * from "./result-cap.js";

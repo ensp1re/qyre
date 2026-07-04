@@ -13,7 +13,12 @@ import type {
   SchemaMetadata,
   TableMetadata
 } from "@humbdb/core";
-import { assertReadOnly, resolvePageRequest } from "@humbdb/driver-contract";
+import {
+  assertReadOnly,
+  capResultRows,
+  resolvePageRequest,
+  runInReadOnlyTransaction
+} from "@humbdb/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
 import { Pool, types } from "pg";
 
@@ -355,41 +360,48 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {
-    const columnsResult = await this.getPool().query<{
-      column_name: string;
-      data_type: string;
-      is_nullable: "YES" | "NO";
-    }>(
-      `SELECT column_name, data_type, is_nullable
-         FROM information_schema.columns
-        WHERE table_schema = $1 AND table_name = $2
-        ORDER BY ordinal_position`,
-      [schema, table]
-    );
+    const pool = this.getPool();
 
-    const pkResult = await this.getPool().query<{ column_name: string }>(
-      `SELECT kcu.column_name
-         FROM information_schema.table_constraints tc
-         JOIN information_schema.key_column_usage kcu
-           ON tc.constraint_name = kcu.constraint_name
-          AND tc.table_schema = kcu.table_schema
-        WHERE tc.constraint_type = 'PRIMARY KEY'
-          AND tc.table_schema = $1 AND tc.table_name = $2`,
-      [schema, table]
-    );
-    const primaryKeys = new Set(pkResult.rows.map((row) => row.column_name));
+    // F048: was 5 round trips (columns, PK, FK, indexes, row-count), 3 of them sequential - PK and
+    // FK query the same two catalog tables and differ only by constraint_type, so they're combined
+    // into one query here; every remaining query is independent of the others, so all 4 now run in
+    // parallel via Promise.all instead of a chain of awaits.
+    const [columnsResult, keysResult, indexes, rowCount] = await Promise.all([
+      pool.query<{
+        column_name: string;
+        data_type: string;
+        is_nullable: "YES" | "NO";
+      }>(
+        `SELECT column_name, data_type, is_nullable
+           FROM information_schema.columns
+          WHERE table_schema = $1 AND table_name = $2
+          ORDER BY ordinal_position`,
+        [schema, table]
+      ),
+      pool.query<{ constraint_type: "PRIMARY KEY" | "FOREIGN KEY"; column_name: string }>(
+        `SELECT tc.constraint_type, kcu.column_name
+           FROM information_schema.table_constraints tc
+           JOIN information_schema.key_column_usage kcu
+             ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+          WHERE tc.constraint_type IN ('PRIMARY KEY', 'FOREIGN KEY')
+            AND tc.table_schema = $1 AND tc.table_name = $2`,
+        [schema, table]
+      ),
+      fetchIndexes(pool, schema, table),
+      fetchRowCountEstimate(pool, schema, table)
+    ]);
 
-    const fkResult = await this.getPool().query<{ column_name: string }>(
-      `SELECT kcu.column_name
-         FROM information_schema.table_constraints tc
-         JOIN information_schema.key_column_usage kcu
-           ON tc.constraint_name = kcu.constraint_name
-          AND tc.table_schema = kcu.table_schema
-        WHERE tc.constraint_type = 'FOREIGN KEY'
-          AND tc.table_schema = $1 AND tc.table_name = $2`,
-      [schema, table]
+    const primaryKeys = new Set(
+      keysResult.rows
+        .filter((row) => row.constraint_type === "PRIMARY KEY")
+        .map((row) => row.column_name)
     );
-    const foreignKeys = new Set(fkResult.rows.map((row) => row.column_name));
+    const foreignKeys = new Set(
+      keysResult.rows
+        .filter((row) => row.constraint_type === "FOREIGN KEY")
+        .map((row) => row.column_name)
+    );
 
     const columns: ColumnMetadata[] = columnsResult.rows.map((row) => ({
       name: row.column_name,
@@ -398,11 +410,6 @@ export class PostgresAdapter implements DatabaseAdapter {
       isPrimaryKey: primaryKeys.has(row.column_name),
       isForeignKey: foreignKeys.has(row.column_name)
     }));
-
-    const [indexes, rowCount] = await Promise.all([
-      fetchIndexes(this.getPool(), schema, table),
-      fetchRowCountEstimate(this.getPool(), schema, table)
-    ]);
 
     return { schema, name: table, columns, indexes, rowCount };
   }
@@ -430,28 +437,29 @@ export class PostgresAdapter implements DatabaseAdapter {
       : sql;
     assertReadOnly(rewritten);
 
-    // assertReadOnly is a heuristic string check and can be bypassed (e.g. a writable CTE like
-    // `WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x` starts with the allowed "with"
-    // keyword). Running inside a real Postgres READ ONLY transaction is the authoritative
-    // guarantee: Postgres itself refuses any data-modifying statement here, regardless of what the
-    // string check missed.
     const client = await this.getPool().connect();
-    try {
-      await client.query("BEGIN TRANSACTION READ ONLY");
-      const result = await client.query(rewritten);
-      await client.query("COMMIT");
-      return {
-        columns: result.fields.map((field) => field.name),
-        rows: result.rows as Array<Record<string, unknown>>,
-        page: 0,
-        pageSize: result.rows.length
-      };
-    } catch (error) {
-      await client.query("ROLLBACK").catch(() => {});
-      throw error;
-    } finally {
-      client.release();
-    }
+    return runInReadOnlyTransaction(
+      {
+        begin: async () => {
+          await client.query("BEGIN TRANSACTION READ ONLY");
+        },
+        query: async (querySql) => {
+          const result = await client.query(querySql);
+          return {
+            columns: result.fields.map((field) => field.name),
+            rows: result.rows as Array<Record<string, unknown>>
+          };
+        },
+        commit: async () => {
+          await client.query("COMMIT");
+        },
+        rollback: async () => {
+          await client.query("ROLLBACK");
+        },
+        release: () => client.release()
+      },
+      capResultRows(rewritten)
+    );
   }
 }
 

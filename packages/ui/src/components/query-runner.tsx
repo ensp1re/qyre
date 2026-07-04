@@ -5,6 +5,7 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { Prec } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { basicSetup } from "codemirror";
 import { History, Play } from "lucide-react";
 import type { ReactNode } from "react";
@@ -107,6 +108,21 @@ export function QueryRunner({
   } | null>(null);
 
   const editorParentRef = useRef<HTMLDivElement>(null);
+  const resultScrollRef = useRef<HTMLDivElement>(null);
+  const resultRowCount = result?.rows.length ?? 0;
+  // F051: only the visible rows (plus overscan) mount as DOM nodes - a wide result set at the
+  // 1000-row query cap (F050) would otherwise mount thousands of cells.
+  const resultRowVirtualizer = useVirtualizer({
+    count: resultRowCount,
+    getScrollElement: () => resultScrollRef.current,
+    estimateSize: () => 30,
+    overscan: 8
+  });
+  const resultVirtualRows = resultRowVirtualizer.getVirtualItems();
+  const resultTopPadding = resultVirtualRows[0]?.start ?? 0;
+  const resultBottomPadding =
+    resultRowVirtualizer.getTotalSize() -
+    (resultVirtualRows[resultVirtualRows.length - 1]?.end ?? 0);
   const viewRef = useRef<EditorView | null>(null);
   const onSqlChangeRef = useRef(onSqlChange);
   const onRunRef = useRef(onRun);
@@ -219,6 +235,7 @@ export function QueryRunner({
       {result && !error && (
         <div
           data-testid="query-result"
+          ref={resultScrollRef}
           className="max-h-64 shrink-0 overflow-auto border-t border-border"
         >
           {result.rows.length === 0 ? (
@@ -240,21 +257,39 @@ export function QueryRunner({
                 </tr>
               </thead>
               <tbody>
-                {result.rows.map((row, rowIndex) => (
-                  <tr key={rowIndex} className="border-b border-border-subtle">
-                    {result.columns.map((column) => (
-                      <td
-                        key={column}
-                        className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
-                      >
-                        <CellValue
-                          value={row[column]}
-                          onInspect={(value) => setInspected({ column, value })}
-                        />
-                      </td>
-                    ))}
+                {resultTopPadding > 0 && (
+                  <tr>
+                    <td colSpan={result.columns.length} style={{ height: resultTopPadding }} />
                   </tr>
-                ))}
+                )}
+                {resultVirtualRows.map((virtualRow) => {
+                  const row = result.rows[virtualRow.index];
+                  if (!row) return null;
+                  return (
+                    <tr
+                      key={virtualRow.index}
+                      data-index={virtualRow.index}
+                      className="border-b border-border-subtle"
+                    >
+                      {result.columns.map((column) => (
+                        <td
+                          key={column}
+                          className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
+                        >
+                          <CellValue
+                            value={row[column]}
+                            onInspect={(value) => setInspected({ column, value })}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+                {resultBottomPadding > 0 && (
+                  <tr>
+                    <td colSpan={result.columns.length} style={{ height: resultBottomPadding }} />
+                  </tr>
+                )}
               </tbody>
             </table>
           )}

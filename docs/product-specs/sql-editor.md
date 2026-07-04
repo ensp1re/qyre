@@ -209,3 +209,25 @@ necessarily engine-specific:
 - A query/row-fetch that runs longer than the configured timeout rejects with a timeout-shaped
   error instead of hanging.
 - The timeout is configurable via `HUMB_STATEMENT_TIMEOUT_MS` and defaults to 30 seconds when unset.
+
+## Result row cap (Postgres/MySQL/SQLite)
+
+### Behavior
+
+`runReadOnlyQuery` had no `LIMIT` - `SELECT * FROM huge_table` fetched, serialized, and rendered
+every row, with nothing bounding server memory or the browser tab (F050). Every `SELECT`/`WITH`/
+`VALUES`/`TABLE` statement (already validated read-only by `assertReadOnly`) is now wrapped as
+`SELECT * FROM (<query>) AS humb_capped_query LIMIT 1000` before running, so the database itself
+stops producing rows past the cap instead of the adapter buffering an unbounded result set and only
+truncating client-side. `EXPLAIN`/`SHOW` are left unwrapped - they aren't valid subquery sources and
+aren't the unbounded-rows risk this guards against (a query plan or a small config listing, not
+arbitrary table data). Shared across Postgres/MySQL/SQLite via `@humbdb/driver-contract`'s
+`capResultRows`; MongoDB has no SQL query runner to cap (see this spec's own note on that). The
+result table's row rendering is virtualized (`@tanstack/react-virtual`, F051) - a 1,000-row result
+set only mounts the visible rows as DOM nodes, not all 1,000.
+
+### Acceptance criteria
+
+- `SELECT * FROM <a table with more than 1,000 rows>` returns at most 1,000 rows.
+- `EXPLAIN`/`SHOW` queries are unaffected.
+- A query that already fits comfortably under the cap returns unchanged.

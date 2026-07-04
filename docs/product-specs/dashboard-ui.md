@@ -42,8 +42,10 @@ A single-page app shell:
 - **Tables**: paginated row browser (ports `RowsTable`) with client-side search/sort over the
   fetched page. Next is only enabled when a next page actually has rows - `useRows` probes the next
   page's offset alongside the current page's fetch, instead of guessing `hasMore` from
-  `rows.length === pageSize` (wrong exactly on an exact-page-size boundary, F036). No write
-  affordances (see "Out of scope").
+  `rows.length === pageSize` (wrong exactly on an exact-page-size boundary, F036). Row rendering is
+  virtualized (`@tanstack/react-virtual`, F051) - only visible rows (plus overscan) mount as DOM
+  nodes, so a wide table doesn't mount thousands of cells. No write affordances (see "Out of
+  scope").
 - **Schema**: a grid of table cards, each showing its columns with PK/FK badges - a full-database
   overview, distinct from the existing single-table `TableDetail`. Backed by one batched
   `GET /api/tables` request (F027) that returns every table's metadata in a single response,

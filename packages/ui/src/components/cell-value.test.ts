@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { previewStructuredValue, summarizeStructuredValue } from "./cell-value.js";
+import {
+  isBinaryValue,
+  previewBinaryValue,
+  previewStructuredValue,
+  summarizeBinaryValue,
+  summarizeStructuredValue,
+  toHex
+} from "./cell-value.js";
 
 describe("summarizeStructuredValue", () => {
   it("summarizes arrays, singular and plural", () => {
@@ -27,5 +34,47 @@ describe("previewStructuredValue", () => {
     expect(preview).toHaveLength(20);
     expect(preview.endsWith("…")).toBe(true);
     expect(preview.startsWith('{"key":"vvv')).toBe(true);
+  });
+});
+
+describe("isBinaryValue", () => {
+  it("recognizes the shape Buffer.prototype.toJSON() produces", () => {
+    expect(isBinaryValue({ type: "Buffer", data: [104, 105] })).toBe(true);
+  });
+
+  it("rejects plain objects/arrays and primitives, including near-miss shapes", () => {
+    expect(isBinaryValue({ a: 1 })).toBe(false);
+    expect(isBinaryValue([1, 2, 3])).toBe(false);
+    expect(isBinaryValue({ type: "Buffer", data: "not-an-array" })).toBe(false);
+    expect(isBinaryValue({ type: "NotBuffer", data: [1] })).toBe(false);
+    expect(isBinaryValue("hello")).toBe(false);
+    expect(isBinaryValue(null)).toBe(false);
+  });
+});
+
+describe("toHex", () => {
+  it("renders bytes as space-separated lowercase hex pairs", () => {
+    expect(toHex([104, 101, 108, 108, 111])).toBe("68 65 6c 6c 6f");
+    expect(toHex([0, 255])).toBe("00 ff");
+  });
+});
+
+describe("summarizeBinaryValue", () => {
+  it("summarizes byte count, singular and plural", () => {
+    expect(summarizeBinaryValue({ type: "Buffer", data: [1] })).toBe("binary · 1 byte");
+    expect(summarizeBinaryValue({ type: "Buffer", data: [1, 2, 3] })).toBe("binary · 3 bytes");
+    expect(summarizeBinaryValue({ type: "Buffer", data: [] })).toBe("binary · 0 bytes");
+  });
+});
+
+describe("previewBinaryValue", () => {
+  it("returns the full hex when it fits", () => {
+    expect(previewBinaryValue({ type: "Buffer", data: [104, 105] })).toBe("68 69");
+  });
+
+  it("truncates with an ellipsis past the byte cap", () => {
+    const data = Array.from({ length: 20 }, (_, i) => i);
+    const preview = previewBinaryValue({ type: "Buffer", data }, 4);
+    expect(preview).toBe("00 01 02 03…");
   });
 });

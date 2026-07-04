@@ -62,6 +62,33 @@ interface ForeignKeyListRow {
   match: string;
 }
 
+/**
+ * better-sqlite3 returns every INTEGER column as a plain JS number by default, silently losing
+ * precision past Number.MAX_SAFE_INTEGER (confirmed live: a stored 9007199254740993n came back as
+ * 9007199254740992). `stmt.safeIntegers(true)` (used for the two arbitrary-row-data statements
+ * below, not database-wide - `defaultSafeIntegers` would also flip every internal pragma/COUNT(*)
+ * query in this file to BigInt, silently breaking `=== 1`/`> 0` comparisons like ping()'s and
+ * fetchIndexes()'s) returns BigInt instead - but BigInt has no `toJSON`, so it throws once Fastify
+ * JSON-encodes the response. This converts each row's BigInt values back to a plain number when
+ * that's lossless (the common case - preserves today's rendering exactly), or a string when it
+ * isn't (matching @humbdb/postgres/@humbdb/mysql's bigint-as-string convention for values a JS
+ * number can't hold exactly).
+ */
+function normalizeRow(row: Record<string, unknown>): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (typeof value === "bigint") {
+      normalized[key] =
+        value >= BigInt(Number.MIN_SAFE_INTEGER) && value <= BigInt(Number.MAX_SAFE_INTEGER)
+          ? Number(value)
+          : value.toString();
+    } else {
+      normalized[key] = value;
+    }
+  }
+  return normalized;
+}
+
 /** Fetch index metadata for a table via SQLite's pragmas. */
 function fetchIndexes(db: Database.Database, table: string): IndexMetadata[] {
   const indexList = db.pragma(`index_list(${quoteIdent(table)})`) as IndexListRow[];
@@ -158,8 +185,12 @@ export class SqliteAdapter implements DatabaseAdapter {
   async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
 
-    const stmt = this.getDb().prepare(`SELECT * FROM ${quoteIdent(table)} LIMIT ? OFFSET ?`);
-    const rows = stmt.all(safePageSize, offset) as Array<Record<string, unknown>>;
+    const stmt = this.getDb()
+      .prepare(`SELECT * FROM ${quoteIdent(table)} LIMIT ? OFFSET ?`)
+      .safeIntegers(true);
+    const rows = (stmt.all(safePageSize, offset) as Array<Record<string, unknown>>).map(
+      normalizeRow
+    );
 
     return {
       columns: stmt.columns().map((column) => column.name),
@@ -175,8 +206,8 @@ export class SqliteAdapter implements DatabaseAdapter {
     // assertReadOnly is a heuristic string check; the read-only connection opened in connect() is
     // the authoritative guarantee - SQLite refuses any write through this handle regardless of
     // what the string check missed (see connect()'s comment).
-    const stmt = this.getDb().prepare(sql);
-    const rows = stmt.all() as Array<Record<string, unknown>>;
+    const stmt = this.getDb().prepare(sql).safeIntegers(true);
+    const rows = (stmt.all() as Array<Record<string, unknown>>).map(normalizeRow);
 
     return {
       columns: stmt.columns().map((column) => column.name),

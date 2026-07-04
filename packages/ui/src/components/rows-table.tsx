@@ -14,7 +14,7 @@ import { useMemo, useState } from "react";
 import { cn } from "../cn.js";
 import { formatCell } from "../format-cell.js";
 import { CellValueDrawer } from "./cell-value-drawer.js";
-import type { StructuredValue } from "./cell-value.js";
+import type { InspectableValue } from "./cell-value.js";
 import { CellValue } from "./cell-value.js";
 import { TypeIcon } from "./type-icon.js";
 
@@ -72,7 +72,7 @@ export function RowsTable({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [inspected, setInspected] = useState<{
     column: string;
-    value: StructuredValue;
+    value: InspectableValue;
   } | null>(null);
 
   const columnByName = useMemo(

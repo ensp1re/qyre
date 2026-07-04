@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createSqlCompletionSource } from "../sql-completion.js";
 import { CellValueDrawer } from "./cell-value-drawer.js";
-import type { StructuredValue } from "./cell-value.js";
+import type { InspectableValue } from "./cell-value.js";
 import { CellValue } from "./cell-value.js";
 import { ErrorState } from "./error-state.js";
 import { Spinner } from "./spinner.js";
@@ -100,7 +100,7 @@ export function QueryRunner({
   const lineCount = sql.split("\n").length;
   const [inspected, setInspected] = useState<{
     column: string;
-    value: StructuredValue;
+    value: InspectableValue;
   } | null>(null);
 
   const editorParentRef = useRef<HTMLDivElement>(null);

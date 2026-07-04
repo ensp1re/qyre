@@ -468,15 +468,28 @@ test` (14/14: factory unit tests, the write-API source scan, and integration tes
   (31/31: 15 unit tests including new cases for string-literal/dollar-quote/schema/alias/CTE
   corruption, plus 3 new live integration tests reproducing each originally-reported case against a
   real Postgres container) and `format:check`/`lint`/`typecheck` all pass.
+- **F021 `passing`** (commit `e1a78ad`): `assertReadOnly`'s multiple-statement guard checked for `;`
+  against raw SQL (only comments stripped), so filtering by any value containing a semicolon (a URL,
+  an encoded blob, free text) was wrongly rejected as "multiple statements". Now runs the same `;`
+  check against the same `stripLiterals`-masked text the forbidden-keyword scan already uses, so a
+  `;` inside a string literal or quoted identifier is no longer mistaken for a second statement,
+  while a real second statement is still rejected and a single trailing `;` is still tolerated.
+  `docs/product-specs/sql-editor.md` gained a new "Multi-statement / semicolon detection" section.
+  `pnpm --filter @humbdb/driver-contract test` (25/25, 4 new/updated cases) and `pnpm --filter
+@humbdb/postgres test` (32/32, including a new live integration test against a real Postgres
+  container) both pass; `format:check`/`lint`/`typecheck` all pass. Note: `@humbdb/postgres` depends
+  on `@humbdb/driver-contract`'s built `dist` at runtime (tracked tech debt,
+  `docs/exec-plans/tech-debt-tracker.md`) - rebuild `@humbdb/driver-contract` before re-running the
+  Postgres suite after touching `read-only.ts`, or the old behavior will silently still be in effect.
 
 ## Next steps
 
-**F021-F033 are `not_started` and unprioritized among themselves** - pick one (the remaining
-Critical/security items - F023/F024/F025 - and the correctness bug F021, same file as F020, are good
-next picks) or ask the user which to tackle first; at most one may be `active` at a time. Every
-other feature in `docs/FEATURES.json` is `passing` (F001-F020, DF-01-DF-09). Before starting new
-work: re-read this file's "Known issues / blockers" (the bare `humb` npm package dispute is the one
-open item), or ask the user what they'd like next. If picking a new feature area instead, write its
-product spec under `docs/product-specs/` and add a `docs/FEATURES.json` entry before writing code
-(this repo's working contract - see `AGENTS.md`), and consider whether it warrants its own
+**F022-F033 are `not_started` and unprioritized among themselves** - pick one (the remaining
+Critical/security items - F023/F024/F025 - are good next picks) or ask the user which to tackle
+first; at most one may be `active` at a time. Every other feature in `docs/FEATURES.json` is
+`passing` (F001-F021, DF-01-DF-09). Before starting new work: re-read this file's "Known issues /
+blockers" (the bare `humb` npm package dispute is the one open item), or ask the user what they'd
+like next. If picking a new feature area instead, write its product spec under
+`docs/product-specs/` and add a `docs/FEATURES.json` entry before writing code (this repo's working
+contract - see `AGENTS.md`), and consider whether it warrants its own
 `docs/exec-plans/active/NNNN-*.md` plan doc if it's more than one slice.

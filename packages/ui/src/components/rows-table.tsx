@@ -33,10 +33,15 @@ export interface RowsTableProps {
 
 type SortDir = "asc" | "desc" | null;
 
-function toCsv(columns: string[], rows: Array<Record<string, unknown>>): string {
+const FORMULA_LEADING_CHARS = /^[=+\-@]/;
+
+export function toCsv(columns: string[], rows: Array<Record<string, unknown>>): string {
   const escape = (value: unknown): string => {
     const text = formatCell(value);
-    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    // Prefix a leading apostrophe so Excel/Sheets treats a value like `=cmd()` as text, not a
+    // formula - CSV export can otherwise be used to inject formulas into the analyst's spreadsheet.
+    const safeText = FORMULA_LEADING_CHARS.test(text) ? `'${text}` : text;
+    return /[",\n]/.test(safeText) ? `"${safeText.replace(/"/g, '""')}"` : safeText;
   };
   const lines = [columns.map(escape).join(",")];
   for (const row of rows) lines.push(columns.map((column) => escape(row[column])).join(","));

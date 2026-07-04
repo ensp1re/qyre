@@ -185,7 +185,7 @@
     },
     {
       "id": "F019",
-      "behavior": "Cell values reach the browser exactly as stored, across all three engines: Postgres/MySQL date and timestamp-without-timezone columns are no longer shifted by the server's local UTC offset; MySQL and SQLite BIGINT/INTEGER values past Number.MAX_SAFE_INTEGER no longer silently lose precision; Postgres bytea/MySQL blob/SQLite BLOB columns render as a 'binary · N bytes' chip with a hex-dump-and-UTF-8-decode drawer instead of a confusing generic JSON chip. Found via a systematic 'test every column type' sweep across all three engines prompted by F016.",
+      "behavior": "Cell values reach the browser exactly as stored, across all three engines: Postgres/MySQL date and timestamp-without-timezone columns are no longer shifted by the server's local UTC offset; MySQL and SQLite BIGINT/INTEGER values past Number.MAX_SAFE_INTEGER no longer silently lose precision; Postgres bytea/MySQL blob/SQLite BLOB columns render as a 'binary \u00b7 N bytes' chip with a hex-dump-and-UTF-8-decode drawer instead of a confusing generic JSON chip. Found via a systematic 'test every column type' sweep across all three engines prompted by F016.",
       "verification": "pnpm --filter @humbdb/postgres test && pnpm --filter @humbdb/mysql test && pnpm --filter @humbdb/sqlite test && pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build && pnpm --filter @humbdb/ui typecheck && pnpm --filter @humbdb/web build && pnpm test:e2e:full",
       "state": "passing",
       "commitHash": "f850c43",
@@ -422,6 +422,296 @@
       "evidence": "commit e723173: added a 30s refetchInterval to useOverview while connected (longer than health/console polling since schema drift is far less frequent than a connection drop), in addition to the existing manual Refresh and refetch-on-focus. Verified live: created a table directly against the real Postgres container while Humb stayed open with no interaction, and watched it appear in the sidebar within one poll with no manual refresh; dropped it and confirmed cleanup. pnpm --filter @humbdb/web build/typecheck pass. docs/product-specs/dashboard-ui.md updated.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F034",
+      "behavior": "The connect-nothing empty state in `apps/web/src/App.tsx` (~line 146) lists all four supported engines (Postgres, MySQL, SQLite, MongoDB) instead of the stale \"Postgres or SQLite\".",
+      "verification": "pnpm --filter @humbdb/web test && pnpm --filter @humbdb/web build",
+      "state": "passing",
+      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
+      "evidence": "commit bebe4ec: apps/web/src/App.tsx's disconnected empty-state now lists \"Postgres, MySQL, SQLite, or MongoDB\" instead of the stale \"Postgres or SQLite\". pnpm --filter @humbdb/web build/typecheck pass. Verified live via Preview: the copy renders correctly (this is a static string change with no branching logic). PR: https://github.com/ensp1re/humb/pull/54.",
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F035",
+      "behavior": "CSV export/copy (`packages/ui/src/components/rows-table.tsx` `toCsv`) escapes cell values starting with `=`, `+`, `-`, or `@` so opening an exported CSV in Excel/Sheets can't execute a formula from untrusted DB data.",
+      "verification": "pnpm --filter @humbdb/ui test",
+      "state": "passing",
+      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
+      "evidence": "commit bebe4ec: toCsv (packages/ui/src/components/rows-table.tsx) now prefixes a leading apostrophe on any cell value starting with =, +, -, or @ before CSV quoting, so Excel/Sheets treats it as text instead of executing it as a formula. Added rows-table.test.ts covering quoting, formula-prefix escaping, and the non-leading-character case (3/3 passing). pnpm --filter @humbdb/ui test (24/24) passes. PR: https://github.com/ensp1re/humb/pull/54.",
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F036",
+      "behavior": "`apps/web`'s `canGoNext` pagination check no longer enables Next purely because `rows.length === pageSize`; an exact-page-size boundary can't land on an empty next page.",
+      "verification": "pnpm --filter @humbdb/web test",
+      "state": "passing",
+      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
+      "evidence": "commit bebe4ec: apps/web/src/hooks/use-rows.ts's useRows now fetches the real page plus a 1-row probe at the next page's offset ((page + 1) * PAGE_SIZE) in parallel, and returns a real hasMore boolean instead of the rows.length === pageSize heuristic (wrong exactly on an exact-page-size boundary). Verified live against the real Postgres container: created a 25-row fixture table and confirmed canGoNext reads false on its one and only page (previously true, which would have fetched an empty next page); confirmed via curl against the 10,000-row events table that page 399 (the last full page) probes false while page 398 probes true. pnpm --filter @humbdb/web build/typecheck pass. PR: https://github.com/ensp1re/humb/pull/54.",
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F037",
+      "behavior": "Schema tree search (`packages/ui/src/components/schema-tree.tsx`) shows a hint for the 2-character minimum instead of silently showing the unfiltered tree on a single character.",
+      "verification": "pnpm --filter @humbdb/ui test",
+      "state": "passing",
+      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
+      "evidence": "commit bebe4ec: schema-tree.tsx shows \"keep typing - search needs 2+ characters\" when the trimmed query is exactly 1 character, instead of silently rendering the unfiltered tree. Verified live via Preview: typing a single character shows the hint; clearing or typing a second character restores normal search/tree behavior. pnpm --filter @humbdb/ui test passes. PR: https://github.com/ensp1re/humb/pull/54.",
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F038",
+      "behavior": "Connection status in `schema-tree.tsx` (`STATUS_DOT_COLOR`) is conveyed by adjacent text/`aria-label`, not dot color alone, so color-blind users can distinguish connection state.",
+      "verification": "pnpm --filter @humbdb/ui test",
+      "state": "passing",
+      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
+      "evidence": "commit bebe4ec: the schema tree's connection row now renders CircleCheck/CircleAlert/Circle (connected/disconnected/unconfigured) with aria-label=\"Connection status: <label>\" instead of a single Circle colored via STATUS_DOT_COLOR alone, so color-blind users get a distinct shape plus a screen-reader label. Verified live via Preview: confirmed the rendered icon carries role=\"img\" and the expected aria-label for a connected session. pnpm --filter @humbdb/ui test passes. PR: https://github.com/ensp1re/humb/pull/54.",
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F039",
+      "behavior": "`cell-value-drawer.tsx` and `query-history-drawer.tsx` trap Tab focus while open and restore focus to the trigger control on close, instead of letting keyboard focus escape into obscured background content.",
+      "verification": "pnpm --filter @humbdb/ui test",
+      "state": "passing",
+      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
+      "evidence": "commit bebe4ec: a new shared useFocusTrap hook (packages/ui/src/use-focus-trap.ts) traps Tab/Shift+Tab within a container while active and restores focus to whatever had it beforehand on close; wired into both CellValueDrawer and QueryHistoryDrawer (each aside gets tabIndex=-1 as a focus fallback). Verified live via Preview with real focus + keyboard events (synthetic .click() alone doesn't move focus the way a real user click does, so the test explicitly focused the trigger first): opening either drawer moves focus to its first control, Tab/Shift+Tab wrap at the last/first focusable element, and closing restores focus to the original trigger (History button / inspected cell chip). pnpm --filter @humbdb/ui test passes. PR: https://github.com/ensp1re/humb/pull/54.",
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F040",
+      "behavior": "Loading states move past plain \"Loading...\" text, and the Cmd/Ctrl+Enter run-query shortcut is discoverable beyond a single easy-to-miss hint.",
+      "verification": "pnpm --filter @humbdb/web test && pnpm --filter @humbdb/ui test",
+      "state": "passing",
+      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
+      "evidence": "commit bebe4ec: query-runner.tsx's shortcut hint is now platform-aware (\u2318 Enter on Mac, Ctrl Enter elsewhere via navigator.platform), rendered as a bordered chip, and repeated as the Run button's title attribute so it's discoverable via hover, not only the one small always-visible label. Audited the app's other loading states (rows/tables/files/console) and found they already pair a Spinner with a specific noun (e.g. \"Loading rows...\"), not bare \"Loading...\" text, so no further change was needed there. Verified live via Preview at a desktop viewport width: the chip renders and the Run button's title reads \"Run query (\u2318 Enter)\". pnpm --filter @humbdb/web build/typecheck pass. PR: https://github.com/ensp1re/humb/pull/54.",
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F041",
+      "behavior": "Query hooks (`use-health`, `use-overview`, `use-table`, `use-rows`, `use-files`, `use-console`) apply a bounded retry policy instead of `retry: false`, so a single transient blip doesn't immediately surface an error panel.",
+      "verification": "pnpm --filter @humbdb/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/error-handling.md"
+    },
+    {
+      "id": "F042",
+      "behavior": "`/api/health` reports ping latency and the last error message alongside `connected`/`disconnected`/`unconfigured` and version, so \"disconnected\" and \"slow\" no longer look identical.",
+      "verification": "pnpm --filter @humbdb/server test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/error-handling.md"
+    },
+    {
+      "id": "F043",
+      "behavior": "The CLI's `SIGINT`/`SIGTERM` handler enforces a shutdown timeout, guards against re-entrant signals, and exits non-zero when teardown fails, instead of being able to hang forever on a wedged DB connection.",
+      "verification": "pnpm --filter @humbdb/humb test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F044",
+      "behavior": "Static bundle assets are served with compression (gzip/brotli) and cache-control headers for hashed assets, instead of bare `@fastify/static` defaults.",
+      "verification": "pnpm --filter @humbdb/server test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F045",
+      "behavior": "`normalizeBsonValue` (`packages/drivers/mongodb`) distinguishes BSON `Timestamp` (`{t, i}`) from `Long` and gives `Code`/`BSONRegExp`/`MinKey`/`MaxKey`/`BSONSymbol` dedicated branches instead of falling through to a generic object.",
+      "verification": "pnpm --filter @humbdb/mongodb test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-mongodb.md"
+    },
+    {
+      "id": "F046",
+      "behavior": "Postgres/SQLite/MySQL driver packages import `assertReadOnly`/`ReadOnlyViolationError` directly from `@humbdb/driver-contract` instead of re-exporting them verbatim.",
+      "verification": "pnpm --filter @humbdb/postgres test && pnpm --filter @humbdb/mysql test && pnpm --filter @humbdb/sqlite test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F047",
+      "behavior": "Tuning constants (page sizes, `MAX_EVENTS`, `FIELD_SAMPLE_SIZE`, query-history `MAX_ENTRIES`) are defined in one shared module instead of independently per package, and the UI/server/core page-size numbers no longer diverge (25 vs. 50 vs. 200).",
+      "verification": "pnpm --filter @humbdb/core test && pnpm --filter @humbdb/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F048",
+      "behavior": "Postgres `getTable` issues a combined catalog query instead of 5 separate round-trips per table (columns, PK, FK, indexes, row-count).",
+      "verification": "pnpm --filter @humbdb/postgres test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
+    },
+    {
+      "id": "F049",
+      "behavior": "Postgres and MySQL adapters share a common `SqlAdapterBase` for `getOverview`/`getTable`/`runReadOnlyQuery`'s transaction ceremony instead of duplicating it verbatim in each package.",
+      "verification": "pnpm --filter @humbdb/postgres test && pnpm --filter @humbdb/mysql test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
+    },
+    {
+      "id": "F050",
+      "behavior": "`runReadOnlyQuery` enforces a result-row cap so a single `SELECT * FROM huge_table` can't fetch/serialize/render an unbounded result set.",
+      "verification": "pnpm --filter @humbdb/postgres test && pnpm --filter @humbdb/mysql test && pnpm --filter @humbdb/sqlite test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F051",
+      "behavior": "`RowsTable` and the query-result table virtualize row rendering instead of mounting every row/cell as a DOM node, so wide tables at max page size stay responsive.",
+      "verification": "pnpm --filter @humbdb/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F052",
+      "behavior": "`apps/web/src/App.tsx` is decomposed out of its ~290-line single-component tab-routing ternary into smaller route/tab components, with no behavior change.",
+      "verification": "pnpm --filter @humbdb/web test && pnpm --filter @humbdb/web build",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F053",
+      "behavior": "A test asserts the adapter/factory registry, `scripts/publish.mjs`'s `PUBLISH_ORDER`, and `connection-target.ts`'s protocol detection stay in lockstep, failing if an engine is added to one list but not the others.",
+      "verification": "pnpm --filter @humbdb/core test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F054",
+      "behavior": "A shared parametrized adapter-conformance test suite exercises pagination clamping, empty-collection handling, bigint/date fidelity, read-only rejection, and error shapes identically across Postgres/MySQL/SQLite/Mongo.",
+      "verification": "pnpm --filter @humbdb/testing test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F055",
+      "behavior": "`@humbdb/ui` gains component-level test coverage (cell rendering, tree search, CSV escaping, sort) instead of being exercised only via E2E.",
+      "verification": "pnpm --filter @humbdb/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F056",
+      "behavior": "Integration tests fail loudly instead of skipping silently when `HUMB_TEST_*` env vars are unset, and E2E gains baseline `axe` accessibility assertions.",
+      "verification": "pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F057",
+      "behavior": "A committed `docker-compose.yml` starts the local Postgres+MySQL+Mongo test stack, and a root `.env.example` documents the `HUMB_TEST_*` vars, so a new contributor doesn't need to read CI YAML to find them.",
+      "verification": "docker compose -f docker-compose.yml config",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F058",
+      "behavior": "A human-facing `CONTRIBUTING.md` documents setup/build/test for an external contributor, distinct from the agent-facing `AGENTS.md`.",
+      "verification": "pnpm check:state",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F059",
+      "behavior": "Engine lists in the root README and per-package READMEs are mechanically checked (`scripts/check-readme.mjs` extended to assert the engine list), so a copy drift like the stale \"Postgres or SQLite\" empty-state can't recur undetected.",
+      "verification": "node scripts/check-readme.mjs",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F060",
+      "behavior": "A user-facing doc covers per-engine connection-string formats, troubleshooting, and the read-only/local-first security model, distinct from the agent/contributor-facing docs.",
+      "verification": "pnpm check:state",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SECURITY.md"
+    },
+    {
+      "id": "F061",
+      "behavior": "FK columns in the Rows/Table view are clickable and navigate to the referenced table, using the FK metadata `getTable` already returns.",
+      "verification": "pnpm --filter @humbdb/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/dashboard-ui.md"
+    },
+    {
+      "id": "F062",
+      "behavior": "The Files tab can run a previewed `.sql` file into the SQL editor, reusing the existing read-only gate and editor-mount path.",
+      "verification": "pnpm --filter @humbdb/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
     }
   ]
 }

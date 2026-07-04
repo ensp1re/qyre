@@ -98,6 +98,9 @@ export function QueryRunner({
 }: QueryRunnerProps): ReactNode {
   const canRun = !isRunning && sql.trim().length > 0;
   const lineCount = sql.split("\n").length;
+  const isMac =
+    typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform ?? "");
+  const shortcutLabel = isMac ? "⌘ Enter" : "Ctrl Enter";
   const [inspected, setInspected] = useState<{
     column: string;
     value: InspectableValue;
@@ -175,6 +178,7 @@ export function QueryRunner({
           type="button"
           onClick={onRun}
           disabled={!canRun}
+          title={`Run query (${shortcutLabel})`}
           className="flex items-center gap-1.5 rounded-[3px] bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {isRunning ? (
@@ -184,8 +188,8 @@ export function QueryRunner({
           )}
           {isRunning ? "Running..." : "Run"}
         </button>
-        <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
-          ⌘ Enter
+        <span className="hidden rounded-[2px] border border-border px-1 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
+          {shortcutLabel}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <button

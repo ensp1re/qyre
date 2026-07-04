@@ -1,5 +1,5 @@
 import type { ConnectionStatus, SchemaMetadata } from "@humbdb/core";
-import { Circle, FolderOpen, Table2 } from "lucide-react";
+import { Circle, CircleAlert, CircleCheck, FolderOpen, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { cn } from "../cn.js";
@@ -31,6 +31,20 @@ const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
   connected: "var(--c-green)",
   disconnected: "var(--c-red)",
   unconfigured: "rgb(var(--muted-foreground))"
+};
+
+const STATUS_LABEL: Record<ConnectionStatus, string> = {
+  connected: "Connected",
+  disconnected: "Disconnected",
+  unconfigured: "Not configured"
+};
+
+// Color alone can't convey connection status to color-blind users, so pair it with a distinct
+// shape (check/alert/plain circle) and an aria-label - not just a hover-only title.
+const STATUS_ICON: Record<ConnectionStatus, typeof Circle> = {
+  connected: CircleCheck,
+  disconnected: CircleAlert,
+  unconfigured: Circle
 };
 
 function buildTree(target: string | null, schemas: SchemaMetadata[]): Node {
@@ -155,13 +169,18 @@ function TreeRow({
           <span className="w-2.5 shrink-0" />
         )}
 
-        {node.type === "connection" && (
-          <Circle
-            className="h-1.5 w-1.5 shrink-0"
-            fill={STATUS_DOT_COLOR[status]}
-            style={{ color: STATUS_DOT_COLOR[status] }}
-          />
-        )}
+        {node.type === "connection" &&
+          (() => {
+            const StatusIcon = STATUS_ICON[status];
+            return (
+              <StatusIcon
+                className="h-2.5 w-2.5 shrink-0"
+                role="img"
+                aria-label={`Connection status: ${STATUS_LABEL[status]}`}
+                style={{ color: STATUS_DOT_COLOR[status] }}
+              />
+            );
+          })()}
         {node.type === "schema" && (
           <FolderOpen className="h-3 w-3 shrink-0" style={{ color: "var(--c-amber)" }} />
         )}
@@ -243,7 +262,11 @@ export function SchemaTree({
       </div>
 
       <nav role="tree" className="flex-1 overflow-y-auto py-1">
-        {trimmedQuery.length > 1 && matchIds.size === 0 ? (
+        {trimmedQuery.length === 1 ? (
+          <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+            keep typing - search needs 2+ characters
+          </div>
+        ) : trimmedQuery.length > 1 && matchIds.size === 0 ? (
           <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
             no results
           </div>

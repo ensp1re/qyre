@@ -20,21 +20,30 @@ A single-page app shell:
   dot, dark/light toggle, refresh, settings (settings itself is out of scope until something needs
   configuring beyond theme).
 - **Sidebar**: collapsible, searchable tree of the connected engine's structure (mirrors
-  `SchemaTree`'s existing data, restyled). Search highlights matches and force-opens ancestor paths.
-  The schema/table overview backing it polls every 30s while connected (F033), in addition to the
+  `SchemaTree`'s existing data, restyled). Search highlights matches and force-opens ancestor paths;
+  a query of exactly one character shows a "keep typing" hint instead of silently falling back to
+  the unfiltered tree (the 2-character minimum wasn't otherwise discoverable, F037). The
+  schema/table overview backing it polls every 30s while connected (F033), in addition to the
   manual Refresh button and React Query's default refetch-on-focus, so a table added/dropped
   outside Humb doesn't stay invisible indefinitely. Keyboard-operable (F031): each row is a real
   `role="treeitem"` (nested under `role="tree"`/`role="group"`), focusable, with `Enter`/`Space` to
-  select/activate and `ArrowRight`/`ArrowLeft` to expand/collapse a schema.
+  select/activate and `ArrowRight`/`ArrowLeft` to expand/collapse a schema. The connection row's
+  status is conveyed by a distinct icon shape (check/alert/plain circle) plus an `aria-label`, not
+  color alone, so color-blind users can distinguish connection state (F038).
 - **Tab bar**: SQL Editor, Tables, Schema, Files, Console (see "Tabs" below).
 - **Status bar**: connection status, engine + version, current schema/database, encoding.
 
 ## Tabs
 
 - **SQL Editor**: line-numbered read-only query runner (ports `QueryRunner`). `Cmd/Ctrl+Enter` to
-  run. Results panel below the editor, not a separate page.
+  run - the toolbar chip shows the platform-appropriate label (`⌘ Enter` / `Ctrl Enter`) and the Run
+  button's `title` repeats it, since a single always-visible hint wasn't enough for discoverability
+  (F040). Results panel below the editor, not a separate page.
 - **Tables**: paginated row browser (ports `RowsTable`) with client-side search/sort over the
-  fetched page. No write affordances (see "Out of scope").
+  fetched page. Next is only enabled when a next page actually has rows - `useRows` probes the next
+  page's offset alongside the current page's fetch, instead of guessing `hasMore` from
+  `rows.length === pageSize` (wrong exactly on an exact-page-size boundary, F036). No write
+  affordances (see "Out of scope").
 - **Schema**: a grid of table cards, each showing its columns with PK/FK badges - a full-database
   overview, distinct from the existing single-table `TableDetail`. Backed by one batched
   `GET /api/tables` request (F027) that returns every table's metadata in a single response,

@@ -1,6 +1,8 @@
 import { History, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useRef } from "react";
 import { cn } from "../cn.js";
+import { useFocusTrap } from "../use-focus-trap.js";
 
 /** One past successful SQL Editor query (F012). Persisted by the caller (apps/web), not this
  * package - packages/ui stays presentation-only per FRONTEND.md. */
@@ -38,6 +40,9 @@ export function QueryHistoryDrawer({
   entries,
   onSelect
 }: QueryHistoryDrawerProps): ReactNode {
+  const asideRef = useRef<HTMLElement | null>(null);
+  useFocusTrap(asideRef, open);
+
   return (
     <>
       {open && (
@@ -49,9 +54,11 @@ export function QueryHistoryDrawer({
       )}
 
       <aside
+        ref={asideRef}
+        tabIndex={-1}
         data-testid="query-history-drawer"
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-border bg-card transition-transform duration-150",
+          "fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-border bg-card outline-none transition-transform duration-150",
           open ? "translate-x-0" : "translate-x-full"
         )}
       >

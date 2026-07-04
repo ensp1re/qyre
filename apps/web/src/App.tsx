@@ -149,7 +149,7 @@ export function App(): ReactNode {
                       <Spinner /> Checking connection...
                     </>
                   ) : (
-                    "No database is connected yet. Launch Humb with a Postgres or SQLite target to get started."
+                    "No database is connected yet. Launch Humb with a Postgres, MySQL, SQLite, or MongoDB target to get started."
                   )}
                 </p>
               ) : tab === "sql-editor" && isMongo ? (
@@ -186,13 +186,13 @@ export function App(): ReactNode {
                   />
                 ) : rows.data ? (
                   <RowsTable
-                    rowPage={rows.data}
+                    rowPage={rows.data.rowPage}
                     columns={table.data?.columns}
                     tableName={selected.table}
                     approxRowCount={table.data?.rowCount}
                     page={page}
                     canGoPrevious={page > 0}
-                    canGoNext={rows.data.rows.length === rows.data.pageSize}
+                    canGoNext={rows.data.hasMore}
                     onPrevious={() => setPage((current) => Math.max(0, current - 1))}
                     onNext={() => setPage((current) => current + 1)}
                     onRefresh={() => rows.refetch()}

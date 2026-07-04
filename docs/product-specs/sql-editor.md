@@ -36,6 +36,9 @@ SQL keyword/table completion as they type instead of relying on memory or the Sc
   same bounded-list approach DF-07's server-side event log already uses.
 - Duplicate consecutive entries (re-running the exact same query text) are not stored twice - move
   the existing entry to the front (most-recent) instead of appending a duplicate card.
+- Opening the drawer traps Tab focus within it (wrapping at the first/last focusable control) and
+  restores focus to the history icon that opened it once closed, instead of leaking keyboard focus
+  into the editor behind it (F039, shared with `CellValueDrawer` via `useFocusTrap`).
 
 ### Out of scope (for now)
 

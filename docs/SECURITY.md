@@ -34,6 +34,10 @@ rules are first-class.
 
 - Treat connection targets, SQL input, and API request bodies as untrusted until validated.
 - Parse and validate at the boundary (e.g. Zod) before use.
+- Treat the connected database's own row data as untrusted once it leaves Humb into another
+  application's trust boundary - e.g. CSV export/copy (`rows-table.tsx`'s `toCsv`, F035) prefixes a
+  leading apostrophe on any cell value starting with `=`/`+`/`-`/`@` so Excel/Sheets can't execute it
+  as a formula.
 
 ## External actions
 

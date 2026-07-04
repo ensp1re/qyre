@@ -1,6 +1,7 @@
 import { Binary, Braces, Check, Copy, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFocusTrap } from "../use-focus-trap.js";
 import type { BinaryValue, InspectableValue } from "./cell-value.js";
 import { isBinaryValue, isStructuredValue, summarizeStructuredValue } from "./cell-value.js";
 
@@ -177,6 +178,8 @@ function TreeNode({
 export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps): ReactNode {
   const [copied, setCopied] = useState(false);
   const binary = isBinaryValue(value) ? value : null;
+  const asideRef = useRef<HTMLElement | null>(null);
+  useFocusTrap(asideRef, true);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -191,8 +194,10 @@ export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} aria-hidden="true" />
 
       <aside
+        ref={asideRef}
+        tabIndex={-1}
         data-testid="cell-value-drawer"
-        className="fixed inset-y-0 right-0 z-50 flex w-96 max-w-full flex-col border-l border-border bg-card"
+        className="fixed inset-y-0 right-0 z-50 flex w-96 max-w-full flex-col border-l border-border bg-card outline-none"
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
           {binary ? (

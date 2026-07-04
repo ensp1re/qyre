@@ -287,7 +287,7 @@
       "id": "F020",
       "behavior": "The Postgres query runner's `coerceUnknownQuotedIdentifiers` (packages/drivers/postgres) no longer rewrites double-quoted text that lives inside string literals, dollar-quoted blocks, schema-qualified names, or query-local aliases/CTE names - only genuine bare-identifier quoting gets coerced. `SELECT 'he said \"hi\" loudly' FROM users`, `SELECT * FROM \"public\".\"users\"`, and `SELECT \"a\" FROM (SELECT 1 AS a) sub` all run unmodified.",
       "verification": "pnpm --filter @humbdb/postgres test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

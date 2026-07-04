@@ -107,6 +107,43 @@ describe("PostgresAdapter integration", () => {
     expect(result.rows).toHaveLength(FIXTURE.rowCount);
   });
 
+  it("does not corrupt a quote character inside a string literal (F020 regression)", async () => {
+    // Previously: the regex-based coercion rewrote the "hi" inside the string literal too,
+    // producing invalid SQL that failed at the database instead of matching by name.
+    await runStatements(databaseUrl, [
+      `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('he said "hi" loudly', 'quote-test@example.com')`
+    ]);
+    try {
+      const result = await adapter.runReadOnlyQuery(
+        `SELECT * FROM ${FIXTURE.table} WHERE name = 'he said "hi" loudly'`
+      );
+      expect(result.rows).toHaveLength(1);
+    } finally {
+      await runStatements(databaseUrl, [
+        `DELETE FROM ${FIXTURE.table} WHERE email = 'quote-test@example.com'`
+      ]);
+    }
+  });
+
+  it("resolves a schema-qualified, double-quoted table reference (F020 regression)", async () => {
+    // Previously: "public" wasn't in knownIdentifiers (only table/column names were collected),
+    // so the schema name itself got coerced into a string literal, breaking the query.
+    const result = await adapter.runReadOnlyQuery(
+      `SELECT * FROM "${FIXTURE.schema}"."${FIXTURE.table}"`
+    );
+    expect(result.rows).toHaveLength(FIXTURE.rowCount);
+  });
+
+  it("resolves a double-quoted reference to a query-local column alias (F020 regression)", async () => {
+    // Previously: "total" isn't a real column anywhere, so it got coerced to a string literal,
+    // breaking a query that legitimately refers back to its own subquery alias.
+    const result = await adapter.runReadOnlyQuery(
+      `SELECT "total" FROM (SELECT COUNT(*) AS total FROM ${FIXTURE.table}) counts`
+    );
+    expect(result.columns).toEqual(["total"]);
+    expect(Number(result.rows[0]?.total)).toBe(FIXTURE.rowCount);
+  });
+
   it("rejects a writable CTE end to end and does not actually delete anything", async () => {
     const before = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
 

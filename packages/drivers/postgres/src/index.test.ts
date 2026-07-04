@@ -48,4 +48,47 @@ describe("coerceUnknownQuotedIdentifiers", () => {
     const sql = "SELECT * FROM employees WHERE department='Support'";
     expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(sql);
   });
+
+  it("does not touch a double-quote character that lives inside a single-quoted string literal", () => {
+    const sql = `SELECT 'he said "hi" loudly' FROM employees`;
+    expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(sql);
+  });
+
+  it("does not touch a double-quote character inside a dollar-quoted block", () => {
+    const sql = `SELECT $$he said "hi" loudly$$ FROM employees`;
+    expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(sql);
+  });
+
+  it("does not touch a double-quote character inside a tagged dollar-quoted block", () => {
+    const sql = `SELECT $tag$he said "hi" loudly$tag$ FROM employees`;
+    expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(sql);
+  });
+
+  it("leaves a schema-qualified, double-quoted table reference untouched", () => {
+    const identifiers = new Set(["public", "users"]);
+    const sql = `SELECT * FROM "public"."users"`;
+    expect(coerceUnknownQuotedIdentifiers(sql, identifiers)).toBe(sql);
+  });
+
+  it("leaves a double-quoted reference to a query-local column alias untouched", () => {
+    const sql = `SELECT "a" FROM (SELECT 1 AS a) sub`;
+    expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(sql);
+  });
+
+  it("leaves a double-quoted reference to a quoted column alias untouched", () => {
+    const sql = `SELECT "Total" FROM (SELECT 1 AS "Total") sub`;
+    expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(sql);
+  });
+
+  it("leaves a double-quoted reference to a CTE name untouched", () => {
+    const sql = `WITH "recent" AS (SELECT 1 AS id) SELECT * FROM "recent"`;
+    expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(sql);
+  });
+
+  it("still coerces an unknown quoted value even when the query also has a string literal containing a quote", () => {
+    const sql = `SELECT 'he said "hi"' , department="Support" FROM employees`;
+    expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(
+      `SELECT 'he said "hi"' , department='Support' FROM employees`
+    );
+  });
 });

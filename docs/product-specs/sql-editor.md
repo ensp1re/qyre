@@ -133,11 +133,18 @@ string whenever it doesn't match a real identifier - a documented quirk, see
 habit, Humb smooths this over for Postgres specifically:
 
 - Before executing a query against Postgres, any double-quoted token in the SQL text that does not
-  match a real column or table name in the connected database is rewritten to an equivalent
+  match a real schema, table, or column name in the connected database - nor an identifier the
+  query defines itself (a column/table alias or CTE name) - is rewritten to an equivalent
   single-quoted string literal.
-- A double-quoted token that **does** match a real column or table name (including a legitimately
-  quoted case-sensitive identifier) is left untouched - this never changes the meaning of a query
-  that already runs successfully today.
+- A double-quoted token that **does** match a real schema/table/column name (including a
+  legitimately quoted case-sensitive identifier), or that refers back to an alias/CTE the query
+  itself defined, is left untouched - this never changes the meaning of a query that already runs
+  successfully today.
+- The rewrite tokenizes the SQL rather than regex-replacing raw text: a `"` character that lives
+  inside a `'...'` string literal or a `$$...$$`/`$tag$...$tag$` dollar-quoted block is never
+  mistaken for identifier quoting, so it's never rewritten.
+- Alias/CTE detection is a best-effort regex heuristic (not a full SQL parser) - it recognizes the
+  common `AS alias`/`AS "alias"` and `name AS (...)` shapes, not every possible aliasing form.
 - This is Postgres-only: SQLite already tolerates it natively; MySQL (F014) already treats `"..."`
   as a string by default, so neither engine needs the rewrite.
 
@@ -149,3 +156,8 @@ habit, Humb smooths this over for Postgres specifically:
   reference, not a string literal.
 - A single-quoted value (`department='Support'`) is unaffected - this only changes double-quote
   handling.
+- `SELECT 'he said "hi" loudly' FROM users` runs unmodified - the `"hi"` lives inside a string
+  literal, not as bare identifier quoting.
+- `SELECT * FROM "public"."users"` runs unmodified - schema-qualified names resolve correctly.
+- `SELECT "a" FROM (SELECT 1 AS a) sub` runs unmodified - a double-quoted reference to a
+  query-local column alias is not coerced into a string literal.

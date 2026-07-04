@@ -1,5 +1,8 @@
 import type { ConnectionTarget, DatabaseOverview, RowPage, TableMetadata } from "@humbdb/core";
 
+/** Severity of an adapter's asynchronous connection event - see {@link DatabaseAdapter.onConnectionEvent}. */
+export type ConnectionEventLevel = "warn" | "error";
+
 /** A live, engine-specific connection to a single database. */
 export interface DatabaseAdapter {
   /** The engine identifier, e.g. "postgres". */
@@ -20,6 +23,14 @@ export interface DatabaseAdapter {
   getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage>;
   /** Execute a read-only (SELECT-style) query. Implementations must reject mutations. */
   runReadOnlyQuery(sql: string): Promise<RowPage>;
+  /**
+   * Optional hook for adapters whose underlying client emits connection events asynchronously,
+   * outside of any single request - e.g. Postgres/MySQL's pool "error" event when an idle
+   * connection is dropped server-side. The server assigns this after `connect()` so such events
+   * reach the Console tab's structured event log instead of a bare `console.error`. Adapters with
+   * no async connection events of their own (SQLite, MongoDB) simply never call it.
+   */
+  onConnectionEvent?: (level: ConnectionEventLevel, message: string) => void;
 }
 
 /** Creates {@link DatabaseAdapter} instances for targets a given engine supports. */

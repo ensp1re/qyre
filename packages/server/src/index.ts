@@ -26,6 +26,8 @@ import type { DatabaseAdapter } from "@humbdb/driver-contract";
 import Fastify from "fastify";
 import type { FastifyError, FastifyInstance } from "fastify";
 import { EventLog } from "./event-log.js";
+
+export { EventLog } from "./event-log.js";
 import { buildFileTree, InvalidFilePathError, resolveSqlFilePath } from "./files.js";
 
 export interface CreateServerOptions {
@@ -47,6 +49,13 @@ export interface CreateServerOptions {
    * docs/product-specs/dashboard-ui.md's "Files tab security boundary".
    */
   filesRoot?: string;
+  /**
+   * Shared event log instance. Omit to let `createServer` make its own (the common case, and what
+   * every existing test does) - only pass one in when a caller needs to log into the same log the
+   * server reads from, e.g. `startServer` handing it back so the CLI can wire an adapter's
+   * `onConnectionEvent` (F028) into the Console tab's event stream.
+   */
+  eventLog?: EventLog;
 }
 
 function requireAdapter(adapter: DatabaseAdapter | undefined): DatabaseAdapter {
@@ -77,7 +86,7 @@ function extractHostname(hostHeader: string): string {
 export function createServer(options: CreateServerOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false });
   const { adapter, target, filesRoot } = options;
-  const eventLog = new EventLog();
+  const eventLog = options.eventLog ?? new EventLog();
   let lastKnownStatus: HealthResponse["database"] | undefined;
 
   app.addHook("onRequest", async (request, reply) => {
@@ -249,18 +258,22 @@ export interface StartServerOptions extends CreateServerOptions {
 export interface RunningServer {
   app: FastifyInstance;
   url: string;
+  /** The server's event log - e.g. so the caller can wire an adapter's `onConnectionEvent` into it. */
+  eventLog: EventLog;
   close: () => Promise<void>;
 }
 
 /** Build and start the Humb HTTP server, listening on localhost. */
 export async function startServer(options: StartServerOptions = {}): Promise<RunningServer> {
-  const app = createServer(options);
+  const eventLog = options.eventLog ?? new EventLog();
+  const app = createServer({ ...options, eventLog });
   const port = options.port ?? DEFAULT_PORT;
   const host = options.host ?? "127.0.0.1";
   await app.listen({ port, host });
   return {
     app,
     url: `http://${host}:${port}`,
+    eventLog,
     close: () => app.close()
   };
 }

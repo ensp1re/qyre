@@ -71,6 +71,7 @@ async function fetchIndexes(
 
 export class MysqlAdapter implements DatabaseAdapter {
   public readonly engine = "mysql";
+  public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
   private pool: mysql.Pool | undefined;
 
   constructor(private readonly target: ConnectionTarget) {}
@@ -113,9 +114,16 @@ export class MysqlAdapter implements DatabaseAdapter {
     // dropped by the database (restart, network blip) would otherwise crash the whole process
     // instead of /api/health degrading to "disconnected" - see ARCHITECTURE.md's engine checklist
     // and F007's Postgres precedent. The promise Pool's own .on() only types a few non-error
-    // events, so the listener attaches to the underlying callback pool it wraps instead.
+    // events, so the listener attaches to the underlying callback pool it wraps instead. Routed
+    // through onConnectionEvent (see @humbdb/postgres's identical precedent) so it reaches the
+    // Console tab's event log instead of just stderr.
     this.pool.pool.on("error", (error: Error) => {
-      console.error("MySQL pool error (connection dropped):", error.message);
+      const message = `MySQL pool error (connection dropped): ${error.message}`;
+      if (this.onConnectionEvent) {
+        this.onConnectionEvent("error", message);
+      } else {
+        console.error(message);
+      }
     });
   }
 

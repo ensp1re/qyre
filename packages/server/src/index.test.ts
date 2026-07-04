@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { DatabaseAdapter } from "@humbdb/driver-contract";
 import { ReadOnlyViolationError } from "@humbdb/driver-contract";
 import { describe, expect, it } from "vitest";
-import { createServer } from "./index.js";
+import { createServer, EventLog } from "./index.js";
 
 describe("createServer", () => {
   it("rejects a request with a non-loopback Host header (DNS-rebinding, F025)", async () => {
@@ -175,6 +175,23 @@ describe("createServer", () => {
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: expect.any(String) });
+    await app.close();
+  });
+
+  it("reads console events through a shared EventLog instance passed in (F028)", async () => {
+    // Proves createServer's `eventLog` option is actually honored, not just accepted - startServer
+    // passes the same instance back to the caller (e.g. the CLI, to wire an adapter's
+    // onConnectionEvent into it) and expects GET /api/console to reflect anything logged into it.
+    const eventLog = new EventLog();
+    const app = createServer({ eventLog });
+    eventLog.log("error", "Postgres pool error (connection dropped): test");
+
+    const response = await app.inject({ method: "GET", url: "/api/console" });
+    expect(response.json()).toMatchObject({
+      events: [
+        expect.objectContaining({ level: "error", message: expect.stringContaining("test") })
+      ]
+    });
     await app.close();
   });
 

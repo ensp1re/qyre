@@ -267,6 +267,7 @@ async function fetchRowCountEstimate(
 
 export class PostgresAdapter implements DatabaseAdapter {
   public readonly engine = "postgres";
+  public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
   private pool: Pool | undefined;
 
   constructor(private readonly target: ConnectionTarget) {}
@@ -283,8 +284,16 @@ export class PostgresAdapter implements DatabaseAdapter {
     // pg emits "error" on the pool when an idle client's connection is dropped by the
     // database (restart, network blip, admin kill). Without a listener, Node treats that as an
     // unhandled error and crashes the whole process - the opposite of what /api/health is for.
+    // Routed through onConnectionEvent (checked at fire time, so it's fine that the server wires
+    // it up after connect() returns) so it reaches the Console tab's event log, not just stderr -
+    // falls back to console.error if nothing ever set it.
     this.pool.on("error", (error) => {
-      console.error("Postgres pool error (connection dropped):", error.message);
+      const message = `Postgres pool error (connection dropped): ${error.message}`;
+      if (this.onConnectionEvent) {
+        this.onConnectionEvent("error", message);
+      } else {
+        console.error(message);
+      }
     });
   }
 

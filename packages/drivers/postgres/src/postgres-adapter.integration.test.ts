@@ -217,4 +217,34 @@ describe("PostgresAdapter integration", () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(await adapter.ping()).toBe(true);
   });
+
+  it("routes a pool error through onConnectionEvent when set, instead of only console.error (F028)", async () => {
+    const events: Array<{ level: string; message: string }> = [];
+    adapter.onConnectionEvent = (level, message) => events.push({ level, message });
+
+    try {
+      await adapter.ping();
+
+      const admin = new Pool({ connectionString: databaseUrl });
+      try {
+        const { rows } = await admin.query<{ pid: number }>(
+          `SELECT pid FROM pg_stat_activity
+           WHERE datname = current_database() AND state = 'idle' AND pid <> pg_backend_pid()
+           ORDER BY pid DESC LIMIT 1`
+        );
+        const pid = rows[0]?.pid;
+        expect(pid).toBeDefined();
+        await admin.query("SELECT pg_terminate_backend($1)", [pid]);
+      } finally {
+        await admin.end();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(events).toEqual([
+        { level: "error", message: expect.stringContaining("Postgres pool error") }
+      ]);
+    } finally {
+      adapter.onConnectionEvent = undefined;
+    }
+  });
 });

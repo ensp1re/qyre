@@ -307,7 +307,7 @@
       "id": "F022",
       "behavior": "`GET /api/tables/:schema/:table/rows` returns a clean `400` with a readable error on invalid pagination params (e.g. `?page=abc`), matching `/api/query`'s `safeParse` pattern, instead of a `500` with a raw Zod issue dump.",
       "verification": "pnpm --filter @humbdb/server test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

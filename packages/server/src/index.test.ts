@@ -132,6 +132,31 @@ describe("createServer", () => {
     await app.close();
   });
 
+  it("returns 400 (not 500) for invalid pagination params on the rows route", async () => {
+    // F022: rowsQuerySchema.parse() used to throw straight into Fastify's default handler on bad
+    // input, returning 500 with a raw stringified Zod issue dump - /api/query's safeParse pattern
+    // is the correct precedent.
+    const adapter: DatabaseAdapter = {
+      engine: "postgres",
+      connect: async () => {},
+      disconnect: async () => {},
+      ping: async () => true,
+      getVersion: async () => "PostgreSQL 16.0",
+      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getTable: async () => ({ schema: "public", name: "x", columns: [] }),
+      getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
+      runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
+    };
+    const app = createServer({ adapter });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/tables/public/users/rows?page=abc"
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: expect.any(String) });
+    await app.close();
+  });
+
   it("does not serve static assets when no webRoot is given", async () => {
     const app = createServer();
     const response = await app.inject({ method: "GET", url: "/" });

@@ -125,9 +125,13 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
 
   app.get<{ Params: { schema: string; table: string }; Querystring: Record<string, string> }>(
     "/api/tables/:schema/:table/rows",
-    async (request) => {
+    async (request, reply) => {
+      const parsed = rowsQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: "Invalid page/pageSize query parameters." });
+      }
       const { schema, table } = request.params;
-      const { page, pageSize } = rowsQuerySchema.parse(request.query);
+      const { page, pageSize } = parsed.data;
       return requireAdapter(adapter).getRows(schema, table, page, pageSize);
     }
   );

@@ -381,6 +381,34 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
     `pnpm test:e2e:full` all pass - zero regression to F016's jsonb chip/drawer flow. Manually
     verified live via Preview: a `bytea` cell containing "hello world" decoded correctly in both the
     compact chip and its hex-dump drawer.
+- **F015 `passing`** (commit `44a4f15`): MongoDB as Humb's fourth engine, basic read-only browsing
+  only - see `docs/product-specs/connect-and-inspect-mongodb.md` for the full contract and why it's
+  narrower than the SQL engines'. New `@humbdb/mongodb` on the official `mongodb` driver: databases
+  map to schemas, collections to tables, documents to rows; `getTable()` samples 100 documents
+  (`$sample`) for a best-effort observed-fields list (`_id` flagged as the primary key, no indexes
+  for v1); `getRows()` unions fields per-page rather than reusing that sample, since documents in
+  the same collection can differ. `runReadOnlyQuery` always throws (no SQL dialect for a read-only
+  backstop to run inside) and the adapter's own code never calls a Mongo write API - verified by a
+  source-scan unit test, not just code review; the SQL Editor tab is disabled client-side when
+  connected to Mongo (`TabBar` gained `disabledTabs` support), confirmed live even as the default
+  initial tab. Applied F019's column-type-fidelity rigor proactively here rather than discovering
+  it live later: confirmed against a real container before writing any fix that BSON `Long`/
+  `Decimal128` serialize to useless shapes by default (`{high,low,unsigned}` and
+  `{"$numberDecimal":...}`) - normalized to a plain number (when safe) or exact string, matching
+  F019's bigint convention; BSON `Binary` normalized to the same `{ type: "Buffer", data: [...] }`
+  shape Node's own `Buffer` produces, reusing F019's existing binary-value chip/hex-dump viewer
+  instead of a second representation; `ObjectId`/`Date` already serialize cleanly and were left
+  untouched. Verified: `pnpm --filter @humbdb/core test` (22/22), `pnpm --filter @humbdb/mongodb
+test` (14/14: factory unit tests, the write-API source scan, and integration tests against a real
+  MongoDB container), `pnpm --filter @humbdb/humb test` (13/13), `pnpm --filter @humbdb/ui`/`@humbdb/web`
+  build/typecheck, and `pnpm check` (live Postgres+MySQL+MongoDB) all pass; `pnpm test:e2e:full`
+  re-run against a fresh container confirms zero regression to the other three engines from
+  `e2e/server.ts`'s new `"mongodb"` branch (no Playwright project exercises Mongo itself in this
+  pass - decided when picked up: package-level tests plus a manual live pass matched the spec's own
+  suggested bar, given there's no query runner to exercise). Also added a MongoDB service to CI's
+  `check` job (`.github/workflows/ci.yml`) and a `.local/preview-server-mongo.mjs` script (backed by
+  a new `e2e/server.ts` `"mongodb"` branch) for manual verification. This was this plan's sixth and
+  final slice - `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` moved to `completed/`.
 
 ## In progress
 
@@ -417,8 +445,10 @@ test` and `pnpm test:e2e:full` against a real `postgres:16-alpine` container - n
 
 ## Next steps
 
-1. Pick up F015 (MongoDB engine, basic browse only, no query runner - see
-   `docs/product-specs/connect-and-inspect-mongodb.md`) next - see
-   `docs/exec-plans/active/0004-editor-ux-and-new-engines.md` for the full plan; this is that
-   plan's last remaining slice. F016 (its structured-cell-viewer prerequisite) is now `passing`, so
-   Mongo documents have a working rendering path already in place.
+Every feature in `docs/FEATURES.json` is currently `passing` (F001-F019, DF-01-DF-09) - there is no
+queued next slice. Before starting new work: check `docs/FEATURES.json` for anything not
+`passing`, re-read this file's "Known issues / blockers" (the bare `humb` npm package dispute is
+the one open item), or ask the user what they'd like next. If picking a new feature area, write its
+product spec under `docs/product-specs/` and add a `docs/FEATURES.json` entry before writing code
+(this repo's working contract - see `AGENTS.md`), and consider whether it warrants its own
+`docs/exec-plans/active/NNNN-*.md` plan doc if it's more than one slice.

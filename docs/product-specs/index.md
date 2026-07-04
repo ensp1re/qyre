@@ -31,6 +31,7 @@ single engine's behavior, not the whole product.
   to basic read-only browsing (databases/collections/documents) rather than a full port of the
   SQL-shaped contract - no query runner, and a weaker (code-level, not driver-level) read-only
   guarantee, both explicitly called out rather than glossed over. Tracked as F015; depends on F016.
+  Both `passing`.
 - [`structured-cell-values.md`](structured-cell-values.md) - an expandable tree viewer for any
   object/array cell value in `RowsTable`/`QueryRunner`'s result table, replacing today's flat
   `JSON.stringify`-to-text handling. Engine-agnostic by design (benefits Postgres/MySQL `json`/`jsonb`
@@ -41,6 +42,11 @@ single engine's behavior, not the whole product.
   default `{error: "Internal Server Error"}` shape instead of the real Postgres error message), plus
   a shared `ErrorState` UI component replacing today's inconsistent inline error text across
   `QueryRunner`/`RowsTable`/`SchemaGrid`/`FilesBrowser`/`ConsoleLog`. Tracked as F017.
+- [`column-type-fidelity.md`](column-type-fidelity.md) - three defect categories found by
+  systematically testing every column type each engine supports rather than just JSON: Postgres/
+  MySQL `date`/`timestamp` values silently shifted by the server's local timezone, MySQL/SQLite
+  `BIGINT`/`INTEGER` values silently losing precision past `Number.MAX_SAFE_INTEGER`, and binary
+  columns rendering as a confusing JSON chip instead of a real hex viewer. Tracked as F019.
 
 ## Rules
 

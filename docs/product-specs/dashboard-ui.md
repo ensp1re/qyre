@@ -21,6 +21,9 @@ A single-page app shell:
   configuring beyond theme).
 - **Sidebar**: collapsible, searchable tree of the connected engine's structure (mirrors
   `SchemaTree`'s existing data, restyled). Search highlights matches and force-opens ancestor paths.
+  The schema/table overview backing it polls every 30s while connected (F033), in addition to the
+  manual Refresh button and React Query's default refetch-on-focus, so a table added/dropped
+  outside Humb doesn't stay invisible indefinitely.
 - **Tab bar**: SQL Editor, Tables, Schema, Files, Console (see "Tabs" below).
 - **Status bar**: connection status, engine + version, current schema/database, encoding.
 

@@ -337,9 +337,9 @@
       "id": "F025",
       "behavior": "The local API server rejects requests whose `Host` header is not `127.0.0.1:<port>`/`localhost:<port>`, closing the DNS-rebinding vector against the unauthenticated localhost API.",
       "verification": "pnpm --filter @humbdb/server test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "53ba237",
+      "evidence": "commit 53ba237: added an onRequest hook rejecting any request whose Host header isn't a loopback hostname (127.0.0.1, localhost, or the IPv6 loopback, with or without a port), closing the DNS-rebinding vector against the unauthenticated localhost-bound API. pnpm --filter @humbdb/server test passes (39/39: 2 new cases - a non-loopback Host header is rejected with 400, and 127.0.0.1/localhost/IPv6-loopback/bare-localhost Host headers are all accepted). format/lint/typecheck all pass. Also manually re-verified against the real E2E suite for zero regression: pnpm test:e2e (3/3, all engine projects) and pnpm test:e2e:full against a real Postgres+MySQL container (9/9 passing, 1 pre-existing documented failure unrelated to this change - the dev-seed container's 11-table Schema-tab noise already called out in this file's Known issues, 2 skipped Postgres-only specs) both confirm the browser's real same-origin requests (Host: localhost:<port>) are unaffected. docs/SECURITY.md's Local-first boundary section updated to describe the new protection.",
       "blockedReason": null,
       "spec": "docs/SECURITY.md"
     },

@@ -512,15 +512,27 @@ test` (14/14: factory unit tests, the write-API source scan, and integration tes
   credential-redaction bullet updated to mention query-param credentials explicitly. `pnpm --filter
 @humbdb/core test` (24/24, 4 new cases) and `pnpm --filter @humbdb/server test` (37/37, no
   regression - rebuilt `@humbdb/core` first) both pass; `format:check`/`lint`/`typecheck` all pass.
+- **F025 `passing`** (commit `53ba237`): added an `onRequest` hook rejecting any request whose
+  `Host` header isn't a loopback hostname (`127.0.0.1`, `localhost`, or the IPv6 loopback, with or
+  without a port) - closes the DNS-rebinding vector against the unauthenticated, localhost-bound
+  API (a malicious page the developer visits resolving its own hostname to `127.0.0.1`).
+  `docs/SECURITY.md`'s Local-first boundary section updated to describe the new protection.
+  `pnpm --filter @humbdb/server test` (39/39, 2 new cases) and `format:check`/`lint`/`typecheck` all
+  pass. Given this hook runs on every request, also manually re-verified against the real E2E suite
+  for zero regression: `pnpm test:e2e` (3/3, all engine projects) and `pnpm test:e2e:full` against a
+  real Postgres+MySQL container (9/9 passing, 1 pre-existing failure unrelated to this change - see
+  "Known issues" below) both confirm the browser's real same-origin requests
+  (`Host: localhost:<port>`) are unaffected.
 
 ## Next steps
 
-**F025-F033 are `not_started` and unprioritized among themselves** - pick one (F025, the
-DNS-rebinding host check, is the last security item) or ask the user which to tackle first; at most
-one may be `active` at a time. Every other feature in `docs/FEATURES.json` is `passing` (F001-F024,
-DF-01-DF-09). Before starting new work: re-read this file's "Known issues / blockers" (the bare
-`humb` npm package dispute is the one open item), or ask the user what they'd like next. If picking
-a new feature area instead, write its product spec under `docs/product-specs/` and add a
+Every feature in `docs/FEATURES.json` through **F025** is `passing`. **F026-F033 are `not_started`
+and unprioritized among themselves** (Mongo pagination stability, Schema-tab fan-out, pool-error
+logging, health-poll dormancy, missing error boundary, schema-tree keyboard a11y, missing statement
+timeouts, stale-cache freshness) - pick one or ask the user which to tackle first; at most one may
+be `active` at a time. Before starting new work: re-read this file's "Known issues / blockers" (the
+bare `humb` npm package dispute is the one open item), or ask the user what they'd like next. If
+picking a new feature area instead, write its product spec under `docs/product-specs/` and add a
 `docs/FEATURES.json` entry before writing code (this repo's working contract - see `AGENTS.md`), and
 consider whether it warrants its own `docs/exec-plans/active/NNNN-*.md` plan doc if it's more than
 one slice.

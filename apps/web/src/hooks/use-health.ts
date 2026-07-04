@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchHealth } from "../api/health.js";
+import { QUERY_RETRY } from "./query-retry.js";
 
 /** React Query hook for the server's health/connection status. Polls so the connection indicator
  * and the server's connection-transition log entries (Console tab) reflect a real disconnect/
@@ -8,7 +9,7 @@ export function useHealth() {
   return useQuery({
     queryKey: ["health"],
     queryFn: fetchHealth,
-    retry: false,
+    ...QUERY_RETRY,
     refetchInterval: 3000
   });
 }

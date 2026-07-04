@@ -2,8 +2,47 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ConnectionTarget } from "@humbdb/core";
+import { BSONRegExp, BSONSymbol, Code, Long, MaxKey, MinKey, Timestamp } from "mongodb";
 import { describe, expect, it } from "vitest";
-import { mongodbAdapterFactory } from "./index.js";
+import { mongodbAdapterFactory, normalizeBsonValue } from "./index.js";
+
+describe("normalizeBsonValue", () => {
+  it("preserves a Timestamp's {t, i} semantics instead of misreading it as a signed Long (F045)", () => {
+    const ts = Timestamp.fromBits(5, 1700000000);
+    expect(ts).toBeInstanceOf(Long);
+    expect(normalizeBsonValue(ts)).toEqual({ t: 1700000000, i: 5 });
+  });
+
+  it("still normalizes a plain Long as a signed 64-bit integer", () => {
+    expect(normalizeBsonValue(Long.fromNumber(42))).toBe(42);
+  });
+
+  it("normalizes Code with its scope", () => {
+    const code = new Code("function() { return 1; }", { a: 1 });
+    expect(normalizeBsonValue(code)).toEqual({
+      code: "function() { return 1; }",
+      scope: { a: 1 }
+    });
+  });
+
+  it("normalizes BSONRegExp to its pattern/options", () => {
+    const re = new BSONRegExp("^abc", "i");
+    expect(normalizeBsonValue(re)).toEqual({ pattern: "^abc", options: "i" });
+  });
+
+  it("normalizes a native RegExp - the shape the driver actually decodes a BSON regex into by default", () => {
+    expect(normalizeBsonValue(/^abc/i)).toEqual({ pattern: "^abc", options: "i" });
+  });
+
+  it("normalizes MinKey/MaxKey to extended-JSON-style sentinels", () => {
+    expect(normalizeBsonValue(new MinKey())).toEqual({ $minKey: 1 });
+    expect(normalizeBsonValue(new MaxKey())).toEqual({ $maxKey: 1 });
+  });
+
+  it("normalizes BSONSymbol to its plain string value", () => {
+    expect(normalizeBsonValue(new BSONSymbol("mysym"))).toBe("mysym");
+  });
+});
 
 describe("mongodbAdapterFactory", () => {
   it("supports mongodb targets", () => {

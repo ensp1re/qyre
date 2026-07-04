@@ -286,6 +286,8 @@ export function App(): ReactNode {
         engineVersion={health?.engineVersion}
         schema={selected?.schema}
         lastQueryMs={lastQueryMs}
+        pingLatencyMs={health?.pingLatencyMs}
+        lastError={health?.lastError}
       />
 
       <QueryHistoryDrawer

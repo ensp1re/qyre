@@ -23,6 +23,7 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
+    "@fastify/compress": "^9.0.0",
     "@fastify/static": "^9.1.3",
     "@humbdb/core": "workspace:*",
     "@humbdb/driver-contract": "workspace:*",

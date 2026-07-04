@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchOverview } from "../api/overview.js";
+import { QUERY_RETRY } from "./query-retry.js";
 
 /**
  * React Query hook for the database's schemas/tables. Only fetches once a database is connected.
@@ -13,7 +14,7 @@ export function useOverview(options: { enabled: boolean }) {
     queryKey: ["overview"],
     queryFn: fetchOverview,
     enabled: options.enabled,
-    retry: false,
+    ...QUERY_RETRY,
     refetchInterval: options.enabled ? 30000 : false
   });
 }

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchFileContent, fetchFilesOverview } from "../api/files.js";
+import { QUERY_RETRY } from "./query-retry.js";
 
 /** React Query hook for the Files tab's tree of `.sql` files. */
 export function useFilesOverview(options: { enabled: boolean }) {
@@ -7,7 +8,7 @@ export function useFilesOverview(options: { enabled: boolean }) {
     queryKey: ["files"],
     queryFn: fetchFilesOverview,
     enabled: options.enabled,
-    retry: false
+    ...QUERY_RETRY
   });
 }
 
@@ -17,6 +18,6 @@ export function useFileContent(path: string | undefined) {
     queryKey: ["file-content", path],
     queryFn: () => fetchFileContent(path as string),
     enabled: Boolean(path),
-    retry: false
+    ...QUERY_RETRY
   });
 }

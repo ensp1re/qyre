@@ -35,8 +35,62 @@ describe("createServer", () => {
     expect(response.json()).toMatchObject({
       status: "ok",
       database: "unconfigured",
-      engineVersion: null
+      engineVersion: null,
+      pingLatencyMs: null,
+      lastError: null
     });
+    await app.close();
+  });
+
+  it("reports a ping latency once connected (F042)", async () => {
+    const adapter: DatabaseAdapter = {
+      engine: "postgres",
+      connect: async () => {},
+      disconnect: async () => {},
+      ping: async () => true,
+      getVersion: async () => "PostgreSQL 16.4",
+      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getTable: async () => ({ schema: "public", name: "x", columns: [] }),
+      getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
+      runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
+    };
+    const app = createServer({ adapter });
+    const response = await app.inject({ method: "GET", url: "/api/health" });
+    const body = response.json();
+    expect(body.database).toBe("connected");
+    expect(typeof body.pingLatencyMs).toBe("number");
+    expect(body.pingLatencyMs).toBeGreaterThanOrEqual(0);
+    expect(body.lastError).toBeNull();
+    await app.close();
+  });
+
+  it("reports the ping failure's error message, and clears it once a later ping succeeds (F042)", async () => {
+    let shouldFail = true;
+    const adapter: DatabaseAdapter = {
+      engine: "postgres",
+      connect: async () => {},
+      disconnect: async () => {},
+      ping: async () => {
+        if (shouldFail) throw new Error("Connection terminated unexpectedly");
+        return true;
+      },
+      getVersion: async () => "PostgreSQL 16.4",
+      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getTable: async () => ({ schema: "public", name: "x", columns: [] }),
+      getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
+      runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
+    };
+    const app = createServer({ adapter });
+
+    const failedResponse = await app.inject({ method: "GET", url: "/api/health" });
+    expect(failedResponse.json()).toMatchObject({
+      database: "disconnected",
+      lastError: "Connection terminated unexpectedly"
+    });
+
+    shouldFail = false;
+    const recoveredResponse = await app.inject({ method: "GET", url: "/api/health" });
+    expect(recoveredResponse.json()).toMatchObject({ database: "connected", lastError: null });
     await app.close();
   });
 
@@ -264,6 +318,31 @@ describe("createServer", () => {
       const response = await app.inject({ method: "GET", url: "/api/does-not-exist" });
       expect(response.statusCode).toBe(404);
       expect(response.json()).toMatchObject({ error: "Not found" });
+      await app.close();
+    });
+
+    it("marks index.html as no-cache so a stale copy can't reference removed hashed assets (F044)", async () => {
+      const app = createServer({ webRoot: makeWebRoot() });
+      const response = await app.inject({ method: "GET", url: "/" });
+      expect(response.headers["cache-control"]).toBe("no-cache");
+      await app.close();
+    });
+
+    it("caches a hashed bundle asset aggressively and compresses it when the client accepts it (F044)", async () => {
+      const dir = makeWebRoot();
+      mkdirSync(join(dir, "assets"));
+      // Above @fastify/compress's default 1024-byte threshold, or it won't bother compressing.
+      writeFileSync(join(dir, "assets", "index-abc123.js"), "x".repeat(2000));
+      const app = createServer({ webRoot: dir });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/assets/index-abc123.js",
+        headers: { "accept-encoding": "gzip" }
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+      expect(response.headers["content-encoding"]).toBe("gzip");
       await app.close();
     });
   });

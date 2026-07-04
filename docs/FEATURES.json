@@ -327,7 +327,7 @@
       "id": "F024",
       "behavior": "`redactConnectionString` (packages/core) also masks credentials passed as connection-string query parameters (e.g. `?password=...`), not just the `user:pass@host` form, so `/api/health`'s `target` field never surfaces a query-param password.",
       "verification": "pnpm --filter @humbdb/core test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

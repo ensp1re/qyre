@@ -81,4 +81,29 @@ describe("redactConnectionString", () => {
   it("returns a mask for unparseable input", () => {
     expect(redactConnectionString("nope")).toBe("<unparseable connection string>");
   });
+
+  it("masks a credential passed as a ?password= query parameter (F024 regression)", () => {
+    const redacted = redactConnectionString(
+      "postgres://user@localhost:5432/db?password=supersecret"
+    );
+    expect(redacted).not.toContain("supersecret");
+    expect(redacted).toContain("password=***");
+  });
+
+  it("masks a ?pwd= query parameter", () => {
+    const redacted = redactConnectionString("mysql://user@localhost:3306/db?pwd=supersecret");
+    expect(redacted).not.toContain("supersecret");
+  });
+
+  it("masks a MongoDB TLS client-cert passphrase query parameter", () => {
+    const redacted = redactConnectionString(
+      "mongodb://localhost:27017/db?tlsCertificateKeyFilePassword=supersecret"
+    );
+    expect(redacted).not.toContain("supersecret");
+  });
+
+  it("does not touch an unrelated query parameter", () => {
+    const redacted = redactConnectionString("postgres://user@localhost:5432/db?sslmode=require");
+    expect(redacted).toContain("sslmode=require");
+  });
 });

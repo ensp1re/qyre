@@ -407,7 +407,7 @@
       "id": "F032",
       "behavior": "Postgres/MySQL/MongoDB adapters set a sane default statement/query timeout (e.g. `statement_timeout`/`max_execution_time`/`maxTimeMS`, configurable) on the read-only query and row-fetch paths, so a runaway query fails fast with a clear error instead of hanging the request and holding a pool connection indefinitely.",
       "verification": "pnpm --filter @humbdb/postgres test && pnpm --filter @humbdb/mysql test && pnpm --filter @humbdb/mongodb test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

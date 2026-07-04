@@ -32,6 +32,20 @@ types.setTypeParser(types.builtins.TIMESTAMP, (value) => value);
 
 const SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast"];
 
+const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
+
+/**
+ * A heavyweight query (a huge unindexed scan, a cartesian join) would otherwise run to completion
+ * with no cap, tying up a pool connection and leaving the browser spinner spinning indefinitely.
+ * Configurable via `HUMB_STATEMENT_TIMEOUT_MS` (shared env var name across engines, read at
+ * `connect()` time rather than module load so tests can override it per case) so it can be tuned
+ * for a slow network/large database.
+ */
+function resolveStatementTimeoutMs(): number {
+  const raw = Number(process.env.HUMB_STATEMENT_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STATEMENT_TIMEOUT_MS;
+}
+
 /** Quote a SQL identifier safely. */
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
@@ -280,7 +294,10 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async connect(): Promise<void> {
-    this.pool = new Pool({ connectionString: this.target.raw });
+    this.pool = new Pool({
+      connectionString: this.target.raw,
+      statement_timeout: resolveStatementTimeoutMs()
+    });
     // pg emits "error" on the pool when an idle client's connection is dropped by the
     // database (restart, network blip, admin kill). Without a listener, Node treats that as an
     // unhandled error and crashes the whole process - the opposite of what /api/health is for.

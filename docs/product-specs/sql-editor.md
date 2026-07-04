@@ -180,3 +180,29 @@ from other SQL tools) is still tolerated.
 - `SELECT 'a;b' AS x; DROP TABLE users` is still rejected - a real second statement outside any
   literal is still a real second statement.
 - `SELECT 'a;b' AS x;` (single statement, trailing semicolon) is still accepted.
+
+## Statement timeout (all engines)
+
+### Behavior
+
+Every adapter caps how long a single read-only query or row fetch may run, so a heavyweight query
+(a huge unindexed scan, a cartesian join) fails fast with a clear error instead of hanging the
+request and holding a pool connection indefinitely. Configurable via `HUMB_STATEMENT_TIMEOUT_MS`
+(one env var name shared across engines), default 30 seconds. The enforcement mechanism is
+necessarily engine-specific:
+
+- **Postgres**: `statement_timeout` set on the connection pool - `pg` issues `SET statement_timeout`
+  on every new connection, so it covers introspection queries too, not just the query runner.
+- **MySQL**: a per-query `timeout` option (mysql2 has no pool-level equivalent to pg's
+  `statement_timeout`; the session-variable equivalent, `MAX_EXECUTION_TIME`, races the pool handing
+  out a freshly created connection before the `SET` command lands - confirmed live). mysql2 cannot
+  cancel the query server-side once the client-side timeout fires; it closes the connection instead,
+  an acceptable cost for stopping a runaway query from holding the pool.
+- **MongoDB**: `maxTimeMS` on the row-fetch (`getRows`) and field-sampling (`getTable`) cursors - the
+  server itself enforces the cutoff.
+
+### Acceptance criteria
+
+- A query/row-fetch that runs longer than the configured timeout rejects with a timeout-shaped
+  error instead of hanging.
+- The timeout is configurable via `HUMB_STATEMENT_TIMEOUT_MS` and defaults to 30 seconds when unset.

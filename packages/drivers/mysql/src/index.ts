@@ -22,6 +22,22 @@ export { assertReadOnly, ReadOnlyViolationError } from "@humbdb/driver-contract"
 
 const SYSTEM_SCHEMAS = ["information_schema", "mysql", "performance_schema", "sys"];
 
+const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
+
+/**
+ * A heavyweight query would otherwise run to completion with no cap, tying up a pool connection
+ * and leaving the browser spinner spinning indefinitely. Applied as a per-query `timeout` option
+ * (mysql2 has no pool-level statement-timeout config like pg's `statement_timeout`; the session
+ * variable equivalent, `MAX_EXECUTION_TIME`, races the pool handing out a freshly created
+ * connection before the SET command lands, confirmed live). Configurable via
+ * `HUMB_STATEMENT_TIMEOUT_MS` (shared env var name across engines, read at `connect()` time
+ * rather than module load so tests can override it per case).
+ */
+function resolveStatementTimeoutMs(): number {
+  const raw = Number(process.env.HUMB_STATEMENT_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STATEMENT_TIMEOUT_MS;
+}
+
 /** Quote a SQL identifier safely. MySQL uses backticks, not Postgres/SQLite's double quotes. */
 function quoteIdent(name: string): string {
   return `\`${name.replace(/`/g, "``")}\``;
@@ -73,6 +89,7 @@ export class MysqlAdapter implements DatabaseAdapter {
   public readonly engine = "mysql";
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
   private pool: mysql.Pool | undefined;
+  private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;
 
   constructor(private readonly target: ConnectionTarget) {}
 
@@ -84,6 +101,7 @@ export class MysqlAdapter implements DatabaseAdapter {
   }
 
   async connect(): Promise<void> {
+    this.statementTimeoutMs = resolveStatementTimeoutMs();
     this.pool = mysql.createPool({
       uri: this.target.raw,
       // Without `dateStrings`, mysql2 returns DATE/DATETIME/TIMESTAMP as JS Date objects built in
@@ -224,8 +242,15 @@ export class MysqlAdapter implements DatabaseAdapter {
   async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
 
+    // { sql, timeout } caps how long the client waits for a heavyweight row fetch - see
+    // resolveStatementTimeoutMs's doc comment. mysql2 closes the underlying connection once the
+    // timeout fires (it cannot cancel the query server-side), which is an acceptable cost for
+    // stopping a runaway query from holding the pool indefinitely.
     const [rows, fields] = await this.getPool().query<mysql.RowDataPacket[]>(
-      `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)} LIMIT ? OFFSET ?`,
+      {
+        sql: `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)} LIMIT ? OFFSET ?`,
+        timeout: this.statementTimeoutMs
+      },
       [safePageSize, offset]
     );
 
@@ -247,7 +272,10 @@ export class MysqlAdapter implements DatabaseAdapter {
     const connection = await this.getPool().getConnection();
     try {
       await connection.query("START TRANSACTION READ ONLY");
-      const [rows, fields] = await connection.query<mysql.RowDataPacket[]>(sql);
+      const [rows, fields] = await connection.query<mysql.RowDataPacket[]>({
+        sql,
+        timeout: this.statementTimeoutMs
+      });
       await connection.query("COMMIT");
       return {
         columns: fields.map((field) => field.name),

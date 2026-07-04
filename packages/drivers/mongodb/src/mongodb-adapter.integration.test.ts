@@ -164,4 +164,27 @@ describe("MongodbAdapter integration", () => {
       await client.close();
     }
   });
+
+  it("getRows/getTable pass the configured statement timeout as maxTimeMS, which MongoDB enforces (F032)", async () => {
+    // getRows/getTable's public API takes no user-controllable filter (MongoDB browsing here is
+    // deliberately narrow - no query language, see the spec's "Why this engine is scoped
+    // differently"), so there's no way to force a *real* getRows() call to run long enough to
+    // prove the timeout fires end to end (unlike Postgres/MySQL's runReadOnlyQuery, which accepts
+    // arbitrary SQL). This instead verifies the exact mechanism the adapter relies on - a `$where`
+    // server-side sleep makes a real scan slow, and confirms MongoDB itself aborts it once
+    // maxTimeMS elapses, exactly as getRows/getTable pass `this.statementTimeoutMs` through.
+    const client = new MongoClient(mongoUrl);
+    try {
+      await client.connect();
+      await expect(
+        client
+          .db(databaseName)
+          .collection(FIXTURE.table)
+          .find({ $where: "sleep(2000) || true" }, { maxTimeMS: 200 })
+          .toArray()
+      ).rejects.toThrow(/exceeded time limit/i);
+    } finally {
+      await client.close();
+    }
+  });
 });

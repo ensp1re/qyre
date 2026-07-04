@@ -247,4 +247,20 @@ describe("PostgresAdapter integration", () => {
       adapter.onConnectionEvent = undefined;
     }
   });
+
+  it("aborts a runaway query once it exceeds the configured statement timeout (F032)", async () => {
+    // A dedicated adapter/pool with a tiny timeout (via HUMB_STATEMENT_TIMEOUT_MS, read at
+    // connect() time) proves the mechanism fires without waiting out the real 30s default.
+    process.env.HUMB_STATEMENT_TIMEOUT_MS = "200";
+    const shortTimeoutAdapter = new PostgresAdapter({ engine: "postgres", raw: databaseUrl });
+    try {
+      await shortTimeoutAdapter.connect();
+      await expect(shortTimeoutAdapter.runReadOnlyQuery("SELECT pg_sleep(2)")).rejects.toThrow(
+        /timeout/i
+      );
+    } finally {
+      delete process.env.HUMB_STATEMENT_TIMEOUT_MS;
+      await shortTimeoutAdapter.disconnect();
+    }
+  });
 });

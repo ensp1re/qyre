@@ -74,8 +74,8 @@ gotchas in "Known issues / blockers").
   remaining tech-debt rows - `docs/product-specs/adapter-capabilities.md` (F063),
   `database-switching.md` (F064), `server-side-sort-export.md` (F065/F066). No code, just specs +
   new `not_started` `FEATURES.json` entries.
-- **F063 `passing`** (commit `5f00bc4`, not yet in a merged PR as of this writing - see "In
-  progress"): `DatabaseOverview` gains `capabilities.supportsSql`, declared by each adapter's
+- **F063 `passing`** ([PR #59](https://github.com/ensp1re/humb/pull/59), open):
+  `DatabaseOverview` gains `capabilities.supportsSql`, declared by each adapter's
   `getOverview()` (true for Postgres/MySQL/SQLite, false for MongoDB); `apps/web` reads that instead
   of `engine === "mongodb"` to disable the SQL Editor tab/Files-tab "Run in editor" action.
   `SqlEditorTab`'s `isMongo` prop renamed to `sqlDisabled`. Verified live via Preview against a real
@@ -84,10 +84,7 @@ gotchas in "Known issues / blockers").
 
 ## In progress
 
-- F063's implementation (branch `feature/F063-adapter-capabilities`, commit `5f00bc4`) is
-  code-complete and fully verified locally but not yet pushed/PR'd as of this writing - push it,
-  open a PR, and record the PR URL in `docs/FEATURES.json`'s F063 evidence + this file, matching the
-  pattern of PRs #54-#58.
+- [PR #59](https://github.com/ensp1re/humb/pull/59) (F063) is open against `main`, awaiting merge.
 - F064-F066 (specced in PR #58, not yet implemented) are the natural next slice - F064 (DB
   switching) is the biggest/most architecturally interesting; F065/F066 (server-side sort/export)
   can ship together since they share one spec file.

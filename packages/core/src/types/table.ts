@@ -1,3 +1,10 @@
+/** The table/column a foreign key column points at (F061 - makes FK columns clickable). */
+export interface ForeignKeyReference {
+  readonly schema?: string;
+  readonly table: string;
+  readonly column: string;
+}
+
 /** Metadata for a single column in a table. */
 export interface ColumnMetadata {
   readonly name: string;
@@ -5,6 +12,9 @@ export interface ColumnMetadata {
   readonly nullable: boolean;
   readonly isPrimaryKey: boolean;
   readonly isForeignKey: boolean;
+  /** Only present when `isForeignKey` is true and the engine can resolve the reference target
+   * (all SQL engines; MongoDB has no enforced foreign keys, so always undefined there). */
+  readonly references?: ForeignKeyReference;
 }
 
 /** Metadata for a single index on a table. */

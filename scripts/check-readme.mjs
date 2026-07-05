@@ -22,6 +22,32 @@ try {
   process.exit(1);
 }
 
+// The same canonical engine list check-engine-lockstep.mjs derives from connection-target.ts's
+// `engine: "x"` literals (F059) - reused here instead of a second hand-maintained list, so a new
+// engine landing without a README mention fails loudly instead of relying on someone noticing (this
+// already happened once: the empty-state copy and this file's own "Status" section both said
+// "Postgres or SQLite" after MySQL/MongoDB shipped).
+const ENGINE_DISPLAY_NAMES = {
+  postgres: "Postgres",
+  mysql: "MySQL",
+  sqlite: "SQLite",
+  mongodb: "MongoDB"
+};
+
+let connectionTarget;
+try {
+  connectionTarget = readFileSync(
+    resolve(here, "../packages/core/src/connection-target.ts"),
+    "utf8"
+  );
+} catch (error) {
+  console.error(`Could not read connection-target.ts: ${error.message}`);
+  process.exit(1);
+}
+const engines = [
+  ...new Set([...connectionTarget.matchAll(/engine:\s*"([a-z]+)"/g)].map((match) => match[1]))
+].sort();
+
 const checks = [
   {
     name: "does not describe the project as an unimplemented skeleton",
@@ -46,7 +72,11 @@ const checks = [
   {
     name: "tells the read-only-enforced-by-the-database security story",
     pass: /read.only/i.test(content) && /transaction|pragma|readonly:\s*true/i.test(content)
-  }
+  },
+  ...engines.map((engine) => ({
+    name: `mentions ${ENGINE_DISPLAY_NAMES[engine] ?? engine} (every supported engine must be named, not just the earliest ones)`,
+    pass: new RegExp(`\\b${ENGINE_DISPLAY_NAMES[engine] ?? engine}\\b`, "i").test(content)
+  }))
 ];
 
 const failed = checks.filter((check) => !check.pass);

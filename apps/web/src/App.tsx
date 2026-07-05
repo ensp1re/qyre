@@ -168,6 +168,9 @@ export function App(): ReactNode {
                   rows={rows}
                   page={page}
                   onPageChange={setPage}
+                  onNavigateToForeignKey={(reference) =>
+                    selectTable(reference.schema ?? selected?.schema ?? "", reference.table)
+                  }
                 />
               ) : tab === "schema" ? (
                 <SchemaTab allTables={allTables} />
@@ -177,6 +180,14 @@ export function App(): ReactNode {
                   fileContent={fileContent}
                   selectedFilePath={selectedFilePath}
                   onSelectFile={setSelectedFilePath}
+                  onRunInEditor={
+                    isMongo
+                      ? undefined
+                      : (sql) => {
+                          setQuerySql(sql);
+                          setTab("sql-editor");
+                        }
+                  }
                 />
               ) : tab === "console" ? (
                 <ConsoleTab consoleEvents={consoleEvents} onClear={() => clearConsole.mutate()} />

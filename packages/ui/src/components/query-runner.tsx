@@ -160,6 +160,9 @@ export function QueryRunner({
         ),
         EditorView.lineWrapping,
         editorTheme,
+        // CodeMirror's content div is role="textbox" with no accessible name by default - an axe
+        // scan (F056) flagged it as an unlabeled input.
+        EditorView.contentAttributes.of({ "aria-label": "SQL query editor" }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onSqlChangeRef.current(update.state.doc.toString());
         })

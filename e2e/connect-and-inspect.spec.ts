@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import {
   FIXTURE,
   requireTestDatabaseUrl,
@@ -54,4 +55,13 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
   // F005: a page of the fixture's actual rows is visible.
   await expect(page.getByTestId("rows-table").getByText("ada@example.com")).toBeVisible();
   await expect(page.getByTestId("rows-table").getByText("grace@example.com")).toBeVisible();
+
+  // F056: a baseline accessibility scan of the fully-loaded, data-rich state (sidebar tree, Schema
+  // grid, Tables tab) - a broader surface than smoke.spec.ts's disconnected-screen scan.
+  // color-contrast is disabled - see smoke.spec.ts's comment for why.
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .disableRules(["color-contrast"])
+    .analyze();
+  expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
 });

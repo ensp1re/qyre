@@ -378,12 +378,29 @@ export class PostgresAdapter implements DatabaseAdapter {
           ORDER BY ordinal_position`,
         [schema, table]
       ),
-      pool.query<{ constraint_type: "PRIMARY KEY" | "FOREIGN KEY"; column_name: string }>(
-        `SELECT tc.constraint_type, kcu.column_name
+      // F061: LEFT JOIN constraint_column_usage to resolve each FK's referenced schema/table/
+      // column - the join condition's own constraint_type = 'FOREIGN KEY' check keeps it NULL for
+      // PRIMARY KEY rows (which constraint_column_usage would otherwise self-reference).
+      pool.query<{
+        constraint_type: "PRIMARY KEY" | "FOREIGN KEY";
+        column_name: string;
+        referenced_schema: string | null;
+        referenced_table: string | null;
+        referenced_column: string | null;
+      }>(
+        `SELECT
+            tc.constraint_type,
+            kcu.column_name,
+            ccu.table_schema AS referenced_schema,
+            ccu.table_name AS referenced_table,
+            ccu.column_name AS referenced_column
            FROM information_schema.table_constraints tc
            JOIN information_schema.key_column_usage kcu
              ON tc.constraint_name = kcu.constraint_name
             AND tc.table_schema = kcu.table_schema
+           LEFT JOIN information_schema.constraint_column_usage ccu
+             ON tc.constraint_name = ccu.constraint_name
+            AND tc.constraint_type = 'FOREIGN KEY'
           WHERE tc.constraint_type IN ('PRIMARY KEY', 'FOREIGN KEY')
             AND tc.table_schema = $1 AND tc.table_name = $2`,
         [schema, table]
@@ -397,10 +414,22 @@ export class PostgresAdapter implements DatabaseAdapter {
         .filter((row) => row.constraint_type === "PRIMARY KEY")
         .map((row) => row.column_name)
     );
-    const foreignKeys = new Set(
+    const foreignKeyReferences = new Map(
       keysResult.rows
-        .filter((row) => row.constraint_type === "FOREIGN KEY")
-        .map((row) => row.column_name)
+        .filter(
+          (row): row is typeof row & { referenced_table: string; referenced_column: string } =>
+            row.constraint_type === "FOREIGN KEY" &&
+            row.referenced_table !== null &&
+            row.referenced_column !== null
+        )
+        .map((row) => [
+          row.column_name,
+          {
+            schema: row.referenced_schema ?? undefined,
+            table: row.referenced_table,
+            column: row.referenced_column
+          }
+        ])
     );
 
     const columns: ColumnMetadata[] = columnsResult.rows.map((row) => ({
@@ -408,7 +437,8 @@ export class PostgresAdapter implements DatabaseAdapter {
       dataType: row.data_type,
       nullable: row.is_nullable === "YES",
       isPrimaryKey: primaryKeys.has(row.column_name),
-      isForeignKey: foreignKeys.has(row.column_name)
+      isForeignKey: foreignKeyReferences.has(row.column_name),
+      references: foreignKeyReferences.get(row.column_name)
     }));
 
     return { schema, name: table, columns, indexes, rowCount };

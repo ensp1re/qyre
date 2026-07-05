@@ -160,6 +160,14 @@ export class SqliteAdapter implements DatabaseAdapter {
       `foreign_key_list(${quoteIdent(table)})`
     ) as ForeignKeyListRow[];
     const foreignKeys = new Set(foreignKeyList.map((fk) => fk.from));
+    // F061: `to` is null when the FK implicitly references the parent table's primary key (legal
+    // SQLite shorthand) rather than naming a column - that case is left unresolved (isForeignKey
+    // stays true, references stays undefined) rather than guessing which column is the parent's PK.
+    const foreignKeyReferences = new Map(
+      foreignKeyList
+        .filter((fk): fk is ForeignKeyListRow & { to: string } => fk.to !== null)
+        .map((fk) => [fk.from, { table: fk.table, column: fk.to }])
+    );
 
     const columns: ColumnMetadata[] = tableInfo.map((row) => ({
       name: row.name,
@@ -168,7 +176,8 @@ export class SqliteAdapter implements DatabaseAdapter {
       dataType: row.type || "any",
       nullable: row.notnull === 0,
       isPrimaryKey: row.pk > 0,
-      isForeignKey: foreignKeys.has(row.name)
+      isForeignKey: foreignKeys.has(row.name),
+      references: foreignKeyReferences.get(row.name)
     }));
 
     const indexes = fetchIndexes(db, table);

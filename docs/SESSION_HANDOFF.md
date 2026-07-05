@@ -70,11 +70,27 @@ gotchas in "Known issues / blockers").
   a previewed `.sql` file into the SQL editor. **All of F001-F062 and DF-01-DF-09 now `passing`** -
   every tech-debt row that didn't need a product-spec pass first is done. See `docs/FEATURES.json`
   for evidence per feature.
+- [PR #58](https://github.com/ensp1re/humb/pull/58) (merged, docs-only): product-spec pass on 3
+  remaining tech-debt rows - `docs/product-specs/adapter-capabilities.md` (F063),
+  `database-switching.md` (F064), `server-side-sort-export.md` (F065/F066). No code, just specs +
+  new `not_started` `FEATURES.json` entries.
+- **F063 `passing`** (commit `5f00bc4`, not yet in a merged PR as of this writing - see "In
+  progress"): `DatabaseOverview` gains `capabilities.supportsSql`, declared by each adapter's
+  `getOverview()` (true for Postgres/MySQL/SQLite, false for MongoDB); `apps/web` reads that instead
+  of `engine === "mongodb"` to disable the SQL Editor tab/Files-tab "Run in editor" action.
+  `SqlEditorTab`'s `isMongo` prop renamed to `sqlDisabled`. Verified live via Preview against a real
+  Postgres container (`supportsSql: true`, tab enabled) and a real MongoDB container
+  (`supportsSql: false`, tab disabled, same tooltip copy as before).
 
 ## In progress
 
-- [PR #58](https://github.com/ensp1re/humb/pull/58) (docs-only, product-spec pass for F063-F066) is
-  open against `main`, awaiting merge - see "Next steps" for what it contains.
+- F063's implementation (branch `feature/F063-adapter-capabilities`, commit `5f00bc4`) is
+  code-complete and fully verified locally but not yet pushed/PR'd as of this writing - push it,
+  open a PR, and record the PR URL in `docs/FEATURES.json`'s F063 evidence + this file, matching the
+  pattern of PRs #54-#58.
+- F064-F066 (specced in PR #58, not yet implemented) are the natural next slice - F064 (DB
+  switching) is the biggest/most architecturally interesting; F065/F066 (server-side sort/export)
+  can ship together since they share one spec file.
 
 - Publishing the bare `humb` npm package (`packages/humb`) alongside `@humbdb/humb` is blocked on an
   npm name-similarity dispute (too close to `humps`/`htm`/`dumi`/`pump`/`umi`) - once cleared, retry
@@ -103,36 +119,19 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-With F001-F062 and DF-01-DF-09 all `passing`, the user asked for a product-spec pass on 3 of the
-remaining tech-debt-tracker.md rows (skipping `--demo` mode for now). That pass is done ([PR #58](https://github.com/ensp1re/humb/pull/58),
-open) - 3 new specs, 4 new `not_started` features, ready to implement in a future session:
+F063 is `passing` (commit `5f00bc4`) but needs pushing + a PR (see "In progress"). After that:
 
-- **F063** (`docs/product-specs/adapter-capabilities.md`): replace `apps/web`'s
-  `engine === "mongodb"` string checks with an `AdapterCapabilities.supportsSql` flag each adapter
-  declares. Smallest of the four - one new `DatabaseOverview` field, one flag per adapter, two call
-  sites in `apps/web` to update.
 - **F064** (`docs/product-specs/database-switching.md`): a `POST /api/connect` endpoint (gated
   behind a new optional `adapterFactories` `CreateServerOptions` field) plus wiring the title bar's
   existing disabled Settings button into a connect drawer. Requires `createServer`'s closure-captured
-  `adapter`/`target` consts to become mutable state - the one real architectural change in this
-  batch.
+  `adapter`/`target` consts to become mutable state - the one real architectural change of the three
+  remaining specced features.
 - **F065/F066** (`docs/product-specs/server-side-sort-export.md`): `sortColumn`/`sortDirection`
   params on the rows endpoint (validated against real column names server-side - the actual
   injection surface), plus a new streamed `GET .../export.csv` endpoint replacing today's
-  page-only CSV export.
+  page-only CSV export. These two share one spec/PR since export honors the same sort.
 
-Two other tech-debt-tracker.md rows were reviewed but deliberately **not** given new specs, and the
-tracker itself was corrected rather than left stale:
-
-- The `packages/cli` relative-dist-path row was removed - it was fully resolved by F010 (`passing`)
-  and had gone stale; the only remaining piece (npm publish blocked on a name dispute) is already
-  tracked in "Known issues / blockers" above, not duplicated here.
-- The dist/runtime-dependency `build` row is left as-is (still real, unmet trigger) - it's already
-  documented as an accepted design consequence in `docs/design-docs/stack-and-structure.md`'s
-  "Consequences" section, not an open question a new product spec would resolve.
-- Six other rows (`.env.example`/`docker-compose.yml`/`CONTRIBUTING.md`/adapter-conformance/
-  `@humbdb/ui` tests/connection-string doc) were also removed from the tracker in this same pass -
-  all were already fixed by Batch 4 (F057-F060, F054-F055) but the tracker rows were never cleaned
-  up at the time.
-
-`--demo` mode remains the one deferred row with no spec yet - still needs its own pass if picked up.
+`--demo` mode remains the one tech-debt row with no spec yet - still needs its own product-spec pass
+before implementation if picked up. See `docs/exec-plans/tech-debt-tracker.md` for its row (and
+the residual MongoDB-fake-fields half of F063's old row, deliberately left unaddressed - see
+`docs/product-specs/adapter-capabilities.md`'s "Out of scope").

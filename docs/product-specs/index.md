@@ -49,8 +49,8 @@ single engine's behavior, not the whole product.
   columns rendering as a confusing JSON chip instead of a real hex viewer. Tracked as F019.
 - [`adapter-capabilities.md`](adapter-capabilities.md) - replaces `apps/web`'s
   `engine === "mongodb"` string-check branching with a `capabilities.supportsSql` flag each adapter
-  declares, so a future non-SQL engine doesn't need its own `apps/web` conditional. Tracked as F063
-  (not yet implemented).
+  declares, so a future non-SQL engine doesn't need its own `apps/web` conditional. Tracked as F063,
+  `passing`.
 - [`database-switching.md`](database-switching.md) - lets a developer switch the running Humb
   instance to a different database connection from the title bar's (currently disabled) Settings
   button, without restarting the CLI. Tracked as F064 (not yet implemented).

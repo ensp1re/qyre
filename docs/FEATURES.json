@@ -712,6 +712,46 @@
       "evidence": "commit bd579e4: FilesBrowser gained an onRunInEditor prop and a \"Run in editor\" button (shown only for .sql files, via a canRunInEditor check) that apps/web wires to set the SQL editor's content and switch to the sql-editor tab, reusing the existing read-only gate and editor-mount path with no new plumbing. Verified live in the browser preview: opening a .sql file in the Files tab and clicking \"Run in editor\" switched to the SQL Editor tab with the file's content pre-filled. PR: https://github.com/ensp1re/humb/pull/57.",
       "blockedReason": null,
       "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F063",
+      "behavior": "DatabaseAdapter/AdapterFactory declare a capabilities.supportsSql flag (surfaced via DatabaseOverview), and apps/web reads that instead of string-comparing engine === \"mongodb\" to decide whether to disable the SQL Editor tab and the Files tab's \"Run in editor\" action.",
+      "verification": "pnpm --filter @humbdb/web build && pnpm test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/adapter-capabilities.md"
+    },
+    {
+      "id": "F064",
+      "behavior": "A developer can switch the running Humb instance to a different database connection from the title bar's Settings drawer, without restarting the CLI - a new POST /api/connect endpoint swaps the server's live adapter/target, and apps/web resets cached state (overview/tables/rows/console, selected table, page) for the new connection.",
+      "verification": "pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/database-switching.md"
+    },
+    {
+      "id": "F065",
+      "behavior": "Clicking a RowsTable column header sorts the entire table (via a new sortColumn/sortDirection param on GET /api/tables/:schema/:table/rows and each engine's getRows), not just the currently loaded page, with the sort column validated server-side against the table's real columns.",
+      "verification": "pnpm test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/server-side-sort-export.md"
+    },
+    {
+      "id": "F066",
+      "behavior": "\"Export all rows as CSV\" streams every row of a table (honoring the active sort) from a new GET /api/tables/:schema/:table/export.csv endpoint, replacing today's page-only CSV export, without holding the whole table in server memory at once.",
+      "verification": "pnpm test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/server-side-sort-export.md"
     }
   ]
 }

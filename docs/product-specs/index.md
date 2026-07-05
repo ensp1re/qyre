@@ -47,6 +47,16 @@ single engine's behavior, not the whole product.
   MySQL `date`/`timestamp` values silently shifted by the server's local timezone, MySQL/SQLite
   `BIGINT`/`INTEGER` values silently losing precision past `Number.MAX_SAFE_INTEGER`, and binary
   columns rendering as a confusing JSON chip instead of a real hex viewer. Tracked as F019.
+- [`adapter-capabilities.md`](adapter-capabilities.md) - replaces `apps/web`'s
+  `engine === "mongodb"` string-check branching with a `capabilities.supportsSql` flag each adapter
+  declares, so a future non-SQL engine doesn't need its own `apps/web` conditional. Tracked as F063
+  (not yet implemented).
+- [`database-switching.md`](database-switching.md) - lets a developer switch the running Humb
+  instance to a different database connection from the title bar's (currently disabled) Settings
+  button, without restarting the CLI. Tracked as F064 (not yet implemented).
+- [`server-side-sort-export.md`](server-side-sort-export.md) - `RowsTable`'s column sort and CSV
+  export currently only cover the loaded page; this moves sort server-side and adds a whole-table
+  streamed CSV export. Tracked as F065 (sort) and F066 (export), neither yet implemented.
 
 ## Rules
 

@@ -86,7 +86,16 @@ async function main(): Promise<void> {
     port,
     host: "127.0.0.1",
     webRoot,
-    logger: false
+    logger: false,
+    // F064: mirrors the real CLI's main() - lets @full specs and manual Preview verification
+    // exercise POST /api/connect against any supported engine, not just the one this instance
+    // started with.
+    adapterFactories: [
+      postgresAdapterFactory,
+      sqliteAdapterFactory,
+      mysqlAdapterFactory,
+      mongodbAdapterFactory
+    ]
   });
   process.stdout.write(`Humb E2E server listening at ${server.url}\n`);
 }

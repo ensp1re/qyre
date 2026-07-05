@@ -141,11 +141,14 @@ export function createShutdownHandler(deps: ShutdownDeps): () => Promise<void> {
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgs(argv);
 
+  const adapterFactories = [
+    postgresAdapterFactory,
+    sqliteAdapterFactory,
+    mysqlAdapterFactory,
+    mongodbAdapterFactory
+  ];
   const target = parseConnectionTarget(args.target);
-  const adapter = resolveAdapter(
-    [postgresAdapterFactory, sqliteAdapterFactory, mysqlAdapterFactory, mongodbAdapterFactory],
-    target
-  );
+  const adapter = resolveAdapter(adapterFactories, target);
   await adapter.connect();
 
   const filesRoot = resolveFilesRoot(args.filesDir, process.cwd());
@@ -160,7 +163,10 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     port,
     logger: true,
     webRoot: defaultWebRoot(dirname(fileURLToPath(import.meta.url))),
-    filesRoot
+    filesRoot,
+    // F064: lets the running instance switch to a different database via POST /api/connect
+    // instead of requiring a process restart.
+    adapterFactories
   });
   // Wired after startServer (not before adapter.connect() above) so the CLI doesn't need to
   // construct its own EventLog - the pool "error" listener checks onConnectionEvent at fire time,

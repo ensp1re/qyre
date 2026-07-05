@@ -9,22 +9,25 @@ import { join } from "node:path";
 import fastifyCompress from "@fastify/compress";
 import fastifyStatic from "@fastify/static";
 import {
+  connectRequestSchema,
   DEFAULT_PORT,
   fileContentQuerySchema,
+  parseConnectionTarget,
   redactConnectionString,
   rowsQuerySchema,
   runQuerySchema
 } from "@humbdb/core";
 import type {
   AllTablesResponse,
+  ConnectResponse,
   ConnectionTarget,
   ConsoleEvents,
   FileContent,
   FilesOverview,
   HealthResponse
 } from "@humbdb/core";
-import { ReadOnlyViolationError } from "@humbdb/driver-contract";
-import type { DatabaseAdapter } from "@humbdb/driver-contract";
+import { ReadOnlyViolationError, resolveAdapter } from "@humbdb/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
 import Fastify from "fastify";
 import type { FastifyError, FastifyInstance } from "fastify";
 import { EventLog } from "./event-log.js";
@@ -58,6 +61,14 @@ export interface CreateServerOptions {
    * `onConnectionEvent` (F028) into the Console tab's event stream.
    */
   eventLog?: EventLog;
+  /**
+   * Engine factories to resolve a new adapter from when `POST /api/connect` is called (F064).
+   * Omitted means the endpoint isn't registered at all - `POST /api/connect` 404s, matching
+   * pre-F064 behavior everywhere this isn't explicitly opted into (every existing test, and any
+   * caller that hasn't been updated). `packages/cli`'s real `main()` passes its full factory list
+   * so switching connections works out of the box for the actual CLI.
+   */
+  adapterFactories?: AdapterFactory[];
 }
 
 function requireAdapter(adapter: DatabaseAdapter | undefined): DatabaseAdapter {
@@ -65,6 +76,28 @@ function requireAdapter(adapter: DatabaseAdapter | undefined): DatabaseAdapter {
     throw Object.assign(new Error("No database connection is configured."), { statusCode: 503 });
   }
   return adapter;
+}
+
+// A SQLite target's "raw" is a filesystem path, not a URL with credentials - nothing to redact,
+// and redactConnectionString would otherwise mask it as "<unparseable...>".
+function displayTarget(target: ConnectionTarget): string {
+  return target.engine === "sqlite" ? target.raw : redactConnectionString(target.raw);
+}
+
+/**
+ * A connection failure to an unreachable host often throws Node's `AggregateError` (Node tries
+ * IPv6 then IPv4 and wraps both failures) - confirmed live: its own `.message` is an empty string,
+ * with the real reason ("connect ECONNREFUSED ...") only in `.errors[0]`. Falling back to that
+ * nested message instead of surfacing an empty string to the developer.
+ */
+function describeError(error: unknown): string {
+  if (error instanceof AggregateError && error.errors.length > 0) {
+    return describeError(error.errors[0]);
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return String(error);
 }
 
 // The server binds to 127.0.0.1 and sets no CORS headers, but has no auth - the residual risk is
@@ -87,7 +120,12 @@ function extractHostname(hostHeader: string): string {
 /** Build (but do not start) the Humb HTTP server. */
 export function createServer(options: CreateServerOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false });
-  const { adapter, target, filesRoot } = options;
+  // F064: mutable (not const-destructured) so POST /api/connect can swap in a new adapter/target
+  // without restarting the server - every route below reads these same closure variables, so a
+  // swap is instantly visible to the next request against any of them.
+  let adapter = options.adapter;
+  let target = options.target;
+  const { filesRoot, adapterFactories } = options;
   const eventLog = options.eventLog ?? new EventLog();
   let lastKnownStatus: HealthResponse["database"] | undefined;
   let lastError: string | null = null;
@@ -124,7 +162,7 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
         if (database === "connected") lastError = null;
       } catch (error) {
         database = "disconnected";
-        lastError = error instanceof Error ? error.message : String(error);
+        lastError = describeError(error);
       }
       pingLatencyMs = Math.round(performance.now() - pingStartedAt);
     }
@@ -145,18 +183,54 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
     return {
       status: "ok",
       database,
-      // A SQLite target's "raw" is a filesystem path, not a URL with credentials - nothing to
-      // redact, and redactConnectionString would otherwise mask it as "<unparseable...>".
-      target: target
-        ? target.engine === "sqlite"
-          ? target.raw
-          : redactConnectionString(target.raw)
-        : null,
+      target: target ? displayTarget(target) : null,
       engineVersion,
       pingLatencyMs,
       lastError
     };
   });
+
+  // F064: only registered when the caller opts in with adapterFactories - omitted (every existing
+  // test, and any caller not yet updated) means this 404s, unchanged from pre-F064 behavior.
+  if (adapterFactories) {
+    app.post<{ Body: unknown }>("/api/connect", async (request, reply) => {
+      const parsedBody = connectRequestSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({ error: "Request body must be { target: string }." });
+      }
+
+      let newTarget: ConnectionTarget;
+      let newAdapter: DatabaseAdapter;
+      try {
+        newTarget = parseConnectionTarget(parsedBody.data.target);
+        newAdapter = resolveAdapter(adapterFactories, newTarget);
+        await newAdapter.connect();
+        if (!(await newAdapter.ping())) {
+          throw new Error("Connected, but the new target did not respond to a ping.");
+        }
+      } catch (error) {
+        // The old connection is left completely untouched - only swapped in below once the new
+        // one is confirmed live, so a bad target can never leave the developer with no connection.
+        return reply.status(400).send({ error: describeError(error) });
+      }
+
+      const oldAdapter = adapter;
+      // Reassigned before the old adapter disconnects, so nothing in between can observe a moment
+      // with no adapter at all.
+      newAdapter.onConnectionEvent = (level, message) => eventLog.log(level, message);
+      adapter = newAdapter;
+      target = newTarget;
+      // Reset transition-tracking state so /api/health's next poll treats the new connection as a
+      // fresh baseline instead of comparing it against the old adapter's last known status.
+      lastKnownStatus = undefined;
+      lastError = null;
+      eventLog.log("info", `Switched database connection to ${displayTarget(newTarget)}.`);
+      if (oldAdapter) await oldAdapter.disconnect().catch(() => {});
+
+      const response: ConnectResponse = { target: displayTarget(newTarget) };
+      return response;
+    });
+  }
 
   app.get("/api/overview", async () => {
     return requireAdapter(adapter).getOverview();

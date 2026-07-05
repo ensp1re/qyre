@@ -73,7 +73,8 @@ gotchas in "Known issues / blockers").
 
 ## In progress
 
-- Nothing in flight - batch 4 (F054-F062) is `passing` and its PR (#57) is open, awaiting merge.
+- [PR #58](https://github.com/ensp1re/humb/pull/58) (docs-only, product-spec pass for F063-F066) is
+  open against `main`, awaiting merge - see "Next steps" for what it contains.
 
 - Publishing the bare `humb` npm package (`packages/humb`) alongside `@humbdb/humb` is blocked on an
   npm name-similarity dispute (too close to `humps`/`htm`/`dumi`/`pump`/`umi`) - once cleared, retry
@@ -102,9 +103,36 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-With F001-F062 and DF-01-DF-09 all `passing`, the only remaining tech-debt-tracker.md rows are the
-6 that need a product-spec pass before implementation (not a quick slice): `--demo` mode, switching
-DB connections without restarting, `DatabaseAdapter` capability redesign (relational-shape
-assumption), full server-side sort/streamed export, plus 2 architecture rows with no near-term
-trigger. Do the product-spec pass first - see `docs/exec-plans/tech-debt-tracker.md` for the exact
-rows and their "Next trigger" column - before picking any of these up as a new F06x feature.
+With F001-F062 and DF-01-DF-09 all `passing`, the user asked for a product-spec pass on 3 of the
+remaining tech-debt-tracker.md rows (skipping `--demo` mode for now). That pass is done ([PR #58](https://github.com/ensp1re/humb/pull/58),
+open) - 3 new specs, 4 new `not_started` features, ready to implement in a future session:
+
+- **F063** (`docs/product-specs/adapter-capabilities.md`): replace `apps/web`'s
+  `engine === "mongodb"` string checks with an `AdapterCapabilities.supportsSql` flag each adapter
+  declares. Smallest of the four - one new `DatabaseOverview` field, one flag per adapter, two call
+  sites in `apps/web` to update.
+- **F064** (`docs/product-specs/database-switching.md`): a `POST /api/connect` endpoint (gated
+  behind a new optional `adapterFactories` `CreateServerOptions` field) plus wiring the title bar's
+  existing disabled Settings button into a connect drawer. Requires `createServer`'s closure-captured
+  `adapter`/`target` consts to become mutable state - the one real architectural change in this
+  batch.
+- **F065/F066** (`docs/product-specs/server-side-sort-export.md`): `sortColumn`/`sortDirection`
+  params on the rows endpoint (validated against real column names server-side - the actual
+  injection surface), plus a new streamed `GET .../export.csv` endpoint replacing today's
+  page-only CSV export.
+
+Two other tech-debt-tracker.md rows were reviewed but deliberately **not** given new specs, and the
+tracker itself was corrected rather than left stale:
+
+- The `packages/cli` relative-dist-path row was removed - it was fully resolved by F010 (`passing`)
+  and had gone stale; the only remaining piece (npm publish blocked on a name dispute) is already
+  tracked in "Known issues / blockers" above, not duplicated here.
+- The dist/runtime-dependency `build` row is left as-is (still real, unmet trigger) - it's already
+  documented as an accepted design consequence in `docs/design-docs/stack-and-structure.md`'s
+  "Consequences" section, not an open question a new product spec would resolve.
+- Six other rows (`.env.example`/`docker-compose.yml`/`CONTRIBUTING.md`/adapter-conformance/
+  `@humbdb/ui` tests/connection-string doc) were also removed from the tracker in this same pass -
+  all were already fixed by Batch 4 (F057-F060, F054-F055) but the tracker rows were never cleaned
+  up at the time.
+
+`--demo` mode remains the one deferred row with no spec yet - still needs its own pass if picked up.

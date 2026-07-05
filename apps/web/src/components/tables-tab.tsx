@@ -1,6 +1,7 @@
-import type { ForeignKeyReference } from "@humbdb/core";
+import type { ForeignKeyReference, RowSort } from "@humbdb/core";
 import { ErrorState, RowsTable, Spinner } from "@humbdb/ui";
 import type { ReactNode } from "react";
+import { exportRowsUrl } from "../api/rows.js";
 import type { useRows } from "../hooks/use-rows.js";
 import type { useTable } from "../hooks/use-table.js";
 
@@ -11,6 +12,16 @@ export interface TablesTabProps {
   page: number;
   onPageChange: (updater: (current: number) => number) => void;
   onNavigateToForeignKey?: (reference: ForeignKeyReference) => void;
+  sort: RowSort | undefined;
+  onSortChange: (sort: RowSort | undefined) => void;
+}
+
+/** Triggers a real browser download of the streamed export - not a fetch+Blob, so the download
+ * streams straight to disk instead of buffering the whole table in JS memory (F066). */
+function downloadExport(url: string): void {
+  const link = document.createElement("a");
+  link.href = url;
+  link.click();
 }
 
 /** Tables tab content - the selected table's paginated row browser. */
@@ -20,7 +31,9 @@ export function TablesTab({
   rows,
   page,
   onPageChange,
-  onNavigateToForeignKey
+  onNavigateToForeignKey,
+  sort,
+  onSortChange
 }: TablesTabProps): ReactNode {
   if (!selected) {
     return <p className="text-[13px] text-muted-foreground">Select a table from the sidebar.</p>;
@@ -58,6 +71,10 @@ export function TablesTab({
       onNext={() => onPageChange((current) => current + 1)}
       onRefresh={() => rows.refetch()}
       onNavigateToForeignKey={onNavigateToForeignKey}
+      sortColumn={sort?.column}
+      sortDirection={sort?.direction}
+      onSortChange={onSortChange}
+      onExportAllRows={() => downloadExport(exportRowsUrl(selected.schema, selected.table, sort))}
     />
   );
 }

@@ -1,4 +1,10 @@
-import type { ConnectionTarget, DatabaseOverview, RowPage, TableMetadata } from "@humbdb/core";
+import type {
+  ConnectionTarget,
+  DatabaseOverview,
+  RowPage,
+  RowSort,
+  TableMetadata
+} from "@humbdb/core";
 
 /** Severity of an adapter's asynchronous connection event - see {@link DatabaseAdapter.onConnectionEvent}. */
 export type ConnectionEventLevel = "warn" | "error";
@@ -19,8 +25,16 @@ export interface DatabaseAdapter {
   getOverview(): Promise<DatabaseOverview>;
   /** Introspect a single table's columns and metadata. */
   getTable(schema: string, table: string): Promise<TableMetadata>;
-  /** Fetch a page of rows for a table. */
-  getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage>;
+  /** Fetch a page of rows for a table, optionally sorted by one column (F065). `sort.column` must
+   * already be validated against the table's real columns by the caller - see
+   * docs/product-specs/server-side-sort-export.md. */
+  getRows(
+    schema: string,
+    table: string,
+    page: number,
+    pageSize: number,
+    sort?: RowSort
+  ): Promise<RowPage>;
   /** Execute a read-only (SELECT-style) query. Implementations must reject mutations. */
   runReadOnlyQuery(sql: string): Promise<RowPage>;
   /**

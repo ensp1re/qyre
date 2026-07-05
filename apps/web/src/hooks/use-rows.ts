@@ -1,4 +1,4 @@
-import type { RowPage } from "@humbdb/core";
+import type { RowPage, RowSort } from "@humbdb/core";
 import { useQuery } from "@tanstack/react-query";
 import { fetchRows } from "../api/rows.js";
 import { QUERY_RETRY } from "./query-retry.js";
@@ -29,20 +29,26 @@ const UI_PAGE_SIZE = 25;
  * rather than requesting `pageSize + 1` rows directly, which would shift the offset stride itself
  * and misalign every subsequent page.
  */
-export function useRows(schema: string | undefined, table: string | undefined, page: number) {
+export function useRows(
+  schema: string | undefined,
+  table: string | undefined,
+  page: number,
+  sort?: RowSort
+) {
   return useQuery({
-    queryKey: ["rows", schema, table, page],
+    queryKey: ["rows", schema, table, page, sort?.column, sort?.direction],
     queryFn: async (): Promise<RowsResult> => {
       const [rowPage, nextPageProbe] = await Promise.all([
-        fetchRows(schema as string, table as string, page, UI_PAGE_SIZE),
-        fetchRows(schema as string, table as string, (page + 1) * UI_PAGE_SIZE, 1)
+        fetchRows(schema as string, table as string, page, UI_PAGE_SIZE, sort),
+        fetchRows(schema as string, table as string, (page + 1) * UI_PAGE_SIZE, 1, sort)
       ]);
       return { rowPage, hasMore: nextPageProbe.rows.length > 0 };
     },
     enabled: Boolean(schema && table),
     ...QUERY_RETRY,
     placeholderData: (previousData, previousQuery) => {
-      const previousKey = previousQuery?.queryKey as [string, string, string, number] | undefined;
+      const previousKey = previousQuery?.queryKey as
+        [string, string, string, number, string | undefined, string | undefined] | undefined;
       return previousKey?.[1] === schema && previousKey?.[2] === table ? previousData : undefined;
     }
   });

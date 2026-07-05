@@ -33,9 +33,20 @@ export interface RowsTableProps {
   /** Navigates to the table/column a foreign key cell references (F061). Omitted (cells render as
    * plain values, not links) when the caller has no such navigation to offer. */
   onNavigateToForeignKey?: (reference: ForeignKeyReference) => void;
+  /** The sort currently applied server-side (F065), or undefined when unsorted - drives the header
+   * arrow indicator. Omitted (along with `onSortChange`) disables the sort affordance entirely. */
+  sortColumn?: string;
+  sortDirection?: "asc" | "desc";
+  /** Reports a header click's requested sort (cycles asc -> desc -> undefined/cleared on repeated
+   * clicks of the same column); the caller re-fetches `rowPage` sorted accordingly (F065) - this
+   * component no longer reorders rows itself. Omitted disables the sort affordance (headers render
+   * as plain, non-interactive labels). */
+  onSortChange?: (sort: { column: string; direction: "asc" | "desc" } | undefined) => void;
+  /** Triggers a whole-table CSV export (F066), replacing the old page-only export. Omitted hides
+   * the export button - this component doesn't fetch data itself (see FRONTEND.md), so the actual
+   * request is the caller's responsibility. */
+  onExportAllRows?: () => void;
 }
-
-type SortDir = "asc" | "desc" | null;
 
 /** Approximate row height in px (matches the `py-1.5` cell padding + 11px font) - only an estimate
  * the virtualizer (F051) uses to size the scrollbar before it measures real rows; rows are uniform
@@ -44,6 +55,9 @@ const ROW_HEIGHT_ESTIMATE = 30;
 
 const FORMULA_LEADING_CHARS = /^[=+\-@]/;
 
+/** Used by the selected-rows "Copy as CSV" action only (F066 moved the whole-table export
+ * server-side - see onExportAllRows) - copying a hand-picked subset of currently-loaded rows still
+ * makes sense entirely client-side. */
 export function toCsv(columns: string[], rows: Array<Record<string, unknown>>): string {
   const escape = (value: unknown): string => {
     const text = formatCell(value);
@@ -57,17 +71,8 @@ export function toCsv(columns: string[], rows: Array<Record<string, unknown>>): 
   return lines.join("\n");
 }
 
-function downloadCsv(filename: string, csv: string): void {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-/** A page of table rows: client-side search/sort over the fetched page, plus pagination. */
+/** A page of table rows: client-side search over the fetched page, plus server-driven sort (F065)
+ * and pagination. */
 export function RowsTable({
   rowPage,
   columns = [],
@@ -79,11 +84,13 @@ export function RowsTable({
   onPrevious,
   onNext,
   onRefresh,
-  onNavigateToForeignKey
+  onNavigateToForeignKey,
+  sortColumn,
+  sortDirection,
+  onSortChange,
+  onExportAllRows
 }: RowsTableProps): ReactNode {
   const [search, setSearch] = useState("");
-  const [sortCol, setSortCol] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [inspected, setInspected] = useState<{
     column: string;
@@ -98,6 +105,8 @@ export function RowsTable({
 
   const indexed = useMemo(() => rowPage.rows.map((row, index) => ({ row, index })), [rowPage.rows]);
 
+  // Rows arrive already sorted server-side (F065) when a sort is active - this only narrows by the
+  // free-text filter below, it never reorders.
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return indexed;
@@ -106,23 +115,11 @@ export function RowsTable({
     );
   }, [indexed, search]);
 
-  const sorted = useMemo(() => {
-    if (!sortCol || !sortDir) return filtered;
-    const copy = [...filtered];
-    copy.sort((a, b) => {
-      const left = formatCell(a.row[sortCol]);
-      const right = formatCell(b.row[sortCol]);
-      const cmp = left < right ? -1 : left > right ? 1 : 0;
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return copy;
-  }, [filtered, sortCol, sortDir]);
-
   // F051: only the visible rows (plus overscan) mount as DOM nodes, instead of every row in the
   // current page - a wide table at the SQL Editor's 1000-row cap (F050) would otherwise mount
   // thousands of cells.
   const rowVirtualizer = useVirtualizer({
-    count: sorted.length,
+    count: filtered.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT_ESTIMATE,
     overscan: 8
@@ -133,14 +130,13 @@ export function RowsTable({
     rowVirtualizer.getTotalSize() - (virtualRows[virtualRows.length - 1]?.end ?? 0);
 
   function handleSort(column: string): void {
-    if (sortCol !== column) {
-      setSortCol(column);
-      setSortDir("asc");
-    } else if (sortDir === "asc") {
-      setSortDir("desc");
+    if (!onSortChange) return;
+    if (sortColumn !== column) {
+      onSortChange({ column, direction: "asc" });
+    } else if (sortDirection === "asc") {
+      onSortChange({ column, direction: "desc" });
     } else {
-      setSortCol(null);
-      setSortDir(null);
+      onSortChange(undefined);
     }
   }
 
@@ -154,18 +150,8 @@ export function RowsTable({
   }
 
   async function copySelected(): Promise<void> {
-    const rows = sorted.filter(({ index }) => selected.has(index)).map(({ row }) => row);
+    const rows = filtered.filter(({ index }) => selected.has(index)).map(({ row }) => row);
     await navigator.clipboard.writeText(toCsv(rowPage.columns, rows));
-  }
-
-  function exportCsv(): void {
-    downloadCsv(
-      `${tableName ?? "rows"}.csv`,
-      toCsv(
-        rowPage.columns,
-        sorted.map(({ row }) => row)
-      )
-    );
   }
 
   return (
@@ -203,15 +189,17 @@ export function RowsTable({
               </button>
             </>
           )}
-          <button
-            type="button"
-            onClick={exportCsv}
-            aria-label="Export this page as CSV"
-            title="Exports the rows currently loaded on this page, not the whole table"
-            className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <Download className="h-3 w-3" />
-          </button>
+          {onExportAllRows && (
+            <button
+              type="button"
+              onClick={onExportAllRows}
+              aria-label="Export all rows as CSV"
+              title="Exports every row in the table, honoring the current sort"
+              className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <Download className="h-3 w-3" />
+            </button>
+          )}
           {onRefresh && (
             <button
               type="button"
@@ -270,19 +258,24 @@ export function RowsTable({
                 {rowPage.columns.map((columnName) => (
                   <th
                     key={columnName}
-                    onClick={() => handleSort(columnName)}
-                    className="group cursor-pointer whitespace-nowrap border-b border-r border-border px-3 py-2 text-left font-medium text-muted-foreground hover:text-foreground"
+                    onClick={onSortChange ? () => handleSort(columnName) : undefined}
+                    className={cn(
+                      "group whitespace-nowrap border-b border-r border-border px-3 py-2 text-left font-medium text-muted-foreground",
+                      onSortChange ? "cursor-pointer hover:text-foreground" : undefined
+                    )}
                   >
                     <div className="flex items-center gap-1.5">
                       {columnName}
-                      <ArrowUpDown
-                        className={cn(
-                          "h-2.5 w-2.5 transition-opacity",
-                          sortCol === columnName
-                            ? "text-primary opacity-100"
-                            : "opacity-0 group-hover:opacity-40"
-                        )}
-                      />
+                      {onSortChange && (
+                        <ArrowUpDown
+                          className={cn(
+                            "h-2.5 w-2.5 transition-opacity",
+                            sortColumn === columnName
+                              ? "text-primary opacity-100"
+                              : "opacity-0 group-hover:opacity-40"
+                          )}
+                        />
+                      )}
                     </div>
                   </th>
                 ))}
@@ -295,7 +288,7 @@ export function RowsTable({
                 </tr>
               )}
               {virtualRows.map((virtualRow) => {
-                const item = sorted[virtualRow.index];
+                const item = filtered[virtualRow.index];
                 if (!item) return null;
                 const { row, index } = item;
                 return (
@@ -369,10 +362,10 @@ export function RowsTable({
 
       <div className="flex shrink-0 items-center justify-between border-t border-border bg-card px-3 py-1.5">
         <span className="font-mono text-[10px] text-muted-foreground">
-          {sorted.length.toLocaleString()} of{" "}
+          {filtered.length.toLocaleString()} of{" "}
           {approxRowCount !== undefined
             ? `~${approxRowCount.toLocaleString()}`
-            : sorted.length.toLocaleString()}{" "}
+            : filtered.length.toLocaleString()}{" "}
           rows
           {tableName && <> · {tableName}</>}
         </span>

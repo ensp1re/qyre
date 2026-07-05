@@ -8,6 +8,7 @@ import type {
   ConnectionTarget,
   DatabaseOverview,
   RowPage,
+  RowSort,
   SchemaMetadata,
   TableMetadata
 } from "@humbdb/core";
@@ -216,18 +217,24 @@ export class MongodbAdapter implements DatabaseAdapter {
     return { schema, name: table, columns, indexes: [], rowCount };
   }
 
-  async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {
+  async getRows(
+    schema: string,
+    table: string,
+    page: number,
+    pageSize: number,
+    sort?: RowSort
+  ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
 
     // MongoDB gives no ordering guarantee between separate find() calls without an explicit sort -
     // skip/limit paging can then show the same document twice or skip one entirely, especially on
     // a collection receiving writes. Sorting by _id (always present, always ordered) makes paging
-    // deterministic and repeatable.
+    // deterministic and repeatable when no caller-requested sort (F065) applies instead.
     const documents = await this.getClient()
       .db(schema)
       .collection(table)
       .find({}, { maxTimeMS: this.statementTimeoutMs })
-      .sort({ _id: 1 })
+      .sort(sort ? { [sort.column]: sort.direction === "asc" ? 1 : -1 } : { _id: 1 })
       .skip(offset)
       .limit(safePageSize)
       .toArray();

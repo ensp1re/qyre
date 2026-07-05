@@ -11,6 +11,7 @@ import type {
   DatabaseOverview,
   IndexMetadata,
   RowPage,
+  RowSort,
   SchemaMetadata,
   TableMetadata
 } from "@humbdb/core";
@@ -189,11 +190,21 @@ export class SqliteAdapter implements DatabaseAdapter {
     return { schema, name: table, columns, indexes, rowCount: count };
   }
 
-  async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {
+  async getRows(
+    schema: string,
+    table: string,
+    page: number,
+    pageSize: number,
+    sort?: RowSort
+  ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
+    // sort.column is already validated by the caller against the table's real columns (F065).
+    const orderBy = sort
+      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
+      : "";
 
     const stmt = this.getDb()
-      .prepare(`SELECT * FROM ${quoteIdent(table)} LIMIT ? OFFSET ?`)
+      .prepare(`SELECT * FROM ${quoteIdent(table)}${orderBy} LIMIT ? OFFSET ?`)
       .safeIntegers(true);
     const rows = (stmt.all(safePageSize, offset) as Array<Record<string, unknown>>).map(
       normalizeRow

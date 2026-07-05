@@ -1,4 +1,4 @@
-import type { ConnectionStatus } from "@humbdb/core";
+import type { ConnectionStatus, RowSort } from "@humbdb/core";
 import {
   ConnectDrawer,
   ErrorBoundary,
@@ -43,6 +43,7 @@ export function App(): ReactNode {
 
   const [selected, setSelected] = useState<{ schema: string; table: string } | undefined>();
   const [page, setPage] = useState(0);
+  const [sort, setSort] = useState<RowSort | undefined>();
   const [querySql, setQuerySql] = useState("");
   const [tab, setTab] = useState<ShellTab>("sql-editor");
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
@@ -64,7 +65,7 @@ export function App(): ReactNode {
   // left clickable and silently failing every query.
   const supportsSql = overview.data?.capabilities.supportsSql ?? true;
   const table = useTable(selected?.schema, selected?.table);
-  const rows = useRows(selected?.schema, selected?.table, page);
+  const rows = useRows(selected?.schema, selected?.table, page, sort);
   const allTables = useAllTables({ enabled: status === "connected" });
   const tableNames = (overview.data?.schemas ?? []).flatMap((schema) => schema.tables);
   const filesOverview = useFilesOverview({ enabled: status === "connected" });
@@ -76,6 +77,7 @@ export function App(): ReactNode {
   function selectTable(schema: string, tableName: string): void {
     setSelected({ schema, table: tableName });
     setPage(0);
+    setSort(undefined);
     setTab("tables");
   }
 
@@ -114,6 +116,7 @@ export function App(): ReactNode {
     recentTargets.record(raw, result.target);
     setSelected(undefined);
     setPage(0);
+    setSort(undefined);
     setConnectOpen(false);
   }
 
@@ -193,6 +196,11 @@ export function App(): ReactNode {
                   onNavigateToForeignKey={(reference) =>
                     selectTable(reference.schema ?? selected?.schema ?? "", reference.table)
                   }
+                  sort={sort}
+                  onSortChange={(nextSort) => {
+                    setSort(nextSort);
+                    setPage(0);
+                  }}
                 />
               ) : tab === "schema" ? (
                 <SchemaTab allTables={allTables} />

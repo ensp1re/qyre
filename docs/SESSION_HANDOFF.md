@@ -74,20 +74,31 @@ gotchas in "Known issues / blockers").
   remaining tech-debt rows - `docs/product-specs/adapter-capabilities.md` (F063),
   `database-switching.md` (F064), `server-side-sort-export.md` (F065/F066). No code, just specs +
   new `not_started` `FEATURES.json` entries.
-- **F063 `passing`** ([PR #59](https://github.com/ensp1re/humb/pull/59), open):
-  `DatabaseOverview` gains `capabilities.supportsSql`, declared by each adapter's
-  `getOverview()` (true for Postgres/MySQL/SQLite, false for MongoDB); `apps/web` reads that instead
-  of `engine === "mongodb"` to disable the SQL Editor tab/Files-tab "Run in editor" action.
-  `SqlEditorTab`'s `isMongo` prop renamed to `sqlDisabled`. Verified live via Preview against a real
-  Postgres container (`supportsSql: true`, tab enabled) and a real MongoDB container
-  (`supportsSql: false`, tab disabled, same tooltip copy as before).
+- **F063 `passing`** ([PR #59](https://github.com/ensp1re/humb/pull/59), merged; PR #60 for the
+  evidence-link follow-up): `DatabaseOverview` gains `capabilities.supportsSql`, declared by each
+  adapter's `getOverview()` (true for Postgres/MySQL/SQLite, false for MongoDB); `apps/web` reads
+  that instead of `engine === "mongodb"` to disable the SQL Editor tab/Files-tab "Run in editor"
+  action. `SqlEditorTab`'s `isMongo` prop renamed to `sqlDisabled`. Verified live via Preview
+  against a real Postgres container (`supportsSql: true`, tab enabled) and a real MongoDB
+  container (`supportsSql: false`, tab disabled, same tooltip copy as before).
+- **F064 `passing`**: `CreateServerOptions` gains an optional `adapterFactories` field; when
+  provided, a new `POST /api/connect` swaps in a new adapter/target (only after a ping confirms
+  it's live) without restarting the process - `createServer`'s `adapter`/`target` are now mutable
+  closure state instead of `const`. The title bar's previously-disabled Settings button opens a new
+  `ConnectDrawer` (current target, connect form, up to 5 recent targets in `localStorage`).
+  Live-caught bug fixed in the same commit: an unreachable-host connection failure throws Node's
+  `AggregateError`, whose own `.message` is empty (the real reason is in `.errors[0]`) - a new
+  `describeError()` helper fixes this for both the new endpoint and the pre-existing
+  `/api/health` ping-failure path, which had the same latent bug. Verified live via Preview:
+  switched a running instance between a real Postgres and a real MySQL container and back (not
+  just a different database - a different engine entirely), confirmed a failed switch (bad host)
+  leaves the old connection fully queryable with a real error message, confirmed recent-targets
+  reconnect correctly.
 
 ## In progress
 
-- [PR #59](https://github.com/ensp1re/humb/pull/59) (F063) is open against `main`, awaiting merge.
-- F064-F066 (specced in PR #58, not yet implemented) are the natural next slice - F064 (DB
-  switching) is the biggest/most architecturally interesting; F065/F066 (server-side sort/export)
-  can ship together since they share one spec file.
+- Nothing in flight. F065/F066 (server-side sort/export, specced in PR #58) are the natural next
+  slice, sharing one spec/PR since export honors the same sort.
 
 - Publishing the bare `humb` npm package (`packages/humb`) alongside `@humbdb/humb` is blocked on an
   npm name-similarity dispute (too close to `humps`/`htm`/`dumi`/`pump`/`umi`) - once cleared, retry
@@ -116,17 +127,17 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-F063 is `passing` (commit `5f00bc4`) but needs pushing + a PR (see "In progress"). After that:
+With F063 and F064 both `passing`, the last specced-but-unimplemented feature is:
 
-- **F064** (`docs/product-specs/database-switching.md`): a `POST /api/connect` endpoint (gated
-  behind a new optional `adapterFactories` `CreateServerOptions` field) plus wiring the title bar's
-  existing disabled Settings button into a connect drawer. Requires `createServer`'s closure-captured
-  `adapter`/`target` consts to become mutable state - the one real architectural change of the three
-  remaining specced features.
 - **F065/F066** (`docs/product-specs/server-side-sort-export.md`): `sortColumn`/`sortDirection`
   params on the rows endpoint (validated against real column names server-side - the actual
-  injection surface), plus a new streamed `GET .../export.csv` endpoint replacing today's
-  page-only CSV export. These two share one spec/PR since export honors the same sort.
+  injection surface, since `page`/`pageSize` are already numeric-coerced but a column name isn't),
+  plus a new streamed `GET .../export.csv` endpoint replacing today's page-only CSV export. These
+  two share one spec/PR since export honors the same sort.
+
+Also needed: push F064's branch (`feature/F064-database-switching`, commit `6d55edd`) and open its
+PR (would be PR #61) - the commit is done and fully verified locally but hadn't been pushed as of
+this writing.
 
 `--demo` mode remains the one tech-debt row with no spec yet - still needs its own product-spec pass
 before implementation if picked up. See `docs/exec-plans/tech-debt-tracker.md` for its row (and

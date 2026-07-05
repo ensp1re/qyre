@@ -629,7 +629,7 @@
       "verification": "pnpm --filter @humbdb/testing test",
       "state": "passing",
       "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: packages/testing-conformance is a new dedicated package hosting a describe.each-parametrized adapter-conformance suite (pagination clamping, empty-collection getRows/getTable) that runs identically against Postgres/MySQL/SQLite/Mongo via each engine's real AdapterFactory. It could not live inside @humbdb/testing itself - that package's own fixtures (FIXTURE, requireTestDatabaseUrl, etc.) are already a devDependency of all four driver packages, so @humbdb/testing importing the drivers back would create a build cycle (caught live: `pnpm typecheck` failed with turbo's \"Cyclic dependency detected\" error the moment the suite was added there). Verified against a real docker-compose Postgres+MySQL+Mongo stack: `pnpm --filter @humbdb/testing-conformance test` passes 20/20 (5 assertions x 4 engines, SQLite always configured, the other three via HUMB_TEST_*); `pnpm typecheck`/`pnpm build` pass cleanly across all 22 packages with no cycle.",
+      "evidence": "commit bd579e4: packages/testing-conformance is a new dedicated package hosting a describe.each-parametrized adapter-conformance suite (pagination clamping, empty-collection getRows/getTable) that runs identically against Postgres/MySQL/SQLite/Mongo via each engine's real AdapterFactory. It could not live inside @humbdb/testing itself - that package's own fixtures (FIXTURE, requireTestDatabaseUrl, etc.) are already a devDependency of all four driver packages, so @humbdb/testing importing the drivers back would create a build cycle (caught live: `pnpm typecheck` failed with turbo's \"Cyclic dependency detected\" error the moment the suite was added there). Verified against a real docker-compose Postgres+MySQL+Mongo stack: `pnpm --filter @humbdb/testing-conformance test` passes 20/20 (5 assertions x 4 engines, SQLite always configured, the other three via HUMB_TEST_*); `pnpm typecheck`/`pnpm build` pass cleanly across all 22 packages with no cycle. PR: https://github.com/ensp1re/humb/pull/57.",
       "blockedReason": null,
       "spec": null
     },
@@ -639,7 +639,7 @@
       "verification": "pnpm --filter @humbdb/ui test",
       "state": "passing",
       "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: packages/ui/src/test-setup.ts adds RTL's afterEach(cleanup) (this repo doesn't set vitest's test.globals: true, so RTL's own auto-cleanup never registered) and mocks HTMLElement.prototype.offsetWidth/offsetHeight, which @tanstack/react-virtual's getRect() reads directly in jsdom (not getBoundingClientRect, confirmed by reading virtual-core's source after an initial getBoundingClientRect mock produced zero rendered rows). New render tests cover CellValue, SchemaTree (search highlighting, keyboard nav), FilesBrowser, and RowsTable (sort, filter, and F061's FK-cell click/no-click behavior). `pnpm --filter @humbdb/ui test` passes 40/40 (7 files).",
+      "evidence": "commit bd579e4: packages/ui/src/test-setup.ts adds RTL's afterEach(cleanup) (this repo doesn't set vitest's test.globals: true, so RTL's own auto-cleanup never registered) and mocks HTMLElement.prototype.offsetWidth/offsetHeight, which @tanstack/react-virtual's getRect() reads directly in jsdom (not getBoundingClientRect, confirmed by reading virtual-core's source after an initial getBoundingClientRect mock produced zero rendered rows). New render tests cover CellValue, SchemaTree (search highlighting, keyboard nav), FilesBrowser, and RowsTable (sort, filter, and F061's FK-cell click/no-click behavior). `pnpm --filter @humbdb/ui test` passes 40/40 (7 files). PR: https://github.com/ensp1re/humb/pull/57.",
       "blockedReason": null,
       "spec": null
     },
@@ -649,7 +649,7 @@
       "verification": "pnpm test:e2e:full",
       "state": "passing",
       "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: e2e/smoke.spec.ts and e2e/connect-and-inspect.spec.ts run @axe-core/playwright scans. This surfaced a real aria-input-field-name violation on CodeMirror's `role=\"textbox\"` content div, fixed via `EditorView.contentAttributes.of({ \"aria-label\": \"SQL query editor\" })` in query-runner.tsx. The tracker row's other claim (\"integration tests skip silently when HUMB_TEST_* is unset\") was investigated and found already false - requireTestDatabaseUrl/requireTestMysqlUrl/requireTestMongoUrl already throw loudly (confirmed live: running `pnpm --filter @humbdb/mongodb test` with the env var unset exits 1, not 0) - so this feature is scoped to the axe assertions. Widespread text-muted-foreground/NN color-contrast violations are pre-existing and out of scope for this batch; the color-contrast axe rule is disabled with an explanatory comment and a new tech-debt-tracker.md row. Verified live: `pnpm test:e2e` and `pnpm test:e2e:full` both pass (13/13 non-skipped) against a real docker-compose Postgres+MySQL+Mongo stack, with axe scans running and passing (color-contrast excluded, all other rules enforced).",
+      "evidence": "commit bd579e4: e2e/smoke.spec.ts and e2e/connect-and-inspect.spec.ts run @axe-core/playwright scans. This surfaced a real aria-input-field-name violation on CodeMirror's `role=\"textbox\"` content div, fixed via `EditorView.contentAttributes.of({ \"aria-label\": \"SQL query editor\" })` in query-runner.tsx. The tracker row's other claim (\"integration tests skip silently when HUMB_TEST_* is unset\") was investigated and found already false - requireTestDatabaseUrl/requireTestMysqlUrl/requireTestMongoUrl already throw loudly (confirmed live: running `pnpm --filter @humbdb/mongodb test` with the env var unset exits 1, not 0) - so this feature is scoped to the axe assertions. Widespread text-muted-foreground/NN color-contrast violations are pre-existing and out of scope for this batch; the color-contrast axe rule is disabled with an explanatory comment and a new tech-debt-tracker.md row. Verified live: `pnpm test:e2e` and `pnpm test:e2e:full` both pass (13/13 non-skipped) against a real docker-compose Postgres+MySQL+Mongo stack, with axe scans running and passing (color-contrast excluded, all other rules enforced). PR: https://github.com/ensp1re/humb/pull/57.",
       "blockedReason": null,
       "spec": null
     },
@@ -659,7 +659,7 @@
       "verification": "docker compose -f docker-compose.yml config",
       "state": "passing",
       "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: a committed docker-compose.yml starts postgres:16/mysql:8/mongo:7 on the standard ports/credentials .env.example documents (HUMB_TEST_DATABASE_URL, HUMB_TEST_MYSQL_URL, HUMB_TEST_MONGO_URL, HUMB_TEST_SQLITE_PATH, HUMB_STATEMENT_TIMEOUT_MS), matching .github/workflows/ci.yml's service containers exactly. Verified live: `docker compose up -d` brought all three services to a healthy state, and the full `pnpm test`/`pnpm test:e2e:full` suites (see F056's evidence) ran against them successfully before `docker compose down`.",
+      "evidence": "commit bd579e4: a committed docker-compose.yml starts postgres:16/mysql:8/mongo:7 on the standard ports/credentials .env.example documents (HUMB_TEST_DATABASE_URL, HUMB_TEST_MYSQL_URL, HUMB_TEST_MONGO_URL, HUMB_TEST_SQLITE_PATH, HUMB_STATEMENT_TIMEOUT_MS), matching .github/workflows/ci.yml's service containers exactly. Verified live: `docker compose up -d` brought all three services to a healthy state, and the full `pnpm test`/`pnpm test:e2e:full` suites (see F056's evidence) ran against them successfully before `docker compose down`. PR: https://github.com/ensp1re/humb/pull/57.",
       "blockedReason": null,
       "spec": null
     },
@@ -669,7 +669,7 @@
       "verification": "pnpm check:state",
       "state": "passing",
       "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: a new human-facing CONTRIBUTING.md covers setup (Node/pnpm versions, docker-compose stack, env vars), build/test/lint commands, and PR conventions, distinct from the agent-facing AGENTS.md. `pnpm check:state` passes.",
+      "evidence": "commit bd579e4: a new human-facing CONTRIBUTING.md covers setup (Node/pnpm versions, docker-compose stack, env vars), build/test/lint commands, and PR conventions, distinct from the agent-facing AGENTS.md. `pnpm check:state` passes. PR: https://github.com/ensp1re/humb/pull/57.",
       "blockedReason": null,
       "spec": null
     },
@@ -679,7 +679,7 @@
       "verification": "node scripts/check-readme.mjs",
       "state": "passing",
       "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: scripts/check-readme.mjs now derives the canonical engine list the same way scripts/check-engine-lockstep.mjs does (from connection-target.ts's `engine: \"x\"` literals) and asserts each engine's display name appears in README.md, so a copy-drift regression fails CI instead of going unnoticed. Running it against the pre-existing README caught a real drift: the \"Status\" section listed Postgres/MySQL/SQLite but not MongoDB - fixed in the same commit, along with packages/cli/README.md's stale \"Postgres first, more engines planned\" wording. `node scripts/check-readme.mjs` and `pnpm check:state` both pass.",
+      "evidence": "commit bd579e4: scripts/check-readme.mjs now derives the canonical engine list the same way scripts/check-engine-lockstep.mjs does (from connection-target.ts's `engine: \"x\"` literals) and asserts each engine's display name appears in README.md, so a copy-drift regression fails CI instead of going unnoticed. Running it against the pre-existing README caught a real drift: the \"Status\" section listed Postgres/MySQL/SQLite but not MongoDB - fixed in the same commit, along with packages/cli/README.md's stale \"Postgres first, more engines planned\" wording. `node scripts/check-readme.mjs` and `pnpm check:state` both pass. PR: https://github.com/ensp1re/humb/pull/57.",
       "blockedReason": null,
       "spec": null
     },
@@ -689,7 +689,7 @@
       "verification": "pnpm check:state",
       "state": "passing",
       "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: a new docs/CONNECTING.md covers per-engine connection-string formats, a troubleshooting table, and a summary of the read-only/local-first security model, written for end users rather than agents/contributors. `pnpm check:state` passes.",
+      "evidence": "commit bd579e4: a new docs/CONNECTING.md covers per-engine connection-string formats, a troubleshooting table, and a summary of the read-only/local-first security model, written for end users rather than agents/contributors. `pnpm check:state` passes. PR: https://github.com/ensp1re/humb/pull/57.",
       "blockedReason": null,
       "spec": "docs/SECURITY.md"
     },
@@ -699,7 +699,7 @@
       "verification": "pnpm --filter @humbdb/web test",
       "state": "passing",
       "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: getTable on Postgres (a LEFT JOIN against information_schema.constraint_column_usage), MySQL (information_schema.key_column_usage's built-in referenced_* columns), and SQLite (the foreign_key_list PRAGMA's table/to fields) now resolve which table/column each FK column references, not just that it is one - ColumnMetadata gained an optional `references: ForeignKeyReference` field. RowsTable renders a blue \"FK\" header badge and, when the caller supplies onNavigateToForeignKey, a clickable underlined cell (with a `Go to <table>.<column>` tooltip) instead of a plain value. apps/web wires this through TablesTab to App.tsx's existing selectTable, so clicking a FK cell switches the Tables tab to the referenced table. Verified live in the browser preview against a real SQLite fixture (users/orders tables with a real FK): clicking the `user_id` FK cell in the orders table navigated to the users table and rendered its rows. All 3 SQL drivers' integration tests extended with `references` assertions and passing (34/34 postgres, 16/16 mysql, 14/14 sqlite); `pnpm --filter @humbdb/ui test` passes 40/40 including two new FK-click/no-click component tests; `pnpm --filter @humbdb/web typecheck`/`build` both pass.",
+      "evidence": "commit bd579e4: getTable on Postgres (a LEFT JOIN against information_schema.constraint_column_usage), MySQL (information_schema.key_column_usage's built-in referenced_* columns), and SQLite (the foreign_key_list PRAGMA's table/to fields) now resolve which table/column each FK column references, not just that it is one - ColumnMetadata gained an optional `references: ForeignKeyReference` field. RowsTable renders a blue \"FK\" header badge and, when the caller supplies onNavigateToForeignKey, a clickable underlined cell (with a `Go to <table>.<column>` tooltip) instead of a plain value. apps/web wires this through TablesTab to App.tsx's existing selectTable, so clicking a FK cell switches the Tables tab to the referenced table. Verified live in the browser preview against a real SQLite fixture (users/orders tables with a real FK): clicking the `user_id` FK cell in the orders table navigated to the users table and rendered its rows. All 3 SQL drivers' integration tests extended with `references` assertions and passing (34/34 postgres, 16/16 mysql, 14/14 sqlite); `pnpm --filter @humbdb/ui test` passes 40/40 including two new FK-click/no-click component tests; `pnpm --filter @humbdb/web typecheck`/`build` both pass. PR: https://github.com/ensp1re/humb/pull/57.",
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md"
     },
@@ -709,7 +709,7 @@
       "verification": "pnpm --filter @humbdb/web test",
       "state": "passing",
       "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: FilesBrowser gained an onRunInEditor prop and a \"Run in editor\" button (shown only for .sql files, via a canRunInEditor check) that apps/web wires to set the SQL editor's content and switch to the sql-editor tab, reusing the existing read-only gate and editor-mount path with no new plumbing. Verified live in the browser preview: opening a .sql file in the Files tab and clicking \"Run in editor\" switched to the SQL Editor tab with the file's content pre-filled.",
+      "evidence": "commit bd579e4: FilesBrowser gained an onRunInEditor prop and a \"Run in editor\" button (shown only for .sql files, via a canRunInEditor check) that apps/web wires to set the SQL editor's content and switch to the sql-editor tab, reusing the existing read-only gate and editor-mount path with no new plumbing. Verified live in the browser preview: opening a .sql file in the Files tab and clicking \"Run in editor\" switched to the SQL Editor tab with the file's content pre-filled. PR: https://github.com/ensp1re/humb/pull/57.",
       "blockedReason": null,
       "spec": "docs/product-specs/sql-editor.md"
     }

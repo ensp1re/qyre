@@ -52,7 +52,7 @@ gotchas in "Known issues / blockers").
   virtualization, `App.tsx` tab-component split, `check-engine-lockstep.mjs` (caught a real
   `PUBLISH_ORDER` drift - `@humbdb/mysql`/`@humbdb/mongodb` were missing).
 - **F054-F062 `passing`** (batch 4, testing/docs/devx/product quick wins,
-  `feature/F054-F062-testing-docs-batch`, not yet merged as of this writing): a new
+  [PR #57](https://github.com/ensp1re/humb/pull/57)): a new
   `@humbdb/testing-conformance` package runs a shared parametrized suite (pagination clamping,
   empty-collection handling) across all 4 engines - it's a separate package from `@humbdb/testing`
   itself because importing all 4 drivers there would create a build cycle (caught live via
@@ -73,9 +73,7 @@ gotchas in "Known issues / blockers").
 
 ## In progress
 
-- Batch 4 (F054-F062, `feature/F054-F062-testing-docs-batch`, commit `bd579e4`) is code-complete and
-  fully verified locally (`pnpm check`, `pnpm test:e2e`/`test:e2e:full` against a real
-  docker-compose Postgres+MySQL+Mongo stack) but not yet pushed/PR'd as of this writing.
+- Nothing in flight - batch 4 (F054-F062) is `passing` and its PR (#57) is open, awaiting merge.
 
 - Publishing the bare `humb` npm package (`packages/humb`) alongside `@humbdb/humb` is blocked on an
   npm name-similarity dispute (too close to `humps`/`htm`/`dumi`/`pump`/`umi`) - once cleared, retry
@@ -103,12 +101,6 @@ gotchas in "Known issues / blockers").
     fail against it (harmless environmental noise, not a regression).
 
 ## Next steps
-
-Batch 4 (F054-F062, branch `feature/F054-F062-testing-docs-batch`, commit `bd579e4`) needs to be
-pushed and opened as a PR (would be PR #57) - the branch is based on `main` post-#56-merge, code is
-committed, and all verification (see "In progress") already passed. Push it, open the PR, and record
-the PR URL in `docs/FEATURES.json`'s F054-F062 evidence + this file via a small follow-up commit,
-matching the pattern of PRs #54-#56.
 
 With F001-F062 and DF-01-DF-09 all `passing`, the only remaining tech-debt-tracker.md rows are the
 6 that need a product-spec pass before implementation (not a quick slice): `--demo` mode, switching

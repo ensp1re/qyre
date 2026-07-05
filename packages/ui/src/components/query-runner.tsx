@@ -1,4 +1,4 @@
-import type { RowPage } from "@humbdb/core";
+import type { RowPage } from "@qyre/core";
 import { autocompletion } from "@codemirror/autocomplete";
 import { StandardSQL, sql as sqlLanguage } from "@codemirror/lang-sql";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";

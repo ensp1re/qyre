@@ -1,7 +1,7 @@
-import type { RecentTarget } from "@humbdb/ui";
+import type { RecentTarget } from "@qyre/ui";
 import { useCallback, useState } from "react";
 
-const STORAGE_KEY = "humb-recent-targets";
+const STORAGE_KEY = "qyre-recent-targets";
 const MAX_ENTRIES = 5;
 
 function readEntries(): RecentTarget[] {
@@ -20,7 +20,7 @@ function readEntries(): RecentTarget[] {
  * first, so switching back is one click instead of a retype - same bounded-list shape Query
  * History (F012) already uses. `display` is the already-redacted string the server's
  * POST /api/connect response returns, not re-derived here - this package must not duplicate
- * @humbdb/core's redaction logic (a real value import from that barrel previously broke Vite's
+ * @qyre/core's redaction logic (a real value import from that barrel previously broke Vite's
  * browser build, see F047's history).
  */
 export function useRecentTargets(): {

@@ -4,14 +4,14 @@ Source: Figma Make export at `github.com/ensp1re/UserDashboard` (private), gener
 `figma.com/design/5ZS5L8NXHrmZxnIR3bhTYY/User-dashboard`. Captured 2026-07-02.
 
 The source design is a VS Code-style Postgres/SQL IDE - title bar, collapsible searchable sidebar
-tree, a tab bar (SQL Editor / Tables / Schema / Files / Console), and a status bar. It is Humb's
-target UI, not a generic dashboard: every panel maps onto a real Humb concept (connection tree ->
+tree, a tab bar (SQL Editor / Tables / Schema / Files / Console), and a status bar. It is Qyre's
+target UI, not a generic dashboard: every panel maps onto a real Qyre concept (connection tree ->
 `DatabaseOverview`, Tables tab -> `RowsTable`, Schema tab -> `TableMetadata` across all tables, SQL
 Editor -> the read-only query runner). See `docs/product-specs/dashboard-ui.md` for the product
 contract and `docs/exec-plans/active/0003-dashboard-ui.md` for the DF-## work breakdown.
 
 Stack in the source: React + Vite, Tailwind v4 (CSS-first `@theme inline`), shadcn/ui components on
-Radix primitives, `lucide-react` icons, `class-variance-authority` for variants. Humb's `apps/web`
+Radix primitives, `lucide-react` icons, `class-variance-authority` for variants. Qyre's `apps/web`
 already has Tailwind v3 scaffolded (unused until this design landed) - tokens below are translated
 to v3 config + CSS custom properties, not copy-pasted v4 syntax.
 
@@ -84,12 +84,12 @@ chart/graph is ever added rather than inventing new hues.
   `ToggleLeft` (green) for boolean, `Calendar` (purple) for date/timestamp - a small `TypeIcon`
   helper keyed off the column's `dataType` string. Reuse this exact color mapping wherever a
   column's data type is shown (table headers, schema view, query results).
-  `ColumnMetadata.dataType` from `@humbdb/core` is engine-reported (`information_schema`/`PRAGMA`
-  text), not a single Humb-normalized enum, so the type-icon helper does its own prefix matching
+  `ColumnMetadata.dataType` from `@qyre/core` is engine-reported (`information_schema`/`PRAGMA`
+  text), not a single Qyre-normalized enum, so the type-icon helper does its own prefix matching
   per engine's naming (`int*`/`numeric*` etc. for Postgres, `INTEGER`/`REAL` etc. for SQLite) -
   document any per-engine special-casing right next to that helper, don't scatter it.
 - **Status/connection dot**: a filled `Circle` (green when connected) rather than a text badge in
-  chrome-level UI (title bar, status bar); `StatusBadge` (`@humbdb/ui`) remains the right component
+  chrome-level UI (title bar, status bar); `StatusBadge` (`@qyre/ui`) remains the right component
   for the more prominent "Database connection" panel state.
 - Search-and-highlight in the sidebar tree: matched substrings wrapped in `<mark>` with a tinted
   `--c-blue` background - matching nodes force their ancestor path open.
@@ -97,6 +97,6 @@ chart/graph is ever added rather than inventing new hues.
 ## Explicitly out of scope for this design system
 
 - Any control implying a write/mutation (the source mock's "Add row" button, row-selection
-  checkboxes as a bulk-edit affordance) - Humb is read-only (`docs/PRODUCT_SENSE.md`,
+  checkboxes as a bulk-edit affordance) - Qyre is read-only (`docs/PRODUCT_SENSE.md`,
   `docs/SECURITY.md`). Port the surrounding UI, drop or repurpose write-shaped controls; never wire
   them to a real mutating action.

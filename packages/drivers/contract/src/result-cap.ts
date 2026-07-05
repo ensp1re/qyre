@@ -23,5 +23,5 @@ export function capResultRows(sql: string, limit: number = MAX_QUERY_RESULT_ROWS
   if (!ROW_CARDINALITY_KEYWORDS.has(firstKeyword)) {
     return sql;
   }
-  return `SELECT * FROM (${withoutTrailingSemicolon}) AS humb_capped_query LIMIT ${limit}`;
+  return `SELECT * FROM (${withoutTrailingSemicolon}) AS qyre_capped_query LIMIT ${limit}`;
 }

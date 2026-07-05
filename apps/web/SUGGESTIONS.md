@@ -117,7 +117,7 @@ knows which are numeric).
 An empty SQL editor stretches a near-black `#0a0d12` plane across the whole viewport with one
 line of text in the corner. Give the first-run editor a real empty state below the textarea:
 one-line hint ("Press ⌘↵ to run - read-only") plus 2-3 clickable sample-query chips built from
-the connected schema (e.g. `SELECT * FROM humb_demo_users LIMIT 10`). Cheap, and turns the void
+the connected schema (e.g. `SELECT * FROM qyre_demo_users LIMIT 10`). Cheap, and turns the void
 into an on-ramp.
 
 ### 8. Placeholder tabs deserve real empty states
@@ -195,7 +195,7 @@ Components mix `rounded-[2px]`, `rounded-[3px]`, and token classes (`rounded-md`
 ### 18. Theme bootstrapping ignores the OS
 
 With no stored choice the app is always dark. Respect `prefers-color-scheme: light` when
-`localStorage` has no `humb-theme` (one condition in the `index.html` inline script + the hook's
+`localStorage` has no `qyre-theme` (one condition in the `index.html` inline script + the hook's
 initial state). Dark remains the default for OS-dark and no-signal users.
 
 ### 19. Mobile status bar is nearly empty
@@ -212,7 +212,7 @@ below `sm` (all five tabs then fit statically).
 ### 21. Style the scrollbars
 
 Default OS scrollbars (bright track in dark mode) appear in the tree, grid, and editor. Add thin
-overlay scrollbars (`::-webkit-scrollbar` 8px + `scrollbar-width: thin`, thumb
+overlay scrollbars (`::-webkit-scrollbar` 8px + `scrollbar-width: thin`, tqyre
 `muted-foreground/30` once alpha works) - an IDE-density UI needs quiet scrollbars.
 
 ---

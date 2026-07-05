@@ -127,11 +127,11 @@ body {
   background: transparent;
 }
 
-*::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-tqyre {
   background-color: rgb(var(--muted-foreground) / 0.3);
   border-radius: 9999px;
 }
 
-*::-webkit-scrollbar-thumb:hover {
+*::-webkit-scrollbar-tqyre:hover {
   background-color: rgb(var(--muted-foreground) / 0.5);
 }

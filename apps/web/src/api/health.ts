@@ -1,4 +1,4 @@
-import type { HealthResponse } from "@humbdb/core";
+import type { HealthResponse } from "@qyre/core";
 import { fetchJson } from "./fetch-json.js";
 
 /** Fetch the server's health/connection status. */

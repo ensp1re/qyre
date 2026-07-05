@@ -5,35 +5,35 @@ intentional open-source project. These rules are enforced by review and, where p
 
 ## Packages
 
-- Public packages are published under the `@humbdb/` scope: `@humbdb/core`, `@humbdb/server`,
-  `@humbdb/driver-contract`, `@humbdb/postgres`, `@humbdb/ui`, `@humbdb/humb` (the CLI
+- Public packages are published under the `@qyre/` scope: `@qyre/core`, `@qyre/server`,
+  `@qyre/driver-contract`, `@qyre/postgres`, `@qyre/ui`, `@qyre/qyre` (the CLI
   implementation).
-- `packages/humb` publishes a second package under the bare name `humb` - a thin alias with no
-  logic of its own beyond a `bin.js` that imports `@humbdb/humb/bin`, published purely so
-  `npx humb` and `npm install -g humb` work (npx resolves an unscoped command name straight to an
-  unscoped package name; it has no way to know `@humbdb/humb`'s bin is also called `humb`). Both
+- `packages/qyre` publishes a second package under the bare name `qyre` - a thin alias with no
+  logic of its own beyond a `bin.js` that imports `@qyre/qyre/bin`, published purely so
+  `npx qyre` and `npm install -g qyre` work (npx resolves an unscoped command name straight to an
+  unscoped package name; it has no way to know `@qyre/qyre`'s bin is also called `qyre`). Both
   packages must stay in lockstep (see `scripts/publish.mjs`'s `PUBLISH_ORDER`); the bare package
-  publishes last since it depends on `@humbdb/humb`.
+  publishes last since it depends on `@qyre/qyre`.
 - Internal-only packages set `"private": true` and are excluded from publishing:
-  `@humbdb/web`, `@humbdb/config`, `@humbdb/testing`.
+  `@qyre/web`, `@qyre/config`, `@qyre/testing`.
 - Workspace folder names use short kebab-case nouns: `cli`, `server`, `core`, `ui`, `config`,
   `testing`. Database driver packages live under `drivers/` (see below) rather than at the top level.
 
 ## Database drivers
 
-- Driver packages live under `packages/drivers/<engine>` and are named `@humbdb/<engine>` - just the
+- Driver packages live under `packages/drivers/<engine>` and are named `@qyre/<engine>` - just the
   engine name, no `db-` prefix. The `drivers/` folder already conveys what they are. `postgres` now;
   future `sqlite`, `mysql`, etc.
 - The shared engine-agnostic contract lives at `packages/drivers/contract`, package name
-  `@humbdb/driver-contract`.
-- The engine identifier (`DatabaseEngine` in `@humbdb/core`, `AdapterFactory.engine`) is lowercase and
+  `@qyre/driver-contract`.
+- The engine identifier (`DatabaseEngine` in `@qyre/core`, `AdapterFactory.engine`) is lowercase and
   matches the package name.
 - See [`docs/CODE_ORGANIZATION.md`](CODE_ORGANIZATION.md) for what may vs. may not be shared in
   `driver-contract` across engines.
 
 ## Commands
 
-- Product CLI behavior is invoked as `humb <target>`.
+- Product CLI behavior is invoked as `qyre <target>`.
 - Repository maintenance is invoked as `pnpm <script>` (e.g. `pnpm check`).
 
 ## Features

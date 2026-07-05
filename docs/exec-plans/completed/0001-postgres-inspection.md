@@ -8,8 +8,8 @@ Linked features: F001-F007 (`docs/FEATURES.json`)
 
 ## Objective
 
-Deliver the Postgres engine contract, the first slice of Humb's universal database inspector:
-`npx humb <database-url>` detects the engine, starts a local server, opens the browser UI, and lets
+Deliver the Postgres engine contract, the first slice of Qyre's universal database inspector:
+`npx qyre <database-url>` detects the engine, starts a local server, opens the browser UI, and lets
 a developer inspect a Postgres database (schemas, tables, columns, rows) read-only.
 
 ## Scope
@@ -22,7 +22,7 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
 
 - `pnpm check` must pass (format, lint, typecheck, test, build, project-state checks).
 - `pnpm test:e2e` smoke must pass.
-- `pnpm test:e2e:full` must pass with `HUMB_TEST_DATABASE_URL` set (CI provides Postgres).
+- `pnpm test:e2e:full` must pass with `QYRE_TEST_DATABASE_URL` set (CI provides Postgres).
 
 ## Risks and blockers
 
@@ -35,9 +35,9 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   `pnpm check` and the smoke E2E pass. This commit also checked in working CLI/server/adapter code
   (see 2026-07-01 entry) that `docs/FEATURES.json` did not reflect at the time.
 - 2026-07-01: Discovered `a0ae2f7` already implements most of F001 (CLI parses target, starts
-  server, opens browser) with its package-level verification (`pnpm --filter humb test`) passing.
+  server, opens browser) with its package-level verification (`pnpm --filter qyre test`) passing.
   Marked F001 `passing`, then auditing it against the full spec (rather than trusting the unit
-  tests alone) found two real gaps: `HUMB_PORT` was ignored, and the server had no static-serving
+  tests alone) found two real gaps: `QYRE_PORT` was ignored, and the server had no static-serving
   route so a real launch 404'd at `/`. Fixed both (`resolvePort()` in `packages/cli`; `webRoot`
   support via `@fastify/static` in `packages/server`), re-verified manually end to end against a
   real Postgres container, and updated F001's evidence accordingly. F003/F006/F007 backend code and
@@ -48,30 +48,30 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   now works end to end — it stays `active` only because its verification command is an end-to-end
   spec shared with F004/F005, which aren't implemented yet (no nav tree or table view).
 - 2026-07-01: Audited F003 the same way. Found bigger gaps than F001: introspection logic had zero
-  test coverage, and indexes/row counts were entirely unimplemented (missing from `@humbdb/core`'s
+  test coverage, and indexes/row counts were entirely unimplemented (missing from `@qyre/core`'s
   contract, not just the adapter). Added `IndexMetadata` to core, implemented index + approximate
   row-count introspection in `packages/db-postgres`, added integration tests against a real Postgres
-  (reusing `@humbdb/testing`), fixed a Turborepo strict-env-mode gap that silently dropped
-  `HUMB_TEST_DATABASE_URL` from the `test` task, and added a Postgres service to CI's `check` job.
+  (reusing `@qyre/testing`), fixed a Turborepo strict-env-mode gap that silently dropped
+  `QYRE_TEST_DATABASE_URL` from the `test` task, and added a Postgres service to CI's `check` job.
   Manual verification caught a bug the new test didn't: index `columns` came back as a raw Postgres
   array-literal string, not a JS array (no `pg` type parser for arrays of the internal `name` type);
   fixed with an explicit `::text` cast and strengthened the test's assertions. F003 marked `passing`.
 - 2026-07-01: Architecture reorganization (folder rules now in `docs/CODE_ORGANIZATION.md`):
-  `@humbdb/core` split into `types/`/`errors.ts`/`connection-target.ts`/`validation/` and gained
+  `@qyre/core` split into `types/`/`errors.ts`/`connection-target.ts`/`validation/` and gained
   `ConnectionStatus`/`HealthResponse` (previously hand-duplicated in `apps/web`/`packages/ui`);
-  `@humbdb/ui` split into one component per file; `apps/web` got `api/`/`hooks/`; a genuinely
+  `@qyre/ui` split into one component per file; `apps/web` got `api/`/`hooks/`; a genuinely
   engine-agnostic `resolvePageRequest()` moved into the driver contract package (SQL identifier
   quoting deliberately stayed put - it differs per engine). Renamed/moved
-  `packages/db-adapter` -> `packages/drivers/contract` (`@humbdb/driver-contract`) and
-  `packages/db-postgres` -> `packages/drivers/postgres` (`@humbdb/postgres`); required a
+  `packages/db-adapter` -> `packages/drivers/contract` (`@qyre/driver-contract`) and
+  `packages/db-postgres` -> `packages/drivers/postgres` (`@qyre/postgres`); required a
   `packages/drivers/*` entry in `pnpm-workspace.yaml`. Re-verified `pnpm check`, a real CLI run
   against live Postgres, and the smoke E2E after the move.
 - 2026-07-01: Implemented F002+F004 (nav tree + table metadata): `SchemaTree`/`TableDetail` in
-  `@humbdb/ui`, `api/`+`hooks/` in `apps/web`, wired into `App.tsx`. Getting the full journey test to
+  `@qyre/ui`, `api/`+`hooks/` in `apps/web`, wired into `App.tsx`. Getting the full journey test to
   actually pass surfaced a real E2E infra gap: Playwright's `webServer` only ran `vite preview`
   (no backend at all), so `/api/health` always failed regardless of frontend completeness. Replaced
-  it with `e2e/server.ts` - the real Humb server, API + built web app on one port, connecting to
-  Postgres only when `HUMB_TEST_DATABASE_URL` is set. Also strengthened the spec (previously only
+  it with `e2e/server.ts` - the real Qyre server, API + built web app on one port, connecting to
+  Postgres only when `QYRE_TEST_DATABASE_URL` is set. Also strengthened the spec (previously only
   asserted the fixture table name appeared as text, which would pass without any real interaction -
   now clicks the table and asserts a column becomes visible), and renamed it:
   `golden-journey.spec.ts` -> `connect-and-inspect.spec.ts`, tag `@golden` -> `@full`, script
@@ -81,7 +81,7 @@ Out of scope: writes/DDL, multiple connections, non-Postgres engines, auth/remot
   `scripts/check-features.mjs`) so a `passing` feature's actual pushed commit is a validated field,
   not just prose inside `evidence`.
 - 2026-07-01: Implemented F005 (paginated table rows), the last piece of the connect-and-inspect
-  journey. Added `RowsTable` (`@humbdb/ui`), `api/rows.ts` + `useRows` (`apps/web`, TanStack Query's
+  journey. Added `RowsTable` (`@qyre/ui`), `api/rows.ts` + `useRows` (`apps/web`, TanStack Query's
   `keepPreviousData` to avoid flicker between pages), wired below `TableDetail` with Previous/Next
   controls. No exact total row count from the backend, so "can go next" uses a
   `rows.length === pageSize` heuristic; manually verified the boundary via `curl` with `page=0`/`1`
@@ -100,12 +100,12 @@ deleted`) starts with the allowed "with" keyword but actually deletes data - pro
   misses. Proved layer 2 independently with a test that hides a `DELETE` inside a plpgsql function
   (`SELECT some_function()` has no forbidden keyword in its text at all - only the transaction
   backstop catches it). Also fixed: a rejected query returned HTTP 500 instead of 400 - moved
-  `ReadOnlyViolationError` from `@humbdb/postgres` to `@humbdb/driver-contract` (engine-agnostic; every
+  `ReadOnlyViolationError` from `@qyre/postgres` to `@qyre/driver-contract` (engine-agnostic; every
   engine's query runner needs it) so `packages/server` can catch it without depending on a concrete
-  engine. Built the missing UI (`QueryRunner` in `@humbdb/ui`, wired via `apps/web`'s `api/query.ts` +
+  engine. Built the missing UI (`QueryRunner` in `@qyre/ui`, wired via `apps/web`'s `api/query.ts` +
   `useRunQuery`), verified success/rejection/writable-CTE cases through the real HTTP path. Broadened
-  F006's verification command to also run `pnpm --filter @humbdb/postgres test` - the security-critical
-  logic lives there, and the original `@humbdb/server`-only command would never re-run those tests.
+  F006's verification command to also run `pnpm --filter @qyre/postgres test` - the security-critical
+  logic lives there, and the original `@qyre/server`-only command would never re-run those tests.
 - 2026-07-01: Audited F007 (health/runtime diagnostics) the same way as F001/F003/F006, resolving
   the open decision below in favor of auditing first. `/api/health` (built as part of F001) itself
   behaved correctly, but the audit found a real crash bug, not just a coverage gap: node-postgres's
@@ -120,10 +120,10 @@ deleted`) starts with the allowed "with" keyword but actually deletes data - pro
   cleanly. Added a regression test (`postgres-adapter.integration.test.ts`) that reproduces the exact
   failure against a real database via `pg_terminate_backend` on an idle pooled connection - confirmed
   it fails (uncaught exception) without the fix and passes with it. Broadened F007's verification
-  command to also run `pnpm --filter @humbdb/postgres test`, matching F006's precedent, since that's
+  command to also run `pnpm --filter @qyre/postgres test`, matching F006's precedent, since that's
   where the fix actually lives. F007 marked `passing`.
 
 ## Open decisions
 
 - SQLite driver (`packages/drivers/sqlite`) timing: immediately after Postgres vs later.
-- What the next slice after F006/F007 should be: SQLite driver, or `humb` npm-publish packaging work.
+- What the next slice after F006/F007 should be: SQLite driver, or `qyre` npm-publish packaging work.

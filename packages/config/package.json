@@ -1,9 +1,9 @@
 {
-  "name": "@humbdb/config",
+  "name": "@qyre/config",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared build/test config helpers for Humb packages.",
+  "description": "Shared build/test config helpers for Qyre packages.",
   "exports": {
     "./tsup": "./src/tsup.js",
     "./vitest": "./src/vitest.js"

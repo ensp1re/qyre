@@ -6,7 +6,7 @@ import {
   setupFixture,
   setupMysqlFixture,
   setupSqliteFixture
-} from "@humbdb/testing";
+} from "@qyre/testing";
 import { expect, test } from "@playwright/test";
 
 /**

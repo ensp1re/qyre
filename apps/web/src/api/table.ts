@@ -1,4 +1,4 @@
-import type { TableMetadata } from "@humbdb/core";
+import type { TableMetadata } from "@qyre/core";
 import { fetchJson } from "./fetch-json.js";
 
 /** Fetch a single table's columns, indexes, and approximate row count. */

@@ -2,7 +2,7 @@
 /**
  * Bump every publishable workspace package's version in lockstep and publish them to npm.
  *
- * All publishable packages share one version (the version users see via `npx humb@x.y.z`) so
+ * All publishable packages share one version (the version users see via `npx qyre@x.y.z`) so
  * their `workspace:*` cross-references stay trivially in sync - pnpm resolves `workspace:*` to the
  * real version range from each package's local package.json at publish time, so bumping everything
  * together before publishing is enough; no manual dependency-range rewriting is needed.
@@ -28,7 +28,7 @@ const dryRun = args.includes("--dry-run");
 const onlyFlagIndex = args.indexOf("--only");
 const onlyPackage = onlyFlagIndex !== -1 ? args[onlyFlagIndex + 1] : null;
 if (onlyFlagIndex !== -1 && !onlyPackage) {
-  console.error("--only requires a package name, e.g. --only humb");
+  console.error("--only requires a package name, e.g. --only qyre");
   process.exit(1);
 }
 const bumpType = onlyPackage
@@ -42,21 +42,21 @@ if (!onlyPackage && !["patch", "minor", "major"].includes(bumpType)) {
 /**
  * Explicit publish order (dependency-first), so a package is never published before a workspace
  * dependency it needs is already resolvable. Kept explicit rather than topologically computed: the
- * package count is small and a new engine package (e.g. @humbdb/sqlite, F008) forces a conscious
+ * package count is small and a new engine package (e.g. @qyre/sqlite, F008) forces a conscious
  * update here, which doubles as a reminder to wire it into the release.
  */
 const PUBLISH_ORDER = [
-  "@humbdb/core",
-  "@humbdb/driver-contract",
-  "@humbdb/postgres",
-  "@humbdb/mysql",
-  "@humbdb/mongodb",
-  "@humbdb/sqlite",
-  "@humbdb/server",
-  "@humbdb/ui",
-  "@humbdb/humb",
-  // Bare-named alias package (packages/humb) - depends on @humbdb/humb, so it must publish last.
-  "humb"
+  "@qyre/core",
+  "@qyre/driver-contract",
+  "@qyre/postgres",
+  "@qyre/mysql",
+  "@qyre/mongodb",
+  "@qyre/sqlite",
+  "@qyre/server",
+  "@qyre/ui",
+  "@qyre/qyre",
+  // Bare-named alias package (packages/qyre) - depends on @qyre/qyre, so it must publish last.
+  "qyre"
 ];
 
 /**
@@ -128,9 +128,9 @@ if (onlyPackage) {
 
 // 3. Lockstep version: bump off the CLI package's current version, since that's the version users
 // actually see.
-const cliPkg = packagesByName.get("@humbdb/humb");
+const cliPkg = packagesByName.get("@qyre/qyre");
 if (!cliPkg) {
-  console.error('Could not find the "@humbdb/humb" package among publishable packages.');
+  console.error('Could not find the "@qyre/qyre" package among publishable packages.');
   process.exit(1);
 }
 const currentVersion = readPackageJson(join(cliPkg.path, "package.json")).version;
@@ -164,7 +164,7 @@ for (const pkg of orderedPackages) {
 }
 
 // 5. Run the full verification gate against the bumped versions before anything is committed or
-// touches the registry. Requires HUMB_TEST_DATABASE_URL to be set (see docs/RELIABILITY.md) - we
+// touches the registry. Requires QYRE_TEST_DATABASE_URL to be set (see docs/RELIABILITY.md) - we
 // never silently skip required verification, including right before a release.
 run("pnpm", ["check"]);
 

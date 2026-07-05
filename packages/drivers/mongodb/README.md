@@ -1,6 +1,6 @@
-# @humbdb/mongodb
+# @qyre/mongodb
 
-MongoDB driver for Humb. Implements the `DatabaseAdapter` contract from `@humbdb/driver-contract`,
+MongoDB driver for Qyre. Implements the `DatabaseAdapter` contract from `@qyre/driver-contract`,
 scoped to basic read-only browsing (databases, collections, documents) - see
 [`docs/product-specs/connect-and-inspect-mongodb.md`](../../../docs/product-specs/connect-and-inspect-mongodb.md)
 for why this engine's contract is narrower than the SQL engines'.

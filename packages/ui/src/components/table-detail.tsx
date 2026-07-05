@@ -1,4 +1,4 @@
-import type { TableMetadata } from "@humbdb/core";
+import type { TableMetadata } from "@qyre/core";
 import { Link, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { TypeIcon } from "./type-icon.js";

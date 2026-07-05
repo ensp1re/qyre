@@ -19,7 +19,7 @@ gotchas in "Known issues / blockers").
 - Date: 2026-07-05
 - Latest commit: see `git log --oneline -1 origin/main`
 - Build status: builds (`pnpm build`)
-- Test status: unit + integration tests pass (`pnpm test`, with `HUMB_TEST_DATABASE_URL` set); smoke
+- Test status: unit + integration tests pass (`pnpm test`, with `QYRE_TEST_DATABASE_URL` set); smoke
   - full E2E pass (`pnpm test:e2e`, `pnpm test:e2e:full`)
 - Verification status: `pnpm check:ci` passes with a live Postgres available
 
@@ -37,21 +37,21 @@ gotchas in "Known issues / blockers").
   batched fetch, pool-error logging, health/schema polling, `ErrorBoundary`, schema-tree keyboard
   a11y, per-engine statement timeouts (PRs #47-#52).
 - **F034-F062 `passing`** (4 batches draining the two-pass review's remaining 29 tech-debt rows):
-  batch 1 UX/a11y ([PR #54](https://github.com/ensp1re/humb/pull/54)), batch 2 reliability/server
-  hardening ([PR #55](https://github.com/ensp1re/humb/pull/55)), batch 3 performance/architecture
-  ([PR #56](https://github.com/ensp1re/humb/pull/56)), batch 4 testing/docs/devx/product
-  ([PR #57](https://github.com/ensp1re/humb/pull/57) - new `@humbdb/testing-conformance` package,
-  `@humbdb/ui` component tests, E2E `axe` scans, `docker-compose.yml`, `CONTRIBUTING.md`,
+  batch 1 UX/a11y ([PR #54](https://github.com/ensp1re/qyre/pull/54)), batch 2 reliability/server
+  hardening ([PR #55](https://github.com/ensp1re/qyre/pull/55)), batch 3 performance/architecture
+  ([PR #56](https://github.com/ensp1re/qyre/pull/56)), batch 4 testing/docs/devx/product
+  ([PR #57](https://github.com/ensp1re/qyre/pull/57) - new `@qyre/testing-conformance` package,
+  `@qyre/ui` component tests, E2E `axe` scans, `docker-compose.yml`, `CONTRIBUTING.md`,
   `docs/CONNECTING.md`, clickable FK columns, Files-tab "Run in editor"). See `docs/FEATURES.json`
   for evidence per feature.
-- [PR #58](https://github.com/ensp1re/humb/pull/58) (merged, docs-only): product-spec pass on the
+- [PR #58](https://github.com/ensp1re/qyre/pull/58) (merged, docs-only): product-spec pass on the
   3 remaining tech-debt rows that didn't need `--demo` mode's kind of scoping -
   `docs/product-specs/adapter-capabilities.md` (F063), `database-switching.md` (F064),
   `server-side-sort-export.md` (F065/F066).
-- **F063 `passing`** ([PR #59](https://github.com/ensp1re/humb/pull/59)/[#60](https://github.com/ensp1re/humb/pull/60)):
+- **F063 `passing`** ([PR #59](https://github.com/ensp1re/qyre/pull/59)/[#60](https://github.com/ensp1re/qyre/pull/60)):
   `DatabaseOverview.capabilities.supportsSql` replaces `apps/web`'s `engine === "mongodb"` checks
   for disabling the SQL Editor tab/Files-tab "Run in editor".
-- **F064 `passing`** ([PR #61](https://github.com/ensp1re/humb/pull/61)): `POST /api/connect`
+- **F064 `passing`** ([PR #61](https://github.com/ensp1re/qyre/pull/61)): `POST /api/connect`
   swaps in a new adapter/target (only after a ping confirms it's live) without restarting the
   process; the title bar's Settings button opens a `ConnectDrawer` (current target, connect form,
   recent targets). Live-caught bug fixed in the same commit: an unreachable-host failure throws
@@ -73,26 +73,26 @@ gotchas in "Known issues / blockers").
 - Nothing in flight - F065/F066 are `passing`. With `--demo` mode the only tech-debt row left with
   no spec (see "Next steps"), there's no more pre-scoped work queued.
 
-- Publishing the bare `humb` npm package (`packages/humb`) alongside `@humbdb/humb` is blocked on an
+- Publishing the bare `qyre` npm package (`packages/qyre`) alongside `@qyre/qyre` is blocked on an
   npm name-similarity dispute (too close to `humps`/`htm`/`dumi`/`pump`/`umi`) - once cleared, retry
-  with `node scripts/publish.mjs --only humb`. All `@humbdb/*` packages publish fine in the meantime.
+  with `node scripts/publish.mjs --only qyre`. All `@qyre/*` packages publish fine in the meantime.
   `scripts/publish.mjs`'s `run()` helper now reports a failed command cleanly instead of a raw stack
   trace (PR #38).
 
 ## Known issues / blockers
 
-- The bare `humb` npm package is blocked pending npm's name-dispute review (see "In progress") - no
+- The bare `qyre` npm package is blocked pending npm's name-dispute review (see "In progress") - no
   code changes needed once it clears, just the retry command.
 - An animated demo (GIF/asciicast) for the README remains a legitimate follow-up - F009 shipped with
   static screenshots instead.
-- The local Postgres fixture container (`humb-rename-pg`, port 5433) and MySQL fixture container
-  (`humb-mysql`, port 3307) do not persist across a Docker Desktop restart - recreate them if
+- The local Postgres fixture container (`qyre-rename-pg`, port 5433) and MySQL fixture container
+  (`qyre-mysql`, port 3307) do not persist across a Docker Desktop restart - recreate them if
   `pnpm test:e2e:full`/manual Preview testing gets `ECONNREFUSED`:
-  - Postgres: `docker run --rm -d --name humb-rename-pg -e POSTGRES_PASSWORD=postgres -p 5433:5432 postgres:16-alpine`,
+  - Postgres: `docker run --rm -d --name qyre-rename-pg -e POSTGRES_PASSWORD=postgres -p 5433:5432 postgres:16-alpine`,
     then reseed (`pnpm exec tsx .local/seed-dev-data.ts postgres://postgres:postgres@localhost:5433/postgres`
-    for the dev dataset; `setupFixture` from `@humbdb/testing` for the e2e fixture table).
-  - MySQL: `docker run --rm -d --name humb-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=humb_test -p 3307:3306 mysql:8`
-    (slower to become ready than Postgres); `setupMysqlFixture` from `@humbdb/testing` creates the
+    for the dev dataset; `setupFixture` from `@qyre/testing` for the e2e fixture table).
+  - MySQL: `docker run --rm -d --name qyre-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=qyre_test -p 3307:3306 mysql:8`
+    (slower to become ready than Postgres); `setupMysqlFixture` from `@qyre/testing` creates the
     e2e fixture table.
   - The Postgres container has accumulated the full dev-seed dataset (11 tables) across sessions, not
     just the fixture table - a Schema-tab assertion expecting exactly one `table-detail` card will

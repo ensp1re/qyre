@@ -1,4 +1,4 @@
-import type { ConnectionStatus, RowSort } from "@humbdb/core";
+import type { ConnectionStatus, RowSort } from "@qyre/core";
 import {
   ConnectDrawer,
   ErrorBoundary,
@@ -9,7 +9,7 @@ import {
   TabBar,
   TitleBar,
   type ShellTab
-} from "@humbdb/ui";
+} from "@qyre/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { ConsoleTab } from "./components/console-tab.js";
@@ -173,7 +173,7 @@ export function App(): ReactNode {
                       <Spinner /> Checking connection...
                     </>
                   ) : (
-                    "No database is connected yet. Launch Humb with a Postgres, MySQL, SQLite, or MongoDB target to get started."
+                    "No database is connected yet. Launch Qyre with a Postgres, MySQL, SQLite, or MongoDB target to get started."
                   )}
                 </p>
               ) : tab === "sql-editor" ? (

@@ -27,7 +27,7 @@ export interface ConnectDrawerProps {
 
 /**
  * A right-anchored slide-in drawer (same pattern as `QueryHistoryDrawer`/`CellValueDrawer`) for
- * switching the running Humb instance to a different database connection without restarting the
+ * switching the running Qyre instance to a different database connection without restarting the
  * CLI (F064). See docs/product-specs/database-switching.md.
  */
 export function ConnectDrawer({

@@ -1,36 +1,36 @@
 # Product Contract: Connect and Inspect (MySQL Engine)
 
-Humb's product promise is universal: one command, any database, auto-detected. This contract covers
-MySQL — the third engine Humb supports end to end, after
+Qyre's product promise is universal: one command, any database, auto-detected. This contract covers
+MySQL — the third engine Qyre supports end to end, after
 [Postgres](connect-and-inspect-postgres.md) and [SQLite](connect-and-inspect-sqlite.md). It is the
 single source of truth for what MySQL-engine scope means. Anything not listed here is out of scope
 for this engine for now.
 
-MySQL is architecturally the closest engine to Postgres Humb has added so far: a network server,
+MySQL is architecturally the closest engine to Postgres Qyre has added so far: a network server,
 schemas/tables/rows, a real SQL dialect. Most of this contract mirrors Postgres's directly; only the
 differences are called out explicitly rather than silently assumed identical.
 
 ## One-sentence promise
 
-A developer can point Humb at a MySQL connection string, have it auto-recognized, and immediately
+A developer can point Qyre at a MySQL connection string, have it auto-recognized, and immediately
 browse its structure and data in the same UI used for every other engine.
 
 ## CLI input shape
 
 ```bash
-npx humb <mysql-connection-string>
+npx qyre <mysql-connection-string>
 # examples recognized as MySQL:
-npx humb mysql://user:pass@localhost:3306/mydb
-npx humb mysql://localhost/mydb
+npx qyre mysql://user:pass@localhost:3306/mydb
+npx qyre mysql://localhost/mydb
 ```
 
 Behavior:
 
-- `humb <target>` detects MySQL from the `mysql://` URL scheme, per `packages/drivers/mysql`'s
+- `qyre <target>` detects MySQL from the `mysql://` URL scheme, per `packages/drivers/mysql`'s
   `AdapterFactory.supports()` - the same detection seam every other engine uses (see
   `ARCHITECTURE.md`'s "Adding a new database engine").
 - The rest of the launch behavior matches the Postgres contract: starts a local server on
-  `HUMB_PORT` (default `7717`), opens the default browser, `Ctrl+C` shuts down cleanly and releases
+  `QYRE_PORT` (default `7717`), opens the default browser, `Ctrl+C` shuts down cleanly and releases
   the connection pool.
 - If the connection cannot be established (wrong credentials, unreachable host, wrong port), the CLI
   behaves like Postgres's failure path: the UI comes up and shows a clear, recoverable connection
@@ -47,7 +47,7 @@ In scope (MySQL engine):
 - Paginated table data browsing (reuses the existing engine-agnostic UI and pagination contract - no
   new frontend work required, only the adapter).
 - A read-only SQL query runner (SELECT-style statements only), reusing
-  `@humbdb/driver-contract`'s `assertReadOnly`/`ReadOnlyViolationError` heuristic layer - already
+  `@qyre/driver-contract`'s `assertReadOnly`/`ReadOnlyViolationError` heuristic layer - already
   shared across Postgres and SQLite, not re-implemented per engine.
 - Local server health and runtime diagnostics endpoints (reused as-is - `/api/health` is
   engine-agnostic already).
@@ -68,7 +68,7 @@ Out of scope (for now, MySQL engine):
   `ARCHITECTURE.md` already calls this out as the canonical example of "looks generic but actually
   differs per engine" logic that must live in the engine's own package, not be shared.
 - **Schema/database terminology.** MySQL's `information_schema` treats "database" and "schema" as the
-  same thing (unlike Postgres, where one database contains multiple schemas). Humb's
+  same thing (unlike Postgres, where one database contains multiple schemas). Qyre's
   `DatabaseOverview` shape (a list of schemas, each with tables) still applies - each MySQL database
   the connected user can see maps onto one `SchemaMetadata` entry.
 - **Row count.** Prefer an exact `COUNT(*)` the way SQLite does, not MySQL's `information_schema.tables.TABLE_ROWS`
@@ -89,7 +89,7 @@ the regex) is what actually stops it.
 
 Identical to Postgres's journey, run against a MySQL fixture instead:
 
-1. Start Humb against a MySQL database: `npx humb mysql://user:pass@localhost:3306/mydb`.
+1. Start Qyre against a MySQL database: `npx qyre mysql://user:pass@localhost:3306/mydb`.
 2. The browser UI loads and shows a connected status.
 3. The UI lists databases (as schemas) and tables.
 4. The user opens a table and sees its columns and a paginated page of rows.

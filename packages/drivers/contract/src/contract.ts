@@ -4,7 +4,7 @@ import type {
   RowPage,
   RowSort,
   TableMetadata
-} from "@humbdb/core";
+} from "@qyre/core";
 
 /** Severity of an adapter's asynchronous connection event - see {@link DatabaseAdapter.onConnectionEvent}. */
 export type ConnectionEventLevel = "warn" | "error";

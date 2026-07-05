@@ -1,4 +1,4 @@
-import type { ColumnMetadata, ForeignKeyReference, RowPage } from "@humbdb/core";
+import type { ColumnMetadata, ForeignKeyReference, RowPage } from "@qyre/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowUpDown,

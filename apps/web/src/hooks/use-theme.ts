@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 
 export type Theme = "light" | "dark";
 
-const STORAGE_KEY = "humb-theme";
+const STORAGE_KEY = "qyre-theme";
 
 function currentTheme(): Theme {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";

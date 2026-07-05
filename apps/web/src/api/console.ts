@@ -1,4 +1,4 @@
-import type { ConsoleEvents } from "@humbdb/core";
+import type { ConsoleEvents } from "@qyre/core";
 import { fetchJson } from "./fetch-json.js";
 
 /** Fetch the Console tab's recent connection/query events. */

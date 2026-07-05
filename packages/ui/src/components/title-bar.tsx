@@ -1,4 +1,4 @@
-import type { ConnectionStatus } from "@humbdb/core";
+import type { ConnectionStatus } from "@qyre/core";
 import { ChevronRight, Menu, Moon, RefreshCw, Settings, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
@@ -58,7 +58,7 @@ export function TitleBar({
       </button>
 
       <h1 className="m-0 mr-4 shrink-0 font-mono text-[13px] font-semibold tracking-tight text-foreground">
-        Humb
+        Qyre
       </h1>
 
       <div className="mr-4 hidden h-3.5 w-px shrink-0 bg-border sm:block" />

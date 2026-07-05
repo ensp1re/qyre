@@ -1,4 +1,4 @@
-import type { RowPage } from "@humbdb/core";
+import type { RowPage } from "@qyre/core";
 
 /** The result shape a single engine's query call is reduced to for {@link runInReadOnlyTransaction}. */
 export interface ReadOnlyQueryResult {

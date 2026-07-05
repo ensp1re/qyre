@@ -1,8 +1,8 @@
 {
-  "name": "@humbdb/sqlite",
+  "name": "@qyre/sqlite",
   "version": "0.1.0",
   "type": "module",
-  "description": "SQLite driver for Humb.",
+  "description": "SQLite driver for Qyre.",
   "license": "MIT",
   "exports": {
     ".": {
@@ -23,12 +23,12 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humbdb/core": "workspace:*",
-    "@humbdb/driver-contract": "workspace:*",
+    "@qyre/core": "workspace:*",
+    "@qyre/driver-contract": "workspace:*",
     "better-sqlite3": "^11.10.0"
   },
   "devDependencies": {
-    "@humbdb/config": "workspace:*",
+    "@qyre/config": "workspace:*",
     "@types/better-sqlite3": "^7.6.13"
   }
 }

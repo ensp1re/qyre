@@ -1,12 +1,12 @@
 # SECURITY.md
 
-Security and safety rules that agents must not guess at. Humb connects to real databases, so these
+Security and safety rules that agents must not guess at. Qyre connects to real databases, so these
 rules are first-class.
 
 ## Local-first boundary
 
-- Humb binds to localhost only. It must never expose the server on a public interface by default.
-- Humb must never transmit database contents, schemas, or credentials off the local machine.
+- Qyre binds to localhost only. It must never expose the server on a public interface by default.
+- Qyre must never transmit database contents, schemas, or credentials off the local machine.
 - The server has no authentication, so a malicious page the developer visits could otherwise reach
   it via DNS rebinding (resolving its own hostname to `127.0.0.1`). Every request is rejected unless
   its `Host` header is a loopback hostname (`127.0.0.1`, `localhost`, or the IPv6 loopback) -
@@ -18,12 +18,12 @@ rules are first-class.
 - Connection strings may contain passwords: never log them in full. Redact credentials in logs,
   errors, screenshots, and diagnostics - including a credential passed as a query parameter (e.g.
   `?password=...`, MySQL/Mongo's alternative to the `user:pass@host` form), not only the standard
-  URL-userinfo form (`@humbdb/core`'s `redactConnectionString`, F024).
+  URL-userinfo form (`@qyre/core`'s `redactConnectionString`, F024).
 - Real credentials never go in the repo. Use `.env` (gitignored) and `.env.example` for templates.
 
 ## Database safety (read-only)
 
-- Humb is strictly read-only for now. The query runner must reject non-SELECT/mutating statements.
+- Qyre is strictly read-only for now. The query runner must reject non-SELECT/mutating statements.
 - Use parameterized queries / safe identifier quoting in adapters. Never build SQL by naive string
   concatenation of untrusted input.
 - When write features are eventually added, destructive actions (DROP, DELETE, TRUNCATE, UPDATE
@@ -34,7 +34,7 @@ rules are first-class.
 
 - Treat connection targets, SQL input, and API request bodies as untrusted until validated.
 - Parse and validate at the boundary (e.g. Zod) before use.
-- Treat the connected database's own row data as untrusted once it leaves Humb into another
+- Treat the connected database's own row data as untrusted once it leaves Qyre into another
   application's trust boundary - e.g. CSV export/copy (`rows-table.tsx`'s `toCsv`, F035) prefixes a
   leading apostrophe on any cell value starting with `=`/`+`/`-`/`@` so Excel/Sheets can't execute it
   as a formula.

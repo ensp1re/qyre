@@ -48,7 +48,7 @@ describe("parseConnectionTarget", () => {
   });
 
   it("accepts an existing SQLite file path", () => {
-    const dir = mkdtempSync(join(tmpdir(), "humb-core-sqlite-"));
+    const dir = mkdtempSync(join(tmpdir(), "qyre-core-sqlite-"));
     const dbPath = join(dir, "app.db");
     writeFileSync(dbPath, "");
     const target = parseConnectionTarget(dbPath);
@@ -57,7 +57,7 @@ describe("parseConnectionTarget", () => {
   });
 
   it("accepts a file:// URL pointing at an existing SQLite file", () => {
-    const dir = mkdtempSync(join(tmpdir(), "humb-core-sqlite-"));
+    const dir = mkdtempSync(join(tmpdir(), "qyre-core-sqlite-"));
     const dbPath = join(dir, "app.db");
     writeFileSync(dbPath, "");
     const target = parseConnectionTarget(`file://${dbPath}`);

@@ -1,16 +1,16 @@
 /**
- * The `humb` CLI: parse a database target, start the local server, and open the browser.
+ * The `qyre` CLI: parse a database target, start the local server, and open the browser.
  */
 import { existsSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseConnectionTarget } from "@humbdb/core";
-import { resolveAdapter } from "@humbdb/driver-contract";
-import { mongodbAdapterFactory } from "@humbdb/mongodb";
-import { mysqlAdapterFactory } from "@humbdb/mysql";
-import { postgresAdapterFactory } from "@humbdb/postgres";
-import { startServer } from "@humbdb/server";
-import { sqliteAdapterFactory } from "@humbdb/sqlite";
+import { parseConnectionTarget } from "@qyre/core";
+import { resolveAdapter } from "@qyre/driver-contract";
+import { mongodbAdapterFactory } from "@qyre/mongodb";
+import { mysqlAdapterFactory } from "@qyre/mysql";
+import { postgresAdapterFactory } from "@qyre/postgres";
+import { startServer } from "@qyre/server";
+import { sqliteAdapterFactory } from "@qyre/sqlite";
 import { Command } from "commander";
 import open from "open";
 
@@ -19,7 +19,7 @@ import open from "open";
  * `dist` when built, `src` in dev/test). Two candidates, tried in order:
  *
  * 1. `<here>/web`, bundled alongside this file by `tsup.config.ts`'s `onSuccess` hook and shipped
- *    inside the published `humb` npm package (see `files` in `package.json`) - this is what
+ *    inside the published `qyre` npm package (see `files` in `package.json`) - this is what
  *    resolves once installed standalone outside this monorepo (F010).
  * 2. `<here>/../../../apps/web/dist`, monorepo-relative - what resolves in local dev/test, where
  *    the bundled copy was never created.
@@ -45,7 +45,7 @@ export interface CliArgs {
 export function parseArgs(argv: string[]): CliArgs {
   const program = new Command();
   program
-    .name("humb")
+    .name("qyre")
     .description("Launch a local-first database management UI from your terminal.")
     .argument(
       "[target]",
@@ -64,7 +64,7 @@ export function parseArgs(argv: string[]): CliArgs {
   return { target: program.args[0], port: opts.port, filesDir: opts.filesDir };
 }
 
-/** Resolve the port to listen on: `--port` flag, then `HUMB_PORT` env var, then the server default. */
+/** Resolve the port to listen on: `--port` flag, then `QYRE_PORT` env var, then the server default. */
 export function resolvePort(
   flagPort: number | undefined,
   env: NodeJS.ProcessEnv
@@ -72,7 +72,7 @@ export function resolvePort(
   if (flagPort !== undefined) {
     return flagPort;
   }
-  const envPort = env.HUMB_PORT?.trim();
+  const envPort = env.QYRE_PORT?.trim();
   if (!envPort) {
     return undefined;
   }
@@ -172,7 +172,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   // construct its own EventLog - the pool "error" listener checks onConnectionEvent at fire time,
   // not at connect()-time, so this order is fine (F028).
   adapter.onConnectionEvent = (level, message) => server.eventLog.log(level, message);
-  process.stdout.write(`Humb is running at ${server.url}\n`);
+  process.stdout.write(`Qyre is running at ${server.url}\n`);
   await open(server.url);
 
   const shutdown = createShutdownHandler({

@@ -27,7 +27,7 @@ scope"), multi-connection UI, settings panel content.
 - Per-slice: whatever `verification` each `DF-##` entry states, plus a re-run of
   `pnpm test:e2e:full`/`pnpm test:e2e` after every slice that touches `apps/web` - the redesign must
   never silently break the connect-and-inspect journey's existing assertions.
-- Visual: `pnpm dlx` the Preview tooling (or manual `pnpm --filter @humbdb/web dev`) to confirm each
+- Visual: `pnpm dlx` the Preview tooling (or manual `pnpm --filter @qyre/web dev`) to confirm each
   slice renders correctly in both light and dark mode before marking it `passing` - `pnpm check`
   alone does not catch a visually broken UI.
 
@@ -42,7 +42,7 @@ scope"), multi-connection UI, settings panel content.
   config without touching component code, so there's no regression risk yet. DF-02+ actually
   migrates components to Tailwind classes, which does carry regression risk each time - re-verify
   e2e after each.
-- Source design is Tailwind v4 (`@theme inline`, CSS-first config); Humb's `apps/web` is Tailwind
+- Source design is Tailwind v4 (`@theme inline`, CSS-first config); Qyre's `apps/web` is Tailwind
   v3. DF-01 translated tokens to v3's `theme.extend` + CSS custom properties rather than upgrading
   Tailwind - revisit only if v3 becomes a real blocker, not preemptively.
 
@@ -51,12 +51,12 @@ scope"), multi-connection UI, settings panel content.
 - 2026-07-02: DF-01 (design system foundation).
   - Cloned and read `github.com/ensp1re/UserDashboard` (gh CLI, private repo) - a complete
     VS Code-style Postgres/SQL IDE mockup (title bar, searchable sidebar tree, SQL
-    Editor/Tables/Schema/Files/Console tabs, status bar), not a generic dashboard - it's Humb's
+    Editor/Tables/Schema/Files/Console tabs, status bar), not a generic dashboard - it's Qyre's
     actual target UI.
   - Extracted the full token set (light + dark colors, Geist + JetBrains Mono typography, tight
     `0.25rem`-based radius scale, semantic `--c-*` accent colors for data-type icons/badges) into
     `docs/references/design-system.md`.
-  - Added `.claude/skills/humb-design-system/SKILL.md` - triggers on UI work in `apps/web`/
+  - Added `.claude/skills/qyre-design-system/SKILL.md` - triggers on UI work in `apps/web`/
     `packages/ui`, points to the reference doc, states the read-only-only and
     reuse-don't-speculate rules so future sessions don't re-derive or drift from the tokens.
   - Added `docs/product-specs/dashboard-ui.md` - the engine-agnostic UI contract, the tab-by-tab
@@ -67,7 +67,7 @@ scope"), multi-connection UI, settings panel content.
     fonts mapped to CSS custom properties in `src/index.css`, both `:root` and `.dark`) - Tailwind
     was scaffolded from the start but genuinely unused (zero component uses a Tailwind class), so
     this carries no regression risk to F001-F008's passing UI. Verified live: `pnpm --filter
-@humbdb/web build`/`typecheck` clean, no PostCSS warnings, `pnpm test:e2e` (@smoke) still passes,
+@qyre/web build`/`typecheck` clean, no PostCSS warnings, `pnpm test:e2e` (@smoke) still passes,
     and a screenshot via the Preview tool confirms the app still renders correctly.
   - Added `cn()` (clsx + tailwind-merge) to `packages/ui/src/cn.ts`, matching `format-cell.ts`'s
     existing flat-utility-file precedent - the one piece of infra every future Tailwind/shadcn
@@ -100,7 +100,7 @@ scope"), multi-connection UI, settings panel content.
     table-selection flow in `e2e/connect-and-inspect.spec.ts` was updated (select table -> now
     switches to the Tables tab; a separate click on the Schema tab reveals `table-detail`) since
     the tabbed layout genuinely changed when each is visible, not just cosmetically.
-  - Added `lucide-react` to `@humbdb/ui` for the shell's icons, per the icon library named in
+  - Added `lucide-react` to `@qyre/ui` for the shell's icons, per the icon library named in
     `docs/references/design-system.md`.
   - Live verification against a real Postgres fixture (docker `postgres:16-alpine` + the built
     CLI) via the Preview tool caught a real bug not caught by any automated check: the search
@@ -164,12 +164,12 @@ scope"), multi-connection UI, settings panel content.
     synced to the textarea's `scrollTop` via a real `onScroll` handler. The source mock's gutter
     has no scroll sync at all - its demo query is short enough to never need it - so this had no
     reference behavior to copy; built it because a real editor has to handle queries that scroll.
-  - Verified live via Preview against a real SQLite fixture (`sqlite3` CLI, `humb_demo_users`
+  - Verified live via Preview against a real SQLite fixture (`sqlite3` CLI, `qyre_demo_users`
     table): line numbers render, increment, and stay aligned with content through a 60-line query
     while scrolling, in both light and dark mode; a real query still runs and results still render
     below the editor.
-  - `pnpm --filter @humbdb/web build`/`typecheck` and `pnpm --filter @humbdb/ui build`/`typecheck`
-    clean. Started a real `postgres:16-alpine` container and re-ran `pnpm --filter @humbdb/postgres
+  - `pnpm --filter @qyre/web build`/`typecheck` and `pnpm --filter @qyre/ui build`/`typecheck`
+    clean. Started a real `postgres:16-alpine` container and re-ran `pnpm --filter @qyre/postgres
 test` (11/11) and `pnpm test:e2e:full` (1/1) - no regression from the DF-02 baseline. `pnpm
 check` (format/lint/typecheck/test/build across all packages) passes; commit `39bfc95`.
 - 2026-07-02: DF-05 (Schema tab full-database grid, commit `3a51660`).
@@ -190,10 +190,10 @@ check` (format/lint/typecheck/test/build across all packages) passes; commit `39
     real test bug: the grid's own table-name text made the sidebar's prior `getByText(table)`
     assertion ambiguous (Playwright strict-mode violation, 3 matches). Fixed by scoping that
     assertion to a role locator instead of loosening the new one.
-  - `pnpm --filter @humbdb/web build`/`typecheck` and `pnpm --filter @humbdb/ui build`/`typecheck`
+  - `pnpm --filter @qyre/web build`/`typecheck` and `pnpm --filter @qyre/ui build`/`typecheck`
     clean. Re-ran `pnpm test:e2e:full` against a real `postgres:16-alpine` container - passes.
     `pnpm check` passes. Manually verified live via Preview against a real 3-table Postgres
-    fixture (`humb_demo_users`/`orders`/`products`): all three cards render with correct PK
+    fixture (`qyre_demo_users`/`orders`/`products`): all three cards render with correct PK
     badges/type icons/index footers/row counts, wraps responsively at tablet width, correct in
     both light and dark mode.
 - 2026-07-02: DF-06 (Files tab, commit `36791ae`).
@@ -211,17 +211,17 @@ check` (format/lint/typecheck/test/build across all packages) passes; commit `39
     and non-`.sql` extensions, then requires the resolved absolute path to still start with the
     root (the actual traversal stopper, not the extension check alone); a rejected path is `400`,
     matching F006's precedent for query-runner rejections. New `FileNode`/`FilesOverview`/
-    `FileContent` types + `fileContentQuerySchema` in `@humbdb/core`, following the same
+    `FileContent` types + `fileContentQuerySchema` in `@qyre/core`, following the same
     `types/`+`validation/` split every other endpoint uses.
   - Frontend: new `FilesBrowser` (`packages/ui`) - a folder/file tree plus a line-numbered preview
     pane, both inside one scrollable container so there's no separate-scroll-sync problem to solve
     (unlike DF-03's SQL Editor gutter, which has to sync scroll between a textarea and its own
     gutter). Wired into `App.tsx` via new `useFilesOverview`/`useFileContent` hooks, handling the
     same loading/error/empty/success states every other tab already does.
-  - `pnpm --filter @humbdb/server test` (30/30, new `files.ts` unit tests using real temp
-    directories/symlinks - no mocks - plus new route tests) and `pnpm --filter humb test` (11/11,
-    new `--files-dir`/`resolveFilesRoot` cases) pass. `pnpm --filter @humbdb/web build`/`typecheck`
-    and `pnpm --filter @humbdb/ui build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm
+  - `pnpm --filter @qyre/server test` (30/30, new `files.ts` unit tests using real temp
+    directories/symlinks - no mocks - plus new route tests) and `pnpm --filter qyre test` (11/11,
+    new `--files-dir`/`resolveFilesRoot` cases) pass. `pnpm --filter @qyre/web build`/`typecheck`
+    and `pnpm --filter @qyre/ui build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm
 test:e2e:full` against a real `postgres:16-alpine` container - no regression. `pnpm check`
     (full monorepo) passes.
   - Manually verified live via Preview + `curl` against a real `--files-dir` fixture (a
@@ -242,9 +242,9 @@ test:e2e:full` against a real `postgres:16-alpine` container - no regression. `p
     the baseline, not a notable event) when `ping()`'s result actually changes.
   - New `GET /api/console` (read) and `DELETE /api/console` (clear) routes. Clear is a deliberate,
     minor scope extension beyond the literal behavior text (which only mentions one endpoint) -
-    justified the same way DF-04's CSV export was: it's read-only-adjacent (resets Humb's own
+    justified the same way DF-04's CSV export was: it's read-only-adjacent (resets Qyre's own
     diagnostic buffer, never touches the connected database) and directly matches the source
-    design's Clear button. New `ConsoleEvent`/`ConsoleEvents` types in `@humbdb/core`.
+    design's Clear button. New `ConsoleEvent`/`ConsoleEvents` types in `@qyre/core`.
   - Frontend: new `ConsoleLog` (`packages/ui`) - a level-colored event stream with a Clear button
     and the source design's blinking-cursor flourish. New `useConsoleEvents` hook polls every 3s
     while connected via React Query's `refetchInterval`. Live verification in a headless Preview
@@ -256,9 +256,9 @@ test:e2e:full` against a real `postgres:16-alpine` container - no regression. `p
     button (`refresh()` in `App.tsx`) only ever refetched health and overview, never Files (added
     in DF-06) or the new Console data. Fixed by refetching both there too - confirmed via Preview
     that clicking Refresh now reveals events logged since the last poll.
-  - `pnpm --filter @humbdb/server test` (37/37, new `event-log.ts` unit tests plus new route tests
+  - `pnpm --filter @qyre/server test` (37/37, new `event-log.ts` unit tests plus new route tests
     covering success/rejection/failure logging, connection transitions, and clearing) and the rest
-    of `pnpm test` pass. `pnpm --filter @humbdb/web build`/`typecheck` and `pnpm --filter @humbdb/ui
+    of `pnpm test` pass. `pnpm --filter @qyre/web build`/`typecheck` and `pnpm --filter @qyre/ui
 build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm test:e2e:full` against a real
     `postgres:16-alpine` container - no regression. `pnpm check` (full monorepo) passes.
   - Manually verified live via Preview against a real Postgres fixture: ran a successful query and
@@ -267,7 +267,7 @@ build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm test:e2e:full` against a 
     correct.
 - 2026-07-03: DF-08 (engine+version status bar, FK metadata, commit `c7173fb`) - the DF series'
   last slice.
-  - Added `DatabaseAdapter.getVersion(): Promise<string>` to `@humbdb/driver-contract`'s contract,
+  - Added `DatabaseAdapter.getVersion(): Promise<string>` to `@qyre/driver-contract`'s contract,
     implemented per engine like every other engine-specific concern - resolved the open decision
     below in favor of a plain formatted string rather than a structured field, since the UI only
     ever needed to display it, not parse it further. Postgres parses `"PostgreSQL 16.4"` out of
@@ -289,11 +289,11 @@ build`/`typecheck` clean. Re-ran `pnpm test:e2e`/`pnpm test:e2e:full` against a 
     `getVersion()` format assertion. Existing `DatabaseAdapter` mocks in
     `packages/server/src/index.test.ts` updated with `getVersion` for the new required contract
     method; new tests assert `engineVersion` is populated when connected and `null` otherwise.
-  - `pnpm test` (all packages, including the `@humbdb/postgres`/`@humbdb/sqlite` integration suites
+  - `pnpm test` (all packages, including the `@qyre/postgres`/`@qyre/sqlite` integration suites
     against a real Postgres container) and `pnpm test:e2e`/`pnpm test:e2e:full` against a real
     `postgres:16-alpine` container all pass; `pnpm check` (full monorepo) passes.
   - Manually verified live via Preview against a real Postgres fixture with a genuine FK
-    (`orders.user_id -> humb_demo_users.id`): Schema tab shows the FK badge with correct blue
+    (`orders.user_id -> qyre_demo_users.id`): Schema tab shows the FK badge with correct blue
     styling, status bar reads `"PostgreSQL 16.14"` instead of the bare `"postgres"` it showed
     before - both correct in light and dark mode.
   - **DF-01 through DF-09 are all `passing`. The dashboard UI redesign this plan tracks is

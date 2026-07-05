@@ -19,7 +19,7 @@ packages/server/src/
 ```
 
 One file is correct while there are ~5 routes and one cross-cutting concern (static serving). Don't
-split into `routes/`/`plugins/` yet - see `docs/CODE_ORGANIZATION.md`'s "3-4 files" rule of thumb.
+split into `routes/`/`plugins/` yet - see `docs/CODE_ORGANIZATION.md`'s "3-4 files" rule of tqyre.
 
 ## When to migrate: routes as encapsulated plugins
 
@@ -51,11 +51,11 @@ packages/server/src/
   Fastify-idiomatic way to make it available without manual plumbing, and it's what makes routes
   independently testable via `fastify.inject()` with a decorated test instance.
 - **Adopt `@fastify/autoload`** once manually listing `fastify.register(routeA); fastify.register(routeB); ...`
-  in `app.ts` becomes its own maintenance burden (rule of thumb: once you're avoiding adding a route
+  in `app.ts` becomes its own maintenance burden (rule of tqyre: once you're avoiding adding a route
   because updating the registration list feels like busywork). It scans `routes/` and registers
   everything by convention - don't reach for it before there's enough routes to justify the added
   indirection.
-- **Bridge `@humbdb/core`'s Zod schemas into Fastify's native schema slot** via
+- **Bridge `@qyre/core`'s Zod schemas into Fastify's native schema slot** via
   `@fastify/type-provider-zod`, instead of calling `.parse()`/`.safeParse()` manually inside handlers
   (the current approach). Fastify pre-compiles schemas at startup for both validation and response
   serialization (`fast-json-stringify`) - manual Zod parsing inside a handler gets none of that

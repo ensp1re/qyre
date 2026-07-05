@@ -1,7 +1,7 @@
 /**
- * SQLite driver for Humb.
+ * SQLite driver for Qyre.
  *
- * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@humbdb/driver-contract`.
+ * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@qyre/driver-contract`.
  * See ARCHITECTURE.md and docs/product-specs/connect-and-inspect-sqlite.md.
  */
 import { resolve } from "node:path";
@@ -14,9 +14,9 @@ import type {
   RowSort,
   SchemaMetadata,
   TableMetadata
-} from "@humbdb/core";
-import { assertReadOnly, capResultRows, resolvePageRequest } from "@humbdb/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
+} from "@qyre/core";
+import { assertReadOnly, capResultRows, resolvePageRequest } from "@qyre/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import Database from "better-sqlite3";
 
 /** SQLite has a single implicit namespace; the UI still expects a schema name, per the spec. */
@@ -70,7 +70,7 @@ interface ForeignKeyListRow {
  * fetchIndexes()'s) returns BigInt instead - but BigInt has no `toJSON`, so it throws once Fastify
  * JSON-encodes the response. This converts each row's BigInt values back to a plain number when
  * that's lossless (the common case - preserves today's rendering exactly), or a string when it
- * isn't (matching @humbdb/postgres/@humbdb/mysql's bigint-as-string convention for values a JS
+ * isn't (matching @qyre/postgres/@qyre/mysql's bigint-as-string convention for values a JS
  * number can't hold exactly).
  */
 function normalizeRow(row: Record<string, unknown>): Record<string, unknown> {
@@ -117,7 +117,7 @@ export class SqliteAdapter implements DatabaseAdapter {
 
   async connect(): Promise<void> {
     // The whole connection is opened read-only - the authoritative backstop, equivalent to
-    // @humbdb/postgres's READ ONLY transaction (see runReadOnlyQuery below and the product spec).
+    // @qyre/postgres's READ ONLY transaction (see runReadOnlyQuery below and the product spec).
     // SQLite itself refuses any write through this handle, regardless of what assertReadOnly's
     // string scan misses.
     this.db = new Database(resolve(this.target.raw), { readonly: true, fileMustExist: true });

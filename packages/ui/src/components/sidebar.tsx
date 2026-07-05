@@ -1,4 +1,4 @@
-import type { ConnectionStatus, SchemaMetadata } from "@humbdb/core";
+import type { ConnectionStatus, SchemaMetadata } from "@qyre/core";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";

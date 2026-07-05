@@ -1,4 +1,4 @@
-import type { ConsoleEvent, ConsoleEventLevel } from "@humbdb/core";
+import type { ConsoleEvent, ConsoleEventLevel } from "@qyre/core";
 
 const MAX_EVENTS = 200;
 

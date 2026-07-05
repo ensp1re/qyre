@@ -4,25 +4,25 @@ import { capResultRows } from "./result-cap.js";
 describe("capResultRows", () => {
   it("wraps a SELECT in an outer LIMIT", () => {
     expect(capResultRows("SELECT * FROM users", 1000)).toBe(
-      "SELECT * FROM (SELECT * FROM users) AS humb_capped_query LIMIT 1000"
+      "SELECT * FROM (SELECT * FROM users) AS qyre_capped_query LIMIT 1000"
     );
   });
 
   it("strips a trailing semicolon before wrapping", () => {
     expect(capResultRows("SELECT * FROM users;", 1000)).toBe(
-      "SELECT * FROM (SELECT * FROM users) AS humb_capped_query LIMIT 1000"
+      "SELECT * FROM (SELECT * FROM users) AS qyre_capped_query LIMIT 1000"
     );
   });
 
   it("wraps WITH/VALUES/TABLE the same way", () => {
     expect(capResultRows("WITH x AS (SELECT 1) SELECT * FROM x", 5)).toBe(
-      "SELECT * FROM (WITH x AS (SELECT 1) SELECT * FROM x) AS humb_capped_query LIMIT 5"
+      "SELECT * FROM (WITH x AS (SELECT 1) SELECT * FROM x) AS qyre_capped_query LIMIT 5"
     );
     expect(capResultRows("VALUES (1), (2)", 5)).toBe(
-      "SELECT * FROM (VALUES (1), (2)) AS humb_capped_query LIMIT 5"
+      "SELECT * FROM (VALUES (1), (2)) AS qyre_capped_query LIMIT 5"
     );
     expect(capResultRows("TABLE users", 5)).toBe(
-      "SELECT * FROM (TABLE users) AS humb_capped_query LIMIT 5"
+      "SELECT * FROM (TABLE users) AS qyre_capped_query LIMIT 5"
     );
   });
 

@@ -1,4 +1,4 @@
-import { MAX_PAGE_SIZE } from "@humbdb/core";
+import { MAX_PAGE_SIZE } from "@qyre/core";
 
 /** A resolved, safely-bounded page request. */
 export interface ResolvedPageRequest {

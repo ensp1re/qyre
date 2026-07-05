@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Verify the `@humbdb/humb` package actually works standalone outside this monorepo (F010) - not
+ * Verify the `@qyre/qyre` package actually works standalone outside this monorepo (F010) - not
  * just that the build succeeds. Packs it exactly as `pnpm publish` would, extracts that tarball
  * into a fresh temp directory with no relationship to this repo, and starts the real server
  * against a real SQLite file from there. If `packages/cli`'s web-root resolution regresses back to
  * a monorepo-relative path, this fails where a plain `pnpm build` would not.
  *
- * Rebuilds @humbdb/web and @humbdb/humb fresh so this is trustworthy standalone, not dependent on
+ * Rebuilds @qyre/web and @qyre/qyre fresh so this is trustworthy standalone, not dependent on
  * some prior build step having run correctly.
  *
  * Usage: node scripts/verify-npm-package.mjs
@@ -55,14 +55,14 @@ function waitForReady(child) {
   });
 }
 
-console.log("Building @humbdb/web and @humbdb/humb fresh...");
-run("pnpm", ["--filter", "@humbdb/web", "build"]);
-run("pnpm", ["--filter", "@humbdb/humb", "build"]);
+console.log("Building @qyre/web and @qyre/qyre fresh...");
+run("pnpm", ["--filter", "@qyre/web", "build"]);
+run("pnpm", ["--filter", "@qyre/qyre", "build"]);
 
-const packDir = mkdtempSync(join(tmpdir(), "humb-verify-pack-"));
-const standaloneDir = mkdtempSync(join(tmpdir(), "humb-verify-standalone-"));
+const packDir = mkdtempSync(join(tmpdir(), "qyre-verify-pack-"));
+const standaloneDir = mkdtempSync(join(tmpdir(), "qyre-verify-standalone-"));
 
-console.log("Packing the @humbdb/humb package (same tarball `pnpm publish` would produce)...");
+console.log("Packing the @qyre/qyre package (same tarball `pnpm publish` would produce)...");
 execFileSync("pnpm", ["pack", "--pack-destination", packDir], { cwd: cliRoot });
 const tarball = readdirSync(packDir)[0];
 
@@ -77,7 +77,7 @@ console.log("OK: packed tarball includes a bundled apps/web build (dist/web/inde
 
 // Real dependency resolution against the npm registry isn't possible pre-publish (these workspace
 // packages don't exist there yet) - substitute the equivalent local resolution so the server
-// actually runs, the same way a real `npm install humb` would once published.
+// actually runs, the same way a real `npm install qyre` would once published.
 symlinkSync(join(cliRoot, "node_modules"), join(extractedRoot, "node_modules"));
 
 const dbPath = join(standaloneDir, "verify.db");
@@ -90,12 +90,12 @@ const harnessPath = join(extractedRoot, "verify-harness.mjs");
 writeFileSync(
   harnessPath,
   `
-import { parseConnectionTarget } from "@humbdb/core";
-import { resolveAdapter } from "@humbdb/driver-contract";
-import { postgresAdapterFactory } from "@humbdb/postgres";
-import { sqliteAdapterFactory } from "@humbdb/sqlite";
-import { startServer } from "@humbdb/server";
-import { defaultWebRoot } from "@humbdb/humb";
+import { parseConnectionTarget } from "@qyre/core";
+import { resolveAdapter } from "@qyre/driver-contract";
+import { postgresAdapterFactory } from "@qyre/postgres";
+import { sqliteAdapterFactory } from "@qyre/sqlite";
+import { startServer } from "@qyre/server";
+import { defaultWebRoot } from "@qyre/qyre";
 
 const target = parseConnectionTarget(${JSON.stringify(dbPath)});
 const adapter = resolveAdapter([postgresAdapterFactory, sqliteAdapterFactory], target);
@@ -129,4 +129,4 @@ try {
   child.kill();
 }
 
-console.log("\nhumb package verified standalone: it works outside this monorepo.");
+console.log("\nqyre package verified standalone: it works outside this monorepo.");

@@ -1,11 +1,11 @@
 /**
  * Integration tests for {@link MongodbAdapter} against a real MongoDB database.
  *
- * Requires HUMB_TEST_MONGO_URL (see docs/RELIABILITY.md). We never silently skip required
+ * Requires QYRE_TEST_MONGO_URL (see docs/RELIABILITY.md). We never silently skip required
  * verification: a missing env var fails these tests with an actionable message instead of passing
  * trivially.
  */
-import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@humbdb/testing";
+import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@qyre/testing";
 import { Binary, Long, MongoClient, ObjectId } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MongodbAdapter } from "./index.js";
@@ -17,7 +17,7 @@ describe("MongodbAdapter integration", () => {
 
   beforeAll(async () => {
     mongoUrl = requireTestMongoUrl();
-    databaseName = new URL(mongoUrl).pathname.slice(1) || "humb_test";
+    databaseName = new URL(mongoUrl).pathname.slice(1) || "qyre_test";
     await setupMongoFixture(mongoUrl);
     adapter = new MongodbAdapter({ engine: "mongodb", raw: mongoUrl });
     await adapter.connect();
@@ -139,7 +139,7 @@ describe("MongodbAdapter integration", () => {
 
   it("a collection with no documents reports zero rows and only the _id field", async () => {
     const client = new MongoClient(mongoUrl);
-    const emptyCollectionName = "humb_test_empty";
+    const emptyCollectionName = "qyre_test_empty";
     try {
       await client.connect();
       const db = client.db(databaseName);

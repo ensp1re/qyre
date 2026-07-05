@@ -35,20 +35,20 @@ describe("parseArgs", () => {
 });
 
 describe("resolvePort", () => {
-  it("prefers the --port flag over HUMB_PORT", () => {
-    expect(resolvePort(9000, { HUMB_PORT: "8000" })).toBe(9000);
+  it("prefers the --port flag over QYRE_PORT", () => {
+    expect(resolvePort(9000, { QYRE_PORT: "8000" })).toBe(9000);
   });
 
-  it("falls back to HUMB_PORT when no flag is given", () => {
-    expect(resolvePort(undefined, { HUMB_PORT: "8000" })).toBe(8000);
+  it("falls back to QYRE_PORT when no flag is given", () => {
+    expect(resolvePort(undefined, { QYRE_PORT: "8000" })).toBe(8000);
   });
 
   it("returns undefined when neither is set", () => {
     expect(resolvePort(undefined, {})).toBeUndefined();
   });
 
-  it("ignores an invalid HUMB_PORT", () => {
-    expect(resolvePort(undefined, { HUMB_PORT: "not-a-number" })).toBeUndefined();
+  it("ignores an invalid QYRE_PORT", () => {
+    expect(resolvePort(undefined, { QYRE_PORT: "not-a-number" })).toBeUndefined();
   });
 });
 
@@ -130,7 +130,7 @@ describe("createShutdownHandler", () => {
 
 describe("defaultWebRoot", () => {
   function makeDir(): string {
-    return mkdtempSync(join(tmpdir(), "humb-cli-webroot-"));
+    return mkdtempSync(join(tmpdir(), "qyre-cli-webroot-"));
   }
 
   it("prefers a bundled web/ directory next to the running file (published package, F010)", () => {

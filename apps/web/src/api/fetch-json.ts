@@ -15,7 +15,7 @@ export async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Prom
   try {
     response = await fetch(input, init);
   } catch {
-    throw new Error("Could not reach the Humb server. Is it still running?");
+    throw new Error("Could not reach the Qyre server. Is it still running?");
   }
 
   if (!response.ok) {

@@ -1,8 +1,8 @@
-# @humbdb/config
+# @qyre/config
 
-Internal (private) shared build and test configuration helpers for Humb packages.
+Internal (private) shared build and test configuration helpers for Qyre packages.
 
-- `@humbdb/config/tsup` - `libConfig()` returns shared tsup options for library packages.
-- `@humbdb/config/vitest` - `testConfig()` returns a shared Vitest config.
+- `@qyre/config/tsup` - `libConfig()` returns shared tsup options for library packages.
+- `@qyre/config/vitest` - `testConfig()` returns a shared Vitest config.
 
-Not published; not part of Humb's public API.
+Not published; not part of Qyre's public API.

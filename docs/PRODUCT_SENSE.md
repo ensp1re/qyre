@@ -15,7 +15,7 @@ Durable product judgment that agents cannot infer reliably from code alone.
 
 ## Product rules
 
-- Local-first: Humb binds to localhost and never phones home. The user's data stays on their machine.
+- Local-first: Qyre binds to localhost and never phones home. The user's data stays on their machine.
 - Favor user-visible reliability over feature count.
 - Treat ambiguous behavior as a spec gap, not as permission to guess.
 - Read before write: inspection must be rock-solid before any mutation features are considered.

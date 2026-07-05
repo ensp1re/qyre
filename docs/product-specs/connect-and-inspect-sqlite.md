@@ -1,7 +1,7 @@
 # Product Contract: Connect and Inspect (SQLite Engine)
 
-Humb's product promise is universal: one command, any database, auto-detected. This contract covers
-the SQLite engine — the second engine Humb supports end to end, after
+Qyre's product promise is universal: one command, any database, auto-detected. This contract covers
+the SQLite engine — the second engine Qyre supports end to end, after
 [Postgres](connect-and-inspect-postgres.md). It is the single source of truth for what SQLite-engine
 scope means. Anything not listed here is out of scope for this engine for now.
 
@@ -12,23 +12,23 @@ than silently reusing Postgres language that would be misleading.
 
 ## One-sentence promise
 
-A developer can point Humb at a `.sqlite`/`.db` file, have it auto-recognized as SQLite with zero
+A developer can point Qyre at a `.sqlite`/`.db` file, have it auto-recognized as SQLite with zero
 credentials or connection strings, and immediately browse its structure and data in the same UI used
 for every other engine.
 
 ## CLI input shape
 
 ```bash
-npx humb <path-to-sqlite-file>
+npx qyre <path-to-sqlite-file>
 # examples recognized as SQLite:
-npx humb ./app.db
-npx humb ./local.sqlite
-npx humb /absolute/path/to/data.sqlite3
+npx qyre ./app.db
+npx qyre ./local.sqlite
+npx qyre /absolute/path/to/data.sqlite3
 ```
 
 Behavior:
 
-- `humb <target>` detects SQLite from the target being a filesystem path (not a URL with a
+- `qyre <target>` detects SQLite from the target being a filesystem path (not a URL with a
   `scheme://`) whose file exists and is a valid SQLite database, per `packages/drivers/sqlite`'s
   `AdapterFactory.supports()` - the same detection seam every other engine uses (see
   `ARCHITECTURE.md`'s "Adding a new database engine"). File extension (`.db`, `.sqlite`, `.sqlite3`)
@@ -36,7 +36,7 @@ Behavior:
   extension must still be recognized.
 - No credentials, host, or port are ever asked for or accepted for a SQLite target.
 - The rest of the launch behavior matches the Postgres contract: starts a local server on
-  `HUMB_PORT` (default `7717`), opens the default browser, `Ctrl+C` shuts down cleanly.
+  `QYRE_PORT` (default `7717`), opens the default browser, `Ctrl+C` shuts down cleanly.
 - If the path does not exist, the CLI prints an actionable error (the resolved absolute path it
   looked for) and exits non-zero - it must not silently fall through to "engine not recognized".
 - If the path exists but is not a valid SQLite file (wrong format, corrupted), the CLI says so
@@ -50,11 +50,11 @@ In scope (SQLite engine):
 - Read-only inspection: tables, columns, indexes, row counts.
 - Paginated table data browsing (reuses the existing engine-agnostic UI and pagination contract -
   no new frontend work required, only the adapter).
-- A read-only SQL query runner (SELECT-style statements only), reusing `@humbdb/driver-contract`'s
+- A read-only SQL query runner (SELECT-style statements only), reusing `@qyre/driver-contract`'s
   `ReadOnlyViolationError` and the same heuristic-scan layer as Postgres (`assertReadOnly` logic
   should be shared/generalized from `packages/drivers/postgres/src/read-only.ts`, not
   copy-pasted - see `ARCHITECTURE.md`'s rule on reusing genuinely engine-agnostic logic).
-- Local server health and runtime diagnostics endpoints (reused as-is from `@humbdb/server` - `/api/health`
+- Local server health and runtime diagnostics endpoints (reused as-is from `@qyre/server` - `/api/health`
   is engine-agnostic already).
 
 Out of scope (for now, SQLite engine):
@@ -63,18 +63,18 @@ Out of scope (for now, SQLite engine):
 - Multiple attached databases (SQLite's `ATTACH DATABASE`) - one file, one connection.
 - In-memory databases (`:memory:`) - there's nothing to point a file path at.
 - WAL-mode concurrent-writer scenarios where another process is actively writing to the same file -
-  Humb only needs to read safely, not coordinate with writers (see "Read-only enforcement" below).
+  Qyre only needs to read safely, not coordinate with writers (see "Read-only enforcement" below).
 
 ## Concepts that don't map 1:1 from Postgres
 
 - **No "schemas".** SQLite has a single implicit namespace (conventionally called `main`). The
-  adapter's `getOverview()` must still satisfy `@humbdb/core`'s `DatabaseOverview` shape (a list of
+  adapter's `getOverview()` must still satisfy `@qyre/core`'s `DatabaseOverview` shape (a list of
   schemas, each with tables) for the UI to work unmodified - return one schema named `main`
   containing all user tables, not an empty or fabricated multi-schema structure.
 - **No "connection" in the network sense.** "Connected" in `/api/health` and `ConnectionStatus`
   means "the file was opened successfully and is a valid SQLite database," not "a socket is live."
   `ping()` should confirm the file handle still works (e.g. `SELECT 1`), which also catches the file
-  having been deleted or moved out from under Humb after launch.
+  having been deleted or moved out from under Qyre after launch.
 - **Row count estimates.** SQLite has no `pg_class.reltuples`-style planner estimate. Row counts are
   always exact via `COUNT(*)` - acceptable because SQLite files in this tool's use case (local dev
   databases) are typically small; do not build a fake estimate mechanism to mirror Postgres.
@@ -96,7 +96,7 @@ confirms only the read-only file handle - not the regex - is what actually stops
 
 The primary end-to-end journey we protect (mirrors Postgres's, adapted for a file target):
 
-1. Start Humb against a SQLite file: `npx humb ./fixture.db`.
+1. Start Qyre against a SQLite file: `npx qyre ./fixture.db`.
 2. The browser UI loads and shows a connected status.
 3. The UI lists tables (under the single `main` schema).
 4. The user opens a table and sees its columns and a paginated page of rows.

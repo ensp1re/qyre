@@ -19,15 +19,15 @@
     "sourceMap": true,
     "esModuleInterop": true,
     "paths": {
-      "@humbdb/core": ["./packages/core/src/index.ts"],
-      "@humbdb/driver-contract": ["./packages/drivers/contract/src/index.ts"],
-      "@humbdb/postgres": ["./packages/drivers/postgres/src/index.ts"],
-      "@humbdb/sqlite": ["./packages/drivers/sqlite/src/index.ts"],
-      "@humbdb/mysql": ["./packages/drivers/mysql/src/index.ts"],
-      "@humbdb/mongodb": ["./packages/drivers/mongodb/src/index.ts"],
-      "@humbdb/server": ["./packages/server/src/index.ts"],
-      "@humbdb/ui": ["./packages/ui/src/index.tsx"],
-      "@humbdb/testing": ["./packages/testing/src/index.ts"]
+      "@qyre/core": ["./packages/core/src/index.ts"],
+      "@qyre/driver-contract": ["./packages/drivers/contract/src/index.ts"],
+      "@qyre/postgres": ["./packages/drivers/postgres/src/index.ts"],
+      "@qyre/sqlite": ["./packages/drivers/sqlite/src/index.ts"],
+      "@qyre/mysql": ["./packages/drivers/mysql/src/index.ts"],
+      "@qyre/mongodb": ["./packages/drivers/mongodb/src/index.ts"],
+      "@qyre/server": ["./packages/server/src/index.ts"],
+      "@qyre/ui": ["./packages/ui/src/index.tsx"],
+      "@qyre/testing": ["./packages/testing/src/index.ts"]
     }
   }
 }

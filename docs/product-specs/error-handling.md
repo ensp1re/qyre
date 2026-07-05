@@ -1,6 +1,6 @@
 # Product Contract: Error Handling (Server Responses & UI Display)
 
-Every data-driven view in Humb already handles empty/loading/success/error states in some form
+Every data-driven view in Qyre already handles empty/loading/success/error states in some form
 (`FRONTEND.md`'s "Required user-facing states" rule) - but the current error state is a small,
 left-aligned sentence plus a "Retry" link, inconsistent in wording/placement across views, and in at
 least one real case actively wrong: a genuine database error gets replaced with a generic, useless
@@ -63,7 +63,7 @@ In scope:
   (Schema tab), `FilesBrowser` (Files tab, both the tree-load failure and a single file's content-load
   failure), and `ConsoleLog` (Console tab).
 - **UI**: distinguish "the server responded with an error" (show the real message) from "the request
-  never reached a server at all" (a friendlier explanation, e.g. "Could not reach the Humb server -
+  never reached a server at all" (a friendlier explanation, e.g. "Could not reach the Qyre server -
   is it still running?" instead of the raw browser string) - both still render through the same
   `ErrorState` component, just with different message text depending on which case actually
   happened.

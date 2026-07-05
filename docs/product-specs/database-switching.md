@@ -1,14 +1,14 @@
 # Product Contract: Switching Database Connections Without Restarting
 
-Today `npx humb <target>` resolves and connects exactly one `DatabaseAdapter` at CLI startup
+Today `npx qyre <target>` resolves and connects exactly one `DatabaseAdapter` at CLI startup
 (`packages/cli/src/index.ts`'s `main()`), and `createServer` closes over that single `adapter`/
 `target` for the lifetime of the process - every route reads the same closure-captured constants.
-Pointing Humb at a different database means killing the process and re-running the CLI with a new
+Pointing Qyre at a different database means killing the process and re-running the CLI with a new
 argument. This spec lets a developer switch targets from the running UI instead.
 
 ## One-sentence promise
 
-A developer inspecting one database can point the same running Humb instance at a different one,
+A developer inspecting one database can point the same running Qyre instance at a different one,
 without restarting the CLI or losing their place more than switching targets inherently requires.
 
 ## Behavior
@@ -73,7 +73,7 @@ without restarting the CLI or losing their place more than switching targets inh
 ### Trust model note
 
 This adds a new mutation endpoint that can make the local server connect to an arbitrary
-attacker-influenced target. Humb's existing trust model (`docs/SECURITY.md`, `docs/CONNECTING.md`)
+attacker-influenced target. Qyre's existing trust model (`docs/SECURITY.md`, `docs/CONNECTING.md`)
 already assumes anyone who can reach `/api/*` on the loopback address has full read access to
 whatever database is currently connected - the Host-header check (F030) is what actually keeps a
 remote page from reaching this endpoint via DNS rebinding, not the absence of a connect endpoint.
@@ -101,5 +101,5 @@ it is.
   connection fully working - verified by running a query against the old database immediately after
   a failed switch attempt.
 - A list of up to 5 recently-used targets is shown and one-click reconnectable.
-- `npx humb <url>` with the connect UI never used behaves identically to today - no regression for
+- `npx qyre <url>` with the connect UI never used behaves identically to today - no regression for
   the existing single-target workflow.

@@ -1,0 +1,35 @@
+{
+  "name": "qyre",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Launch a local-first database management UI from your terminal. Bare-named alias for @qyre/qyre, published only so `npx qyre` and `npm install -g qyre` work.",
+  "keywords": [
+    "database",
+    "postgres",
+    "postgresql",
+    "sqlite",
+    "cli",
+    "gui",
+    "ide",
+    "database-gui",
+    "database-client",
+    "read-only"
+  ],
+  "homepage": "https://github.com/ensp1re/qyre#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ensp1re/qyre.git",
+    "directory": "packages/qyre"
+  },
+  "bugs": "https://github.com/ensp1re/qyre/issues",
+  "license": "MIT",
+  "bin": {
+    "qyre": "./bin.js"
+  },
+  "files": [
+    "bin.js"
+  ],
+  "dependencies": {
+    "@qyre/qyre": "workspace:*"
+  }
+}

@@ -1,8 +1,8 @@
 {
-  "name": "@humbdb/core",
+  "name": "@qyre/core",
   "version": "0.1.0",
   "type": "module",
-  "description": "Shared domain types and contracts for Humb.",
+  "description": "Shared domain types and contracts for Qyre.",
   "license": "MIT",
   "exports": {
     ".": {
@@ -26,6 +26,6 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@humbdb/config": "workspace:*"
+    "@qyre/config": "workspace:*"
   }
 }

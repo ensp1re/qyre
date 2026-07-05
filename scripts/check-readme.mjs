@@ -54,8 +54,8 @@ const checks = [
     pass: !/early skeleton|not implemented yet/i.test(content)
   },
   {
-    name: "has a working quick-start (npx humb ...)",
-    pass: /```bash[\s\S]*?npx humb /.test(content)
+    name: "has a working quick-start (npx qyre ...)",
+    pass: /```bash[\s\S]*?npx qyre /.test(content)
   },
   {
     name: "has CI/npm/license badges (shields.io)",

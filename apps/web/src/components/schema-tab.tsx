@@ -1,4 +1,4 @@
-import { ErrorState, SchemaGrid, Spinner } from "@humbdb/ui";
+import { ErrorState, SchemaGrid, Spinner } from "@qyre/ui";
 import type { ReactNode } from "react";
 import type { useAllTables } from "../hooks/use-all-tables.js";
 

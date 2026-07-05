@@ -1,8 +1,8 @@
 {
-  "name": "@humbdb/mysql",
+  "name": "@qyre/mysql",
   "version": "0.1.0",
   "type": "module",
-  "description": "MySQL adapter for Humb.",
+  "description": "MySQL adapter for Qyre.",
   "license": "MIT",
   "exports": {
     ".": {
@@ -23,12 +23,12 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humbdb/core": "workspace:*",
-    "@humbdb/driver-contract": "workspace:*",
+    "@qyre/core": "workspace:*",
+    "@qyre/driver-contract": "workspace:*",
     "mysql2": "^3.22.5"
   },
   "devDependencies": {
-    "@humbdb/config": "workspace:*",
-    "@humbdb/testing": "workspace:*"
+    "@qyre/config": "workspace:*",
+    "@qyre/testing": "workspace:*"
   }
 }

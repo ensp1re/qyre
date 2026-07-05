@@ -1,11 +1,11 @@
 # ARCHITECTURE.md
 
-Top-level map of the Humb system. Keep this concise and point to deeper docs when needed.
+Top-level map of the Qyre system. Keep this concise and point to deeper docs when needed.
 
 ## System shape
 
-- Product: Humb, a local-first database management UI launched from the CLI for any database engine.
-- Primary user workflow: `npx humb <database-url>` -> engine auto-detected from the target -> local
+- Product: Qyre, a local-first database management UI launched from the CLI for any database engine.
+- Primary user workflow: `npx qyre <database-url>` -> engine auto-detected from the target -> local
   server -> browser UI -> inspect database.
 - Runtime surfaces: CLI, local HTTP server, browser SPA.
 - Source of truth for product behavior: [`docs/product-specs/`](docs/product-specs/).
@@ -14,7 +14,7 @@ Top-level map of the Humb system. Keep this concise and point to deeper docs whe
 
 ```mermaid
 flowchart LR
-  cli["packages/cli (humb)"] --> server["packages/server (Fastify)"]
+  cli["packages/cli (qyre)"] --> server["packages/server (Fastify)"]
   server --> core["packages/core (contracts)"]
   server --> adapterApi["packages/drivers/contract (interfaces)"]
   adapterApi --> pg["packages/drivers/postgres (pg)"]
@@ -73,10 +73,10 @@ Postgres is the first supported engine, not the only one the architecture allows
 engine follows the same recipe:
 
 1. Create `packages/drivers/<engine>` implementing the `DatabaseAdapter` contract from
-   `@humbdb/driver-contract`.
+   `@qyre/driver-contract`.
 2. Register it behind the server's adapter resolution, which detects the engine from the connection
    target (URL scheme, file extension, etc.) rather than requiring the user to name it.
-3. Reuse genuinely engine-agnostic logic from `@humbdb/driver-contract` (e.g. pagination clamping).
+3. Reuse genuinely engine-agnostic logic from `@qyre/driver-contract` (e.g. pagination clamping).
    Do not reuse logic that only looks generic but actually differs per engine (e.g. SQL identifier
    quoting - `"..."` in Postgres, `` `...` `` in MySQL); keep that in the engine's own package.
 4. Add a product spec and feature entries.

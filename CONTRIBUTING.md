@@ -1,4 +1,4 @@
-# Contributing to Humb
+# Contributing to Qyre
 
 This is the human-facing setup guide. If you're an AI coding agent working in this repo, start with
 [`AGENTS.md`](AGENTS.md) instead - it routes into the full working contract (architecture, naming,
@@ -45,8 +45,8 @@ Integration tests fail loudly (not skip silently) if their database's env var is
 
 ## Running the app itself
 
-`humb <target>` (or `pnpm dev` for the packages in watch mode) takes a database connection
-string or a SQLite file path as its argument - it doesn't need any of the `HUMB_TEST_*` env vars
+`qyre <target>` (or `pnpm dev` for the packages in watch mode) takes a database connection
+string or a SQLite file path as its argument - it doesn't need any of the `QYRE_TEST_*` env vars
 above, those are only for this repo's own test suite.
 
 ## Code style and architecture

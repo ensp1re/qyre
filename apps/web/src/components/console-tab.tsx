@@ -1,4 +1,4 @@
-import { ConsoleLog, ErrorState, Spinner } from "@humbdb/ui";
+import { ConsoleLog, ErrorState, Spinner } from "@qyre/ui";
 import type { ReactNode } from "react";
 import type { useConsoleEvents } from "../hooks/use-console.js";
 

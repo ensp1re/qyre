@@ -1,8 +1,8 @@
 {
-  "name": "@humbdb/postgres",
+  "name": "@qyre/postgres",
   "version": "0.1.0",
   "type": "module",
-  "description": "PostgreSQL adapter for Humb.",
+  "description": "PostgreSQL adapter for Qyre.",
   "license": "MIT",
   "exports": {
     ".": {
@@ -23,13 +23,13 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humbdb/core": "workspace:*",
-    "@humbdb/driver-contract": "workspace:*",
+    "@qyre/core": "workspace:*",
+    "@qyre/driver-contract": "workspace:*",
     "pg": "^8.13.1"
   },
   "devDependencies": {
-    "@humbdb/config": "workspace:*",
-    "@humbdb/testing": "workspace:*",
+    "@qyre/config": "workspace:*",
+    "@qyre/testing": "workspace:*",
     "@types/pg": "^8.11.10"
   }
 }

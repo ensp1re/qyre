@@ -5,7 +5,7 @@ describe("isTableNamePosition", () => {
   it("is true right after FROM/JOIN, case-insensitively", () => {
     expect(isTableNamePosition("SELECT * FROM ")).toBe(true);
     expect(isTableNamePosition("select * from ")).toBe(true);
-    expect(isTableNamePosition("SELECT * FROM hu")).toBe(true);
+    expect(isTableNamePosition("SELECT * FROM qy")).toBe(true);
     expect(isTableNamePosition("SELECT * JOIN ")).toBe(true);
   });
 
@@ -35,14 +35,14 @@ describe("matchKeywords", () => {
 });
 
 describe("matchTableNames", () => {
-  const tables = ["humb_demo_users", "orders", "order_items"];
+  const tables = ["qyre_demo_users", "orders", "order_items"];
 
   it("returns all tables for an empty prefix", () => {
     expect(matchTableNames("", tables)).toEqual(tables);
   });
 
   it("filters case-insensitively by prefix", () => {
-    expect(matchTableNames("hu", tables)).toEqual(["humb_demo_users"]);
+    expect(matchTableNames("qy", tables)).toEqual(["qyre_demo_users"]);
     expect(matchTableNames("order", tables)).toEqual(["orders", "order_items"]);
   });
 

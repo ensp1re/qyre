@@ -1,11 +1,11 @@
 /**
  * Integration tests for {@link PostgresAdapter} against a real Postgres database.
  *
- * Requires HUMB_TEST_DATABASE_URL (see docs/RELIABILITY.md). We never silently skip required
+ * Requires QYRE_TEST_DATABASE_URL (see docs/RELIABILITY.md). We never silently skip required
  * verification: a missing env var fails these tests with an actionable message instead of passing
  * trivially.
  */
-import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@humbdb/testing";
+import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@qyre/testing";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PostgresAdapter } from "./index.js";
@@ -59,8 +59,8 @@ describe("PostgresAdapter integration", () => {
 
   it("flags a column referencing another table as a foreign key", async () => {
     await runStatements(databaseUrl, [
-      "DROP TABLE IF EXISTS humb_test_orders",
-      `CREATE TABLE humb_test_orders (
+      "DROP TABLE IF EXISTS qyre_test_orders",
+      `CREATE TABLE qyre_test_orders (
          id serial PRIMARY KEY,
          user_id integer NOT NULL REFERENCES ${FIXTURE.table}(id),
          total numeric(10,2) NOT NULL
@@ -68,7 +68,7 @@ describe("PostgresAdapter integration", () => {
     ]);
 
     try {
-      const table = await adapter.getTable(FIXTURE.schema, "humb_test_orders");
+      const table = await adapter.getTable(FIXTURE.schema, "qyre_test_orders");
       const userIdColumn = table.columns.find((column) => column.name === "user_id");
       expect(userIdColumn?.isForeignKey).toBe(true);
       // F061: also resolves what the FK actually references, not just that it is one.
@@ -79,7 +79,7 @@ describe("PostgresAdapter integration", () => {
       });
       expect(table.columns.find((column) => column.name === "total")?.isForeignKey).toBe(false);
     } finally {
-      await runStatements(databaseUrl, ["DROP TABLE IF EXISTS humb_test_orders"]);
+      await runStatements(databaseUrl, ["DROP TABLE IF EXISTS qyre_test_orders"]);
     }
   });
 
@@ -180,7 +180,7 @@ describe("PostgresAdapter integration", () => {
     // READ ONLY transaction (Postgres's own enforcement) can stop it - this test exists
     // specifically to prove that backstop independently of the string-check layer.
     await runStatements(databaseUrl, [
-      `CREATE OR REPLACE FUNCTION humb_test_wipe() RETURNS void AS $$
+      `CREATE OR REPLACE FUNCTION qyre_test_wipe() RETURNS void AS $$
          BEGIN
            DELETE FROM ${FIXTURE.table};
          END;
@@ -188,19 +188,19 @@ describe("PostgresAdapter integration", () => {
     ]);
 
     try {
-      await expect(adapter.runReadOnlyQuery("SELECT humb_test_wipe()")).rejects.toThrow();
+      await expect(adapter.runReadOnlyQuery("SELECT qyre_test_wipe()")).rejects.toThrow();
 
       const after = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
       expect(after.rows.length).toBeGreaterThan(0);
     } finally {
-      await runStatements(databaseUrl, ["DROP FUNCTION IF EXISTS humb_test_wipe()"]);
+      await runStatements(databaseUrl, ["DROP FUNCTION IF EXISTS qyre_test_wipe()"]);
     }
   });
 
   it("survives an idle pooled connection being dropped by the database", async () => {
     // Reproduces a real crash: node-postgres's Pool emits an unhandled "error" event when an
     // idle client's connection is severed server-side (restart, network blip, admin kill) -
-    // exactly what happens when the database becomes unreachable while Humb is running. Without
+    // exactly what happens when the database becomes unreachable while Qyre is running. Without
     // a pool.on("error", ...) listener, that event crashes the whole Node process instead of
     // /api/health ever getting a chance to report "disconnected".
     await adapter.ping(); // ensure a client is checked into the pool
@@ -256,9 +256,9 @@ describe("PostgresAdapter integration", () => {
   });
 
   it("aborts a runaway query once it exceeds the configured statement timeout (F032)", async () => {
-    // A dedicated adapter/pool with a tiny timeout (via HUMB_STATEMENT_TIMEOUT_MS, read at
+    // A dedicated adapter/pool with a tiny timeout (via QYRE_STATEMENT_TIMEOUT_MS, read at
     // connect() time) proves the mechanism fires without waiting out the real 30s default.
-    process.env.HUMB_STATEMENT_TIMEOUT_MS = "200";
+    process.env.QYRE_STATEMENT_TIMEOUT_MS = "200";
     const shortTimeoutAdapter = new PostgresAdapter({ engine: "postgres", raw: databaseUrl });
     try {
       await shortTimeoutAdapter.connect();
@@ -266,7 +266,7 @@ describe("PostgresAdapter integration", () => {
         /timeout/i
       );
     } finally {
-      delete process.env.HUMB_STATEMENT_TIMEOUT_MS;
+      delete process.env.QYRE_STATEMENT_TIMEOUT_MS;
       await shortTimeoutAdapter.disconnect();
     }
   });

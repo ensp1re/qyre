@@ -8,7 +8,7 @@ const POSTGRES_PROTOCOLS = new Set(["postgres:", "postgresql:"]);
 const MYSQL_PROTOCOLS = new Set(["mysql:"]);
 const MONGODB_PROTOCOLS = new Set(["mongodb:", "mongodb+srv:"]);
 
-/** Default local port Humb's server listens on. */
+/** Default local port Qyre's server listens on. */
 export const DEFAULT_PORT = 7717;
 
 // Postgres (`pg`) and MySQL (`mysql2`) both accept a credential in the query string (e.g.
@@ -93,7 +93,7 @@ export function parseConnectionTarget(input: string | undefined): ConnectionTarg
     }
     throw new InvalidConnectionTargetError(
       `Unsupported database target protocol "${url.protocol}". ` +
-        "Humb currently supports Postgres (postgres:// or postgresql://), MySQL (mysql://), " +
+        "Qyre currently supports Postgres (postgres:// or postgresql://), MySQL (mysql://), " +
         "MongoDB (mongodb:// or mongodb+srv://), and SQLite (a file path)."
     );
   }

@@ -1,7 +1,7 @@
 /**
- * MySQL driver for Humb.
+ * MySQL driver for Qyre.
  *
- * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@humbdb/driver-contract`.
+ * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@qyre/driver-contract`.
  * All MySQL-specific SQL and introspection lives here. See ARCHITECTURE.md and
  * docs/product-specs/connect-and-inspect-mysql.md.
  */
@@ -14,14 +14,14 @@ import type {
   RowSort,
   SchemaMetadata,
   TableMetadata
-} from "@humbdb/core";
+} from "@qyre/core";
 import {
   assertReadOnly,
   capResultRows,
   resolvePageRequest,
   runInReadOnlyTransaction
-} from "@humbdb/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
+} from "@qyre/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import mysql from "mysql2/promise";
 
 const SYSTEM_SCHEMAS = ["information_schema", "mysql", "performance_schema", "sys"];
@@ -34,11 +34,11 @@ const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
  * (mysql2 has no pool-level statement-timeout config like pg's `statement_timeout`; the session
  * variable equivalent, `MAX_EXECUTION_TIME`, races the pool handing out a freshly created
  * connection before the SET command lands, confirmed live). Configurable via
- * `HUMB_STATEMENT_TIMEOUT_MS` (shared env var name across engines, read at `connect()` time
+ * `QYRE_STATEMENT_TIMEOUT_MS` (shared env var name across engines, read at `connect()` time
  * rather than module load so tests can override it per case).
  */
 function resolveStatementTimeoutMs(): number {
-  const raw = Number(process.env.HUMB_STATEMENT_TIMEOUT_MS);
+  const raw = Number(process.env.QYRE_STATEMENT_TIMEOUT_MS);
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STATEMENT_TIMEOUT_MS;
 }
 
@@ -112,7 +112,7 @@ export class MysqlAdapter implements DatabaseAdapter {
       // the server's local time zone, which then serialize to a UTC instant shifted by that offset
       // once Fastify JSON-encodes the response (confirmed live: a stored 2024-01-15 came back as
       // "2024-01-14T22:00:00.000Z" on a UTC+2 server - the wrong calendar date). Raw strings
-      // sidestep that round trip, matching @humbdb/postgres's date/timestamp type-parser fix.
+      // sidestep that round trip, matching @qyre/postgres's date/timestamp type-parser fix.
       dateStrings: true,
       // Without this, mysql2 returns every BIGINT-family (LONGLONG) value as a plain JS number,
       // silently losing precision past Number.MAX_SAFE_INTEGER (confirmed live: a stored
@@ -121,7 +121,7 @@ export class MysqlAdapter implements DatabaseAdapter {
       // LONGLONG field becomes a string even when small, including COUNT(*) and `SELECT 1`
       // (confirmed live: broke ping()'s `=== 1` check and getTable()'s rowCount). This typeCast
       // only stringifies when the actual value exceeds what a JS number can hold exactly, matching
-      // @humbdb/sqlite's normalizeRow and @humbdb/postgres/pg's native bigint-as-string behavior.
+      // @qyre/sqlite's normalizeRow and @qyre/postgres/pg's native bigint-as-string behavior.
       typeCast: (field, next) => {
         if (field.type === "LONGLONG") {
           const raw = field.string();
@@ -132,12 +132,12 @@ export class MysqlAdapter implements DatabaseAdapter {
         return next();
       }
     });
-    // Mirrors @humbdb/postgres's pool.on("error", ...): without a listener, an idle connection
+    // Mirrors @qyre/postgres's pool.on("error", ...): without a listener, an idle connection
     // dropped by the database (restart, network blip) would otherwise crash the whole process
     // instead of /api/health degrading to "disconnected" - see ARCHITECTURE.md's engine checklist
     // and F007's Postgres precedent. The promise Pool's own .on() only types a few non-error
     // events, so the listener attaches to the underlying callback pool it wraps instead. Routed
-    // through onConnectionEvent (see @humbdb/postgres's identical precedent) so it reaches the
+    // through onConnectionEvent (see @qyre/postgres's identical precedent) so it reaches the
     // Console tab's event log instead of just stderr.
     this.pool.pool.on("error", (error: Error) => {
       const message = `MySQL pool error (connection dropped): ${error.message}`;

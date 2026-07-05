@@ -1,4 +1,4 @@
-import type { ConnectionTarget } from "@humbdb/core";
+import type { ConnectionTarget } from "@qyre/core";
 import { describe, expect, it, vi } from "vitest";
 import { MysqlAdapter, mysqlAdapterFactory } from "./index.js";
 

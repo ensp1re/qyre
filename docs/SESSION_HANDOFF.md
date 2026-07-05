@@ -73,7 +73,8 @@ gotchas in "Known issues / blockers").
 
 ## In progress
 
-- Nothing in flight - batch 4 (F054-F062) is `passing` and its PR (#57) is open, awaiting merge.
+- [PR #58](https://github.com/ensp1re/humb/pull/58) (docs-only, product-spec pass for F063-F066) is
+  open against `main`, awaiting merge - see "Next steps" for what it contains.
 
 - Publishing the bare `humb` npm package (`packages/humb`) alongside `@humbdb/humb` is blocked on an
   npm name-similarity dispute (too close to `humps`/`htm`/`dumi`/`pump`/`umi`) - once cleared, retry
@@ -103,8 +104,8 @@ gotchas in "Known issues / blockers").
 ## Next steps
 
 With F001-F062 and DF-01-DF-09 all `passing`, the user asked for a product-spec pass on 3 of the
-remaining tech-debt-tracker.md rows (skipping `--demo` mode for now). That pass is done - 3 new
-specs, 4 new `not_started` features, ready to implement in a future session:
+remaining tech-debt-tracker.md rows (skipping `--demo` mode for now). That pass is done ([PR #58](https://github.com/ensp1re/humb/pull/58),
+open) - 3 new specs, 4 new `not_started` features, ready to implement in a future session:
 
 - **F063** (`docs/product-specs/adapter-capabilities.md`): replace `apps/web`'s
   `engine === "mongodb"` string checks with an `AdapterCapabilities.supportsSql` flag each adapter

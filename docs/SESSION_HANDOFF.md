@@ -27,62 +27,55 @@ gotchas in "Known issues / blockers").
 
 - Repository skeleton, product contract, verification tooling (PR #5, #8).
 - **F001-F011, DF-01-DF-09 `passing`**: connect-and-inspect journey, SQLite (2nd engine), dashboard
-  UI redesign. PRs #3-#35; plan writeups in `docs/exec-plans/completed/`.
-- **F009, F010 `passing`**: README rewrite; npm-publish path fix. PRs #25/#27/#28.
+  UI redesign, README rewrite, npm-publish path fix. PRs #3-#35.
 - **F012-F019 `passing`**: SQL editor UX (history, CodeMirror, autocomplete), structured jsonb
   cells, unified error handling, MySQL (3rd engine), MongoDB (4th engine), cross-engine type
   fidelity.
-- **F020-F033 `passing`**: two-pass project review (`SUGGESTIONS*.md`, deleted after triage per PR
-  #46) fixed - Postgres quoted-identifier coercion, read-only `;`-in-string false-positive, rows-
-  route 400s, Files-tab symlink escape, connection-string redaction, DNS-rebinding Host check
-  (PRs #47-#52), Mongo pagination stability, Schema-tab batched fetch, pool-error Console logging,
-  health/schema polling, `ErrorBoundary`, schema-tree keyboard a11y, per-engine statement timeouts.
-  **All of F001-F033 and DF-01-DF-09 passing.** Split the remaining 35 tech-debt rows into
-  **F034-F062**, batched into 4 PRs (see "Next steps"); 6 rows stay deferred needing a product-spec
-  pass first (`--demo` mode, switching DB connections, `DatabaseAdapter` capability redesign, full
-  server-side sort/streamed export).
-- **F034-F040 `passing`** (batch 1, UX & accessibility polish, on `feature/F034-F040-ux-a11y-batch`):
-  empty-state copy lists all 4 engines instead of "Postgres or SQLite"; CSV export escapes leading
-  `=`/`+`/`-`/`@` against spreadsheet formula injection; `useRows` derives `hasMore` from a real
-  probe at the next page's offset instead of `rows.length === pageSize` (wrong on an exact-page-size
-  boundary - verified against the real 10,000-row `events` fixture and a purpose-built 25-row table);
-  schema-tree search hints at 1 character instead of silently showing the unfiltered tree; connection
-  status gets a distinct icon shape + `aria-label`, not color alone; the cell-value and query-history
-  drawers share a new `useFocusTrap` hook (traps Tab, restores focus to the trigger on close); the
-  Cmd/Ctrl+Enter hint is platform-aware and repeated as the Run button's `title`. Every
-  fix verified live via Preview with real focus/keyboard events - see `docs/FEATURES.json` for
-  evidence per feature. Merged via [PR #54](https://github.com/ensp1re/humb/pull/54).
-- **F041-F046 `passing`** (batch 2, reliability & server hardening, on
-  `feature/F041-F046-reliability-batch`): the 6 query hooks named in that tech-debt row
-  (`use-health`/`use-overview`/`use-table`/`use-rows`/`use-files`/`use-console`) share a bounded
-  2-retry policy instead of `retry: false`; `/api/health` reports `pingLatencyMs`/`lastError`
-  (surfaced as a status-bar tooltip); the CLI's `SIGINT`/`SIGTERM` handler gets a shutdown timeout, a
-  re-entrancy guard, and a non-zero exit on teardown failure via a new testable
-  `createShutdownHandler`; static assets are compressed (`@fastify/compress`) and hashed bundle
-  assets get a long immutable `Cache-Control` while `index.html` stays `no-cache`; MongoDB's
-  `normalizeBsonValue` gives `Timestamp`/`Code`/`BSONRegExp`/the native `RegExp` the driver actually
-  decodes a BSON regex into by default/`MinKey`/`MaxKey`/`BSONSymbol` each a dedicated branch
-  (verified live end-to-end against a real MongoDB container, which is also what caught the
-  native-`RegExp` case - `BSONRegExp` alone wasn't enough); Postgres/MySQL/SQLite no longer
-  re-export `assertReadOnly`/`ReadOnlyViolationError` verbatim. See `docs/FEATURES.json` for
-  evidence per feature. Merged via [PR #55](https://github.com/ensp1re/humb/pull/55).
-- **F047-F053 `passing`** (batch 3, performance & architecture cleanup, on
-  `feature/F047-F053-perf-arch-batch`): shared `DEFAULT_PAGE_SIZE`/`MAX_PAGE_SIZE` constants in
-  `@humbdb/core` (apps/web's own `UI_PAGE_SIZE` stays local - importing a real value from
-  `@humbdb/core`'s barrel drags in `connection-target.ts`'s Node-only imports and broke Vite's
-  browser build, caught live); Postgres `getTable` combines its PK/FK queries into one and runs all
-  4 remaining round-trips in parallel; a shared `runInReadOnlyTransaction` helper
-  (`@humbdb/driver-contract`) replaces the begin/commit/rollback ceremony Postgres/MySQL's
-  `runReadOnlyQuery` both duplicated; `runReadOnlyQuery` now wraps `SELECT`/`WITH`/`VALUES`/`TABLE`
-  in an outer `LIMIT 1000` (`capResultRows`) across Postgres/MySQL/SQLite; `RowsTable` and the SQL
-  Editor's result table virtualize row rendering (`@tanstack/react-virtual`) - verified live that a
-  1000-row capped result only mounts ~15-25 DOM rows; `App.tsx`'s ~290-line tab-routing ternary is
-  split into 5 per-tab components; a new `check-engine-lockstep.mjs` (wired into `check:state`)
-  caught and fixed a real pre-existing drift - `@humbdb/mysql`/`@humbdb/mongodb` were both missing
-  from `scripts/publish.mjs`'s `PUBLISH_ORDER`. See `docs/FEATURES.json` for evidence per feature.
-  PR #56 (open as of this writing).
+- **F020-F033 `passing`**: two-pass project review fixes - Postgres quoted-identifier coercion,
+  read-only `;`-in-string false-positive, rows-route 400s, Files-tab symlink escape,
+  connection-string redaction, DNS-rebinding Host check, Mongo pagination stability, Schema-tab
+  batched fetch, pool-error logging, health/schema polling, `ErrorBoundary`, schema-tree keyboard
+  a11y, per-engine statement timeouts (PRs #47-#52).
+- **F034-F040 `passing`** (batch 1, UX & a11y polish, [PR #54](https://github.com/ensp1re/humb/pull/54)):
+  all-4-engines empty-state copy, CSV formula-injection escaping, `useRows`'s real-probe `hasMore`
+  fix, schema-tree search-hint threshold, non-color connection-status affordance, shared
+  `useFocusTrap` hook, platform-aware Cmd/Ctrl+Enter hint.
+- **F041-F046 `passing`** (batch 2, reliability & server hardening,
+  [PR #55](https://github.com/ensp1re/humb/pull/55)): bounded query-hook retries, `/api/health`
+  latency/error reporting, CLI shutdown-handler hardening, static-asset compression/caching,
+  MongoDB `normalizeBsonValue` coverage (including the native-`RegExp` case the driver actually
+  decodes to), driver read-only re-export cleanup.
+- **F047-F053 `passing`** (batch 3, performance & architecture cleanup,
+  [PR #56](https://github.com/ensp1re/humb/pull/56)): shared `DEFAULT_PAGE_SIZE`/`MAX_PAGE_SIZE`
+  constants, Postgres `getTable` query consolidation/parallelization, shared
+  `runInReadOnlyTransaction` helper, `capResultRows`'s 1000-row cap, `RowsTable`/SQL-editor result
+  virtualization, `App.tsx` tab-component split, `check-engine-lockstep.mjs` (caught a real
+  `PUBLISH_ORDER` drift - `@humbdb/mysql`/`@humbdb/mongodb` were missing).
+- **F054-F062 `passing`** (batch 4, testing/docs/devx/product quick wins,
+  `feature/F054-F062-testing-docs-batch`, not yet merged as of this writing): a new
+  `@humbdb/testing-conformance` package runs a shared parametrized suite (pagination clamping,
+  empty-collection handling) across all 4 engines - it's a separate package from `@humbdb/testing`
+  itself because importing all 4 drivers there would create a build cycle (caught live via
+  `pnpm typecheck`'s cyclic-dependency error, since the drivers already devDepend on
+  `@humbdb/testing`'s fixtures); `@humbdb/ui` gained 40 component render tests (RTL + jsdom, with a
+  shared `test-setup.ts` for RTL cleanup and `@tanstack/react-virtual`'s `offsetWidth`/`offsetHeight`
+  jsdom quirk); E2E gained baseline `axe` accessibility scans (fixed a real CodeMirror
+  `aria-input-field-name` violation; color-contrast is a known, tracked, pre-existing gap - see
+  `tech-debt-tracker.md`); a committed `docker-compose.yml` + extended `.env.example` mirror CI's
+  Postgres/MySQL/Mongo services; a human-facing `CONTRIBUTING.md`; `check-readme.mjs` now asserts
+  every engine is named in README (caught a real drift - MongoDB was missing from the Status
+  section); a new `docs/CONNECTING.md`; FK columns in `RowsTable` are clickable and navigate to the
+  referenced table (Postgres/MySQL/SQLite's `getTable` now resolve what a FK references, not just
+  that it is one - verified live in Preview against a real SQLite FK fixture); the Files tab can run
+  a previewed `.sql` file into the SQL editor. **All of F001-F062 and DF-01-DF-09 now `passing`** -
+  every tech-debt row that didn't need a product-spec pass first is done. See `docs/FEATURES.json`
+  for evidence per feature.
 
 ## In progress
+
+- Batch 4 (F054-F062, `feature/F054-F062-testing-docs-batch`, commit `bd579e4`) is code-complete and
+  fully verified locally (`pnpm check`, `pnpm test:e2e`/`test:e2e:full` against a real
+  docker-compose Postgres+MySQL+Mongo stack) but not yet pushed/PR'd as of this writing.
 
 - Publishing the bare `humb` npm package (`packages/humb`) alongside `@humbdb/humb` is blocked on an
   npm name-similarity dispute (too close to `humps`/`htm`/`dumi`/`pump`/`umi`) - once cleared, retry
@@ -111,20 +104,15 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-Batches 1-3 (F034-F053) are `passing`; F054-F062 are `not_started` in `docs/FEATURES.json` and
-queued as the last batch/PR:
+Batch 4 (F054-F062, branch `feature/F054-F062-testing-docs-batch`, commit `bd579e4`) needs to be
+pushed and opened as a PR (would be PR #57) - the branch is based on `main` post-#56-merge, code is
+committed, and all verification (see "In progress") already passed. Push it, open the PR, and record
+the PR URL in `docs/FEATURES.json`'s F054-F062 evidence + this file via a small follow-up commit,
+matching the pattern of PRs #54-#56.
 
-- **Batch 4, F054-F062 (Testing, docs, devx & product quick wins)**: adapter-conformance test suite,
-  `@humbdb/ui` component tests, env-skip-guard + E2E axe checks, `.env.example`/`docker-compose.yml`,
-  `CONTRIBUTING.md`, engine-list drift fix + `check-readme.mjs` extension, connection-string/
-  troubleshooting doc, clickable FK columns, run-`.sql`-in-editor. Branch:
-  `feature/F054-F062-testing-docs-batch`.
-
-Each feature's exact scope/behavior is already recorded in `docs/FEATURES.json` (state
-`not_started`, `spec` pointing at the relevant product-spec doc or `null`) - a fresh session can pick
-it up directly from there without re-deriving scope. Before starting: re-read this file's "Known
-issues / blockers" (the bare `humb` npm package dispute is the one open item), open Batch 3's PR if
-it isn't open yet, then branch Batch 4 off `main` (not off Batch 3's branch, so each PR's diff stays
-independent). Once Batch 4 ships, every one of the 29 tech-debt rows promoted into F034-F062 is
-done - only the 6 rows needing a product-spec pass first remain in `tech-debt-tracker.md` (see
-"Completed"); don't fold them into Batch 4 without doing that spec pass first.
+With F001-F062 and DF-01-DF-09 all `passing`, the only remaining tech-debt-tracker.md rows are the
+6 that need a product-spec pass before implementation (not a quick slice): `--demo` mode, switching
+DB connections without restarting, `DatabaseAdapter` capability redesign (relational-shape
+assumption), full server-side sort/streamed export, plus 2 architecture rows with no near-term
+trigger. Do the product-spec pass first - see `docs/exec-plans/tech-debt-tracker.md` for the exact
+rows and their "Next trigger" column - before picking any of these up as a new F06x feature.

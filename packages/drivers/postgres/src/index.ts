@@ -356,7 +356,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       tables
     }));
 
-    return { engine: "postgres", schemas };
+    return { engine: "postgres", schemas, capabilities: { supportsSql: true } };
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {

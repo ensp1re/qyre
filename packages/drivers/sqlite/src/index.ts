@@ -150,7 +150,7 @@ export class SqliteAdapter implements DatabaseAdapter {
       { name: MAIN_SCHEMA, tables: tables.map((row) => row.name) }
     ];
 
-    return { engine: "sqlite", schemas };
+    return { engine: "sqlite", schemas, capabilities: { supportsSql: true } };
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {

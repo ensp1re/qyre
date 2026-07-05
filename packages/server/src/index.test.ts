@@ -49,7 +49,11 @@ describe("createServer", () => {
       disconnect: async () => {},
       ping: async () => true,
       getVersion: async () => "PostgreSQL 16.4",
-      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [],
+        capabilities: { supportsSql: true }
+      }),
       getTable: async () => ({ schema: "public", name: "x", columns: [] }),
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
@@ -75,7 +79,11 @@ describe("createServer", () => {
         return true;
       },
       getVersion: async () => "PostgreSQL 16.4",
-      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [],
+        capabilities: { supportsSql: true }
+      }),
       getTable: async () => ({ schema: "public", name: "x", columns: [] }),
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
@@ -101,7 +109,11 @@ describe("createServer", () => {
       disconnect: async () => {},
       ping: async () => true,
       getVersion: async () => "PostgreSQL 16.4",
-      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [],
+        capabilities: { supportsSql: true }
+      }),
       getTable: async () => ({ schema: "public", name: "x", columns: [] }),
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
@@ -122,7 +134,11 @@ describe("createServer", () => {
       disconnect: async () => {},
       ping: async () => false,
       getVersion: async () => "PostgreSQL 16.4",
-      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [],
+        capabilities: { supportsSql: true }
+      }),
       getTable: async () => ({ schema: "public", name: "x", columns: [] }),
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
@@ -142,7 +158,8 @@ describe("createServer", () => {
       getVersion: async () => "PostgreSQL 16.0",
       getOverview: async () => ({
         engine: "postgres",
-        schemas: [{ name: "public", tables: ["a", "b"] }]
+        schemas: [{ name: "public", tables: ["a", "b"] }],
+        capabilities: { supportsSql: true }
       }),
       getTable: async (schema, table) => ({ schema, name: table, columns: [] }),
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
@@ -198,7 +215,11 @@ describe("createServer", () => {
       disconnect: async () => {},
       ping: async () => true,
       getVersion: async () => "PostgreSQL 16.0",
-      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [],
+        capabilities: { supportsSql: true }
+      }),
       getTable: async () => ({ schema: "public", name: "x", columns: [] }),
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
       runReadOnlyQuery: async () => {
@@ -223,7 +244,11 @@ describe("createServer", () => {
       disconnect: async () => {},
       ping: async () => true,
       getVersion: async () => "PostgreSQL 16.0",
-      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [],
+        capabilities: { supportsSql: true }
+      }),
       getTable: async () => ({ schema: "public", name: "x", columns: [] }),
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
       runReadOnlyQuery: async () => {
@@ -251,7 +276,11 @@ describe("createServer", () => {
       disconnect: async () => {},
       ping: async () => true,
       getVersion: async () => "PostgreSQL 16.0",
-      getOverview: async () => ({ engine: "postgres", schemas: [] }),
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [],
+        capabilities: { supportsSql: true }
+      }),
       getTable: async () => ({ schema: "public", name: "x", columns: [] }),
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
@@ -443,7 +472,11 @@ describe("createServer", () => {
         disconnect: async () => {},
         ping: async () => true,
         getVersion: async () => "PostgreSQL 16.0",
-        getOverview: async () => ({ engine: "postgres", schemas: [] }),
+        getOverview: async () => ({
+          engine: "postgres",
+          schemas: [],
+          capabilities: { supportsSql: true }
+        }),
         getTable: async () => ({ schema: "public", name: "x", columns: [] }),
         getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
         runReadOnlyQuery: async () => ({
@@ -471,7 +504,11 @@ describe("createServer", () => {
         disconnect: async () => {},
         ping: async () => true,
         getVersion: async () => "PostgreSQL 16.0",
-        getOverview: async () => ({ engine: "postgres", schemas: [] }),
+        getOverview: async () => ({
+          engine: "postgres",
+          schemas: [],
+          capabilities: { supportsSql: true }
+        }),
         getTable: async () => ({ schema: "public", name: "x", columns: [] }),
         getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
         runReadOnlyQuery: async () => {
@@ -496,7 +533,11 @@ describe("createServer", () => {
         disconnect: async () => {},
         ping: async () => connected,
         getVersion: async () => "PostgreSQL 16.0",
-        getOverview: async () => ({ engine: "postgres", schemas: [] }),
+        getOverview: async () => ({
+          engine: "postgres",
+          schemas: [],
+          capabilities: { supportsSql: true }
+        }),
         getTable: async () => ({ schema: "public", name: "x", columns: [] }),
         getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
         runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
@@ -521,7 +562,11 @@ describe("createServer", () => {
         disconnect: async () => {},
         ping: async () => true,
         getVersion: async () => "PostgreSQL 16.0",
-        getOverview: async () => ({ engine: "postgres", schemas: [] }),
+        getOverview: async () => ({
+          engine: "postgres",
+          schemas: [],
+          capabilities: { supportsSql: true }
+        }),
         getTable: async () => ({ schema: "public", name: "x", columns: [] }),
         getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
         runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })

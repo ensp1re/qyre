@@ -717,9 +717,9 @@
       "id": "F063",
       "behavior": "DatabaseAdapter/AdapterFactory declare a capabilities.supportsSql flag (surfaced via DatabaseOverview), and apps/web reads that instead of string-comparing engine === \"mongodb\" to decide whether to disable the SQL Editor tab and the Files tab's \"Run in editor\" action.",
       "verification": "pnpm --filter @humbdb/web build && pnpm test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "5f00bc4",
+      "evidence": "commit 5f00bc4: DatabaseOverview gains capabilities.supportsSql, declared by each adapter's getOverview() (true for Postgres/MySQL/SQLite, false for MongoDB - which has no read-only SQL query runner). apps/web's App.tsx reads overview.data?.capabilities.supportsSql instead of engine === \"mongodb\" to decide whether to disable the SQL Editor tab and the Files tab's \"Run in editor\" action; SqlEditorTabProps's isMongo prop is renamed to sqlDisabled to match (grep -rn '\"mongodb\"' apps/web/src returns only a comment, no remaining string comparison). Verified live via Preview against a real docker-compose Postgres container (GET /api/overview returned capabilities:{supportsSql:true}, SQL Editor tab aria-disabled=false) and a real MongoDB container (capabilities:{supportsSql:false}, SQL Editor tab aria-disabled=true with the same tooltip copy as before the change). pnpm check (format/lint/typecheck/test/build/check:state) and pnpm test:e2e:full (10/10 non-skipped) both pass against a real docker-compose Postgres+MySQL+Mongo stack.",
       "blockedReason": null,
       "spec": "docs/product-specs/adapter-capabilities.md"
     },

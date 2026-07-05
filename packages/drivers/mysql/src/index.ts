@@ -11,6 +11,7 @@ import type {
   DatabaseOverview,
   IndexMetadata,
   RowPage,
+  RowSort,
   SchemaMetadata,
   TableMetadata
 } from "@humbdb/core";
@@ -263,8 +264,18 @@ export class MysqlAdapter implements DatabaseAdapter {
     return { schema, name: table, columns, indexes, rowCount };
   }
 
-  async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {
+  async getRows(
+    schema: string,
+    table: string,
+    page: number,
+    pageSize: number,
+    sort?: RowSort
+  ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
+    // sort.column is already validated by the caller against the table's real columns (F065).
+    const orderBy = sort
+      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
+      : "";
 
     // { sql, timeout } caps how long the client waits for a heavyweight row fetch - see
     // resolveStatementTimeoutMs's doc comment. mysql2 closes the underlying connection once the
@@ -272,7 +283,7 @@ export class MysqlAdapter implements DatabaseAdapter {
     // stopping a runaway query from holding the pool indefinitely.
     const [rows, fields] = await this.getPool().query<mysql.RowDataPacket[]>(
       {
-        sql: `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)} LIMIT ? OFFSET ?`,
+        sql: `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${orderBy} LIMIT ? OFFSET ?`,
         timeout: this.statementTimeoutMs
       },
       [safePageSize, offset]

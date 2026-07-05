@@ -219,4 +219,21 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(table.rowCount).toBe(0);
     }
   );
+
+  it.skipIf(!configured)(
+    "sorts rows by a given column and direction identically (F065)",
+    async () => {
+      const ascending = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10, {
+        column: "n",
+        direction: "asc"
+      });
+      expect(ascending.rows.map((row) => Number(row.n))).toEqual([1, 2, 3]);
+
+      const descending = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10, {
+        column: "n",
+        direction: "desc"
+      });
+      expect(descending.rows.map((row) => Number(row.n))).toEqual([3, 2, 1]);
+    }
+  );
 });

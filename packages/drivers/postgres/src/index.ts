@@ -10,6 +10,7 @@ import type {
   DatabaseOverview,
   IndexMetadata,
   RowPage,
+  RowSort,
   SchemaMetadata,
   TableMetadata
 } from "@humbdb/core";
@@ -444,11 +445,22 @@ export class PostgresAdapter implements DatabaseAdapter {
     return { schema, name: table, columns, indexes, rowCount };
   }
 
-  async getRows(schema: string, table: string, page: number, pageSize: number): Promise<RowPage> {
+  async getRows(
+    schema: string,
+    table: string,
+    page: number,
+    pageSize: number,
+    sort?: RowSort
+  ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
+    // sort.column is already validated by the caller against the table's real columns (F065) -
+    // quoteIdent still guards against a stray identifier-quote character within it.
+    const orderBy = sort
+      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
+      : "";
 
     const result = await this.getPool().query(
-      `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)} LIMIT $1 OFFSET $2`,
+      `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${orderBy} LIMIT $1 OFFSET $2`,
       [safePageSize, offset]
     );
 

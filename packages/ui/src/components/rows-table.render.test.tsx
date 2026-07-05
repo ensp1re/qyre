@@ -1,5 +1,6 @@
 import type { ColumnMetadata, RowPage } from "@humbdb/core";
 import { fireEvent, render, screen } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { RowsTable } from "./rows-table.js";
 
@@ -14,7 +15,7 @@ const rowPage: RowPage = {
   pageSize: 25
 };
 
-function renderTable() {
+function renderTable(props: Partial<ComponentProps<typeof RowsTable>> = {}) {
   return render(
     <RowsTable
       rowPage={rowPage}
@@ -23,39 +24,58 @@ function renderTable() {
       canGoNext={false}
       onPrevious={vi.fn()}
       onNext={vi.fn()}
+      {...props}
     />
   );
 }
 
-describe("RowsTable sort (component rendering, F055)", () => {
-  it("renders rows in their original (unsorted) order by default", () => {
+describe("RowsTable server-side sort (component rendering, F065)", () => {
+  it("renders rows in whatever order rowPage provides, unsorted by default", () => {
     renderTable();
     const cells = screen.getAllByText(/^(Charlie|Alice|Bob)$/);
     expect(cells.map((cell) => cell.textContent)).toEqual(["Charlie", "Alice", "Bob"]);
   });
 
-  it("sorts ascending on the first header click, descending on the second", () => {
-    renderTable();
-    const nameHeader = screen.getByText("name");
-
-    fireEvent.click(nameHeader);
-    let cells = screen.getAllByText(/^(Charlie|Alice|Bob)$/);
-    expect(cells.map((cell) => cell.textContent)).toEqual(["Alice", "Bob", "Charlie"]);
-
-    fireEvent.click(nameHeader);
-    cells = screen.getAllByText(/^(Charlie|Alice|Bob)$/);
-    expect(cells.map((cell) => cell.textContent)).toEqual(["Charlie", "Bob", "Alice"]);
-  });
-
-  it("a third header click clears the sort back to original order", () => {
-    renderTable();
-    const nameHeader = screen.getByText("name");
-
-    fireEvent.click(nameHeader);
-    fireEvent.click(nameHeader);
-    fireEvent.click(nameHeader);
+  it("does not reorder rows itself even when a sort is already active via props", () => {
+    // Rows are expected to already arrive sorted from the server (F065) - RowsTable must not
+    // additionally reorder them client-side, unlike the old F055 client-side sort behavior.
+    renderTable({ sortColumn: "name", sortDirection: "asc" });
     const cells = screen.getAllByText(/^(Charlie|Alice|Bob)$/);
     expect(cells.map((cell) => cell.textContent)).toEqual(["Charlie", "Alice", "Bob"]);
+  });
+
+  it("cycles asc -> desc -> cleared as a controlled parent re-renders with each reported sort", () => {
+    // RowsTable is a controlled component here (F065) - it has no local sort state of its own, so
+    // the cycle only advances when the parent actually re-renders with the sortColumn/
+    // sortDirection onSortChange just reported, exactly as apps/web's App.tsx does.
+    const onSortChange = vi.fn();
+    const baseProps: ComponentProps<typeof RowsTable> = {
+      rowPage,
+      page: 0,
+      canGoPrevious: false,
+      canGoNext: false,
+      onPrevious: vi.fn(),
+      onNext: vi.fn(),
+      onSortChange
+    };
+    const { rerender } = render(<RowsTable {...baseProps} />);
+
+    fireEvent.click(screen.getByText("name"));
+    expect(onSortChange).toHaveBeenLastCalledWith({ column: "name", direction: "asc" });
+
+    rerender(<RowsTable {...baseProps} sortColumn="name" sortDirection="asc" />);
+    fireEvent.click(screen.getByText("name"));
+    expect(onSortChange).toHaveBeenLastCalledWith({ column: "name", direction: "desc" });
+
+    rerender(<RowsTable {...baseProps} sortColumn="name" sortDirection="desc" />);
+    fireEvent.click(screen.getByText("name"));
+    expect(onSortChange).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it("renders headers as non-interactive (no cursor-pointer class, no arrow icon) when onSortChange is omitted", () => {
+    renderTable();
+    const nameHeader = screen.getByText("name").closest("th");
+    expect(nameHeader?.className).not.toContain("cursor-pointer");
   });
 
   it("filters rows by the search box, case-insensitively", () => {
@@ -64,6 +84,20 @@ describe("RowsTable sort (component rendering, F055)", () => {
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.queryByText("Bob")).not.toBeInTheDocument();
     expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
+  });
+});
+
+describe("RowsTable whole-table export (component rendering, F066)", () => {
+  it("shows the export button and calls onExportAllRows when clicked", () => {
+    const onExportAllRows = vi.fn();
+    renderTable({ onExportAllRows });
+    fireEvent.click(screen.getByLabelText("Export all rows as CSV"));
+    expect(onExportAllRows).toHaveBeenCalledOnce();
+  });
+
+  it("hides the export button when onExportAllRows is omitted", () => {
+    renderTable();
+    expect(screen.queryByLabelText("Export all rows as CSV")).not.toBeInTheDocument();
   });
 });
 

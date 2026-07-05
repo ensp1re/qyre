@@ -6,12 +6,14 @@
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import fastifyCompress from "@fastify/compress";
 import fastifyStatic from "@fastify/static";
 import {
   connectRequestSchema,
   DEFAULT_PORT,
   fileContentQuerySchema,
+  MAX_PAGE_SIZE,
   parseConnectionTarget,
   redactConnectionString,
   rowsQuerySchema,
@@ -24,12 +26,15 @@ import type {
   ConsoleEvents,
   FileContent,
   FilesOverview,
-  HealthResponse
+  HealthResponse,
+  RowSort,
+  SortDirection
 } from "@humbdb/core";
 import { ReadOnlyViolationError, resolveAdapter } from "@humbdb/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
 import Fastify from "fastify";
 import type { FastifyError, FastifyInstance } from "fastify";
+import { csvLine } from "./csv.js";
 import { EventLog } from "./event-log.js";
 
 export { EventLog } from "./event-log.js";
@@ -82,6 +87,29 @@ function requireAdapter(adapter: DatabaseAdapter | undefined): DatabaseAdapter {
 // and redactConnectionString would otherwise mask it as "<unparseable...>".
 function displayTarget(target: ConnectionTarget): string {
   return target.engine === "sqlite" ? target.raw : redactConnectionString(target.raw);
+}
+
+/**
+ * Validates a requested sort column against the table's real columns before it's ever used in a
+ * query (F065) - this is the actual injection surface `page`/`pageSize` don't have, since a column
+ * name is a raw identifier rather than a value Zod can numeric-coerce or a driver can
+ * parameter-bind. Throws a 400-shaped error (matching `requireAdapter`'s convention, caught by the
+ * global error handler below) for an unrecognized column; returns undefined when no sort was
+ * requested at all.
+ */
+async function resolveRowSort(
+  db: DatabaseAdapter,
+  schema: string,
+  table: string,
+  sortColumn: string | undefined,
+  sortDirection: SortDirection
+): Promise<RowSort | undefined> {
+  if (!sortColumn) return undefined;
+  const tableMetadata = await db.getTable(schema, table);
+  if (!tableMetadata.columns.some((column) => column.name === sortColumn)) {
+    throw Object.assign(new Error(`Unknown sort column "${sortColumn}".`), { statusCode: 400 });
+  }
+  return { column: sortColumn, direction: sortDirection };
 }
 
 /**
@@ -269,8 +297,67 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
         return reply.status(400).send({ error: "Invalid page/pageSize query parameters." });
       }
       const { schema, table } = request.params;
-      const { page, pageSize } = parsed.data;
-      return requireAdapter(adapter).getRows(schema, table, page, pageSize);
+      const { page, pageSize, sortColumn, sortDirection } = parsed.data;
+      const db = requireAdapter(adapter);
+      const sort = await resolveRowSort(db, schema, table, sortColumn, sortDirection);
+      return db.getRows(schema, table, page, pageSize, sort);
+    }
+  );
+
+  // F066: streams every row of the table as CSV (honoring the sort above, if any) rather than
+  // capping at runReadOnlyQuery's 1,000-row limit (F050) - exporting the whole table is the point.
+  app.get<{ Params: { schema: string; table: string }; Querystring: Record<string, string> }>(
+    "/api/tables/:schema/:table/export.csv",
+    async (request, reply) => {
+      const parsed = rowsQuerySchema
+        .pick({ sortColumn: true, sortDirection: true })
+        .safeParse(request.query);
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: "Invalid sortColumn/sortDirection query parameters." });
+      }
+      const { schema, table } = request.params;
+      const db = requireAdapter(adapter);
+      const sort = await resolveRowSort(
+        db,
+        schema,
+        table,
+        parsed.data.sortColumn,
+        parsed.data.sortDirection
+      );
+
+      reply.header("Content-Type", "text/csv; charset=utf-8");
+      reply.header("Content-Disposition", `attachment; filename="${table}.csv"`);
+
+      const stream = new Readable({ read() {} });
+      // Fetches and pushes in bounded MAX_PAGE_SIZE batches rather than materializing the whole
+      // table in memory (F066) - mirrors capResultRows's philosophy (F050) for a path that must
+      // NOT be capped, since exporting the whole table is the entire point of this endpoint.
+      // Not awaited: the response has already started streaming (status/headers committed the
+      // moment the first chunk is pushed) once this handler returns the stream below, so a
+      // mid-export failure can only end the connection abruptly, not change the status code.
+      void (async () => {
+        let page = 0;
+        let wroteHeader = false;
+        for (;;) {
+          const rowPage = await db.getRows(schema, table, page, MAX_PAGE_SIZE, sort);
+          if (!wroteHeader) {
+            stream.push(`${csvLine(rowPage.columns)}\n`);
+            wroteHeader = true;
+          }
+          for (const row of rowPage.rows) {
+            stream.push(`${csvLine(rowPage.columns.map((column) => row[column]))}\n`);
+          }
+          if (rowPage.rows.length < MAX_PAGE_SIZE) break;
+          page += 1;
+        }
+        stream.push(null);
+      })().catch((error: unknown) => {
+        stream.destroy(error instanceof Error ? error : new Error(String(error)));
+      });
+
+      return stream;
     }
   );
 

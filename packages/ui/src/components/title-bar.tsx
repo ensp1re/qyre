@@ -11,6 +11,8 @@ export interface TitleBarProps {
   onRefresh: () => void;
   isRefreshing?: boolean;
   onToggleSidebar: () => void;
+  /** Opens the connection-switch drawer (F064). */
+  onOpenSettings: () => void;
 }
 
 const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
@@ -39,7 +41,8 @@ export function TitleBar({
   onToggleTheme,
   onRefresh,
   isRefreshing,
-  onToggleSidebar
+  onToggleSidebar,
+  onOpenSettings
 }: TitleBarProps): ReactNode {
   const breadcrumb = target ? splitTarget(target) : null;
 
@@ -114,9 +117,10 @@ export function TitleBar({
         </button>
         <button
           type="button"
+          onClick={onOpenSettings}
+          title="Switch database connection"
           aria-label="Settings"
-          disabled
-          className="cursor-not-allowed rounded-md p-1.5 text-muted-foreground opacity-50"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <Settings className="h-3.5 w-3.5" />
         </button>

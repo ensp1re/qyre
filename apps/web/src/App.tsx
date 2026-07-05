@@ -1,5 +1,6 @@
 import type { ConnectionStatus } from "@humbdb/core";
 import {
+  ConnectDrawer,
   ErrorBoundary,
   QueryHistoryDrawer,
   Sidebar,
@@ -17,11 +18,13 @@ import { SchemaTab } from "./components/schema-tab.js";
 import { SqlEditorTab } from "./components/sql-editor-tab.js";
 import { TablesTab } from "./components/tables-tab.js";
 import { useAllTables } from "./hooks/use-all-tables.js";
+import { useConnect } from "./hooks/use-connect.js";
 import { useClearConsole, useConsoleEvents } from "./hooks/use-console.js";
 import { useFileContent, useFilesOverview } from "./hooks/use-files.js";
 import { useHealth } from "./hooks/use-health.js";
 import { useOverview } from "./hooks/use-overview.js";
 import { useQueryHistory } from "./hooks/use-query-history.js";
+import { useRecentTargets } from "./hooks/use-recent-targets.js";
 import { useRows } from "./hooks/use-rows.js";
 import { useRunQuery } from "./hooks/use-run-query.js";
 import { useTable } from "./hooks/use-table.js";
@@ -46,8 +49,11 @@ export function App(): ReactNode {
   const [lastQueryMs, setLastQueryMs] = useState<number>();
   const [selectedFilePath, setSelectedFilePath] = useState<string>();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const queryHistory = useQueryHistory();
+  const recentTargets = useRecentTargets();
+  const connect = useConnect();
 
   const overview = useOverview({ enabled: status === "connected" });
   // F063: some engines (MongoDB today) have no read-only SQL query runner - no SQL dialect for a
@@ -98,6 +104,19 @@ export function App(): ReactNode {
     setHistoryOpen(false);
   }
 
+  // F064: switches the running server to a different database. useConnect's onSuccess already
+  // invalidates every React Query cache; the reset here covers local component state React Query
+  // doesn't own (the currently selected table/page - the new database likely doesn't have the
+  // same tables, matching selectTable's existing reset-on-switch behavior). The SQL Editor's
+  // current draft (querySql) is deliberately left untouched - see the product spec's rationale.
+  async function connectToNewTarget(raw: string): Promise<void> {
+    const result = await connect.mutateAsync(raw);
+    recentTargets.record(raw, result.target);
+    setSelected(undefined);
+    setPage(0);
+    setConnectOpen(false);
+  }
+
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <TitleBar
@@ -108,6 +127,7 @@ export function App(): ReactNode {
         onRefresh={refresh}
         isRefreshing={healthLoading}
         onToggleSidebar={() => setSidebarOpen((current) => !current)}
+        onOpenSettings={() => setConnectOpen(true)}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -214,6 +234,15 @@ export function App(): ReactNode {
         onOpenChange={setHistoryOpen}
         entries={queryHistory.entries}
         onSelect={selectFromHistory}
+      />
+
+      <ConnectDrawer
+        open={connectOpen}
+        onOpenChange={setConnectOpen}
+        currentTarget={health?.target ?? null}
+        recentTargets={recentTargets.entries}
+        onConnect={connectToNewTarget}
+        isConnecting={connect.isPending}
       />
     </div>
   );

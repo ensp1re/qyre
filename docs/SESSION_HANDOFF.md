@@ -81,7 +81,7 @@ gotchas in "Known issues / blockers").
   action. `SqlEditorTab`'s `isMongo` prop renamed to `sqlDisabled`. Verified live via Preview
   against a real Postgres container (`supportsSql: true`, tab enabled) and a real MongoDB
   container (`supportsSql: false`, tab disabled, same tooltip copy as before).
-- **F064 `passing`**: `CreateServerOptions` gains an optional `adapterFactories` field; when
+- **F064 `passing`** ([PR #61](https://github.com/ensp1re/humb/pull/61)): `CreateServerOptions` gains an optional `adapterFactories` field; when
   provided, a new `POST /api/connect` swaps in a new adapter/target (only after a ping confirms
   it's live) without restarting the process - `createServer`'s `adapter`/`target` are now mutable
   closure state instead of `const`. The title bar's previously-disabled Settings button opens a new
@@ -134,10 +134,6 @@ With F063 and F064 both `passing`, the last specced-but-unimplemented feature is
   injection surface, since `page`/`pageSize` are already numeric-coerced but a column name isn't),
   plus a new streamed `GET .../export.csv` endpoint replacing today's page-only CSV export. These
   two share one spec/PR since export honors the same sort.
-
-Also needed: push F064's branch (`feature/F064-database-switching`, commit `6d55edd`) and open its
-PR (would be PR #61) - the commit is done and fully verified locally but hadn't been pushed as of
-this writing.
 
 `--demo` mode remains the one tech-debt row with no spec yet - still needs its own product-spec pass
 before implementation if picked up. See `docs/exec-plans/tech-debt-tracker.md` for its row (and

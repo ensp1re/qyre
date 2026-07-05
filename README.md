@@ -53,8 +53,10 @@ pnpm dev          # run packages in watch mode
 Postgres, MySQL, and SQLite are all fully supported engines today: connect, browse the schema
 (tables, columns, indexes, primary/foreign keys, row counts), page through rows, run read-only SQL
 queries, browse `.sql` files near the launch target, and watch a live log of recent connection/query
-activity. New engines plug in as independent `packages/drivers/<engine>` adapter packages and are
-picked up by the same detection path - no changes to the CLI, server, or UI.
+activity. MongoDB is also supported for basic read-only browsing (schemas/collections, documents,
+pagination) - no SQL dialect, so it has no query runner (browse collections directly instead). New
+engines plug in as independent `packages/drivers/<engine>` adapter packages and are picked up by the
+same detection path - no changes to the CLI, server, or UI.
 
 ## Security: read-only today, enforced by the database itself
 
@@ -77,7 +79,9 @@ IDE-style write experience - creating tables, managing users/roles, and the like
 roadmap, but it'll ship as its own carefully-scoped feature with explicit confirmation and
 permission scoping, not a quiet loosening of what's described above.
 
-See [`docs/SECURITY.md`](docs/SECURITY.md) for the full set of rules this project holds itself to.
+See [`docs/SECURITY.md`](docs/SECURITY.md) for the full set of rules this project holds itself to,
+or [`docs/CONNECTING.md`](docs/CONNECTING.md) for per-engine connection-string formats and
+troubleshooting a connection.
 
 ## Repository map
 
@@ -92,9 +96,12 @@ This repo is optimized to be legible to both humans and AI coding agents.
 
 ## Contributing
 
-Humb follows a strict "the repository is the spec" model. Before changing code, read
-[`AGENTS.md`](AGENTS.md) and the relevant docs. A change is only done when it is verified by
-runnable evidence and the repository can still build, test, and restart cleanly.
+Setting up locally, running the test stack, and submitting a change: see
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+Humb follows a strict "the repository is the spec" model. If you're an AI coding agent, start with
+[`AGENTS.md`](AGENTS.md) instead - a change is only done when it is verified by runnable evidence
+and the repository can still build, test, and restart cleanly.
 
 ## License
 

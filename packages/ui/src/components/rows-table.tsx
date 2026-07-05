@@ -1,4 +1,4 @@
-import type { ColumnMetadata, RowPage } from "@humbdb/core";
+import type { ColumnMetadata, ForeignKeyReference, RowPage } from "@humbdb/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowUpDown,
@@ -30,6 +30,9 @@ export interface RowsTableProps {
   onPrevious: () => void;
   onNext: () => void;
   onRefresh?: () => void;
+  /** Navigates to the table/column a foreign key cell references (F061). Omitted (cells render as
+   * plain values, not links) when the caller has no such navigation to offer. */
+  onNavigateToForeignKey?: (reference: ForeignKeyReference) => void;
 }
 
 type SortDir = "asc" | "desc" | null;
@@ -75,7 +78,8 @@ export function RowsTable({
   canGoNext,
   onPrevious,
   onNext,
-  onRefresh
+  onRefresh,
+  onNavigateToForeignKey
 }: RowsTableProps): ReactNode {
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState<string | null>(null);
@@ -239,6 +243,11 @@ export function RowsTable({
                     PK
                   </span>
                 )}
+                {meta?.isForeignKey && (
+                  <span className="ml-1 font-bold" style={{ color: "var(--c-blue)" }}>
+                    FK
+                  </span>
+                )}
               </div>
             );
           })}
@@ -312,21 +321,39 @@ export function RowsTable({
                     <td className="w-8 border-r border-border-subtle px-2 py-1.5 text-right text-muted-foreground/30">
                       {virtualRow.index + 1}
                     </td>
-                    {rowPage.columns.map((columnName) => (
-                      <td
-                        key={columnName}
-                        className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
-                      >
-                        {row[columnName] === null || row[columnName] === undefined ? (
-                          <span className="italic text-muted-foreground/30">null</span>
-                        ) : (
-                          <CellValue
-                            value={row[columnName]}
-                            onInspect={(value) => setInspected({ column: columnName, value })}
-                          />
-                        )}
-                      </td>
-                    ))}
+                    {rowPage.columns.map((columnName) => {
+                      const meta = columnByName.get(columnName);
+                      const reference =
+                        meta?.isForeignKey && onNavigateToForeignKey ? meta.references : undefined;
+                      return (
+                        <td
+                          key={columnName}
+                          className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
+                        >
+                          {row[columnName] === null || row[columnName] === undefined ? (
+                            <span className="italic text-muted-foreground/30">null</span>
+                          ) : reference ? (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onNavigateToForeignKey?.(reference);
+                              }}
+                              title={`Go to ${reference.table}.${reference.column}`}
+                              className="underline decoration-dotted underline-offset-2 hover:text-primary"
+                              style={{ color: "var(--c-blue)" }}
+                            >
+                              {formatCell(row[columnName])}
+                            </button>
+                          ) : (
+                            <CellValue
+                              value={row[columnName]}
+                              onInspect={(value) => setInspected({ column: columnName, value })}
+                            />
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })}

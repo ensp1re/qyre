@@ -1,3 +1,4 @@
+import type { ForeignKeyReference } from "@humbdb/core";
 import { ErrorState, RowsTable, Spinner } from "@humbdb/ui";
 import type { ReactNode } from "react";
 import type { useRows } from "../hooks/use-rows.js";
@@ -9,6 +10,7 @@ export interface TablesTabProps {
   rows: ReturnType<typeof useRows>;
   page: number;
   onPageChange: (updater: (current: number) => number) => void;
+  onNavigateToForeignKey?: (reference: ForeignKeyReference) => void;
 }
 
 /** Tables tab content - the selected table's paginated row browser. */
@@ -17,7 +19,8 @@ export function TablesTab({
   table,
   rows,
   page,
-  onPageChange
+  onPageChange,
+  onNavigateToForeignKey
 }: TablesTabProps): ReactNode {
   if (!selected) {
     return <p className="text-[13px] text-muted-foreground">Select a table from the sidebar.</p>;
@@ -54,6 +57,7 @@ export function TablesTab({
       onPrevious={() => onPageChange((current) => Math.max(0, current - 1))}
       onNext={() => onPageChange((current) => current + 1)}
       onRefresh={() => rows.refetch()}
+      onNavigateToForeignKey={onNavigateToForeignKey}
     />
   );
 }

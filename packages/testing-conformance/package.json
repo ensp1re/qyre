@@ -1,0 +1,28 @@
+{
+  "name": "@humbdb/testing-conformance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cross-engine adapter-conformance suite (F054). Lives in its own package, not @humbdb/testing, so importing all four drivers here doesn't create a build cycle with the drivers' own devDependency on @humbdb/testing's fixtures.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rimraf .turbo"
+  },
+  "devDependencies": {
+    "@humbdb/config": "workspace:*",
+    "@humbdb/core": "workspace:*",
+    "@humbdb/driver-contract": "workspace:*",
+    "@humbdb/mongodb": "workspace:*",
+    "@humbdb/mysql": "workspace:*",
+    "@humbdb/postgres": "workspace:*",
+    "@humbdb/sqlite": "workspace:*",
+    "@humbdb/testing": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/pg": "^8.11.10",
+    "better-sqlite3": "^11.10.0",
+    "mongodb": "^7.4.0",
+    "mysql2": "^3.22.5",
+    "pg": "^8.13.1"
+  }
+}

@@ -69,7 +69,14 @@ describe("PostgresAdapter integration", () => {
 
     try {
       const table = await adapter.getTable(FIXTURE.schema, "humb_test_orders");
-      expect(table.columns.find((column) => column.name === "user_id")?.isForeignKey).toBe(true);
+      const userIdColumn = table.columns.find((column) => column.name === "user_id");
+      expect(userIdColumn?.isForeignKey).toBe(true);
+      // F061: also resolves what the FK actually references, not just that it is one.
+      expect(userIdColumn?.references).toEqual({
+        schema: FIXTURE.schema,
+        table: FIXTURE.table,
+        column: "id"
+      });
       expect(table.columns.find((column) => column.name === "total")?.isForeignKey).toBe(false);
     } finally {
       await runStatements(databaseUrl, ["DROP TABLE IF EXISTS humb_test_orders"]);

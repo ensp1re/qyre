@@ -89,7 +89,10 @@ describe("SqliteAdapter integration", () => {
 
   it("flags a column referencing another table as a foreign key", async () => {
     const table = await adapter.getTable("main", "humb_demo_orders");
-    expect(table.columns.find((column) => column.name === "user_id")?.isForeignKey).toBe(true);
+    const userIdColumn = table.columns.find((column) => column.name === "user_id");
+    expect(userIdColumn?.isForeignKey).toBe(true);
+    // F061: also resolves what the FK actually references, not just that it is one.
+    expect(userIdColumn?.references).toEqual({ table: "humb_demo_users", column: "id" });
     expect(table.columns.find((column) => column.name === "total")?.isForeignKey).toBe(false);
   });
 

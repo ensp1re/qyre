@@ -71,7 +71,14 @@ describe("MysqlAdapter integration", () => {
        )`);
 
       const table = await adapter.getTable(databaseName, "humb_test_orders");
-      expect(table.columns.find((column) => column.name === "user_id")?.isForeignKey).toBe(true);
+      const userIdColumn = table.columns.find((column) => column.name === "user_id");
+      expect(userIdColumn?.isForeignKey).toBe(true);
+      // F061: also resolves what the FK actually references, not just that it is one.
+      expect(userIdColumn?.references).toEqual({
+        schema: databaseName,
+        table: FIXTURE.table,
+        column: "id"
+      });
       expect(table.columns.find((column) => column.name === "total")?.isForeignKey).toBe(false);
     } finally {
       await pool.query("DROP TABLE IF EXISTS humb_test_orders");

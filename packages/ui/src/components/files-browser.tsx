@@ -1,5 +1,5 @@
 import type { FileNode } from "@humbdb/core";
-import { File, FileCode2, FolderOpen } from "lucide-react";
+import { File, FileCode2, FolderOpen, Play } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "../cn.js";
@@ -14,6 +14,9 @@ export interface FilesBrowserProps {
   isContentLoading?: boolean;
   contentError?: string;
   onRetryContent?: () => void;
+  /** Runs the currently-previewed `.sql` file's content in the SQL Editor (F062). Omitted (button
+   * hidden) when the SQL Editor isn't available for the current connection, e.g. MongoDB. */
+  onRunInEditor?: (content: string) => void;
 }
 
 function TreeRow({
@@ -103,9 +106,12 @@ export function FilesBrowser({
   content,
   isContentLoading,
   contentError,
-  onRetryContent
+  onRetryContent,
+  onRunInEditor
 }: FilesBrowserProps): ReactNode {
   const lines = content?.split("\n") ?? [];
+  const canRunInEditor =
+    onRunInEditor !== undefined && content !== undefined && selectedPath?.endsWith(".sql");
 
   return (
     <div
@@ -130,6 +136,16 @@ export function FilesBrowser({
           <span className="truncate font-mono text-[11px] text-foreground">
             {selectedPath ?? "Select a file"}
           </span>
+          {canRunInEditor && (
+            <button
+              type="button"
+              onClick={() => onRunInEditor?.(content ?? "")}
+              title="Run this file's SQL in the SQL Editor"
+              className="ml-auto flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <Play className="h-2.5 w-2.5" /> Run in editor
+            </button>
+          )}
         </div>
 
         {isContentLoading ? (

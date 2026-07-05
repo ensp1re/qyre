@@ -211,14 +211,34 @@ export class MysqlAdapter implements DatabaseAdapter {
       (pkResult as Array<{ column_name: string }>).map((row) => row.column_name)
     );
 
+    // F061: information_schema.key_column_usage already carries the referenced schema/table/column
+    // for a foreign key directly (unlike Postgres, no separate constraint_column_usage join needed).
     const [fkResult] = await pool.query<mysql.RowDataPacket[]>(
-      `SELECT column_name AS column_name
+      `SELECT
+          column_name AS column_name,
+          referenced_table_schema AS referenced_table_schema,
+          referenced_table_name AS referenced_table_name,
+          referenced_column_name AS referenced_column_name
          FROM information_schema.key_column_usage
         WHERE table_schema = ? AND table_name = ? AND referenced_table_name IS NOT NULL`,
       [schema, table]
     );
-    const foreignKeys = new Set(
-      (fkResult as Array<{ column_name: string }>).map((row) => row.column_name)
+    const foreignKeyReferences = new Map(
+      (
+        fkResult as Array<{
+          column_name: string;
+          referenced_table_schema: string;
+          referenced_table_name: string;
+          referenced_column_name: string;
+        }>
+      ).map((row) => [
+        row.column_name,
+        {
+          schema: row.referenced_table_schema,
+          table: row.referenced_table_name,
+          column: row.referenced_column_name
+        }
+      ])
     );
 
     const columns: ColumnMetadata[] = (
@@ -228,7 +248,8 @@ export class MysqlAdapter implements DatabaseAdapter {
       dataType: row.data_type,
       nullable: row.is_nullable === "YES",
       isPrimaryKey: primaryKeys.has(row.column_name),
-      isForeignKey: foreignKeys.has(row.column_name)
+      isForeignKey: foreignKeyReferences.has(row.column_name),
+      references: foreignKeyReferences.get(row.column_name)
     }));
 
     const [indexes, [countResult]] = await Promise.all([

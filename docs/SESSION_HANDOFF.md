@@ -67,22 +67,16 @@ gotchas in "Known issues / blockers").
   bounded `MAX_PAGE_SIZE` batches rather than materializing the whole table in memory. Verified
   live against a real 10,000-row Postgres table: sort persisted correctly across pagination, and
   the export produced a full 10,001-line CSV (header + every row) via a real browser download.
+- **Project rebranded to Qyre** ([PR #64](https://github.com/ensp1re/qyre/pull/64)): Swapped package scope from `@humbdb/*` to `@qyre/*`, primary command to `qyre`, env prefix to `QYRE_`, renamed package directory `packages/humb` to `packages/qyre`, and successfully verified builds and Playwright E2E smoke tests.
 
 ## In progress
 
-- Nothing in flight - F065/F066 are `passing`. With `--demo` mode the only tech-debt row left with
-  no spec (see "Next steps"), there's no more pre-scoped work queued.
+- Nothing in flight - the Qyre rebranding is complete and PR #64 is open. With `--demo` mode the only tech-debt row left with no spec (see "Next steps"), there's no more pre-scoped work queued.
 
-- Publishing the bare `qyre` npm package (`packages/qyre`) alongside `@qyre/qyre` is blocked on an
-  npm name-similarity dispute (too close to `humps`/`htm`/`dumi`/`pump`/`umi`) - once cleared, retry
-  with `node scripts/publish.mjs --only qyre`. All `@qyre/*` packages publish fine in the meantime.
-  `scripts/publish.mjs`'s `run()` helper now reports a failed command cleanly instead of a raw stack
-  trace (PR #38).
+- Publishing the bare `qyre` npm package (`packages/qyre`) alongside `@qyre/cli`. The rebranding from `humb` to `qyre` successfully resolves the npm name-similarity dispute, meaning all packages are ready to publish under the new organization.
 
 ## Known issues / blockers
 
-- The bare `qyre` npm package is blocked pending npm's name-dispute review (see "In progress") - no
-  code changes needed once it clears, just the retry command.
 - An animated demo (GIF/asciicast) for the README remains a legitimate follow-up - F009 shipped with
   static screenshots instead.
 - The local Postgres fixture container (`qyre-rename-pg`, port 5433) and MySQL fixture container

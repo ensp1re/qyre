@@ -50,11 +50,13 @@ export function App(): ReactNode {
   const queryHistory = useQueryHistory();
 
   const overview = useOverview({ enabled: status === "connected" });
-  // MongoDB has no query runner in this pass - no SQL dialect for a read-only backstop to run
-  // inside (see docs/product-specs/connect-and-inspect-mongodb.md's "Why this engine is scoped
-  // differently"). The tab is disabled rather than left clickable and silently failing every
-  // query.
-  const isMongo = overview.data?.engine === "mongodb";
+  // F063: some engines (MongoDB today) have no read-only SQL query runner - no SQL dialect for a
+  // read-only backstop to run inside (see docs/product-specs/connect-and-inspect-mongodb.md's "Why
+  // this engine is scoped differently"). Read from the adapter's declared capabilities instead of
+  // an `engine === "mongodb"` string check, so a future non-SQL engine doesn't need its own
+  // conditional here (docs/product-specs/adapter-capabilities.md). The tab is disabled rather than
+  // left clickable and silently failing every query.
+  const supportsSql = overview.data?.capabilities.supportsSql ?? true;
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page);
   const allTables = useAllTables({ enabled: status === "connected" });
@@ -127,7 +129,7 @@ export function App(): ReactNode {
             active={tab}
             onChange={setTab}
             disabledTabs={
-              isMongo
+              !supportsSql
                 ? {
                     "sql-editor":
                       "Not available for MongoDB connections - browse collections directly."
@@ -153,7 +155,7 @@ export function App(): ReactNode {
                 </p>
               ) : tab === "sql-editor" ? (
                 <SqlEditorTab
-                  isMongo={isMongo}
+                  sqlDisabled={!supportsSql}
                   sql={querySql}
                   onSqlChange={setQuerySql}
                   onRun={runSql}
@@ -181,12 +183,12 @@ export function App(): ReactNode {
                   selectedFilePath={selectedFilePath}
                   onSelectFile={setSelectedFilePath}
                   onRunInEditor={
-                    isMongo
-                      ? undefined
-                      : (sql) => {
+                    supportsSql
+                      ? (sql) => {
                           setQuerySql(sql);
                           setTab("sql-editor");
                         }
+                      : undefined
                   }
                 />
               ) : tab === "console" ? (

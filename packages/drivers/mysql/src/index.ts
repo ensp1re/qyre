@@ -187,7 +187,7 @@ export class MysqlAdapter implements DatabaseAdapter {
       tables
     }));
 
-    return { engine: "mysql", schemas };
+    return { engine: "mysql", schemas, capabilities: { supportsSql: true } };
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {

@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import type { useRunQuery } from "../hooks/use-run-query.js";
 
 export interface SqlEditorTabProps {
-  isMongo: boolean;
+  /** True when the connected adapter's capabilities.supportsSql is false (F063) - e.g. MongoDB,
+   * which has no read-only SQL query runner. */
+  sqlDisabled: boolean;
   sql: string;
   onSqlChange: (sql: string) => void;
   onRun: () => void;
@@ -12,9 +14,9 @@ export interface SqlEditorTabProps {
   tableNames: string[];
 }
 
-/** SQL Editor tab content - not available for MongoDB connections (no SQL dialect). */
+/** SQL Editor tab content - not available for engines with no SQL dialect (MongoDB today). */
 export function SqlEditorTab({
-  isMongo,
+  sqlDisabled,
   sql,
   onSqlChange,
   onRun,
@@ -22,7 +24,7 @@ export function SqlEditorTab({
   onOpenHistory,
   tableNames
 }: SqlEditorTabProps): ReactNode {
-  if (isMongo) {
+  if (sqlDisabled) {
     return (
       <p className="text-[13px] text-muted-foreground">
         The SQL Editor is not available for MongoDB connections - browse collections directly from

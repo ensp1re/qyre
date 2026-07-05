@@ -178,7 +178,11 @@ export class MongodbAdapter implements DatabaseAdapter {
       });
     }
 
-    return { engine: "mongodb", schemas };
+    // F063: MongoDB has no read-only SQL query runner (runReadOnlyQuery isn't implemented on this
+    // adapter at all - see docs/product-specs/connect-and-inspect-mongodb.md) - apps/web uses this
+    // flag instead of an engine === "mongodb" string check to disable the SQL Editor tab and the
+    // Files tab's "Run in editor" action.
+    return { engine: "mongodb", schemas, capabilities: { supportsSql: false } };
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {

@@ -737,9 +737,9 @@
       "id": "F065",
       "behavior": "Clicking a RowsTable column header sorts the entire table (via a new sortColumn/sortDirection param on GET /api/tables/:schema/:table/rows and each engine's getRows), not just the currently loaded page, with the sort column validated server-side against the table's real columns.",
       "verification": "pnpm test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "a1fd8f9",
+      "evidence": "commit a1fd8f9: GET /api/tables/:schema/:table/rows gains sortColumn/sortDirection query params, validated against the table's real columns (via getTable) before use - the actual injection surface this feature introduces, since a column name can't be numeric-coerced by Zod or parameter-bound the way page/pageSize already are. Each adapter's getRows gains a matching optional sort param: Postgres/MySQL/SQLite append ORDER BY <quoted-column>, MongoDB uses .sort({ [column]: ... }) instead of its existing _id-only sort. RowsTable is now a controlled component for sort (sortColumn/sortDirection/onSortChange props) instead of sorting rows itself; apps/web's App.tsx owns the sort state alongside page, resetting both on a table switch or DB reconnect. Verified live via Preview against a real docker-compose Postgres container with a real 10,000-row table: clicking the id column header sorted the entire table (rows 1,2,3,4,5... visible on page 1, not just the loaded page re-sorted), the order persisted correctly across the page=25 probe used for pagination, and an invalid sortColumn returned 400 with a clear message. 67/67 server tests pass (9 new F065/F066 cases), 24/24 adapter-conformance tests pass (including a new cross-engine sort case run against all 4 engines), 43/43 @humbdb/ui tests pass. pnpm check and pnpm test:e2e/test:e2e:full both pass against a real docker-compose Postgres+MySQL+Mongo stack.",
       "blockedReason": null,
       "spec": "docs/product-specs/server-side-sort-export.md"
     },
@@ -747,9 +747,9 @@
       "id": "F066",
       "behavior": "\"Export all rows as CSV\" streams every row of a table (honoring the active sort) from a new GET /api/tables/:schema/:table/export.csv endpoint, replacing today's page-only CSV export, without holding the whole table in server memory at once.",
       "verification": "pnpm test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "a1fd8f9",
+      "evidence": "commit a1fd8f9: a new GET /api/tables/:schema/:table/export.csv streams every row (honoring the current sort) in bounded MAX_PAGE_SIZE batches rather than materializing the whole table in memory - mirrors capResultRows's philosophy (F050) for a path that must NOT be capped, since exporting the whole table is the point. A small server-local csvLine() helper (packages/server/src/csv.ts) applies the same formula-injection escaping as the existing page-only export (F035) - kept independent from packages/ui's toCsv rather than shared through @humbdb/core, since packages/server can't depend on packages/ui and this is a small enough function that duplicating it is simpler than a new shared package. RowsTable's \"Export this page as CSV\" button becomes \"Export all rows as CSV\", triggering a real browser download (not a fetch+Blob) so the download streams to disk instead of buffering the whole table in JS memory; the selected-rows \"Copy as CSV\" action is unchanged. Verified live via Preview against the same real 10,000-row Postgres table: the export endpoint returned a 10,001-line CSV (header + all 10,000 rows, not just the loaded page), correctly ordered by the active sort and CSV-escaped (a JSON metadata column with embedded quotes/commas escaped correctly); clicking the actual \"Export all rows as CSV\" button in the browser triggered a real native download via the browser's download manager, with the active sort's query params included. 67/67 server tests pass including the new streaming-loop and formula-injection-escaping cases.",
       "blockedReason": null,
       "spec": "docs/product-specs/server-side-sort-export.md"
     }

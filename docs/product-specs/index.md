@@ -56,7 +56,7 @@ single engine's behavior, not the whole product.
   restarting the CLI. Tracked as F064, `passing`.
 - [`server-side-sort-export.md`](server-side-sort-export.md) - `RowsTable`'s column sort and CSV
   export currently only cover the loaded page; this moves sort server-side and adds a whole-table
-  streamed CSV export. Tracked as F065 (sort) and F066 (export), neither yet implemented.
+  streamed CSV export. Tracked as F065 (sort) and F066 (export), both `passing`.
 
 ## Rules
 

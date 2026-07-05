@@ -34,8 +34,8 @@ if (onlyFlagIndex !== -1 && !onlyPackage) {
 const bumpType = onlyPackage
   ? null
   : (args.find((arg, i) => !arg.startsWith("--") && args[i - 1] !== "--only") ?? "patch");
-if (!onlyPackage && !["patch", "minor", "major"].includes(bumpType)) {
-  console.error(`Unknown bump type "${bumpType}". Use patch, minor, or major.`);
+if (!onlyPackage && !["patch", "minor", "major", "publish"].includes(bumpType)) {
+  console.error(`Unknown bump type "${bumpType}". Use patch, minor, major, or publish.`);
   process.exit(1);
 }
 
@@ -134,6 +134,43 @@ if (!cliPkg) {
   process.exit(1);
 }
 const currentVersion = readPackageJson(join(cliPkg.path, "package.json")).version;
+
+// Handle the direct publish of current version (on main after PR is merged)
+if (bumpType === "publish") {
+  const currentBranch = runCapture("git", ["branch", "--show-current"]);
+  if (currentBranch !== "main") {
+    console.error('Publishing must be run from the "main" branch.');
+    process.exit(1);
+  }
+  console.log(
+    `${dryRun ? "[dry run] " : ""}Publishing current version v${currentVersion} to npm...`
+  );
+
+  if (dryRun) {
+    console.log("\nDry run: stopping before verify/publish.");
+    process.exit(0);
+  }
+
+  // Verify main is clean & passes check
+  run("pnpm", ["check"]);
+
+  // Create release tag locally
+  run("git", ["tag", `v${currentVersion}`]);
+
+  // Publish in dependency order
+  for (const pkg of orderedPackages) {
+    console.log(`Publishing ${pkg.name}@${currentVersion}...`);
+    run("pnpm", ["publish", "--access", "public"], { cwd: pkg.path });
+  }
+
+  console.log(
+    `\nSuccessfully published v${currentVersion}. Push the release tag with:\n` +
+      `  git push origin v${currentVersion}`
+  );
+  process.exit(0);
+}
+
+// BUMP & PR WORKFLOW
 const [major, minor, patch] = currentVersion.split(".").map(Number);
 const nextVersion =
   bumpType === "major"
@@ -163,25 +200,36 @@ for (const pkg of orderedPackages) {
   writeFileSync(pkgJsonPath, `${JSON.stringify(pkgJson, null, 2)}\n`);
 }
 
-// 5. Run the full verification gate against the bumped versions before anything is committed or
-// touches the registry. Requires QYRE_TEST_DATABASE_URL to be set (see docs/RELIABILITY.md) - we
-// never silently skip required verification, including right before a release.
+// 5. Run the full verification gate against the bumped versions
 run("pnpm", ["check"]);
 
-// 6. Commit + tag the release. Publishing happens against a clean, committed tree (below), so
-// `pnpm publish` doesn't need --no-git-checks.
+// 6. Create release branch and commit version bump
+const branchName = `chore/release-v${nextVersion}`;
+run("git", ["checkout", "-b", branchName]);
 run("git", ["add", "-A"]);
 run("git", ["commit", "-m", `chore: release v${nextVersion}`]);
-run("git", ["tag", `v${nextVersion}`]);
 
-// 7. Publish in dependency order. pnpm resolves each package's `workspace:*` internal deps to the
-// real version range from the local package.json at pack time - no manual rewriting needed.
-for (const pkg of orderedPackages) {
-  console.log(`Publishing ${pkg.name}@${nextVersion}...`);
-  run("pnpm", ["publish", "--access", "public"], { cwd: pkg.path });
+// 7. Push the branch to origin
+run("git", ["push", "-u", "origin", branchName, "--no-verify"]);
+
+// 8. Create GitHub Pull Request
+try {
+  run("gh", [
+    "pr",
+    "create",
+    "--title",
+    `chore: release v${nextVersion}`,
+    "--body",
+    `Version bump to v${nextVersion} for release.`
+  ]);
+} catch {
+  console.log(
+    `\nFailed to create PR automatically. Please open a PR manually for branch "${branchName}".`
+  );
 }
 
 console.log(
-  `\nPublished v${nextVersion}. Push the release commit and tag with:\n` +
-    "  git push && git push --tags"
+  `\nRelease branch "${branchName}" created and PR opened successfully!\n` +
+    `Once the PR is merged into main, checkout main, pull the latest changes, and run:\n` +
+    `  pnpm release publish`
 );

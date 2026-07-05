@@ -1,8 +1,8 @@
 /**
  * CSV line formatting for `GET /api/tables/:schema/:table/export.csv` (F066). Deliberately
  * independent from `packages/ui`'s `toCsv`/`formatCell` (used by RowsTable's "Copy as CSV") rather
- * than shared via `@humbdb/core` - this package can't depend on `packages/ui` (see
- * ARCHITECTURE.md's layer model), and a real (non-type) shared export from `@humbdb/core`'s barrel
+ * than shared via `@qyre/core` - this package can't depend on `packages/ui` (see
+ * ARCHITECTURE.md's layer model), and a real (non-type) shared export from `@qyre/core`'s barrel
  * has previously broken `apps/web`'s Vite build by dragging in Node-only modules (F047's history).
  * This is a small enough function that duplicating it here is simpler than a new shared package.
  */

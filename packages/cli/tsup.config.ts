@@ -1,7 +1,7 @@
 import { cpSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { libConfig } from "@humbdb/config/tsup";
+import { libConfig } from "@qyre/config/tsup";
 import { defineConfig } from "tsup";
 
 const here = dirname(fileURLToPath(import.meta.url));

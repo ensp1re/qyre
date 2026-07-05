@@ -7,7 +7,7 @@ import {
   setupFixture,
   setupMysqlFixture,
   setupSqliteFixture
-} from "@humbdb/testing";
+} from "@qyre/testing";
 import { expect, test } from "@playwright/test";
 
 /**
@@ -17,8 +17,8 @@ import { expect, test } from "@playwright/test";
  * docs/product-specs/connect-and-inspect-sqlite.md's "same spec, parameterized by engine/fixture"
  * requirement (F011).
  *
- * The "postgres" project requires HUMB_TEST_DATABASE_URL and the "mysql" project requires
- * HUMB_TEST_MYSQL_URL; if either is missing, this test FAILS with an actionable message - we never
+ * The "postgres" project requires QYRE_TEST_DATABASE_URL and the "mysql" project requires
+ * QYRE_TEST_MYSQL_URL; if either is missing, this test FAILS with an actionable message - we never
  * silently skip required verification (see docs/RELIABILITY.md). The "sqlite" project is
  * self-contained (no setup required).
  *
@@ -35,7 +35,7 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
   }
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Humb" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Qyre" })).toBeVisible();
 
   // F002: the UI reports the database is connected.
   await expect(page.getByTestId("status-badge")).toHaveAttribute("data-status", "connected");

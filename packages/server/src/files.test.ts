@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { buildFileTree, InvalidFilePathError, resolveSqlFilePath } from "./files.js";
 
 function makeRoot(): string {
-  return mkdtempSync(join(tmpdir(), "humb-files-"));
+  return mkdtempSync(join(tmpdir(), "qyre-files-"));
 }
 
 describe("buildFileTree", () => {

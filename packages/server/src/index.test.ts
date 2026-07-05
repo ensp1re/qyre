@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
-import { ReadOnlyViolationError } from "@humbdb/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
+import { ReadOnlyViolationError } from "@qyre/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer, EventLog } from "./index.js";
 
@@ -341,8 +341,8 @@ describe("createServer", () => {
 
   describe("with a webRoot", () => {
     function makeWebRoot(): string {
-      const dir = mkdtempSync(join(tmpdir(), "humb-web-"));
-      writeFileSync(join(dir, "index.html"), "<html><body>Humb</body></html>");
+      const dir = mkdtempSync(join(tmpdir(), "qyre-web-"));
+      writeFileSync(join(dir, "index.html"), "<html><body>Qyre</body></html>");
       return dir;
     }
 
@@ -350,7 +350,7 @@ describe("createServer", () => {
       const app = createServer({ webRoot: makeWebRoot() });
       const response = await app.inject({ method: "GET", url: "/" });
       expect(response.statusCode).toBe(200);
-      expect(response.body).toContain("Humb");
+      expect(response.body).toContain("Qyre");
       await app.close();
     });
 
@@ -358,7 +358,7 @@ describe("createServer", () => {
       const app = createServer({ webRoot: makeWebRoot() });
       const response = await app.inject({ method: "GET", url: "/some/client/route" });
       expect(response.statusCode).toBe(200);
-      expect(response.body).toContain("Humb");
+      expect(response.body).toContain("Qyre");
       await app.close();
     });
 
@@ -416,7 +416,7 @@ describe("createServer", () => {
     });
 
     function makeFilesRoot(): string {
-      const dir = mkdtempSync(join(tmpdir(), "humb-files-root-"));
+      const dir = mkdtempSync(join(tmpdir(), "qyre-files-root-"));
       mkdirSync(join(dir, "migrations"));
       writeFileSync(join(dir, "migrations", "001_init.sql"), "CREATE TABLE t (id int);");
       writeFileSync(join(dir, "notes.txt"), "not sql");

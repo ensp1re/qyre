@@ -7,7 +7,7 @@ export class UnsupportedEngineError extends Error {
 }
 
 /**
- * Thrown when a query passed to `DatabaseAdapter.runReadOnlyQuery` violates Humb's read-only
+ * Thrown when a query passed to `DatabaseAdapter.runReadOnlyQuery` violates Qyre's read-only
  * policy. Engine-agnostic so `packages/server` can catch it (and return 400) without depending on
  * any concrete engine package - every engine's query runner throws this same class.
  */

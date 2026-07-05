@@ -1,4 +1,4 @@
-import { ErrorState, FilesBrowser, Spinner } from "@humbdb/ui";
+import { ErrorState, FilesBrowser, Spinner } from "@qyre/ui";
 import type { ReactNode } from "react";
 import type { useFileContent, useFilesOverview } from "../hooks/use-files.js";
 
@@ -44,7 +44,7 @@ export function FilesTab({
   if (!filesOverview.data?.enabled) {
     return (
       <p className="text-[13px] text-muted-foreground">
-        File browsing is disabled. Launch Humb with{" "}
+        File browsing is disabled. Launch Qyre with{" "}
         <code className="font-mono">--files-dir &lt;dir&gt;</code> to browse and preview{" "}
         <code className="font-mono">.sql</code> files.
       </p>

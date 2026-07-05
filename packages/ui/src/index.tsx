@@ -1,5 +1,5 @@
 /**
- * Reusable, presentation-only UI components for Humb.
+ * Reusable, presentation-only UI components for Qyre.
  *
  * This package must not fetch data or import server/adapter packages. One component per file under
  * `components/`, shadcn-style. See FRONTEND.md and docs/CODE_ORGANIZATION.md.

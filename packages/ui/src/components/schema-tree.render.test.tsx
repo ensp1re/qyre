@@ -1,4 +1,4 @@
-import type { SchemaMetadata } from "@humbdb/core";
+import type { SchemaMetadata } from "@qyre/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SchemaTree } from "./schema-tree.js";

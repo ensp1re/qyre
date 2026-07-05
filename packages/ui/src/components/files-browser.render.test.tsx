@@ -1,4 +1,4 @@
-import type { FileNode } from "@humbdb/core";
+import type { FileNode } from "@qyre/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { FilesBrowser } from "./files-browser.js";

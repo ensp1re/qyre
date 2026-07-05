@@ -8,7 +8,7 @@ import { expect, test } from "@playwright/test";
 test("@smoke the app boots and shows the connection screen", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Humb" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Qyre" })).toBeVisible();
   await expect(page.getByTestId("status-badge")).toBeVisible();
   await expect(page.getByTestId("connection-summary")).toBeVisible();
 

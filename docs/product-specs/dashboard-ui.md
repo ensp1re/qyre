@@ -2,14 +2,14 @@
 
 Unlike `connect-and-inspect-postgres.md`/`connect-and-inspect-sqlite.md`, which describe per-engine
 backend/data contracts, this spec describes the **UI shape** that sits on top of them - engine
-agnostic, applies identically to every `packages/drivers/<engine>` Humb supports. Source design:
+agnostic, applies identically to every `packages/drivers/<engine>` Qyre supports. Source design:
 `docs/references/design-system.md` (tokens) and `github.com/ensp1re/UserDashboard` (private,
 Figma Make export). Tracked as the `DF-##` series in `docs/FEATURES.json` - see
 `docs/exec-plans/active/0003-dashboard-ui.md` for the work breakdown.
 
 ## One-sentence promise
 
-Humb's browser UI looks and feels like a fast, dense, developer-first IDE for the connected
+Qyre's browser UI looks and feels like a fast, dense, developer-first IDE for the connected
 database - not a generic admin-panel dashboard - regardless of which engine is behind it.
 
 ## Shape
@@ -25,7 +25,7 @@ A single-page app shell:
   the unfiltered tree (the 2-character minimum wasn't otherwise discoverable, F037). The
   schema/table overview backing it polls every 30s while connected (F033), in addition to the
   manual Refresh button and React Query's default refetch-on-focus, so a table added/dropped
-  outside Humb doesn't stay invisible indefinitely. Keyboard-operable (F031): each row is a real
+  outside Qyre doesn't stay invisible indefinitely. Keyboard-operable (F031): each row is a real
   `role="treeitem"` (nested under `role="tree"`/`role="group"`), focusable, with `Enter`/`Space` to
   select/activate and `ArrowRight`/`ArrowLeft` to expand/collapse a schema. The connection row's
   status is conveyed by a distinct icon shape (check/alert/plain circle) plus an `aria-label`, not
@@ -68,7 +68,7 @@ into a UI-only change:
   (Postgres) / `sqlite_version()` (SQLite) pragma, engine-agnostic on the `DatabaseAdapter`
   contract like everything else.
 - **Foreign-key metadata**: the Schema tab's FK badges need to know which columns reference another
-  table. `ColumnMetadata`/`IndexMetadata` in `@humbdb/core` have no FK concept yet - Postgres has this
+  table. `ColumnMetadata`/`IndexMetadata` in `@qyre/core` have no FK concept yet - Postgres has this
   in `information_schema.key_column_usage`/`table_constraints`; SQLite has it via
   `PRAGMA foreign_key_list`. Add as a genuinely engine-agnostic contract field, implemented per
   engine, same pattern as `IndexMetadata` (F003).
@@ -111,7 +111,7 @@ is fixed at CLI startup, not per-request:
   chain) and re-asserts the result still starts with the root's own `realpathSync`'d form before
   the caller ever reads it. A path that doesn't exist yet is left as-is - nothing to resolve, and
   the caller's existing 404 handling covers it.
-- **Why this shape**: Humb's server has no auth and binds to localhost only (`docs/SECURITY.md`'s
+- **Why this shape**: Qyre's server has no auth and binds to localhost only (`docs/SECURITY.md`'s
   local-first boundary), so the real threat isn't another user on the machine - it's a malicious or
   compromised web page in the same browser making an unauthenticated request to
   `http://127.0.0.1:<port>/api/files/content?path=../../../../etc/passwd`. The fixed root + allowlist
@@ -120,11 +120,11 @@ is fixed at CLI startup, not per-request:
 ## Out of scope
 
 - Anything write/mutation-shaped: the source mock's "Add row" button, bulk row-selection-as-edit,
-  inline cell editing. Humb is read-only (`docs/PRODUCT_SENSE.md`). Port the surrounding visual
+  inline cell editing. Qyre is read-only (`docs/PRODUCT_SENSE.md`). Port the surrounding visual
   pattern where harmless (e.g. row checkboxes purely for "copy selected as CSV" is fine; wiring them
   to a real mutation is not).
 - Settings panel content (the gear icon is chrome-only until there's something real to configure).
-- Multi-connection / connection switching UI (Humb is one connection at a time - `docs/SECURITY.md`).
+- Multi-connection / connection switching UI (Qyre is one connection at a time - `docs/SECURITY.md`).
 
 ## Acceptance criteria
 

@@ -1,4 +1,4 @@
-import type { FileContent, FilesOverview } from "@humbdb/core";
+import type { FileContent, FilesOverview } from "@qyre/core";
 import { fetchJson } from "./fetch-json.js";
 
 /** Fetch the Files tab's tree of `.sql` files (empty/disabled if no --files-dir was configured). */

@@ -1,5 +1,5 @@
 /**
- * Shared Vitest config for Humb packages.
+ * Shared Vitest config for Qyre packages.
  * @param {import("vitest/config").UserConfig} [overrides]
  * @returns {import("vitest/config").UserConfig}
  */

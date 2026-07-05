@@ -1,6 +1,6 @@
 /**
  * Shared parametrized adapter-conformance suite (F054): the same pagination-clamping and
- * empty-collection assertions run against every engine that has its `HUMB_TEST_*` env var set, so
+ * empty-collection assertions run against every engine that has its `QYRE_TEST_*` env var set, so
  * a future engine can't silently diverge in behavior from the others - the class of bug F019
  * already fixed once for column-type fidelity, but for pagination/empty-handling specifically.
  *
@@ -8,7 +8,7 @@
  * DDL/API differs - but the *assertions* are written once and shared. Read-only rejection and
  * bigint/date fidelity are deliberately not duplicated here: every SQL adapter's `runReadOnlyQuery`
  * already shares the exact same `assertReadOnly` call (conformant by construction, see
- * `@humbdb/driver-contract`), and each engine's own integration test file already covers bigint/date
+ * `@qyre/driver-contract`), and each engine's own integration test file already covers bigint/date
  * fidelity against fixtures too engine-specific to usefully generalize (F019's
  * `column-type-fidelity.md`).
  *
@@ -20,17 +20,17 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DatabaseEngine } from "@humbdb/core";
-import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
-import { mongodbAdapterFactory } from "@humbdb/mongodb";
-import { mysqlAdapterFactory } from "@humbdb/mysql";
-import { postgresAdapterFactory } from "@humbdb/postgres";
-import { sqliteAdapterFactory } from "@humbdb/sqlite";
+import type { DatabaseEngine } from "@qyre/core";
+import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
+import { mongodbAdapterFactory } from "@qyre/mongodb";
+import { mysqlAdapterFactory } from "@qyre/mysql";
+import { postgresAdapterFactory } from "@qyre/postgres";
+import { sqliteAdapterFactory } from "@qyre/sqlite";
 import Database from "better-sqlite3";
 import { MongoClient } from "mongodb";
 import mysql from "mysql2/promise";
 import { Pool } from "pg";
-import { TEST_DB_ENV, TEST_MONGO_ENV, TEST_MYSQL_ENV } from "@humbdb/testing";
+import { TEST_DB_ENV, TEST_MONGO_ENV, TEST_MYSQL_ENV } from "@qyre/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 interface ConformanceFixture {
@@ -55,8 +55,8 @@ interface EngineCase {
 }
 
 const suffix = randomUUID().replace(/-/g, "").slice(0, 8);
-const populatedTable = `humb_conformance_${suffix}`;
-const emptyTable = `humb_conformance_empty_${suffix}`;
+const populatedTable = `qyre_conformance_${suffix}`;
+const emptyTable = `qyre_conformance_empty_${suffix}`;
 
 const cases: EngineCase[] = [
   {
@@ -114,7 +114,7 @@ const cases: EngineCase[] = [
     factory: sqliteAdapterFactory,
     engine: "sqlite",
     setup: async () => {
-      const dir = mkdtempSync(join(tmpdir(), "humb-conformance-"));
+      const dir = mkdtempSync(join(tmpdir(), "qyre-conformance-"));
       const dbPath = join(dir, "fixture.db");
       const db = new Database(dbPath);
       db.exec(`CREATE TABLE ${populatedTable} (id INTEGER PRIMARY KEY, n INTEGER)`);
@@ -136,7 +136,7 @@ const cases: EngineCase[] = [
     setup: async () => {
       const raw = process.env[TEST_MONGO_ENV]?.trim();
       if (!raw) return undefined;
-      const databaseName = new URL(raw).pathname.slice(1) || "humb_test";
+      const databaseName = new URL(raw).pathname.slice(1) || "qyre_test";
       const client = new MongoClient(raw);
       await client.connect();
       const db = client.db(databaseName);

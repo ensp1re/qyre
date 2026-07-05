@@ -3,7 +3,7 @@
  * Validate that the three separately hand-maintained "which engines exist" lists stay in lockstep
  * (F053): `connection-target.ts`'s protocol detection, the CLI's adapter/factory registry, and
  * `scripts/publish.mjs`'s `PUBLISH_ORDER`. Adding a new engine driver but forgetting to wire it
- * into one of these has already happened once - `@humbdb/mysql`/`@humbdb/mongodb` were missing
+ * into one of these has already happened once - `@qyre/mysql`/`@qyre/mongodb` were missing
  * from `PUBLISH_ORDER` until this check was added - so this fails loudly instead of relying on
  * someone noticing during a release.
  */
@@ -48,7 +48,7 @@ for (const engine of engines) {
       `packages/cli/src/index.ts doesn't reference ${factoryName} (the adapter/factory registry).`
     );
   }
-  const packageName = `@humbdb/${engine}`;
+  const packageName = `@qyre/${engine}`;
   if (!publish.includes(`"${packageName}"`)) {
     errors.push(`scripts/publish.mjs's PUBLISH_ORDER doesn't include "${packageName}".`);
   }

@@ -1,11 +1,11 @@
 /**
  * Integration tests for {@link MysqlAdapter} against a real MySQL database.
  *
- * Requires HUMB_TEST_MYSQL_URL (see docs/RELIABILITY.md). We never silently skip required
+ * Requires QYRE_TEST_MYSQL_URL (see docs/RELIABILITY.md). We never silently skip required
  * verification: a missing env var fails these tests with an actionable message instead of passing
  * trivially.
  */
-import { FIXTURE, requireTestMysqlUrl, setupMysqlFixture } from "@humbdb/testing";
+import { FIXTURE, requireTestMysqlUrl, setupMysqlFixture } from "@qyre/testing";
 import mysql from "mysql2/promise";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MysqlAdapter } from "./index.js";
@@ -62,15 +62,15 @@ describe("MysqlAdapter integration", () => {
   it("flags a column referencing another table as a foreign key", async () => {
     const pool = mysql.createPool(databaseUrl);
     try {
-      await pool.query("DROP TABLE IF EXISTS humb_test_orders");
-      await pool.query(`CREATE TABLE humb_test_orders (
+      await pool.query("DROP TABLE IF EXISTS qyre_test_orders");
+      await pool.query(`CREATE TABLE qyre_test_orders (
          id INT AUTO_INCREMENT PRIMARY KEY,
          user_id INT NOT NULL,
          total DECIMAL(10,2) NOT NULL,
          FOREIGN KEY (user_id) REFERENCES ${FIXTURE.table}(id)
        )`);
 
-      const table = await adapter.getTable(databaseName, "humb_test_orders");
+      const table = await adapter.getTable(databaseName, "qyre_test_orders");
       const userIdColumn = table.columns.find((column) => column.name === "user_id");
       expect(userIdColumn?.isForeignKey).toBe(true);
       // F061: also resolves what the FK actually references, not just that it is one.
@@ -81,7 +81,7 @@ describe("MysqlAdapter integration", () => {
       });
       expect(table.columns.find((column) => column.name === "total")?.isForeignKey).toBe(false);
     } finally {
-      await pool.query("DROP TABLE IF EXISTS humb_test_orders");
+      await pool.query("DROP TABLE IF EXISTS qyre_test_orders");
       await pool.end();
     }
   });
@@ -140,9 +140,9 @@ describe("MysqlAdapter integration", () => {
   });
 
   it("aborts a runaway query once it exceeds the configured statement timeout (F032)", async () => {
-    // A dedicated adapter/pool with a tiny timeout (via HUMB_STATEMENT_TIMEOUT_MS, read at
+    // A dedicated adapter/pool with a tiny timeout (via QYRE_STATEMENT_TIMEOUT_MS, read at
     // connect() time) proves the mechanism fires without waiting out the real 30s default.
-    process.env.HUMB_STATEMENT_TIMEOUT_MS = "200";
+    process.env.QYRE_STATEMENT_TIMEOUT_MS = "200";
     const shortTimeoutAdapter = new MysqlAdapter({ engine: "mysql", raw: databaseUrl });
     try {
       await shortTimeoutAdapter.connect();
@@ -150,7 +150,7 @@ describe("MysqlAdapter integration", () => {
         /timeout/i
       );
     } finally {
-      delete process.env.HUMB_STATEMENT_TIMEOUT_MS;
+      delete process.env.QYRE_STATEMENT_TIMEOUT_MS;
       await shortTimeoutAdapter.disconnect();
     }
   });

@@ -1,8 +1,8 @@
 {
-  "name": "@humbdb/mongodb",
+  "name": "@qyre/mongodb",
   "version": "0.1.0",
   "type": "module",
-  "description": "MongoDB adapter for Humb (basic read-only browsing).",
+  "description": "MongoDB adapter for Qyre (basic read-only browsing).",
   "license": "MIT",
   "exports": {
     ".": {
@@ -23,12 +23,12 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humbdb/core": "workspace:*",
-    "@humbdb/driver-contract": "workspace:*",
+    "@qyre/core": "workspace:*",
+    "@qyre/driver-contract": "workspace:*",
     "mongodb": "^7.4.0"
   },
   "devDependencies": {
-    "@humbdb/config": "workspace:*",
-    "@humbdb/testing": "workspace:*"
+    "@qyre/config": "workspace:*",
+    "@qyre/testing": "workspace:*"
   }
 }

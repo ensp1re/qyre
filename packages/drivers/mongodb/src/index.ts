@@ -1,5 +1,5 @@
 /**
- * MongoDB driver for Humb, scoped to basic read-only browsing (no query runner) - see
+ * MongoDB driver for Qyre, scoped to basic read-only browsing (no query runner) - see
  * ARCHITECTURE.md and docs/product-specs/connect-and-inspect-mongodb.md for why this engine's
  * contract is narrower than the SQL engines'.
  */
@@ -11,9 +11,9 @@ import type {
   RowSort,
   SchemaMetadata,
   TableMetadata
-} from "@humbdb/core";
-import { resolvePageRequest } from "@humbdb/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
+} from "@qyre/core";
+import { resolvePageRequest } from "@qyre/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import {
   Binary,
   BSONRegExp,
@@ -40,11 +40,11 @@ const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
  * completion with no cap, tying up the connection and leaving the browser spinner spinning
  * indefinitely. Applied via `maxTimeMS` on the row-fetch and field-sampling paths - the server
  * itself enforces the cutoff, unlike mysql2's client-side timeout. Configurable via
- * `HUMB_STATEMENT_TIMEOUT_MS` (shared env var name across engines, read at `connect()` time
+ * `QYRE_STATEMENT_TIMEOUT_MS` (shared env var name across engines, read at `connect()` time
  * rather than module load so tests can override it per case).
  */
 function resolveStatementTimeoutMs(): number {
-  const raw = Number(process.env.HUMB_STATEMENT_TIMEOUT_MS);
+  const raw = Number(process.env.QYRE_STATEMENT_TIMEOUT_MS);
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STATEMENT_TIMEOUT_MS;
 }
 

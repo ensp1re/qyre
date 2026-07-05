@@ -1,9 +1,9 @@
 ---
-name: humb-design-system
+name: qyre-design-system
 description: Use whenever writing or changing UI code in apps/web or packages/ui - choosing colors, fonts, spacing, icons, or component patterns. Points to the actual token source so the design stays consistent as the project scales, instead of each session re-deriving or guessing values.
 ---
 
-# Humb Design System
+# Qyre Design System
 
 Full detail lives in [`docs/references/design-system.md`](../../../docs/references/design-system.md)
 (colors for both themes, typography, radius/spacing, component patterns) and
@@ -32,7 +32,7 @@ just the fast-recall summary plus the rules `FRONTEND.md` doesn't already state.
   `packages/ui`, one component per file, added when a `DF-##` slice actually needs them - not
   speculatively ahead of a real consumer (see `CODE_ORGANIZATION.md` and `CLAUDE.md`'s
   simplicity-first rule).
-- Any control that implies a write/mutation (bulk edit, "add row", delete) is out of scope - Humb is
+- Any control that implies a write/mutation (bulk edit, "add row", delete) is out of scope - Qyre is
   read-only. Port the surrounding visual pattern, drop or neuter the control; never wire it to a
   real mutating action. See `docs/SECURITY.md` / `docs/PRODUCT_SENSE.md`.
 - If a design decision isn't covered by the reference doc (a new component type, a color not in the

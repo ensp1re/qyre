@@ -1,4 +1,4 @@
-import { libConfig } from "@humbdb/config/tsup";
+import { libConfig } from "@qyre/config/tsup";
 import { defineConfig } from "tsup";
 
 export default defineConfig(

@@ -23,11 +23,11 @@ const pushesMain = input
     return remoteRef === "refs/heads/main";
   });
 
-if (pushesMain && !process.env.HUMB_ALLOW_MAIN_PUSH) {
+if (pushesMain && !process.env.QYRE_ALLOW_MAIN_PUSH) {
   console.error(
     "\nRefusing to push directly to main.\n" +
       "Create a feature/<ID>-<slug> branch and open a PR instead (see docs/NAMING.md).\n" +
-      "If this is a deliberate, user-approved exception, retry with HUMB_ALLOW_MAIN_PUSH=1.\n"
+      "If this is a deliberate, user-approved exception, retry with QYRE_ALLOW_MAIN_PUSH=1.\n"
   );
   process.exit(1);
 }

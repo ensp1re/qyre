@@ -1,4 +1,4 @@
-import type { RowPage, RowSort } from "@humbdb/core";
+import type { RowPage, RowSort } from "@qyre/core";
 import { fetchJson } from "./fetch-json.js";
 
 /** Fetch a page of rows for a table, optionally sorted by one column (F065). */

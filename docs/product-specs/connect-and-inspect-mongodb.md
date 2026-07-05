@@ -1,14 +1,14 @@
 # Product Contract: Connect and Inspect (MongoDB Engine, Basic Browse)
 
-Humb's product promise is universal: one command, any database, auto-detected. This contract covers
+Qyre's product promise is universal: one command, any database, auto-detected. This contract covers
 MongoDB - deliberately scoped down to **basic, read-only browsing** (databases, collections,
 documents), not a full port of the SQL-shaped contract every other engine follows. Anything not
 listed here is explicitly out of scope for this pass, not an oversight.
 
 ## Why this engine is scoped differently
 
-Every other engine Humb supports (Postgres, SQLite, MySQL) shares one data model: fixed-schema
-tables, columns, rows, and a real SQL dialect that Humb's read-only query runner (F006) can safely
+Every other engine Qyre supports (Postgres, SQLite, MySQL) shares one data model: fixed-schema
+tables, columns, rows, and a real SQL dialect that Qyre's read-only query runner (F006) can safely
 gate with `assertReadOnly` plus a transaction/file-mode backstop. MongoDB has none of that:
 
 - No fixed schema - each document in a collection can have different fields.
@@ -24,30 +24,30 @@ developer would browse a Postgres one, minus the query runner.
 
 ## One-sentence promise
 
-A developer can point Humb at a MongoDB connection string, have it auto-recognized, and browse its
+A developer can point Qyre at a MongoDB connection string, have it auto-recognized, and browse its
 databases, collections, and a page of each collection's documents - read-only, no query language
 required.
 
 ## CLI input shape
 
 ```bash
-npx humb <mongodb-connection-string>
+npx qyre <mongodb-connection-string>
 # examples recognized as MongoDB:
-npx humb mongodb://localhost:27017/mydb
-npx humb mongodb+srv://user:pass@cluster.example.mongodb.net/mydb
+npx qyre mongodb://localhost:27017/mydb
+npx qyre mongodb+srv://user:pass@cluster.example.mongodb.net/mydb
 ```
 
 Behavior:
 
-- `humb <target>` detects MongoDB from the `mongodb://`/`mongodb+srv://` URL scheme, per
+- `qyre <target>` detects MongoDB from the `mongodb://`/`mongodb+srv://` URL scheme, per
   `packages/drivers/mongodb`'s `AdapterFactory.supports()` - the same detection seam every other
   engine uses.
-- The rest of the launch behavior matches every other engine: starts a local server on `HUMB_PORT`
+- The rest of the launch behavior matches every other engine: starts a local server on `QYRE_PORT`
   (default `7717`), opens the default browser, `Ctrl+C` shuts down cleanly.
 
 ## Concepts that don't map 1:1 from SQL engines
 
-Per `@humbdb/core`'s existing `DatabaseOverview`/`TableMetadata`/`RowPage` shapes (already reused
+Per `@qyre/core`'s existing `DatabaseOverview`/`TableMetadata`/`RowPage` shapes (already reused
 unmodified by SQLite despite SQLite's own differences from Postgres - see that spec's precedent),
 Mongo's concepts are mapped rather than modeled from scratch:
 
@@ -107,22 +107,22 @@ Out of scope (for now, MongoDB engine):
 
 This is the one place this engine's guarantee is meaningfully weaker than every other engine's, and
 that must be stated plainly rather than glossed over: Postgres and SQLite both have an
-**authoritative backstop independent of Humb's own code being bug-free** (a `READ ONLY` transaction,
-a file handle opened read-only) - even a bug in Humb's own logic cannot produce a write, because the
+**authoritative backstop independent of Qyre's own code being bug-free** (a `READ ONLY` transaction,
+a file handle opened read-only) - even a bug in Qyre's own logic cannot produce a write, because the
 database/driver itself refuses one. MongoDB's official driver has no equivalent "open this connection
 read-only" mode enforced by the server. For this basic-browse scope, the guarantee is instead:
 **the adapter's code path never calls any Mongo write API** (`insertOne`, `updateOne`, `deleteOne`,
 `drop`, `createIndex`, etc.) - enforced by code review and a lint-style check (e.g. a test asserting
 the adapter module's source contains none of those method names), not by the database itself. Since
 this pass has no query runner accepting arbitrary Mongo commands from the user, the actual attack
-surface is narrow (only Humb's own adapter code runs against the connection at all) - but this is a
+surface is narrow (only Qyre's own adapter code runs against the connection at all) - but this is a
 narrower guarantee than the other engines have, and should be revisited if a query-runner-equivalent
 for Mongo is ever built (at which point a real driver/permission-level backstop becomes necessary,
 the same way it was necessary before the SQL query runner shipped for Postgres/SQLite).
 
 ## Primary end-to-end journey
 
-1. Start Humb against a MongoDB database: `npx humb mongodb://localhost:27017/mydb`.
+1. Start Qyre against a MongoDB database: `npx qyre mongodb://localhost:27017/mydb`.
 2. The browser UI loads and shows a connected status.
 3. The UI lists databases (as schemas) and collections (as tables).
 4. The user opens a collection and sees its best-effort observed fields and a paginated page of
@@ -138,7 +138,7 @@ the same way it was necessary before the SQL query runner shipped for Postgres/S
   document with a nested object/array field renders it via the structured-cell viewer (F016),
   expandable rather than flattened to raw JSON text.
 - The SQL Editor tab does not silently accept or attempt to run SQL against a Mongo connection.
-- No write operation is ever issued by Humb's own code against the connection (see "Read-only
+- No write operation is ever issued by Qyre's own code against the connection (see "Read-only
   enforcement").
 - The server starts, reports healthy, and shuts down cleanly.
 

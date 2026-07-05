@@ -1,5 +1,5 @@
 /**
- * Internal test utilities and fixtures for Humb.
+ * Internal test utilities and fixtures for Qyre.
  *
  * Private package: never imported by product code, only by tests and E2E specs.
  */
@@ -11,16 +11,16 @@ import mysql from "mysql2/promise";
 import { Pool } from "pg";
 
 /** Environment variable that holds the Postgres URL used by integration and end-to-end tests. */
-export const TEST_DB_ENV = "HUMB_TEST_DATABASE_URL";
+export const TEST_DB_ENV = "QYRE_TEST_DATABASE_URL";
 
 /** Environment variable that holds the SQLite fixture file path used by end-to-end tests. */
-export const TEST_SQLITE_ENV = "HUMB_TEST_SQLITE_PATH";
+export const TEST_SQLITE_ENV = "QYRE_TEST_SQLITE_PATH";
 
 /** Environment variable that holds the MySQL URL used by integration and end-to-end tests. */
-export const TEST_MYSQL_ENV = "HUMB_TEST_MYSQL_URL";
+export const TEST_MYSQL_ENV = "QYRE_TEST_MYSQL_URL";
 
 /** Environment variable that holds the MongoDB URL used by integration tests. */
-export const TEST_MONGO_ENV = "HUMB_TEST_MONGO_URL";
+export const TEST_MONGO_ENV = "QYRE_TEST_MONGO_URL";
 
 /** Whether a test database is configured in the environment. */
 export function isTestDatabaseConfigured(): boolean {
@@ -37,7 +37,7 @@ export function requireTestDatabaseUrl(): string {
     throw new Error(
       `${TEST_DB_ENV} is not set. This verification requires a Postgres database.\n` +
         `Set it, for example:\n` +
-        `  export ${TEST_DB_ENV}="postgres://postgres:postgres@localhost:5432/humb_test"\n` +
+        `  export ${TEST_DB_ENV}="postgres://postgres:postgres@localhost:5432/qyre_test"\n` +
         `or start one with Docker:\n` +
         `  docker run --rm -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16`
     );
@@ -69,9 +69,9 @@ export function requireTestMysqlUrl(): string {
     throw new Error(
       `${TEST_MYSQL_ENV} is not set. This verification requires a MySQL database.\n` +
         `Set it, for example:\n` +
-        `  export ${TEST_MYSQL_ENV}="mysql://root:root@localhost:3306/humb_test"\n` +
+        `  export ${TEST_MYSQL_ENV}="mysql://root:root@localhost:3306/qyre_test"\n` +
         `or start one with Docker:\n` +
-        `  docker run --rm -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=humb_test -p 3306:3306 mysql:8`
+        `  docker run --rm -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=qyre_test -p 3306:3306 mysql:8`
     );
   }
   return url;
@@ -87,7 +87,7 @@ export function requireTestMongoUrl(): string {
     throw new Error(
       `${TEST_MONGO_ENV} is not set. This verification requires a MongoDB database.\n` +
         `Set it, for example:\n` +
-        `  export ${TEST_MONGO_ENV}="mongodb://localhost:27017/humb_test"\n` +
+        `  export ${TEST_MONGO_ENV}="mongodb://localhost:27017/qyre_test"\n` +
         `or start one with Docker:\n` +
         `  docker run --rm -p 27017:27017 mongo:7`
     );
@@ -98,7 +98,7 @@ export function requireTestMongoUrl(): string {
 /** The fixture table the connect-and-inspect journey expects to find. */
 export const FIXTURE = {
   schema: "public",
-  table: "humb_demo_users",
+  table: "qyre_demo_users",
   rowCount: 3
 } as const;
 
@@ -209,7 +209,7 @@ export function setupSqliteFixture(path: string): void {
 }
 
 /** Arbitrary fixed name for setupMysqlFixture's named lock - scoped to this one fixture, not shared. */
-const MYSQL_FIXTURE_LOCK_NAME = "humb_fixture_lock";
+const MYSQL_FIXTURE_LOCK_NAME = "qyre_fixture_lock";
 
 /**
  * Create the same fixture table/rows as {@link setupFixture}'s Postgres version, in MySQL.
@@ -249,11 +249,11 @@ export async function setupMysqlFixture(connectionString: string): Promise<void>
  * browse (see docs/product-specs/connect-and-inspect-mongodb.md). Unlike setupFixture/
  * setupMysqlFixture/setupSqliteFixture, this isn't guarded by a lock against concurrent Playwright
  * workers - F015 has no Playwright e2e project (see that spec's "no query runner to exercise, no
- * Mongo-shaped fixture" note), so this is only ever called by `@humbdb/mongodb`'s own integration
+ * Mongo-shaped fixture" note), so this is only ever called by `@qyre/mongodb`'s own integration
  * test file, never from multiple processes racing against the same collection.
  */
 export async function setupMongoFixture(connectionString: string): Promise<void> {
-  const databaseName = new URL(connectionString).pathname.slice(1) || "humb_test";
+  const databaseName = new URL(connectionString).pathname.slice(1) || "qyre_test";
   const client = new MongoClient(connectionString);
   try {
     await client.connect();

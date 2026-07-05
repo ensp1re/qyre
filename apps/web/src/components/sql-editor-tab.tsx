@@ -1,4 +1,4 @@
-import { QueryRunner } from "@humbdb/ui";
+import { QueryRunner } from "@qyre/ui";
 import type { ReactNode } from "react";
 import type { useRunQuery } from "../hooks/use-run-query.js";
 

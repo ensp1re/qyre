@@ -1,5 +1,5 @@
-import type { ForeignKeyReference, RowSort } from "@humbdb/core";
-import { ErrorState, RowsTable, Spinner } from "@humbdb/ui";
+import type { ForeignKeyReference, RowSort } from "@qyre/core";
+import { ErrorState, RowsTable, Spinner } from "@qyre/ui";
 import type { ReactNode } from "react";
 import { exportRowsUrl } from "../api/rows.js";
 import type { useRows } from "../hooks/use-rows.js";

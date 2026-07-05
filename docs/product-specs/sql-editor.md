@@ -3,7 +3,7 @@
 The SQL Editor (`QueryRunner`, `packages/ui/src/components/query-runner.tsx`) lets a developer run
 read-only SQL against the connected database (F006). This spec covers two engine-agnostic
 enhancements to that same editor: recalling past queries, and completion-as-you-type. Both apply
-identically regardless of which engine (Postgres, SQLite, and whatever else `@humbdb/driver-contract`
+identically regardless of which engine (Postgres, SQLite, and whatever else `@qyre/driver-contract`
 gains) is currently connected.
 
 ## One-sentence promise
@@ -26,7 +26,7 @@ SQL keyword/table completion as they type instead of relying on memory or the Sc
 - Only queries that ran **successfully** (no `ReadOnlyViolationError`, no adapter error) are
   recorded. A query that failed never appears in history - the developer was still mid-edit at that
   point, not at a query worth recalling.
-- History is stored in the browser (`localStorage`), not the server - Humb has no server-side
+- History is stored in the browser (`localStorage`), not the server - Qyre has no server-side
   per-user storage today and this is a convenience feature, not an audit log (Console/DF-07 already
   covers server-side event logging). It persists across page reloads and across which database
   target is currently connected (one shared list, not scoped per connection) - simplest model, and
@@ -66,9 +66,9 @@ SQL keyword/table completion as they type instead of relying on memory or the Sc
     `WHE` offers `WHERE`; etc. Only read-only-relevant keywords need be offered as a practical
     default (`SELECT`, `FROM`, `WHERE`, `JOIN`, `ORDER BY`, `GROUP BY`, `LIMIT`, `HAVING`, `AS`,
     `DISTINCT`, `AND`, `OR`, `IN`, `LIKE`, `NULL`, `IS`) - a full exhaustive SQL grammar is not
-    required, since Humb's query runner rejects anything non-`SELECT`-shaped anyway (F006).
+    required, since Qyre's query runner rejects anything non-`SELECT`-shaped anyway (F006).
   - **Table names**: after `FROM ` (or `JOIN `), suggestions are the connected database's actual
-    table names (e.g. `SELECT * FROM hu` offers `humb_demo_users` if that table exists), sourced from
+    table names (e.g. `SELECT * FROM hu` offers `qyre_demo_users` if that table exists), sourced from
     the same schema data the Schema tab already fetches (DF-05's `useAllTables`/overview endpoint) -
     no new backend endpoint required, this is a frontend-only feature consuming existing data.
   - Column-name completion is explicitly out of scope for this pass (see below).
@@ -128,12 +128,12 @@ Constraints on the migration:
 ### Behavior
 
 SQL reserves double quotes (`"..."`) for identifiers (columns/tables) and single quotes (`'...'`)
-for string literals - but Postgres is the strictest of Humb's engines about this: it always throws
+for string literals - but Postgres is the strictest of Qyre's engines about this: it always throws
 `column "X" does not exist` for `WHERE col="X"`, where most other tools are more forgiving (MySQL
 treats `"..."` as a string by default; SQLite falls back to treating a double-quoted token as a
 string whenever it doesn't match a real identifier - a documented quirk, see
 [sqlite.org/quirks.html](https://sqlite.org/quirks.html)). Since most people reach for `""` out of
-habit, Humb smooths this over for Postgres specifically:
+habit, Qyre smooths this over for Postgres specifically:
 
 - Before executing a query against Postgres, any double-quoted token in the SQL text that does not
   match a real schema, table, or column name in the connected database - nor an identifier the
@@ -169,7 +169,7 @@ habit, Humb smooths this over for Postgres specifically:
 
 ### Behavior
 
-`@humbdb/driver-contract`'s `assertReadOnly` rejects a query containing more than one SQL
+`@qyre/driver-contract`'s `assertReadOnly` rejects a query containing more than one SQL
 statement - the read-only query runner only ever executes exactly one statement per request. The
 `;`-count check runs against the same literal-and-comment-stripped text the forbidden-keyword scan
 already uses, not raw SQL, so a data value that happens to contain a semicolon (a URL, an encoded
@@ -190,7 +190,7 @@ from other SQL tools) is still tolerated.
 
 Every adapter caps how long a single read-only query or row fetch may run, so a heavyweight query
 (a huge unindexed scan, a cartesian join) fails fast with a clear error instead of hanging the
-request and holding a pool connection indefinitely. Configurable via `HUMB_STATEMENT_TIMEOUT_MS`
+request and holding a pool connection indefinitely. Configurable via `QYRE_STATEMENT_TIMEOUT_MS`
 (one env var name shared across engines), default 30 seconds. The enforcement mechanism is
 necessarily engine-specific:
 
@@ -208,7 +208,7 @@ necessarily engine-specific:
 
 - A query/row-fetch that runs longer than the configured timeout rejects with a timeout-shaped
   error instead of hanging.
-- The timeout is configurable via `HUMB_STATEMENT_TIMEOUT_MS` and defaults to 30 seconds when unset.
+- The timeout is configurable via `QYRE_STATEMENT_TIMEOUT_MS` and defaults to 30 seconds when unset.
 
 ## Result row cap (Postgres/MySQL/SQLite)
 
@@ -217,11 +217,11 @@ necessarily engine-specific:
 `runReadOnlyQuery` had no `LIMIT` - `SELECT * FROM huge_table` fetched, serialized, and rendered
 every row, with nothing bounding server memory or the browser tab (F050). Every `SELECT`/`WITH`/
 `VALUES`/`TABLE` statement (already validated read-only by `assertReadOnly`) is now wrapped as
-`SELECT * FROM (<query>) AS humb_capped_query LIMIT 1000` before running, so the database itself
+`SELECT * FROM (<query>) AS qyre_capped_query LIMIT 1000` before running, so the database itself
 stops producing rows past the cap instead of the adapter buffering an unbounded result set and only
 truncating client-side. `EXPLAIN`/`SHOW` are left unwrapped - they aren't valid subquery sources and
 aren't the unbounded-rows risk this guards against (a query plan or a small config listing, not
-arbitrary table data). Shared across Postgres/MySQL/SQLite via `@humbdb/driver-contract`'s
+arbitrary table data). Shared across Postgres/MySQL/SQLite via `@qyre/driver-contract`'s
 `capResultRows`; MongoDB has no SQL query runner to cap (see this spec's own note on that). The
 result table's row rendering is virtualized (`@tanstack/react-virtual`, F051) - a 1,000-row result
 set only mounts the visible rows as DOM nodes, not all 1,000.

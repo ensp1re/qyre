@@ -1,5 +1,5 @@
 {
-  "name": "@humbdb/humb",
+  "name": "@qyre/qyre",
   "version": "0.1.0",
   "type": "module",
   "description": "Launch a local-first database management UI from your terminal.",
@@ -17,16 +17,16 @@
     "database-client",
     "read-only"
   ],
-  "homepage": "https://github.com/ensp1re/humb#readme",
+  "homepage": "https://github.com/ensp1re/qyre#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ensp1re/humb.git",
+    "url": "git+https://github.com/ensp1re/qyre.git",
     "directory": "packages/cli"
   },
-  "bugs": "https://github.com/ensp1re/humb/issues",
+  "bugs": "https://github.com/ensp1re/qyre/issues",
   "license": "MIT",
   "bin": {
-    "humb": "./dist/bin.js"
+    "qyre": "./dist/bin.js"
   },
   "exports": {
     ".": {
@@ -48,17 +48,17 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humbdb/core": "workspace:*",
-    "@humbdb/driver-contract": "workspace:*",
-    "@humbdb/mongodb": "workspace:*",
-    "@humbdb/mysql": "workspace:*",
-    "@humbdb/postgres": "workspace:*",
-    "@humbdb/server": "workspace:*",
-    "@humbdb/sqlite": "workspace:*",
+    "@qyre/core": "workspace:*",
+    "@qyre/driver-contract": "workspace:*",
+    "@qyre/mongodb": "workspace:*",
+    "@qyre/mysql": "workspace:*",
+    "@qyre/postgres": "workspace:*",
+    "@qyre/server": "workspace:*",
+    "@qyre/sqlite": "workspace:*",
     "commander": "^12.1.0",
     "open": "^10.1.0"
   },
   "devDependencies": {
-    "@humbdb/config": "workspace:*"
+    "@qyre/config": "workspace:*"
   }
 }

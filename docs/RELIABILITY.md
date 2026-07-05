@@ -1,6 +1,6 @@
 # RELIABILITY.md
 
-How Humb proves it is healthy and restartable. Only a full-pipeline run counts as real verification.
+How Qyre proves it is healthy and restartable. Only a full-pipeline run counts as real verification.
 
 ## Standard paths
 
@@ -8,7 +8,7 @@ How Humb proves it is healthy and restartable. Only a full-pipeline run counts a
 - Verification (local): `pnpm check`
 - Verification (CI-equivalent, adds E2E): `pnpm check:ci`
 - Start app (dev): `pnpm dev`
-- Start product (once implemented): `humb <database-url>` (engine auto-detected from the target)
+- Start product (once implemented): `qyre <database-url>` (engine auto-detected from the target)
 
 ## Verification hierarchy
 
@@ -16,14 +16,14 @@ A change is not done until the required levels pass, in order:
 
 1. Static: formatting, lint, typecheck.
 2. Unit: package unit tests (Vitest).
-3. Integration: adapter tests against an ephemeral Postgres (requires `HUMB_TEST_DATABASE_URL`).
+3. Integration: adapter tests against an ephemeral Postgres (requires `QYRE_TEST_DATABASE_URL`).
 4. End-to-end: Playwright's full connect-and-inspect journey for cross-component changes.
 
 Do not skip a required level. Passing unit tests alone does not mean a cross-component feature is done.
 
 ## End-to-end journeys
 
-1. Connect and inspect (primary): start Humb against Postgres, UI shows connected, list
+1. Connect and inspect (primary): start Qyre against Postgres, UI shows connected, list
    schemas/tables, open a table, view a page of rows.
 
 Each journey has a repeatable verification path and clear failure signals.
@@ -32,12 +32,12 @@ Each journey has a repeatable verification path and clear failure signals.
 
 - `apps/web` E2E `smoke.spec.ts`: always runs, no database required. Confirms the UI boots and the
   connection screen renders. Part of `pnpm test:e2e` and `pnpm check:ci`.
-- `connect-and-inspect.spec.ts`: requires `HUMB_TEST_DATABASE_URL`. If it is missing, the test FAILS
+- `connect-and-inspect.spec.ts`: requires `QYRE_TEST_DATABASE_URL`. If it is missing, the test FAILS
   with an actionable message (we do not silently skip required verification). It runs in CI where a
   Postgres service is available, and locally when a developer/agent provides the URL.
-- Both specs run against `e2e/server.ts`, which starts the real Humb server (API + built web app on
+- Both specs run against `e2e/server.ts`, which starts the real Qyre server (API + built web app on
   one port) rather than a separate `vite preview` process with no backend - it connects to Postgres
-  only when `HUMB_TEST_DATABASE_URL` is set, so the same webServer serves both specs correctly.
+  only when `QYRE_TEST_DATABASE_URL` is set, so the same webServer serves both specs correctly.
 
 ## Required runtime signals
 

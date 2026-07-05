@@ -1,6 +1,6 @@
-# @humbdb/mysql
+# @qyre/mysql
 
-MySQL driver for Humb. Implements the `DatabaseAdapter` contract from `@humbdb/driver-contract`.
+MySQL driver for Qyre. Implements the `DatabaseAdapter` contract from `@qyre/driver-contract`.
 
 Read-only by policy: `runReadOnlyQuery` rejects non-SELECT statements (see
 [`docs/SECURITY.md`](../../../docs/SECURITY.md)), backed by a `START TRANSACTION READ ONLY`

@@ -1,5 +1,5 @@
 /**
- * Local HTTP server for Humb, built on Fastify.
+ * Local HTTP server for Qyre, built on Fastify.
  *
  * Exposes a small JSON API the browser UI consumes, plus a health endpoint used for verification.
  * The server never talks to a database directly; it goes through a {@link DatabaseAdapter}.
@@ -18,7 +18,7 @@ import {
   redactConnectionString,
   rowsQuerySchema,
   runQuerySchema
-} from "@humbdb/core";
+} from "@qyre/core";
 import type {
   AllTablesResponse,
   ConnectResponse,
@@ -29,9 +29,9 @@ import type {
   HealthResponse,
   RowSort,
   SortDirection
-} from "@humbdb/core";
-import { ReadOnlyViolationError, resolveAdapter } from "@humbdb/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
+} from "@qyre/core";
+import { ReadOnlyViolationError, resolveAdapter } from "@qyre/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import Fastify from "fastify";
 import type { FastifyError, FastifyInstance } from "fastify";
 import { csvLine } from "./csv.js";
@@ -49,7 +49,7 @@ export interface CreateServerOptions {
   logger?: boolean;
   /**
    * Directory containing the built `apps/web` static assets (its `index.html` and bundle).
-   * When provided and it exists, the server serves the browser UI itself so `npx humb <target>`
+   * When provided and it exists, the server serves the browser UI itself so `npx qyre <target>`
    * has something to open. When omitted, only the `/api/*` routes are registered.
    */
   webRoot?: string;
@@ -145,7 +145,7 @@ function extractHostname(hostHeader: string): string {
   return (colonIndex === -1 ? hostHeader : hostHeader.slice(0, colonIndex)).toLowerCase();
 }
 
-/** Build (but do not start) the Humb HTTP server. */
+/** Build (but do not start) the Qyre HTTP server. */
 export function createServer(options: CreateServerOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false });
   // F064: mutable (not const-destructured) so POST /api/connect can swap in a new adapter/target
@@ -472,7 +472,7 @@ export interface RunningServer {
   close: () => Promise<void>;
 }
 
-/** Build and start the Humb HTTP server, listening on localhost. */
+/** Build and start the Qyre HTTP server, listening on localhost. */
 export async function startServer(options: StartServerOptions = {}): Promise<RunningServer> {
   const eventLog = options.eventLog ?? new EventLog();
   const app = createServer({ ...options, eventLog });

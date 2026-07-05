@@ -1,11 +1,11 @@
 # AGENTS.md
 
-Humb is optimized for long-running coding-agent work. Keep this file short. It is a router into the
+Qyre is optimized for long-running coding-agent work. Keep this file short. It is a router into the
 system-of-record docs, not an instruction dump.
 
-## What Humb is
+## What Qyre is
 
-A CLI-launched, local-first database management UI. `npx humb <database-url>` detects what kind of
+A CLI-launched, local-first database management UI. `npx qyre <database-url>` detects what kind of
 database it's pointed at, starts a local server, and opens a browser so a developer can inspect and
 manage it — one command, no manual driver selection, no heavy IDE install. Read-only for now.
 Postgres is the first fully supported engine; see
@@ -51,7 +51,7 @@ Before changing code:
 - [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md): current state and next action
 - [`docs/design-docs/index.md`](docs/design-docs/index.md): design decisions and core beliefs
 - [`CLAUDE.md`](CLAUDE.md): Claude Code auto-loaded pointer into this file plus the four core rules
-- [`.claude/skills/humb-lean-output/SKILL.md`](.claude/skills/humb-lean-output/SKILL.md): response/reporting style
+- [`.claude/skills/qyre-lean-output/SKILL.md`](.claude/skills/qyre-lean-output/SKILL.md): response/reporting style
 
 ## Working contract
 

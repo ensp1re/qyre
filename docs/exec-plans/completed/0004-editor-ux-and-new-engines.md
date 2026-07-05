@@ -79,25 +79,25 @@ Out of scope (decided while scoping, not left ambiguous):
 
 ## Verification path
 
-- F012: `pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build/typecheck`, plus
+- F012: `pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui build/typecheck`, plus
   `pnpm test:e2e:full` for the prefill-from-history journey.
-- F017: `pnpm --filter @humbdb/server test && pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build/typecheck && pnpm --filter @humbdb/web build`, plus `pnpm test:e2e:full` -
+- F017: `pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui build/typecheck && pnpm --filter @qyre/web build`, plus `pnpm test:e2e:full` -
   a query against a fixture-guaranteed-missing table exercises the real-message-surfaces-correctly
   path without needing a new fixture.
 - F013: same package-level commands as F012, plus `pnpm test:e2e:full` covering both the editor
   migration (existing Ctrl/Cmd+Enter, toolbar) and new autocomplete behavior.
-- F014: `pnpm --filter @humbdb/core test && pnpm --filter @humbdb/driver-contract test && pnpm --filter @humbdb/mysql test && pnpm --filter humb test`, plus `pnpm test:e2e:full` (a third
+- F014: `pnpm --filter @qyre/core test && pnpm --filter @qyre/driver-contract test && pnpm --filter @qyre/mysql test && pnpm --filter qyre test`, plus `pnpm test:e2e:full` (a third
   Playwright project/fixture, per F011's precedent) and a manual live-verification pass against a
   real MySQL container (matching F008's pattern for SQLite before its e2e slice existed).
-- F016: `pnpm --filter @humbdb/ui test && pnpm --filter @humbdb/ui build/typecheck && pnpm --filter @humbdb/web build`, plus `pnpm test:e2e:full` (a Postgres `jsonb` fixture column exercises this
+- F016: `pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui build/typecheck && pnpm --filter @qyre/web build`, plus `pnpm test:e2e:full` (a Postgres `jsonb` fixture column exercises this
   without needing Mongo to exist yet).
-- F015: `pnpm --filter @humbdb/core test && pnpm --filter @humbdb/driver-contract test && pnpm --filter @humbdb/mongodb test && pnpm --filter humb test`, plus a manual live-verification pass
+- F015: `pnpm --filter @qyre/core test && pnpm --filter @qyre/driver-contract test && pnpm --filter @qyre/mongodb test && pnpm --filter qyre test`, plus a manual live-verification pass
   against a real MongoDB container. Playwright e2e coverage for Mongo is not required by this plan
   (no query runner to exercise, and DF-05/Schema-tab-style assertions would need a Mongo-shaped
   fixture) - decide when F015 is picked up whether a lightweight smoke-level e2e check is worth
   adding.
-- Re-verify unaffected engines after each slice: `pnpm --filter @humbdb/postgres test`,
-  `pnpm --filter @humbdb/sqlite test` (with `HUMB_TEST_DATABASE_URL` set), `pnpm test:e2e:full`.
+- Re-verify unaffected engines after each slice: `pnpm --filter @qyre/postgres test`,
+  `pnpm --filter @qyre/sqlite test` (with `QYRE_TEST_DATABASE_URL` set), `pnpm test:e2e:full`.
 
 ## Risks and blockers
 
@@ -141,7 +141,7 @@ Out of scope (decided while scoping, not left ambiguous):
   SQL-to-MongoDB translation layer as an alternative to F015's "no query runner" scope (too large and
   correctness-risky for what F015 needs - see F015's spec).
 - 2026-07-03: Implemented F012 (commit `8f86d9a`). Also fixed a real concurrency bug in
-  `@humbdb/testing`'s `setupFixture` (Postgres advisory lock around DROP+CREATE), surfaced by adding
+  `@qyre/testing`'s `setupFixture` (Postgres advisory lock around DROP+CREATE), surfaced by adding
   a second `@full` spec against the same live database - see F012's `FEATURES.json` evidence.
 - 2026-07-03: Follow-up fix on F012 - moved the history toolbar icon from next to Run/the
   Ctrl+Enter hint to the right-aligned group with the line count, per feedback.
@@ -156,7 +156,7 @@ Out of scope (decided while scoping, not left ambiguous):
   inserting a blank line instead of running the query) - fixed with `Prec.highest`. Next up: F014
   (MySQL).
 - 2026-07-03: User hit a real bug live while trying F013: `SELECT * FROM employees WHERE
-department="Support"` failed with `column "Support" does not exist`. Not a Humb bug - standard
+department="Support"` failed with `column "Support" does not exist`. Not a Qyre bug - standard
   SQL reserves `""` for identifiers - but confirmed Postgres is stricter about it than MySQL
   (treats `"..."` as a string by default) or SQLite (falls back to a string when the token isn't a
   real identifier, a documented quirk). Asked the user how strictly to handle it before writing any
@@ -166,9 +166,9 @@ department="Support"` failed with `column "Support" does not exist`. Not a Humb 
   `docs/product-specs/sql-editor.md`'s new "Double-quoted string values" section and F018's
   `FEATURES.json` evidence.
 - 2026-07-03: Implemented F014 (commit `9ccde55`) - see `FEATURES.json`'s evidence for full detail.
-  New `@humbdb/mysql` on `mysql2/promise`, mirroring `@humbdb/postgres`'s shape. Found and fixed two
+  New `@qyre/mysql` on `mysql2/promise`, mirroring `@qyre/postgres`'s shape. Found and fixed two
   real bugs while wiring up the third e2e engine project: every webServer instance was silently
-  inheriting every test-DB env var at once (fixed with an explicit `HUMB_E2E_ENGINE` per instance),
+  inheriting every test-DB env var at once (fixed with an explicit `QYRE_E2E_ENGINE` per instance),
   and a reproduced `setupSqliteFixture` concurrency race once total Playwright parallelism went up
   (fixed the same way F012 fixed the analogous Postgres race). Next up: F016 (structured-cell
   viewer).
@@ -180,7 +180,7 @@ department="Support"` failed with `column "Support" does not exist`. Not a Humb 
   turned into a second fixture _table_ on the first pass, which made the Schema tab render two
   table-detail cards and broke `connect-and-inspect.spec.ts`'s singular-card assertion under
   concurrent `@full` specs - fixed by adding the jsonb column to the existing shared
-  `humb_demo_users` fixture instead (populated for one row only); (2) a primitive value nested
+  `qyre_demo_users` fixture instead (populated for one row only); (2) a primitive value nested
   inside an expanded structured value rendered as a bare text node with no element boundary of its
   own (indistinguishable from its sibling key label to Playwright or any other DOM consumer) - fixed
   by wrapping `CellValue`'s primitive branch in its own `<span>`. Next up: F015 (MongoDB).
@@ -211,7 +211,7 @@ department="Support"` failed with `column "Support" does not exist`. Not a Humb 
   `defaultSafeIntegers` would have broken internal pragma comparisons the same way). Still next up:
   F015 (MongoDB).
 - 2026-07-04: Implemented F015 (commit `44a4f15`) - see `FEATURES.json`'s evidence for full detail.
-  New `@humbdb/mongodb` on the official `mongodb` driver (v7.4.0). Resolved both open decisions
+  New `@qyre/mongodb` on the official `mongodb` driver (v7.4.0). Resolved both open decisions
   below while picking this up: no Playwright e2e project for Mongo (package-level integration tests
   against a real container, plus a manual live-verification pass, matched the spec's own suggested
   bar - no query runner to exercise and the existing generic connect-and-inspect spec would need a

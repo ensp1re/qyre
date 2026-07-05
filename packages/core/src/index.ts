@@ -1,5 +1,5 @@
 /**
- * Shared domain types and contracts for Humb.
+ * Shared domain types and contracts for Qyre.
  *
  * This package must stay UI-, server-, and engine-agnostic. It is the single source of truth for
  * types (and their runtime validation) used by both `packages/server` and `apps/web`, so the two

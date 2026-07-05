@@ -1,4 +1,4 @@
-import type { RowPage, RowSort } from "@humbdb/core";
+import type { RowPage, RowSort } from "@qyre/core";
 import { useQuery } from "@tanstack/react-query";
 import { fetchRows } from "../api/rows.js";
 import { QUERY_RETRY } from "./query-retry.js";
@@ -8,11 +8,11 @@ interface RowsResult {
   hasMore: boolean;
 }
 
-// Deliberately a local constant, not imported from @humbdb/core's shared DEFAULT_PAGE_SIZE/
-// MAX_PAGE_SIZE (F047) - @humbdb/core bundles as one flat file, and this package's connection-target
+// Deliberately a local constant, not imported from @qyre/core's shared DEFAULT_PAGE_SIZE/
+// MAX_PAGE_SIZE (F047) - @qyre/core bundles as one flat file, and this package's connection-target
 // module has Node-only imports (fs/path/url) that break Vite's browser build the moment any real
 // (non-type) value is imported from the barrel, confirmed live. Kept intentionally smaller than the
-// server's own default for a denser table view - see @humbdb/core/src/pagination.ts's doc comment
+// server's own default for a denser table view - see @qyre/core/src/pagination.ts's doc comment
 // for the full explanation of why these are allowed to differ.
 const UI_PAGE_SIZE = 25;
 

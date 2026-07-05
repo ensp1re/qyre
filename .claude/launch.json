@@ -4,23 +4,23 @@
     {
       "name": "web-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@humbdb/web", "dev"],
+      "runtimeArgs": ["--filter", "@qyre/web", "dev"],
       "port": 5173
     },
     {
-      "name": "humb-preview-postgres",
+      "name": "qyre-preview-postgres",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["exec", "tsx", ".local/preview-server.mjs"],
       "port": 8899
     },
     {
-      "name": "humb-preview-mysql",
+      "name": "qyre-preview-mysql",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["exec", "tsx", ".local/preview-server-mysql.mjs"],
       "port": 8898
     },
     {
-      "name": "humb-preview-mongo",
+      "name": "qyre-preview-mongo",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["exec", "tsx", ".local/preview-server-mongo.mjs"],
       "port": 8897

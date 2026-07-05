@@ -1,4 +1,4 @@
-# Humb git hooks.
+# Qyre git hooks.
 # Goal: a commit or push must never leave the repo unbuildable or untested.
 # See docs/RELIABILITY.md for the full verification contract.
 

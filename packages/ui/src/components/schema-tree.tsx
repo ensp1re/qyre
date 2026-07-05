@@ -1,4 +1,4 @@
-import type { ConnectionStatus, SchemaMetadata } from "@humbdb/core";
+import type { ConnectionStatus, SchemaMetadata } from "@qyre/core";
 import { Circle, CircleAlert, CircleCheck, FolderOpen, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";

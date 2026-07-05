@@ -1,8 +1,8 @@
 {
-  "name": "@humbdb/driver-contract",
+  "name": "@qyre/driver-contract",
   "version": "0.1.0",
   "type": "module",
-  "description": "Engine-agnostic database adapter contracts for Humb.",
+  "description": "Engine-agnostic database adapter contracts for Qyre.",
   "license": "MIT",
   "exports": {
     ".": {
@@ -23,9 +23,9 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@humbdb/core": "workspace:*"
+    "@qyre/core": "workspace:*"
   },
   "devDependencies": {
-    "@humbdb/config": "workspace:*"
+    "@qyre/config": "workspace:*"
   }
 }

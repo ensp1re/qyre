@@ -3,7 +3,7 @@
 User-facing behavior specs. Each spec describes observable behavior and acceptance criteria so a
 fresh agent can discover product scope quickly.
 
-Humb's product is a universal database inspector: one CLI command auto-detects the target's engine
+Qyre's product is a universal database inspector: one CLI command auto-detects the target's engine
 and opens a web UI for it. Each engine gets its own spec once supported; specs below describe a
 single engine's behavior, not the whole product.
 
@@ -51,7 +51,7 @@ single engine's behavior, not the whole product.
   `engine === "mongodb"` string-check branching with a `capabilities.supportsSql` flag each adapter
   declares, so a future non-SQL engine doesn't need its own `apps/web` conditional. Tracked as F063,
   `passing`.
-- [`database-switching.md`](database-switching.md) - lets a developer switch the running Humb
+- [`database-switching.md`](database-switching.md) - lets a developer switch the running Qyre
   instance to a different database connection from the title bar's Settings button, without
   restarting the CLI. Tracked as F064, `passing`.
 - [`server-side-sort-export.md`](server-side-sort-export.md) - `RowsTable`'s column sort and CSV

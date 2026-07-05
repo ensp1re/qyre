@@ -1,4 +1,4 @@
-import type { DatabaseOverview } from "@humbdb/core";
+import type { DatabaseOverview } from "@qyre/core";
 import { fetchJson } from "./fetch-json.js";
 
 /** Fetch the database's schemas and tables. */

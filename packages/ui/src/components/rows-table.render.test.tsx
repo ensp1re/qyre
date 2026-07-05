@@ -1,4 +1,4 @@
-import type { ColumnMetadata, RowPage } from "@humbdb/core";
+import type { ColumnMetadata, RowPage } from "@qyre/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";

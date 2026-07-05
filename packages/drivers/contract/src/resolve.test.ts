@@ -1,4 +1,4 @@
-import type { ConnectionTarget } from "@humbdb/core";
+import type { ConnectionTarget } from "@qyre/core";
 import { describe, expect, it } from "vitest";
 import type { AdapterFactory, DatabaseAdapter } from "./contract.js";
 import { UnsupportedEngineError } from "./errors.js";

@@ -5,7 +5,7 @@ import type {
 } from "@codemirror/autocomplete";
 
 /**
- * Only the SELECT-shaped keywords Humb's read-only query runner can ever accept (F006) - a full
+ * Only the SELECT-shaped keywords Qyre's read-only query runner can ever accept (F006) - a full
  * SQL grammar would offer INSERT/UPDATE/DELETE the server rejects anyway (see F013 spec).
  */
 export const READ_ONLY_SQL_KEYWORDS = [

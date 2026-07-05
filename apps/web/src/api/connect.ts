@@ -1,4 +1,4 @@
-import type { ConnectResponse } from "@humbdb/core";
+import type { ConnectResponse } from "@qyre/core";
 import { fetchJson } from "./fetch-json.js";
 
 /** Switch the running server to a different database connection (F064). Throws with the server's

@@ -1,9 +1,9 @@
 ---
-name: humb-lean-output
-description: Use for every response and verification run in the Humb repo. Cuts token usage by trimming narration and duplicate log output. Does not change what gets verified, checked, or how carefully code is written - only how results are reported.
+name: qyre-lean-output
+description: Use for every response and verification run in the Qyre repo. Cuts token usage by trimming narration and duplicate log output. Does not change what gets verified, checked, or how carefully code is written - only how results are reported.
 ---
 
-# Humb Lean Output
+# Qyre Lean Output
 
 Scope: this skill governs communication style only. It never reduces verification rigor,
 test coverage, or the thoroughness of a change. Run every check you would normally run, in full.

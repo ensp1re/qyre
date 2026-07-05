@@ -1,7 +1,7 @@
 /**
- * PostgreSQL driver for Humb.
+ * PostgreSQL driver for Qyre.
  *
- * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@humbdb/driver-contract`.
+ * Implements the engine-agnostic {@link DatabaseAdapter} contract from `@qyre/driver-contract`.
  * All Postgres-specific SQL and introspection lives here. See ARCHITECTURE.md.
  */
 import type {
@@ -13,14 +13,14 @@ import type {
   RowSort,
   SchemaMetadata,
   TableMetadata
-} from "@humbdb/core";
+} from "@qyre/core";
 import {
   assertReadOnly,
   capResultRows,
   resolvePageRequest,
   runInReadOnlyTransaction
-} from "@humbdb/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@humbdb/driver-contract";
+} from "@qyre/driver-contract";
+import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import { Pool, types } from "pg";
 
 // pg's default parsers for `date` (OID 1082) and `timestamp without time zone` (OID 1114) build a
@@ -29,7 +29,7 @@ import { Pool, types } from "pg";
 // "2024-01-14T22:00:00.000Z" on a UTC+2 server, the wrong calendar date entirely. Returning the raw
 // wire string instead sidesteps that round trip; `timestamptz` (1184) is untouched since it's
 // genuinely an absolute instant and converts to UTC correctly. This is a `pg`-module-wide setting
-// (types.setTypeParser has no per-Pool scope), acceptable since @humbdb/postgres is the only
+// (types.setTypeParser has no per-Pool scope), acceptable since @qyre/postgres is the only
 // consumer of this `pg` instance.
 types.setTypeParser(types.builtins.DATE, (value) => value);
 types.setTypeParser(types.builtins.TIMESTAMP, (value) => value);
@@ -41,12 +41,12 @@ const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
 /**
  * A heavyweight query (a huge unindexed scan, a cartesian join) would otherwise run to completion
  * with no cap, tying up a pool connection and leaving the browser spinner spinning indefinitely.
- * Configurable via `HUMB_STATEMENT_TIMEOUT_MS` (shared env var name across engines, read at
+ * Configurable via `QYRE_STATEMENT_TIMEOUT_MS` (shared env var name across engines, read at
  * `connect()` time rather than module load so tests can override it per case) so it can be tuned
  * for a slow network/large database.
  */
 function resolveStatementTimeoutMs(): number {
-  const raw = Number(process.env.HUMB_STATEMENT_TIMEOUT_MS);
+  const raw = Number(process.env.QYRE_STATEMENT_TIMEOUT_MS);
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STATEMENT_TIMEOUT_MS;
 }
 

@@ -1,9 +1,9 @@
 {
-  "name": "@humbdb/testing",
+  "name": "@qyre/testing",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Internal test utilities and fixtures for Humb. Not part of the public API.",
+  "description": "Internal test utilities and fixtures for Qyre. Not part of the public API.",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,14 +13,14 @@
     "clean": "rimraf .turbo"
   },
   "dependencies": {
-    "@humbdb/core": "workspace:*",
+    "@qyre/core": "workspace:*",
     "better-sqlite3": "^11.10.0",
     "mongodb": "^7.4.0",
     "mysql2": "^3.22.5",
     "pg": "^8.13.1"
   },
   "devDependencies": {
-    "@humbdb/config": "workspace:*",
+    "@qyre/config": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/pg": "^8.11.10"
   }

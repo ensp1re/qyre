@@ -1,32 +1,32 @@
 # Product Contract: Connect and Inspect (Postgres Engine)
 
-Humb's product promise is universal: one command, any database, auto-detected. This contract covers
-the Postgres engine specifically — the first engine Humb supports end to end. It is the single
+Qyre's product promise is universal: one command, any database, auto-detected. This contract covers
+the Postgres engine specifically — the first engine Qyre supports end to end. It is the single
 source of truth for what Postgres-engine scope means. Anything not listed here is out of scope for
 this engine for now; it does not limit what other engines will eventually support.
 
 ## One-sentence promise
 
-A developer can run a single terminal command pointed at a database, have Humb automatically
+A developer can run a single terminal command pointed at a database, have Qyre automatically
 recognize it's Postgres, and immediately browse its structure and data in a clean local web UI,
 without installing a heavy database IDE or picking a driver.
 
 ## CLI input shape
 
-Humb launches against a database target and detects the engine from the target itself:
+Qyre launches against a database target and detects the engine from the target itself:
 
 ```bash
-npx humb <database-connection-string>
+npx qyre <database-connection-string>
 # examples recognized as Postgres today:
-npx humb postgres://user:pass@localhost:5432/mydb
-npx humb postgresql://localhost/mydb
+npx qyre postgres://user:pass@localhost:5432/mydb
+npx qyre postgresql://localhost/mydb
 ```
 
 Behavior:
 
-- `humb <target>` detects the database engine from the target (e.g. the `postgres://`/`postgresql://`
+- `qyre <target>` detects the database engine from the target (e.g. the `postgres://`/`postgresql://`
   scheme), parses it with that engine's adapter, starts a local server on a default port
-  (configurable via `HUMB_PORT`, default `7717`), and opens the default browser to the UI.
+  (configurable via `QYRE_PORT`, default `7717`), and opens the default browser to the UI.
 - If no target is provided, the CLI prints usage help and exits with a non-zero code.
 - If the target's engine is recognized but not yet supported (see `packages/drivers/<engine>` in
   `ARCHITECTURE.md`), the CLI says so explicitly rather than treating it as a parse failure.
@@ -36,7 +36,7 @@ Behavior:
 
 ### Future engines (not yet supported, documented for design only)
 
-- Additional engines (e.g. SQLite via `npx humb ./local.db`, MySQL, etc.) are planned and must be
+- Additional engines (e.g. SQLite via `npx qyre ./local.db`, MySQL, etc.) are planned and must be
   added as new `packages/drivers/<engine>` packages (`sqlite`, `mysql`, ...) picked up by the same
   auto-detection path, never by special-casing the Postgres path.
 
@@ -54,12 +54,12 @@ Out of scope (for now, Postgres engine):
 
 - Writes, schema edits, migrations, or destructive actions.
 - Multiple simultaneous connections.
-- Authentication / multi-user / remote hosting (Humb is local-first and binds to localhost).
+- Authentication / multi-user / remote hosting (Qyre is local-first and binds to localhost).
 - Engines other than Postgres (tracked separately as each `packages/drivers/<engine>` package ships).
 
 ## Read-only vs write behavior
 
-Humb is strictly read-only for now. Write capability is explicitly excluded and, when later
+Qyre is strictly read-only for now. Write capability is explicitly excluded and, when later
 introduced, must follow the rules in [`../SECURITY.md`](../SECURITY.md): destructive actions require
 explicit, unambiguous user confirmation and must never be the default path.
 
@@ -67,7 +67,7 @@ explicit, unambiguous user confirmation and must never be the default path.
 
 The primary end-to-end journey we protect:
 
-1. Start Humb against a Postgres database.
+1. Start Qyre against a Postgres database.
 2. The browser UI loads and shows a connected status.
 3. The UI lists schemas and tables.
 4. The user opens a table and sees its columns and a paginated page of rows.

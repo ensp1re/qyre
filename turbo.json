@@ -6,13 +6,13 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
-    "@humbdb/humb#build": {
+    "@qyre/qyre#build": {
       // The CLI bundles apps/web's build into its own dist/web at build time (F010), so it must
-      // build after @humbdb/web even though there's no package.json dependency edge between them
-      // (the CLI serves static files, it doesn't import from @humbdb/web). This key must match the
-      // CLI's package.json "name" (@humbdb/humb) - it went stale silently once before, during the
-      // @humbdb scope rename, because turbo doesn't error on a task key matching zero packages.
-      "dependsOn": ["^build", "@humbdb/web#build"],
+      // build after @qyre/web even though there's no package.json dependency edge between them
+      // (the CLI serves static files, it doesn't import from @qyre/web). This key must match the
+      // CLI's package.json "name" (@qyre/qyre) - it went stale silently once before, during the
+      // @qyre scope rename, because turbo doesn't error on a task key matching zero packages.
+      "dependsOn": ["^build", "@qyre/web#build"],
       "outputs": ["dist/**"]
     },
     "typecheck": {
@@ -20,7 +20,7 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "env": ["HUMB_TEST_DATABASE_URL", "HUMB_TEST_MYSQL_URL", "HUMB_TEST_MONGO_URL"]
+      "env": ["QYRE_TEST_DATABASE_URL", "QYRE_TEST_MYSQL_URL", "QYRE_TEST_MONGO_URL"]
     },
     "lint": {},
     "dev": {

@@ -1,7 +1,7 @@
-import type { QueryHistoryEntry } from "@humbdb/ui";
+import type { QueryHistoryEntry } from "@qyre/ui";
 import { useCallback, useState } from "react";
 
-const STORAGE_KEY = "humb-query-history";
+const STORAGE_KEY = "qyre-query-history";
 const MAX_ENTRIES = 50;
 
 function readEntries(): QueryHistoryEntry[] {

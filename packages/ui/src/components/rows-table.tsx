@@ -17,6 +17,7 @@ import { formatCell } from "../format-cell.js";
 import { CellValueDrawer } from "./cell-value-drawer.js";
 import type { InspectableValue } from "./cell-value.js";
 import { CellValue } from "./cell-value.js";
+import { DateDetailPopover } from "./date-detail-popover.js";
 import { TypeIcon } from "./type-icon.js";
 
 export interface RowsTableProps {
@@ -95,6 +96,10 @@ export function RowsTable({
   const [inspected, setInspected] = useState<{
     column: string;
     value: InspectableValue;
+  } | null>(null);
+  const [dateInspected, setDateInspected] = useState<{
+    value: unknown;
+    anchorRect: DOMRect;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -341,7 +346,11 @@ export function RowsTable({
                           ) : (
                             <CellValue
                               value={row[columnName]}
+                              dataType={meta?.dataType}
                               onInspect={(value) => setInspected({ column: columnName, value })}
+                              onInspectDate={(value, anchorRect) =>
+                                setDateInspected({ value, anchorRect })
+                              }
                             />
                           )}
                         </td>
@@ -397,6 +406,14 @@ export function RowsTable({
           column={inspected.column}
           value={inspected.value}
           onClose={() => setInspected(null)}
+        />
+      )}
+
+      {dateInspected && (
+        <DateDetailPopover
+          value={dateInspected.value}
+          anchorRect={dateInspected.anchorRect}
+          onClose={() => setDateInspected(null)}
         />
       )}
     </div>

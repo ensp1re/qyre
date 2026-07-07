@@ -787,7 +787,7 @@
       "id": "F070",
       "behavior": "Clicking a date/timestamp cell in the Rows table opens an anchored popover showing the raw stored value, ISO 8601 UTC, the browser's local timezone conversion (named zone + offset), relative time, and unix epoch, with a copy button - date columns are detected from the table's column metadata already returned by the server.",
       "verification": "pnpm --filter @qyre/ui test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

@@ -15,35 +15,67 @@ Every other engine is added the same way (new `packages/drivers/<engine>` packag
 
 ## Startup workflow
 
-Before changing code:
+Load context progressively - read what the task needs, when it needs it, not everything up front
+(`docs/FEATURES.json` alone is ~130KB, mostly historical evidence prose).
+
+Always, before changing code:
 
 1. Confirm the repo root with `pwd`.
-2. Read [`ARCHITECTURE.md`](ARCHITECTURE.md) for the system map, layers, and dependency rules.
-3. Read [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md) to see where the last session stopped.
-4. Read [`docs/QUALITY_SCORE.md`](docs/QUALITY_SCORE.md) to see which areas are weakest.
-5. Read [`docs/FEATURES.json`](docs/FEATURES.json) and pick the one `active` feature, or promote a
-   `not_started` one.
-6. Read the relevant spec in [`docs/product-specs/`](docs/product-specs/).
-7. Run the standard verification path below to confirm a clean baseline before adding scope.
-8. If the baseline is failing, repair it before adding new work.
+2. Read [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md) to see where the last session stopped.
+3. Run `pnpm features` for current feature states (compact summary; `pnpm features <id>` prints one
+   full entry including evidence - do not read all of `docs/FEATURES.json` into context). Work the
+   one `active` feature, or promote a `not_started` one.
+
+Then, only when the task calls for it:
+
+4. The feature's spec in [`docs/product-specs/`](docs/product-specs/) - required before
+   implementing a specced feature.
+5. [`ARCHITECTURE.md`](ARCHITECTURE.md) - when touching packages or layers you don't already know.
+6. [`docs/QUALITY_SCORE.md`](docs/QUALITY_SCORE.md) - when choosing what to improve, not for a
+   pre-picked task.
+7. Anything else via the routing map below, on demand.
+
+Before adding scope: run the standard verification path to confirm a clean baseline (the DB stack
+below must be up). If the baseline is failing, repair it before adding new work.
 
 ## Standard commands
 
 - Install: `pnpm install`
 - Full verification: `pnpm check` (format, lint, typecheck, test, build, project-state checks)
+- Same coverage, less output: `pnpm check:quiet` (turbo prints failing tasks only - prefer this
+  when running as an agent; the pre-push hook still runs the full `pnpm check`)
 - CI-equivalent (adds E2E): `pnpm check:ci`
+- Feature states: `pnpm features` (summary) / `pnpm features <id>` (one full entry)
 - Dev: `pnpm dev`
 - Feature/handoff state checks: `pnpm check:state`
+
+**`pnpm check` requires live databases.** The Postgres/MySQL/MongoDB integration suites inside
+`pnpm test` fail loudly (they do not skip) when `QYRE_TEST_DATABASE_URL`, `QYRE_TEST_MYSQL_URL`,
+or `QYRE_TEST_MONGO_URL` is unset - and the pre-push hook runs `pnpm check`, so pushing needs them
+too, exported in the same shell. Standard setup (mirrors CI exactly):
+
+```bash
+docker compose up -d   # starts all three; credentials/ports in .env.example
+export QYRE_TEST_DATABASE_URL="postgres://postgres:postgres@localhost:5432/qyre_test"
+export QYRE_TEST_MYSQL_URL="mysql://root:root@localhost:3306/qyre_test"
+export QYRE_TEST_MONGO_URL="mongodb://localhost:27017/qyre_test"
+```
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full test-stack guide, and
+`docs/SESSION_HANDOFF.md`'s "Known issues" for machine-specific gotchas (e.g. a dangling
+`/usr/local/bin/docker` symlink) before concluding Docker is unavailable.
 
 ## Routing map
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): domains, layers, package boundaries, dependency rules
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): environment setup, local test stack (Docker compose + env vars)
 - [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md): folder rules inside packages (types,
   validation, UI components, driver packages)
 - [`FRONTEND.md`](FRONTEND.md): UI constraints and design rules
 - [`docs/NAMING.md`](docs/NAMING.md): naming rules for packages, files, commands, features, adapters
 - [`docs/PLANS.md`](docs/PLANS.md): execution-plan lifecycle
-- [`docs/FEATURES.json`](docs/FEATURES.json): machine-readable feature state (single source of truth for scope)
+- [`docs/FEATURES.json`](docs/FEATURES.json): machine-readable feature state (single source of
+  truth for scope) - query it via `pnpm features` / `pnpm features <id>` instead of reading the file
 - [`docs/PRODUCT_SENSE.md`](docs/PRODUCT_SENSE.md): durable product judgment
 - [`docs/QUALITY_SCORE.md`](docs/QUALITY_SCORE.md): domain and package health
 - [`docs/RELIABILITY.md`](docs/RELIABILITY.md): bootstrap, verification, end-to-end journeys, health signals

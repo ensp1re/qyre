@@ -5,7 +5,8 @@ How Qyre proves it is healthy and restartable. Only a full-pipeline run counts a
 ## Standard paths
 
 - Bootstrap: `pnpm install`
-- Verification (local): `pnpm check`
+- Verification (local): `pnpm check` - requires the live test databases below
+- Verification (same coverage, failing tasks only in output): `pnpm check:quiet`
 - Verification (CI-equivalent, adds E2E): `pnpm check:ci`
 - Start app (dev): `pnpm dev`
 - Start product (once implemented): `qyre <database-url>` (engine auto-detected from the target)
@@ -16,7 +17,12 @@ A change is not done until the required levels pass, in order:
 
 1. Static: formatting, lint, typecheck.
 2. Unit: package unit tests (Vitest).
-3. Integration: adapter tests against an ephemeral Postgres (requires `QYRE_TEST_DATABASE_URL`).
+3. Integration: adapter tests against real Postgres, MySQL, and MongoDB instances (require
+   `QYRE_TEST_DATABASE_URL`, `QYRE_TEST_MYSQL_URL`, and `QYRE_TEST_MONGO_URL` respectively;
+   `docker compose up -d` starts all three with the credentials in `.env.example`, matching
+   CI's service containers exactly). Each suite fails loudly if its env var is unset - required
+   verification is never silently skipped. Because the pre-push hook runs `pnpm check`, these
+   env vars must be exported in the shell you push from.
 4. End-to-end: Playwright's full connect-and-inspect journey for cross-component changes.
 
 Do not skip a required level. Passing unit tests alone does not mean a cross-component feature is done.

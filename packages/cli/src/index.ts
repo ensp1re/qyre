@@ -1,7 +1,7 @@
 /**
  * The `qyre` CLI: parse a database target, start the local server, and open the browser.
  */
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseConnectionTarget } from "@qyre/core";
@@ -9,7 +9,7 @@ import { resolveAdapter } from "@qyre/driver-contract";
 import { mongodbAdapterFactory } from "@qyre/mongodb";
 import { mysqlAdapterFactory } from "@qyre/mysql";
 import { postgresAdapterFactory } from "@qyre/postgres";
-import { startServer } from "@qyre/server";
+import { displayTarget, startServer } from "@qyre/server";
 import { sqliteAdapterFactory } from "@qyre/sqlite";
 import { Command } from "commander";
 import open from "open";
@@ -39,6 +39,7 @@ export interface CliArgs {
   target: string | undefined;
   port: number | undefined;
   filesDir: string | undefined;
+  verbose: boolean;
 }
 
 /** Parse CLI arguments. Throws (via commander) on malformed flags. */
@@ -56,12 +57,18 @@ export function parseArgs(argv: string[]): CliArgs {
       "--files-dir <dir>",
       "directory the Files tab may read *.sql files from (opt-in; disabled by default)"
     )
+    .option("--verbose", "log every HTTP request (default: only warnings and errors)", false)
     .allowExcessArguments(false)
     .exitOverride();
 
   program.parse(argv, { from: "user" });
-  const opts = program.opts<{ port?: number; filesDir?: string }>();
-  return { target: program.args[0], port: opts.port, filesDir: opts.filesDir };
+  const opts = program.opts<{ port?: number; filesDir?: string; verbose: boolean }>();
+  return {
+    target: program.args[0],
+    port: opts.port,
+    filesDir: opts.filesDir,
+    verbose: opts.verbose
+  };
 }
 
 /** Resolve the port to listen on: `--port` flag, then `QYRE_PORT` env var, then the server default. */
@@ -83,6 +90,28 @@ export function resolvePort(
 /** Resolves the `--files-dir` flag to an absolute path. Undefined means file browsing is disabled. */
 export function resolveFilesRoot(filesDir: string | undefined, cwd: string): string | undefined {
   return filesDir ? resolve(cwd, filesDir) : undefined;
+}
+
+/**
+ * Reads this package's own version out of its `package.json`, relative to `here` (the directory
+ * this file - or its built `dist/index.js` - lives in). `package.json` sits one level up from both
+ * `src/` (dev) and `dist/` (built) and, unlike `dist/`, is never excluded from the published
+ * package (npm always includes it regardless of the `files` allowlist), so this resolves
+ * identically in the monorepo and once installed standalone.
+ */
+export function resolveVersion(here: string): string {
+  const raw = readFileSync(join(here, "../package.json"), "utf8");
+  return (JSON.parse(raw) as { version: string }).version;
+}
+
+/** Builds the short banner printed on startup (F067) - replaces the bare "Qyre is running at" line. */
+export function formatBanner(info: { version: string; target: string; url: string }): string {
+  return [
+    `Qyre v${info.version} — connected to ${info.target}`,
+    `Running at ${info.url}`,
+    "Bugs: https://github.com/ensp1re/qyre/issues",
+    "Contribute: https://github.com/ensp1re/qyre/blob/main/CONTRIBUTING.md"
+  ].join("\n");
 }
 
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 5000;
@@ -156,13 +185,16 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     throw new Error(`--files-dir "${filesRoot}" does not exist or is not a directory.`);
   }
 
+  const here = dirname(fileURLToPath(import.meta.url));
   const port = resolvePort(args.port, process.env);
   const server = await startServer({
     adapter,
     target,
     port,
-    logger: true,
-    webRoot: defaultWebRoot(dirname(fileURLToPath(import.meta.url))),
+    // F067: quiet by default (only warnings/errors) - `true` (every request, Fastify's default
+    // level) is opt-in via --verbose, since per-request JSON logs drown out the startup banner.
+    logger: args.verbose ? true : { level: "warn" },
+    webRoot: defaultWebRoot(here),
     filesRoot,
     // F064: lets the running instance switch to a different database via POST /api/connect
     // instead of requiring a process restart.
@@ -172,7 +204,9 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   // construct its own EventLog - the pool "error" listener checks onConnectionEvent at fire time,
   // not at connect()-time, so this order is fine (F028).
   adapter.onConnectionEvent = (level, message) => server.eventLog.log(level, message);
-  process.stdout.write(`Qyre is running at ${server.url}\n`);
+  process.stdout.write(
+    `${formatBanner({ version: resolveVersion(here), target: displayTarget(target), url: server.url })}\n`
+  );
   await open(server.url);
 
   const shutdown = createShutdownHandler({

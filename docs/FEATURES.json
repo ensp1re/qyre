@@ -752,6 +752,86 @@
       "evidence": "commit a1fd8f9: a new GET /api/tables/:schema/:table/export.csv streams every row (honoring the current sort) in bounded MAX_PAGE_SIZE batches rather than materializing the whole table in memory - mirrors capResultRows's philosophy (F050) for a path that must NOT be capped, since exporting the whole table is the point. A small server-local csvLine() helper (packages/server/src/csv.ts) applies the same formula-injection escaping as the existing page-only export (F035) - kept independent from packages/ui's toCsv rather than shared through @qyre/core, since packages/server can't depend on packages/ui and this is a small enough function that duplicating it is simpler than a new shared package. RowsTable's \"Export this page as CSV\" button becomes \"Export all rows as CSV\", triggering a real browser download (not a fetch+Blob) so the download streams to disk instead of buffering the whole table in JS memory; the selected-rows \"Copy as CSV\" action is unchanged. Verified live via Preview against the same real 10,000-row Postgres table: the export endpoint returned a 10,001-line CSV (header + all 10,000 rows, not just the loaded page), correctly ordered by the active sort and CSV-escaped (a JSON metadata column with embedded quotes/commas escaped correctly); clicking the actual \"Export all rows as CSV\" button in the browser triggered a real native download via the browser's download manager, with the active sort's query params included. 67/67 server tests pass including the new streaming-loop and formula-injection-escaping cases.",
       "blockedReason": null,
       "spec": "docs/product-specs/server-side-sort-export.md"
+    },
+    {
+      "id": "F067",
+      "behavior": "`npx qyre <target>` prints quiet output by default (Fastify's per-request logger no longer spams JSON lines at info level; add a `--verbose` flag to restore it), and the startup line becomes a short banner: version, engine, redacted target, URL, plus \"Bugs:\"/\"Contribute:\" links to the GitHub repo.",
+      "verification": "pnpm --filter qyre test",
+      "state": "active",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F068",
+      "behavior": "The MongoDB adapter infers a per-field BSON type (string/number/objectId/date/array/object/mixed) and nullability from its existing document sample instead of reporting `dataType: \"any\"`/`nullable: true` for every field, and reports `_id` as `dataType: \"objectId\"`, `nullable: false` - fixing the Schema tab showing `any`/`null` for every MongoDB column including the primary key.",
+      "verification": "pnpm --filter @qyre/mongodb test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F069",
+      "behavior": "Long plain-string cells in the Rows table are capped to one line with an ellipsis past a threshold instead of stretching the row, and clicking a truncated cell opens the existing CellValueDrawer with the full value, character count, and a copy button (reusing the drawer already shipped for JSON/binary cells).",
+      "verification": "pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F070",
+      "behavior": "Clicking a date/timestamp cell in the Rows table opens an anchored popover showing the raw stored value, ISO 8601 UTC, the browser's local timezone conversion (named zone + offset), relative time, and unix epoch, with a copy button - date columns are detected from the table's column metadata already returned by the server.",
+      "verification": "pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F071",
+      "behavior": "The sidebar's width and the SQL editor/results vertical split are user-resizable via a keyboard-accessible drag handle, with the chosen sizes persisted in localStorage across restarts.",
+      "verification": "pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F072",
+      "behavior": "`GET /api/tables/:schema/:table/rows` gains server-side filter parameters (column validated against the table's real columns, operator from a fixed whitelist, value always parameter-bound), each of the 4 adapters' `getRows` translates them into a real `WHERE`/`.find()` query, and the Rows table gets a structured filter bar (column/operator/value, no raw SQL needed so it works on MongoDB too). Clicking a primary-key value applies a filter on the current table; clicking a foreign-key value navigates to the referenced table pre-filtered to that row - both verified on all 4 engines, including MongoDB's `_id`, via new `@qyre/testing-conformance` cases. Needs a product-spec pass (filter grammar, API shape) before implementation, following the pattern used for F063-F066.",
+      "verification": "pnpm test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F073",
+      "behavior": "Running `npx qyre` with no target starts the server unconnected and opens the browser straight into the existing ConnectDrawer (reusing F064's runtime adapter-swap instead of a new terminal wizard); the ConnectDrawer's form gains discrete host/port/user/password/database/engine fields as an alternative to pasting a URL; and every known startup failure (unparseable target, unreachable host, auth failure, port in use) gets a distinct, actionable message instead of a raw error.",
+      "verification": "pnpm --filter qyre test && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F074",
+      "behavior": "The Schema tab gains an interactive graph/ERD view - pannable, zoomable, draggable table nodes connected by foreign-key relationship edges (SQL engines only; MongoDB renders as unconnected nodes) - replacing or supplementing the current static card grid. Needs a product-spec pass first (canvas library choice, auto-layout, position persistence), following the pattern used for F063-F066.",
+      "verification": "pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
     }
   ]
 }

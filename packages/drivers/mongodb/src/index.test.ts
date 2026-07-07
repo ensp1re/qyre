@@ -2,9 +2,25 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ConnectionTarget } from "@qyre/core";
-import { BSONRegExp, BSONSymbol, Code, Long, MaxKey, MinKey, Timestamp } from "mongodb";
+import {
+  Binary,
+  BSONRegExp,
+  BSONSymbol,
+  Code,
+  Decimal128,
+  Long,
+  MaxKey,
+  MinKey,
+  ObjectId,
+  Timestamp
+} from "mongodb";
 import { describe, expect, it } from "vitest";
-import { mongodbAdapterFactory, normalizeBsonValue } from "./index.js";
+import {
+  classifyBsonValue,
+  inferColumns,
+  mongodbAdapterFactory,
+  normalizeBsonValue
+} from "./index.js";
 
 describe("normalizeBsonValue", () => {
   it("preserves a Timestamp's {t, i} semantics instead of misreading it as a signed Long (F045)", () => {
@@ -41,6 +57,73 @@ describe("normalizeBsonValue", () => {
 
   it("normalizes BSONSymbol to its plain string value", () => {
     expect(normalizeBsonValue(new BSONSymbol("mysym"))).toBe("mysym");
+  });
+});
+
+describe("classifyBsonValue", () => {
+  it("classifies primitives", () => {
+    expect(classifyBsonValue("hi")).toBe("string");
+    expect(classifyBsonValue(42)).toBe("number");
+    expect(classifyBsonValue(true)).toBe("boolean");
+    expect(classifyBsonValue(null)).toBe("null");
+    expect(classifyBsonValue(undefined)).toBe("null");
+  });
+
+  it("classifies BSON-specific instances", () => {
+    expect(classifyBsonValue(new ObjectId())).toBe("objectId");
+    expect(classifyBsonValue(new Date())).toBe("date");
+    expect(classifyBsonValue(new Binary(Buffer.from("x")))).toBe("binary");
+    expect(classifyBsonValue([1, 2, 3])).toBe("array");
+    expect(classifyBsonValue(Long.fromNumber(42))).toBe("number");
+    expect(classifyBsonValue(Decimal128.fromString("1.5"))).toBe("number");
+  });
+
+  it("classifies a plain nested document as object", () => {
+    expect(classifyBsonValue({ a: 1 })).toBe("object");
+  });
+});
+
+describe("inferColumns", () => {
+  it("infers a single consistent type as non-nullable when present on every document", () => {
+    const columns = inferColumns([{ name: "Ada" }, { name: "Alan" }]);
+    expect(columns).toEqual([
+      {
+        name: "name",
+        dataType: "string",
+        nullable: false,
+        isPrimaryKey: false,
+        isForeignKey: false
+      }
+    ]);
+  });
+
+  it("marks a field nullable when absent from some sampled documents", () => {
+    const columns = inferColumns([{ a: 1, b: 2 }, { a: 1 }]);
+    const b = columns.find((c) => c.name === "b");
+    expect(b?.nullable).toBe(true);
+  });
+
+  it("marks a field nullable when explicitly null in some document, even if present everywhere", () => {
+    const columns = inferColumns([{ a: 1 }, { a: null }]);
+    const a = columns.find((c) => c.name === "a");
+    expect(a?.dataType).toBe("number");
+    expect(a?.nullable).toBe(true);
+  });
+
+  it("reports dataType 'mixed' when a field's type varies across the sample", () => {
+    const columns = inferColumns([{ a: 1 }, { a: "one" }]);
+    expect(columns.find((c) => c.name === "a")?.dataType).toBe("mixed");
+  });
+
+  it("reports dataType 'null' for a field that is only ever explicitly null", () => {
+    const columns = inferColumns([{ a: null }, { a: null }]);
+    const a = columns.find((c) => c.name === "a");
+    expect(a?.dataType).toBe("null");
+    expect(a?.nullable).toBe(true);
+  });
+
+  it("returns no columns for an empty sample", () => {
+    expect(inferColumns([])).toEqual([]);
   });
 });
 

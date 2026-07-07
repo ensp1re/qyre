@@ -59,14 +59,23 @@ gotchas in "Known issues / blockers").
   ([PR #63](https://github.com/ensp1re/qyre/pull/63)); `scripts/publish.mjs` gained a
   release-branch + PR workflow.
 - **F067 `passing`** ([PR #66](https://github.com/ensp1re/qyre/pull/66), merged): CLI logs
-  warnings/errors only by default (`--verbose` restores per-request logs) plus a startup banner
-  (version, redacted target, URL, repo links). Same session: user bug-triage recorded as root
-  `SUGGESTIONS.md` + F068-F074 in FEATURES.json, and a cross-engine-parity rule added to
-  `AGENTS.md`'s working contract.
+  warnings/errors only by default (`--verbose` restores per-request logs) plus a startup banner.
+  Same session: user bug-triage recorded as root `SUGGESTIONS.md` + F068-F074 in FEATURES.json.
+- **Harness audit** ([PR #67](https://github.com/ensp1re/qyre/pull/67), merged): fixed a stale
+  verification contract (AGENTS.md/RELIABILITY.md/CONTRIBUTING.md didn't say `pnpm check` needs
+  live Postgres+MySQL+MongoDB, added after F014/F015 but never documented) plus context/token
+  efficiency - `pnpm features`/`pnpm features <id>` (compact `FEATURES.json` queries instead of
+  reading the ~130KB file), `pnpm check:quiet` (same coverage, errors-only output), progressive
+  disclosure in AGENTS.md's startup workflow, `qyre-lean-output` skill extended with invocation
+  rules.
+- **F068 `passing`** ([PR #68](https://github.com/ensp1re/qyre/pull/68)): MongoDB's `getTable()`
+  infers each field's real BSON type (string/number/boolean/objectId/date/array/binary/object/
+  mixed) and per-field nullability from its document sample, replacing the old blanket
+  `dataType: "any"`, `nullable: true` for every column including `_id`.
 
 ## In progress
 
-- Nothing in flight. F068-F074 (see `SUGGESTIONS.md` for the full analysis behind each) are
+- Nothing in flight. F069-F074 (see `SUGGESTIONS.md` for the full analysis behind each) are
   `not_started` and unclaimed.
 
 ## Known issues / blockers
@@ -93,17 +102,15 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-**F068-F074 are queued and `not_started`** (see `SUGGESTIONS.md` for the full reported-bug/fix-plan
-detail behind each): F068 (MongoDB per-field type/nullability inference), F069 (long-string cell
-truncation), F070 (date/timestamp cell detail popover), F071 (resizable sidebar/SQL-editor panels),
-F072 (server-side row filtering + PK/FK click-to-filter across all 4 engines - needs a product-spec
-pass first), F073 (guided no-URL CLI startup / connect-later flow), F074 (interactive schema
-graph/ERD - needs a product-spec pass first). Suggested order is in `SUGGESTIONS.md`'s
-"Suggested implementation order" table; smallest/most-contained first.
+**F069-F074 are queued and `not_started`** (see `SUGGESTIONS.md` for the full reported-bug/fix-plan
+detail behind each): F069 (long-string cell truncation), F070 (date/timestamp cell detail popover),
+F071 (resizable sidebar/SQL-editor panels), F072 (server-side row filtering + PK/FK click-to-filter
+across all 4 engines - needs a product-spec pass first), F073 (guided no-URL CLI startup /
+connect-later flow), F074 (interactive schema graph/ERD - needs a product-spec pass first).
+Suggested order is in `SUGGESTIONS.md`'s "Suggested implementation order" table.
 
 Separately, `--demo` mode (a zero-setup trial with a bundled sample DB) is still on
-`docs/exec-plans/tech-debt-tracker.md` with no spec written yet. The residual MongoDB-fake-fields
-half of F063's old tech-debt row is now superseded by F068 above.
+`docs/exec-plans/tech-debt-tracker.md` with no spec written yet.
 
-A fresh session asking "what's next" should pick up F068 (smallest, contained to
-`packages/drivers/mongodb`) unless the user directs otherwise.
+A fresh session asking "what's next" should run `pnpm features` and pick up F069 (smallest,
+contained to `packages/ui`) unless the user directs otherwise.

@@ -57,10 +57,22 @@ describe("MongodbAdapter integration", () => {
     const idColumn = table.columns.find((column) => column.name === "_id");
     expect(idColumn?.isPrimaryKey).toBe(true);
     expect(idColumn?.isForeignKey).toBe(false);
-    expect(table.columns.every((column) => column.nullable)).toBe(true);
 
     expect(table.indexes).toEqual([]);
     expect(table.rowCount).toBe(FIXTURE.rowCount);
+  });
+
+  it("infers per-field BSON type and nullability instead of a blanket any/nullable (F068)", async () => {
+    const table = await adapter.getTable(databaseName, FIXTURE.table);
+    const column = (name: string) => table.columns.find((c) => c.name === name);
+
+    // _id: always present, always an ObjectId - never nullable.
+    expect(column("_id")).toMatchObject({ dataType: "objectId", nullable: false });
+    // name/email: strings present on all 3 fixture documents - not nullable.
+    expect(column("name")).toMatchObject({ dataType: "string", nullable: false });
+    expect(column("email")).toMatchObject({ dataType: "string", nullable: false });
+    // profile: a nested document, but only Ada Lovelace's fixture row has it - nullable.
+    expect(column("profile")).toMatchObject({ dataType: "object", nullable: true });
   });
 
   it("returns a page of documents; _id stays a live ObjectId at this layer, serializing to its hex string only once JSON-encoded (same precedent as Buffer/Date elsewhere)", async () => {

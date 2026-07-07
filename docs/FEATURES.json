@@ -767,9 +767,9 @@
       "id": "F068",
       "behavior": "The MongoDB adapter infers a per-field BSON type (string/number/objectId/date/array/object/mixed) and nullability from its existing document sample instead of reporting `dataType: \"any\"`/`nullable: true` for every field, and reports `_id` as `dataType: \"objectId\"`, `nullable: false` - fixing the Schema tab showing `any`/`null` for every MongoDB column including the primary key.",
       "verification": "pnpm --filter @qyre/mongodb test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "324b5781de265ae45482914d3a681d23e3c02688",
+      "evidence": "commit 324b578: packages/drivers/mongodb/src/index.ts gains classifyBsonValue() (maps a sampled field value to string/number/boolean/objectId/date/array/binary/object, collapsing Decimal128/Long/Timestamp/Code/etc. the same way normalizeBsonValue already does for display) and inferColumns() (aggregates each field's observed types and presence across the sample - size 0 concrete types reports \"null\", >1 reports \"mixed\", exactly 1 reports that type; nullable is true if the field was ever absent from a sampled document or ever explicitly null). getTable() now reports _id directly as { dataType: \"objectId\", nullable: false } rather than trusting inference, so an empty collection (nothing to sample) still reports it correctly, and always first regardless of sample key order. 33/33 @qyre/mongodb tests pass (20 new/updated: classifyBsonValue/inferColumns unit coverage for primitives, BSON instances, nested documents, absent-field nullability, explicit-null nullability, mixed types, and empty samples; the integration suite's fixture-backed test now asserts real per-field types - _id: objectId/non-null, name/email: string/non-null, profile: object/nullable (only 1 of 3 fixture docs has it) - replacing the old blanket \"every column is nullable\" assertion, which is no longer true once _id is correctly non-nullable). pnpm check:quiet (full monorepo check) passes against a real docker compose up -d Postgres+MySQL+MongoDB stack. PR: https://github.com/ensp1re/qyre/pull/68.",
       "blockedReason": null,
       "spec": null
     },

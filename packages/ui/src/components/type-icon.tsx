@@ -1,5 +1,6 @@
 import { Calendar, Hash, ToggleLeft, Type } from "lucide-react";
 import type { ReactNode } from "react";
+import { isDateType } from "../format-cell.js";
 
 export interface TypeIconProps {
   dataType: string;
@@ -25,9 +26,7 @@ function classify(dataType: string): "numeric" | "text" | "boolean" | "datetime"
     return "numeric";
   }
   if (type.startsWith("bool")) return "boolean";
-  if (type.startsWith("timestamp") || type.startsWith("date") || type.startsWith("time")) {
-    return "datetime";
-  }
+  if (isDateType(dataType)) return "datetime";
   if (
     type.startsWith("char") ||
     type.startsWith("varchar") ||

@@ -1,6 +1,6 @@
 import { Binary, Braces, Brackets } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
-import { formatCell } from "../format-cell.js";
+import { formatCell, isDateType } from "../format-cell.js";
 
 /** A non-null object or array cell value - the shape CellValue/CellValueDrawer render as a tree. */
 export type StructuredValue = Record<string, unknown> | unknown[];
@@ -104,18 +104,29 @@ function InspectChip({
  * Renders one table cell value: a short plain string/number/boolean renders exactly like
  * formatCell's flat text (unchanged); a binary value (see BinaryValue) or a plain object/array
  * renders as a compact single-line chip that never grows the row; a string past
- * LONG_STRING_THRESHOLD truncates to one line instead (F069). All three click-to-inspect cases
- * report the value via `onInspect`, and the caller opens a CellValueDrawer to explore it (see
- * docs/product-specs/structured-cell-values.md). An earlier version expanded structured values
- * inline inside the cell, which blew up row heights and broke the table layout - the
- * chip/truncated-text + drawer split is the deliberate replacement.
+ * LONG_STRING_THRESHOLD truncates to one line instead (F069); a value in a date/timestamp column
+ * (see `dataType`) renders as a clickable underlined date instead (F070). All click-to-inspect
+ * cases report the value via `onInspect`/`onInspectDate`; the caller opens a CellValueDrawer or
+ * DateDetailPopover to show it in full (see docs/product-specs/structured-cell-values.md). An
+ * earlier version expanded structured values inline inside the cell, which blew up row heights and
+ * broke the table layout - the chip/truncated-text/date-link + drawer/popover split is the
+ * deliberate replacement.
  */
 export function CellValue({
   value,
-  onInspect
+  dataType,
+  onInspect,
+  onInspectDate
 }: {
   value: unknown;
+  /** The column's `ColumnMetadata.dataType`, if known - drives the date click affordance (F070).
+   * Omitted (e.g. QueryRunner's untyped SQL result columns) simply disables it. */
+  dataType?: string;
   onInspect: (value: InspectableValue) => void;
+  /** Reports a date/timestamp cell click, with the clicked element's `getBoundingClientRect()` so
+   * the caller can anchor a DateDetailPopover at the click site (F070). Omitted disables the date
+   * affordance even for a date-typed column, falling back to plain text. */
+  onInspectDate?: (value: unknown, anchorRect: DOMRect) => void;
 }): ReactNode {
   if (isBinaryValue(value)) {
     return (
@@ -141,6 +152,22 @@ export function CellValue({
           onInspect(value);
         }}
       />
+    );
+  }
+  if (onInspectDate && dataType && isDateType(dataType) && typeof value === "string") {
+    return (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onInspectDate(value, event.currentTarget.getBoundingClientRect());
+        }}
+        title="Click for UTC, local time, and more"
+        className="underline decoration-dotted underline-offset-2 hover:text-primary"
+        style={{ color: "var(--c-purple)" }}
+      >
+        {formatCell(value)}
+      </button>
     );
   }
   if (isLongString(value)) {

@@ -12,6 +12,7 @@ export * from "./components/date-detail-popover.js";
 export * from "./components/error-boundary.js";
 export * from "./components/error-state.js";
 export * from "./components/files-browser.js";
+export * from "./components/resize-handle.js";
 export * from "./components/schema-grid.js";
 export * from "./components/schema-tree.js";
 export * from "./components/sidebar.js";

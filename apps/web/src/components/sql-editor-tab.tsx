@@ -12,6 +12,8 @@ export interface SqlEditorTabProps {
   runQuery: ReturnType<typeof useRunQuery>;
   onOpenHistory: () => void;
   tableNames: string[];
+  resultsHeight: number;
+  onResultsHeightChange: (height: number) => void;
 }
 
 /** SQL Editor tab content - not available for engines with no SQL dialect (MongoDB today). */
@@ -22,7 +24,9 @@ export function SqlEditorTab({
   onRun,
   runQuery,
   onOpenHistory,
-  tableNames
+  tableNames,
+  resultsHeight,
+  onResultsHeightChange
 }: SqlEditorTabProps): ReactNode {
   if (sqlDisabled) {
     return (
@@ -43,6 +47,8 @@ export function SqlEditorTab({
       error={runQuery.error instanceof Error ? runQuery.error.message : undefined}
       onOpenHistory={onOpenHistory}
       tableNames={tableNames}
+      resultsHeight={resultsHeight}
+      onResultsHeightChange={onResultsHeightChange}
     />
   );
 }

@@ -2,8 +2,15 @@ import type { ConnectionStatus, SchemaMetadata } from "@qyre/core";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
+import { ResizeHandle } from "./resize-handle.js";
 import { SchemaTree, type SelectedTable } from "./schema-tree.js";
 import { Spinner } from "./spinner.js";
+
+/** The default/min/max are exported so the caller owning persistence (F071's `usePanelSize`) can
+ * seed and clamp against the same numbers this component uses, instead of duplicating them. */
+export const SIDEBAR_DEFAULT_WIDTH = 256;
+const MIN_WIDTH = 180;
+const MAX_WIDTH = 480;
 
 export interface SidebarProps {
   target: string | null;
@@ -16,6 +23,10 @@ export interface SidebarProps {
   onRetry?: () => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Width in px while open (F071). Omitted keeps the previous fixed 256px (`w-64`) - both this
+   * and `onWidthChange` must be supplied together for the resize handle to appear. */
+  width?: number;
+  onWidthChange?: (width: number) => void;
 }
 
 /**
@@ -33,8 +44,11 @@ export function Sidebar({
   isError,
   onRetry,
   open,
-  onOpenChange
+  onOpenChange,
+  width,
+  onWidthChange
 }: SidebarProps): ReactNode {
+  const resizable = open && width !== undefined && onWidthChange !== undefined;
   return (
     <>
       {open && (
@@ -46,8 +60,10 @@ export function Sidebar({
       )}
 
       <aside
+        style={resizable ? { width } : undefined}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-150",
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-150",
+          !resizable && "w-64",
           "md:static md:z-auto md:translate-x-0 md:transition-none",
           open ? "translate-x-0" : "-translate-x-full",
           !open && "md:w-8"
@@ -111,6 +127,19 @@ export function Sidebar({
           </div>
         )}
       </aside>
+
+      {resizable && (
+        <div className="hidden md:block">
+          <ResizeHandle
+            orientation="vertical"
+            value={width}
+            min={MIN_WIDTH}
+            max={MAX_WIDTH}
+            onChange={onWidthChange}
+            aria-label="Resize sidebar"
+          />
+        </div>
+      )}
     </>
   );
 }

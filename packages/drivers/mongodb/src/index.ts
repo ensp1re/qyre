@@ -125,6 +125,82 @@ function normalizeDocument(document: Record<string, unknown>): Record<string, un
   return normalizeBsonValue(document) as Record<string, unknown>;
 }
 
+/**
+ * Coarse BSON type name for a sampled field value, reported as `ColumnMetadata.dataType` (F068).
+ * Not exhaustive BSON - Int32/Long/Decimal128 all collapse to "number" and structured/exotic types
+ * (nested documents, Timestamp, Code, regex, MinKey/MaxKey, BSONSymbol) collapse to "object",
+ * matching how `normalizeBsonValue` already flattens most of these for display. The goal is a
+ * label a developer can actually read in the Schema tab, not a full BSON type system.
+ */
+type InferredBsonType =
+  "string" | "number" | "boolean" | "objectId" | "date" | "array" | "binary" | "object";
+
+export function classifyBsonValue(value: unknown): InferredBsonType | "null" {
+  if (value === null || value === undefined) return "null";
+  if (value instanceof ObjectId) return "objectId";
+  if (value instanceof Date) return "date";
+  if (value instanceof Binary) return "binary";
+  if (Array.isArray(value)) return "array";
+  if (value instanceof Long || value instanceof Decimal128 || typeof value === "number") {
+    return "number";
+  }
+  if (typeof value === "boolean") return "boolean";
+  if (typeof value === "string") return "string";
+  return "object";
+}
+
+/** Collapses a field's observed type set to one reported `dataType` (or "mixed"/"null"). */
+function resolveDataType(types: Set<InferredBsonType>): InferredBsonType | "mixed" | "null" {
+  if (types.size === 0) return "null";
+  if (types.size > 1) return "mixed";
+  for (const type of types) return type;
+  return "null"; // unreachable: size === 1 guarantees the loop above returns
+}
+
+/**
+ * Infers each observed field's BSON type and nullability from a document sample (F068), replacing
+ * the previous blanket `dataType: "any"`/`nullable: true` for every field. A field is "nullable" if
+ * it was ever explicitly `null` or ever absent from a sampled document - a schemaless collection
+ * makes no per-field guarantee (see the spec's "Concepts that don't map 1:1 from SQL engines"), so
+ * absence is exactly as meaningful as an explicit null. A field observed with more than one
+ * concrete type across the sample reports `dataType: "mixed"` rather than picking one arbitrarily.
+ * `_id` is handled separately by the caller (guaranteed present and an ObjectId by convention -
+ * see F068's evidence) rather than trusted to inference, so an empty sample still reports it
+ * correctly.
+ */
+export function inferColumns(sample: Record<string, unknown>[]): ColumnMetadata[] {
+  const fields = new Map<
+    string,
+    { types: Set<InferredBsonType>; presentCount: number; explicitNull: boolean }
+  >();
+
+  for (const document of sample) {
+    for (const [key, value] of Object.entries(document)) {
+      const observation = fields.get(key) ?? {
+        types: new Set<InferredBsonType>(),
+        presentCount: 0,
+        explicitNull: false
+      };
+      observation.presentCount += 1;
+      const type = classifyBsonValue(value);
+      if (type === "null") {
+        observation.explicitNull = true;
+      } else {
+        observation.types.add(type);
+      }
+      fields.set(key, observation);
+    }
+  }
+
+  return [...fields].map(([name, observation]) => ({
+    name,
+    dataType: resolveDataType(observation.types),
+    nullable: observation.explicitNull || observation.presentCount < sample.length,
+    isPrimaryKey: false,
+    isForeignKey: false
+  }));
+}
+
 export class MongodbAdapter implements DatabaseAdapter {
   public readonly engine = "mongodb";
   private client: MongoClient | undefined;
@@ -189,28 +265,27 @@ export class MongodbAdapter implements DatabaseAdapter {
   async getTable(schema: string, table: string): Promise<TableMetadata> {
     const collection = this.getClient().db(schema).collection(table);
 
-    // Best-effort field list from a sample, not a full scan - a schemaless collection has no
-    // authoritative column list (see the spec's "Concepts that don't map 1:1 from SQL engines").
+    // Best-effort field list and per-field type from a sample, not a full scan - a schemaless
+    // collection has no authoritative column list (see the spec's "Concepts that don't map 1:1
+    // from SQL engines").
     const sample = await collection
       .aggregate([{ $sample: { size: FIELD_SAMPLE_SIZE } }], { maxTimeMS: this.statementTimeoutMs })
       .toArray();
-    const fieldNames = new Set<string>();
-    for (const document of sample) {
-      for (const key of Object.keys(document)) fieldNames.add(key);
-    }
-    // Always report `_id` even if the sample was empty (every document has one) - an empty
-    // collection is a valid, expected state (see the spec's "Failure states"), not an error.
-    fieldNames.add("_id");
 
-    const columns: ColumnMetadata[] = [...fieldNames].map((name) => ({
-      name,
-      dataType: "any",
-      // Every observed field is nullable - a schemaless collection makes no per-field guarantee
-      // (see the spec's "Concepts that don't map 1:1 from SQL engines").
-      nullable: true,
-      isPrimaryKey: name === "_id",
-      isForeignKey: false
-    }));
+    // _id is guaranteed present on every document by MongoDB itself and an ObjectId by
+    // overwhelming convention - reported directly rather than trusted to sample-based inference
+    // (F068), so an empty collection (nothing to sample) still reports it correctly, and always
+    // first regardless of the sample's key order.
+    const columns: ColumnMetadata[] = [
+      {
+        name: "_id",
+        dataType: "objectId",
+        nullable: false,
+        isPrimaryKey: true,
+        isForeignKey: false
+      },
+      ...inferColumns(sample).filter((column) => column.name !== "_id")
+    ];
 
     const rowCount = await collection.estimatedDocumentCount();
 

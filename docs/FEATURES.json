@@ -767,7 +767,7 @@
       "id": "F068",
       "behavior": "The MongoDB adapter infers a per-field BSON type (string/number/objectId/date/array/object/mixed) and nullability from its existing document sample instead of reporting `dataType: \"any\"`/`nullable: true` for every field, and reports `_id` as `dataType: \"objectId\"`, `nullable: false` - fixing the Schema tab showing `any`/`null` for every MongoDB column including the primary key.",
       "verification": "pnpm --filter @qyre/mongodb test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

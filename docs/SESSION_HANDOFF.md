@@ -93,18 +93,23 @@ gotchas in "Known issues / blockers").
 
 - An animated demo (GIF/asciicast) for the README remains a legitimate follow-up - F009 shipped with
   static screenshots instead.
-- The local Postgres fixture container (`qyre-rename-pg`, port 5433) and MySQL fixture container
-  (`qyre-mysql`, port 3307) do not persist across a Docker Desktop restart - recreate them if
-  `pnpm test:e2e:full`/manual Preview testing gets `ECONNREFUSED`:
-  - Postgres: `docker run --rm -d --name qyre-rename-pg -e POSTGRES_PASSWORD=postgres -p 5433:5432 postgres:16-alpine`,
-    then reseed (`pnpm exec tsx .local/seed-dev-data.ts postgres://postgres:postgres@localhost:5433/postgres`
-    for the dev dataset; `setupFixture` from `@qyre/testing` for the e2e fixture table).
-  - MySQL: `docker run --rm -d --name qyre-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=qyre_test -p 3307:3306 mysql:8`
-    (slower to become ready than Postgres); `setupMysqlFixture` from `@qyre/testing` creates the
-    e2e fixture table.
-  - The Postgres container has accumulated the full dev-seed dataset (11 tables) across sessions, not
-    just the fixture table - a Schema-tab assertion expecting exactly one `table-detail` card will
-    fail against it (harmless environmental noise, not a regression).
+- **Test databases**: the canonical way to satisfy `pnpm check`/the pre-push hook is
+  `docker compose up -d` plus the three `QYRE_TEST_*` env vars from `.env.example` (standard
+  ports 5432/3306/27017, matching CI) - see `AGENTS.md`'s "Standard commands" and
+  `CONTRIBUTING.md`. Containers do not persist across a Docker Desktop restart; just re-run
+  `docker compose up -d`.
+- **On this machine, `docker` may look missing when it isn't**: `/usr/local/bin/docker` (and
+  `docker-compose`) are dangling symlinks into `/Volumes/Docker/...` from an old install, so
+  `docker` exits 127 even while Docker Desktop is running. Do not conclude Docker is unavailable -
+  use `export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"` and retry. Permanent
+  fix (needs the user): `sudo ln -sf /Applications/Docker.app/Contents/Resources/bin/docker /usr/local/bin/docker`,
+  or Docker Desktop Settings → Advanced → reinstall CLI tools.
+- Older ad-hoc fixture containers (`qyre-rename-pg` on 5433, `qyre-mysql` on 3307) from previous
+  manual-Preview sessions are superseded by the compose stack; if a Preview run against a
+  long-lived local Postgres shows 11 dev-seed tables where a spec expects one `table-detail` card,
+  that is environmental noise, not a regression (`pnpm exec tsx .local/seed-dev-data.ts <url>`
+  seeds the dev dataset; `setupFixture`/`setupMysqlFixture` from `@qyre/testing` create the e2e
+  fixture tables).
 
 ## Next steps
 

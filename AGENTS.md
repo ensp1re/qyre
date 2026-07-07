@@ -35,9 +35,26 @@ Before changing code:
 - Dev: `pnpm dev`
 - Feature/handoff state checks: `pnpm check:state`
 
+**`pnpm check` requires live databases.** The Postgres/MySQL/MongoDB integration suites inside
+`pnpm test` fail loudly (they do not skip) when `QYRE_TEST_DATABASE_URL`, `QYRE_TEST_MYSQL_URL`,
+or `QYRE_TEST_MONGO_URL` is unset - and the pre-push hook runs `pnpm check`, so pushing needs them
+too, exported in the same shell. Standard setup (mirrors CI exactly):
+
+```bash
+docker compose up -d   # starts all three; credentials/ports in .env.example
+export QYRE_TEST_DATABASE_URL="postgres://postgres:postgres@localhost:5432/qyre_test"
+export QYRE_TEST_MYSQL_URL="mysql://root:root@localhost:3306/qyre_test"
+export QYRE_TEST_MONGO_URL="mongodb://localhost:27017/qyre_test"
+```
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full test-stack guide, and
+`docs/SESSION_HANDOFF.md`'s "Known issues" for machine-specific gotchas (e.g. a dangling
+`/usr/local/bin/docker` symlink) before concluding Docker is unavailable.
+
 ## Routing map
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): domains, layers, package boundaries, dependency rules
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): environment setup, local test stack (Docker compose + env vars)
 - [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md): folder rules inside packages (types,
   validation, UI components, driver packages)
 - [`FRONTEND.md`](FRONTEND.md): UI constraints and design rules

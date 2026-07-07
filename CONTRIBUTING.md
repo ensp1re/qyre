@@ -15,11 +15,13 @@ feature tracking, definition of done) that this file only summarizes.
 
 ```bash
 pnpm install
-pnpm check   # format, lint, typecheck, unit tests, build, project-state checks
+pnpm check   # format, lint, typecheck, tests, build, project-state checks
 ```
 
-`pnpm check` runs without any database configured (SQLite and unit tests need nothing external);
-the integration/E2E paths below need real databases.
+**`pnpm check` needs the test databases below**: the Postgres/MySQL/MongoDB adapter integration
+suites run as part of `pnpm test` and fail loudly if their `QYRE_TEST_*` env var is unset (SQLite
+and pure unit tests need nothing external). The pre-push git hook also runs `pnpm check`, so the
+env vars must be exported in the shell you push from.
 
 ## Running the local test stack
 

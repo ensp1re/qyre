@@ -78,10 +78,15 @@ gotchas in "Known issues / blockers").
   Gotcha hit and worth remembering: `apps/web` bundles `@qyre/ui`'s built `dist/`, not its source -
   manual Preview verification of a `packages/ui` change needs `pnpm --filter @qyre/ui build` before
   `pnpm --filter @qyre/web build`, or the browser silently shows stale UI code.
+- **F070 `passing`** ([PR #70](https://github.com/ensp1re/qyre/pull/70)): a date/timestamp cell
+  (`ColumnMetadata.dataType`, shared `isDateType()` predicate) renders as a clickable link; clicking
+  opens a new `DateDetailPopover` anchored under the cell (not a full drawer) - raw value, ISO UTC,
+  local timezone conversion, relative time, unix epoch, each copyable. `RowsTable` only; `QueryRunner`
+  has no column type metadata for its SQL results, so unaffected.
 
 ## In progress
 
-- Nothing in flight. F070-F074 (see `SUGGESTIONS.md` for the full analysis behind each) are
+- Nothing in flight. F071-F074 (see `SUGGESTIONS.md` for the full analysis behind each) are
   `not_started` and unclaimed.
 
 ## Known issues / blockers
@@ -118,15 +123,14 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-**F070-F074 are queued and `not_started`** (see `SUGGESTIONS.md` for the full reported-bug/fix-plan
-detail behind each): F070 (date/timestamp cell detail popover),
-F071 (resizable sidebar/SQL-editor panels), F072 (server-side row filtering + PK/FK click-to-filter
-across all 4 engines - needs a product-spec pass first), F073 (guided no-URL CLI startup /
-connect-later flow), F074 (interactive schema graph/ERD - needs a product-spec pass first).
-Suggested order is in `SUGGESTIONS.md`'s "Suggested implementation order" table.
+**F071-F074 are queued and `not_started`** (see `SUGGESTIONS.md` for the full reported-bug/fix-plan
+detail behind each): F071 (resizable sidebar/SQL-editor panels), F072 (server-side row filtering +
+PK/FK click-to-filter across all 4 engines - needs a product-spec pass first), F073 (guided no-URL
+CLI startup / connect-later flow), F074 (interactive schema graph/ERD - needs a product-spec pass
+first). Suggested order is in `SUGGESTIONS.md`'s "Suggested implementation order" table.
 
 Separately, `--demo` mode (a zero-setup trial with a bundled sample DB) is still on
 `docs/exec-plans/tech-debt-tracker.md` with no spec written yet.
 
-A fresh session asking "what's next" should run `pnpm features` and pick up F070 (smallest,
+A fresh session asking "what's next" should run `pnpm features` and pick up F071 (smallest,
 contained to `packages/ui`) unless the user directs otherwise.

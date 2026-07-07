@@ -16,12 +16,15 @@ gotchas in "Known issues / blockers").
 
 ## Current state
 
-- Date: 2026-07-05
-- Latest commit: see `git log --oneline -1 origin/main`
+- Date: 2026-07-07
+- Latest commit on `main`: see `git log --oneline -1 origin/main` (as of this update: `bb784f9`,
+  release-branch/PR workflow in `scripts/publish.mjs`). `qyre`/`@qyre/qyre` have been released as
+  v0.1.0 and v0.2.0 on npm.
 - Build status: builds (`pnpm build`)
-- Test status: unit + integration tests pass (`pnpm test`, with `QYRE_TEST_DATABASE_URL` set); smoke
-  - full E2E pass (`pnpm test:e2e`, `pnpm test:e2e:full`)
-- Verification status: `pnpm check:ci` passes with a live Postgres available
+- Test status: unit + integration tests pass (`pnpm test`, with `QYRE_TEST_DATABASE_URL`/
+  `QYRE_TEST_MYSQL_URL`/`QYRE_TEST_MONGO_URL` set, e.g. via `docker compose up -d`); smoke +
+  full E2E pass (`pnpm test:e2e`, `pnpm test:e2e:full`)
+- Verification status: `pnpm check:ci` passes with a live Postgres+MySQL+Mongo stack available
 
 ## Completed
 
@@ -67,13 +70,24 @@ gotchas in "Known issues / blockers").
   bounded `MAX_PAGE_SIZE` batches rather than materializing the whole table in memory. Verified
   live against a real 10,000-row Postgres table: sort persisted correctly across pagination, and
   the export produced a full 10,001-line CSV (header + every row) via a real browser download.
-- **Project rebranded to Qyre** ([PR #64](https://github.com/ensp1re/qyre/pull/64)): Swapped package scope from `@humbdb/*` to `@qyre/*`, primary command to `qyre`, env prefix to `QYRE_`, renamed package directory `packages/humb` to `packages/qyre`, and successfully verified builds and Playwright E2E smoke tests.
+- **Project rebranded to Qyre** ([PR #65](https://github.com/ensp1re/qyre/pull/65), merged): Swapped
+  package scope from `@humbdb/*` to `@qyre/*`, primary command to `qyre`, env prefix to `QYRE_`,
+  renamed package directory `packages/humb` to `packages/qyre`. `qyre`/`@qyre/qyre` published to npm
+  as v0.1.0 ([PR #63](https://github.com/ensp1re/qyre/pull/63)) and v0.2.0; `scripts/publish.mjs`
+  gained a release-branch + PR workflow (commit `bb784f9`) instead of publishing straight from a
+  local checkout.
+- **F067 `passing`** ([PR #66](https://github.com/ensp1re/qyre/pull/66)): a user bug/feature triage
+  session produced `SUGGESTIONS.md` (10 reports) and `docs/FEATURES.json` entries F067-F074. F067
+  itself: the CLI's per-request Fastify logger defaults to warnings/errors only instead of spamming
+  a JSON line per request (`--verbose` restores the old behavior), and the bare "Qyre is running at
+  \<url\>" line became a short banner (version, redacted target, URL, issue/contributing links).
+  Also added a cross-engine-parity rule to `AGENTS.md`'s working contract: any adapter/driver change
+  must be checked against all 4 engines, not just the one in front of the agent.
 
 ## In progress
 
-- Nothing in flight - the Qyre rebranding is complete and PR #64 is open. With `--demo` mode the only tech-debt row left with no spec (see "Next steps"), there's no more pre-scoped work queued.
-
-- Publishing the bare `qyre` npm package (`packages/qyre`) alongside `@qyre/cli`. The rebranding from `humb` to `qyre` successfully resolves the npm name-similarity dispute, meaning all packages are ready to publish under the new organization.
+- Nothing in flight. F067 (PR #66) is open awaiting merge; F068-F074 (see `SUGGESTIONS.md` for the
+  full analysis behind each) are `not_started` and unclaimed.
 
 ## Known issues / blockers
 
@@ -94,12 +108,17 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-**All 4 tech-debt-tracker.md rows specced this session (F063-F066) are now `passing`.** The only
-tech-debt row left is `--demo` mode (a zero-setup trial with a bundled sample DB) - it still needs
-its own product-spec pass before implementation (scope: what sample data/schema to ship, how it's
-presented) if picked up; see `docs/exec-plans/tech-debt-tracker.md` for its row. The residual
-MongoDB-fake-fields half of F063's old row is deliberately left unaddressed - see
-`docs/product-specs/adapter-capabilities.md`'s "Out of scope".
+**F068-F074 are queued and `not_started`** (see `SUGGESTIONS.md` for the full reported-bug/fix-plan
+detail behind each): F068 (MongoDB per-field type/nullability inference), F069 (long-string cell
+truncation), F070 (date/timestamp cell detail popover), F071 (resizable sidebar/SQL-editor panels),
+F072 (server-side row filtering + PK/FK click-to-filter across all 4 engines - needs a product-spec
+pass first), F073 (guided no-URL CLI startup / connect-later flow), F074 (interactive schema
+graph/ERD - needs a product-spec pass first). Suggested order is in `SUGGESTIONS.md`'s
+"Suggested implementation order" table; smallest/most-contained first.
 
-With that, there is no more pre-scoped tech-debt work queued - a fresh session asking "what's next"
-should either start `--demo` mode's product-spec pass, or ask the user what to prioritize next.
+Separately, `--demo` mode (a zero-setup trial with a bundled sample DB) is still on
+`docs/exec-plans/tech-debt-tracker.md` with no spec written yet. The residual MongoDB-fake-fields
+half of F063's old tech-debt row is now superseded by F068 above.
+
+A fresh session asking "what's next" should pick up F068 (smallest, contained to
+`packages/drivers/mongodb`) unless the user directs otherwise.

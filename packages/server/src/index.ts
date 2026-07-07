@@ -45,8 +45,12 @@ export interface CreateServerOptions {
   adapter?: DatabaseAdapter;
   /** The parsed connection target, for diagnostics (credentials are redacted in responses). */
   target?: ConnectionTarget;
-  /** Enable Fastify's logger. Defaults to false (the CLI configures logging). */
-  logger?: boolean;
+  /**
+   * Enable Fastify's logger. Defaults to false (the CLI configures logging). Pass a pino level
+   * object (e.g. `{ level: "warn" }`) instead of `true` to log only warnings/errors, not every
+   * request (F067) - the CLI does this by default, only passing `true` under `--verbose`.
+   */
+  logger?: boolean | { level: "trace" | "debug" | "info" | "warn" | "error" | "fatal" };
   /**
    * Directory containing the built `apps/web` static assets (its `index.html` and bundle).
    * When provided and it exists, the server serves the browser UI itself so `npx qyre <target>`
@@ -85,7 +89,9 @@ function requireAdapter(adapter: DatabaseAdapter | undefined): DatabaseAdapter {
 
 // A SQLite target's "raw" is a filesystem path, not a URL with credentials - nothing to redact,
 // and redactConnectionString would otherwise mask it as "<unparseable...>".
-function displayTarget(target: ConnectionTarget): string {
+// Exported so packages/cli can render the same redacted string in its startup banner (F067)
+// instead of duplicating this engine-specific special-case.
+export function displayTarget(target: ConnectionTarget): string {
   return target.engine === "sqlite" ? target.raw : redactConnectionString(target.raw);
 }
 

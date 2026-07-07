@@ -62,6 +62,13 @@ Before changing code:
   better approach surfaces mid-task, propose it (see `docs/design-docs/index.md`) instead of silently
   working around the existing decision or silently adopting the new one.
 - Work from one feature slice at a time (see `docs/FEATURES.json`).
+- **Cross-engine parity**: Qyre supports 4 database engines (Postgres, MySQL, SQLite, MongoDB) behind
+  one adapter contract (`packages/drivers/contract`). Any bug fix or feature touching adapter/driver
+  behavior must be checked against all 4, not just the engine that was open when the bug was found or
+  the feature was speced. State the check explicitly in the PR/evidence — "verified on Postgres,
+  MySQL, SQLite; not applicable to MongoDB because X" is fine, silently fixing/adding on one engine
+  is not. Prefer proving it via a shared `@qyre/testing-conformance` case (runs against every engine)
+  over per-driver tests, so parity is enforced structurally rather than by memory.
 - Do not mark work done from code inspection alone; runnable evidence is required.
 - A feature only becomes `passing` when its verification command actually passes.
 - If you change behavior, update the matching spec, plan, or reliability doc in the same session.

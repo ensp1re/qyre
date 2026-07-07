@@ -5,9 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createShutdownHandler,
   defaultWebRoot,
+  formatBanner,
   parseArgs,
   resolveFilesRoot,
-  resolvePort
+  resolvePort,
+  resolveVersion
 } from "./index.js";
 
 describe("parseArgs", () => {
@@ -31,6 +33,14 @@ describe("parseArgs", () => {
 
   it("returns an undefined filesDir when the flag is omitted", () => {
     expect(parseArgs(["postgres://localhost/db"]).filesDir).toBeUndefined();
+  });
+
+  it("defaults verbose to false", () => {
+    expect(parseArgs(["postgres://localhost/db"]).verbose).toBe(false);
+  });
+
+  it("parses the --verbose flag", () => {
+    expect(parseArgs(["postgres://localhost/db", "--verbose"]).verbose).toBe(true);
   });
 });
 
@@ -144,5 +154,32 @@ describe("defaultWebRoot", () => {
   it("falls back to the monorepo-relative apps/web/dist when no bundled copy exists", () => {
     const here = makeDir();
     expect(defaultWebRoot(here)).toBe(resolve(here, "../../../apps/web/dist"));
+  });
+});
+
+describe("resolveVersion", () => {
+  it("reads the version from package.json one directory up from `here`", () => {
+    const root = mkdtempSync(join(tmpdir(), "qyre-cli-version-"));
+    const here = join(root, "dist");
+    mkdirSync(here);
+    writeFileSync(join(root, "package.json"), JSON.stringify({ version: "1.2.3" }));
+
+    expect(resolveVersion(here)).toBe("1.2.3");
+  });
+});
+
+describe("formatBanner", () => {
+  it("includes the version, target, url, and issue/contributing links", () => {
+    const banner = formatBanner({
+      version: "1.2.3",
+      target: "postgres://localhost:5432/db",
+      url: "http://127.0.0.1:4000"
+    });
+
+    expect(banner).toContain("Qyre v1.2.3");
+    expect(banner).toContain("postgres://localhost:5432/db");
+    expect(banner).toContain("http://127.0.0.1:4000");
+    expect(banner).toContain("https://github.com/ensp1re/qyre/issues");
+    expect(banner).toContain("https://github.com/ensp1re/qyre/blob/main/CONTRIBUTING.md");
   });
 });

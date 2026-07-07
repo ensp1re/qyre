@@ -72,10 +72,16 @@ gotchas in "Known issues / blockers").
   infers each field's real BSON type (string/number/boolean/objectId/date/array/binary/object/
   mixed) and per-field nullability from its document sample, replacing the old blanket
   `dataType: "any"`, `nullable: true` for every column including `_id`.
+- **F069 `passing`** ([PR #69](https://github.com/ensp1re/qyre/pull/69)): a plain string cell past
+  120 chars truncates to one line (was unbounded, stretching the row); `CellValueDrawer` (shared by
+  `RowsTable`/`QueryRunner`) now also handles plain strings - full text, char count, "Copy text".
+  Gotcha hit and worth remembering: `apps/web` bundles `@qyre/ui`'s built `dist/`, not its source -
+  manual Preview verification of a `packages/ui` change needs `pnpm --filter @qyre/ui build` before
+  `pnpm --filter @qyre/web build`, or the browser silently shows stale UI code.
 
 ## In progress
 
-- Nothing in flight. F069-F074 (see `SUGGESTIONS.md` for the full analysis behind each) are
+- Nothing in flight. F070-F074 (see `SUGGESTIONS.md` for the full analysis behind each) are
   `not_started` and unclaimed.
 
 ## Known issues / blockers
@@ -99,11 +105,21 @@ gotchas in "Known issues / blockers").
   that is environmental noise, not a regression (`pnpm exec tsx .local/seed-dev-data.ts <url>`
   seeds the dev dataset; `setupFixture`/`setupMysqlFixture` from `@qyre/testing` create the e2e
   fixture tables).
+- **Manual Preview verification of a `packages/ui` change is stale until `@qyre/ui` is rebuilt**:
+  `apps/web` imports `@qyre/ui`'s built `dist/` (its package.json `main`/`exports`), not `src/` -
+  `pnpm --filter @qyre/web build` alone bundles whatever `@qyre/ui/dist` already has on disk. Run
+  `pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build` (in that order) before trusting a
+  live Preview reflects a `packages/ui` source edit.
+- `.local/preview-server.mjs` (gitignored, machine-local) was fixed this session to use current
+  `QYRE_TEST_DATABASE_URL`/`QYRE_E2E_PORT` env var names and the standard compose port 5432
+  (previously stale pre-rebrand `HUMB_*` names pointing at port 5433, silently producing an
+  "unconfigured" server). `.local/preview-server-mysql.mjs`/`preview-server-mongo.mjs` still have
+  the same staleness - a follow-up task was flagged for them, not yet done.
 
 ## Next steps
 
-**F069-F074 are queued and `not_started`** (see `SUGGESTIONS.md` for the full reported-bug/fix-plan
-detail behind each): F069 (long-string cell truncation), F070 (date/timestamp cell detail popover),
+**F070-F074 are queued and `not_started`** (see `SUGGESTIONS.md` for the full reported-bug/fix-plan
+detail behind each): F070 (date/timestamp cell detail popover),
 F071 (resizable sidebar/SQL-editor panels), F072 (server-side row filtering + PK/FK click-to-filter
 across all 4 engines - needs a product-spec pass first), F073 (guided no-URL CLI startup /
 connect-later flow), F074 (interactive schema graph/ERD - needs a product-spec pass first).
@@ -112,5 +128,5 @@ Suggested order is in `SUGGESTIONS.md`'s "Suggested implementation order" table.
 Separately, `--demo` mode (a zero-setup trial with a bundled sample DB) is still on
 `docs/exec-plans/tech-debt-tracker.md` with no spec written yet.
 
-A fresh session asking "what's next" should run `pnpm features` and pick up F069 (smallest,
+A fresh session asking "what's next" should run `pnpm features` and pick up F070 (smallest,
 contained to `packages/ui`) unless the user directs otherwise.

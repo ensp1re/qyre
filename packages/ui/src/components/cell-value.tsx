@@ -32,8 +32,15 @@ export function isBinaryValue(value: unknown): value is BinaryValue {
   );
 }
 
-/** Anything CellValue can render as an inspectable chip - a plain structured value or a binary one. */
-export type InspectableValue = StructuredValue | BinaryValue;
+/** Anything CellValue can render as an inspectable chip - a structured value, binary, or a long string. */
+export type InspectableValue = StructuredValue | BinaryValue | string;
+
+/** Above this length a plain string cell truncates to one line instead of stretching its row (F069). */
+export const LONG_STRING_THRESHOLD = 120;
+
+export function isLongString(value: unknown): value is string {
+  return typeof value === "string" && value.length > LONG_STRING_THRESHOLD;
+}
 
 export function toHex(bytes: readonly number[]): string {
   return bytes.map((byte) => byte.toString(16).padStart(2, "0")).join(" ");
@@ -94,13 +101,14 @@ function InspectChip({
 }
 
 /**
- * Renders one table cell value: a plain string/number/boolean renders exactly like formatCell's
- * flat text (unchanged); a binary value (see BinaryValue) or a plain object/array renders as a
- * compact single-line chip that never grows the row - clicking it reports the value via
- * `onInspect`, and the caller opens a CellValueDrawer to explore it (see
- * docs/product-specs/structured-cell-values.md). An earlier version expanded the tree inline
- * inside the cell, which blew up row heights and broke the table layout - the chip + drawer split
- * is the deliberate replacement.
+ * Renders one table cell value: a short plain string/number/boolean renders exactly like
+ * formatCell's flat text (unchanged); a binary value (see BinaryValue) or a plain object/array
+ * renders as a compact single-line chip that never grows the row; a string past
+ * LONG_STRING_THRESHOLD truncates to one line instead (F069). All three click-to-inspect cases
+ * report the value via `onInspect`, and the caller opens a CellValueDrawer to explore it (see
+ * docs/product-specs/structured-cell-values.md). An earlier version expanded structured values
+ * inline inside the cell, which blew up row heights and broke the table layout - the
+ * chip/truncated-text + drawer split is the deliberate replacement.
  */
 export function CellValue({
   value,
@@ -122,18 +130,33 @@ export function CellValue({
       />
     );
   }
-  if (!isStructuredValue(value)) {
-    return <span>{formatCell(value)}</span>;
+  if (isStructuredValue(value)) {
+    return (
+      <InspectChip
+        icon={Array.isArray(value) ? Brackets : Braces}
+        summary={summarizeStructuredValue(value)}
+        preview={previewStructuredValue(value)}
+        onClick={(event) => {
+          event.stopPropagation();
+          onInspect(value);
+        }}
+      />
+    );
   }
-  return (
-    <InspectChip
-      icon={Array.isArray(value) ? Brackets : Braces}
-      summary={summarizeStructuredValue(value)}
-      preview={previewStructuredValue(value)}
-      onClick={(event) => {
-        event.stopPropagation();
-        onInspect(value);
-      }}
-    />
-  );
+  if (isLongString(value)) {
+    return (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onInspect(value);
+        }}
+        title="Click to view full value"
+        className="block max-w-[360px] truncate text-left hover:underline"
+      >
+        {value}
+      </button>
+    );
+  }
+  return <span>{formatCell(value)}</span>;
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   isBinaryValue,
+  isLongString,
+  LONG_STRING_THRESHOLD,
   previewBinaryValue,
   previewStructuredValue,
   summarizeBinaryValue,
@@ -34,6 +36,23 @@ describe("previewStructuredValue", () => {
     expect(preview).toHaveLength(20);
     expect(preview.endsWith("…")).toBe(true);
     expect(preview.startsWith('{"key":"vvv')).toBe(true);
+  });
+});
+
+describe("isLongString", () => {
+  it("rejects strings at or under the threshold", () => {
+    expect(isLongString("short")).toBe(false);
+    expect(isLongString("x".repeat(LONG_STRING_THRESHOLD))).toBe(false);
+  });
+
+  it("accepts strings past the threshold", () => {
+    expect(isLongString("x".repeat(LONG_STRING_THRESHOLD + 1))).toBe(true);
+  });
+
+  it("rejects non-strings, including long arrays/numbers", () => {
+    expect(isLongString(12345)).toBe(false);
+    expect(isLongString(null)).toBe(false);
+    expect(isLongString(Array.from({ length: 200 }, (_, i) => i))).toBe(false);
   });
 });
 

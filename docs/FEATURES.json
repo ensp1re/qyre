@@ -777,7 +777,7 @@
       "id": "F069",
       "behavior": "Long plain-string cells in the Rows table are capped to one line with an ellipsis past a threshold instead of stretching the row, and clicking a truncated cell opens the existing CellValueDrawer with the full value, character count, and a copy button (reusing the drawer already shipped for JSON/binary cells).",
       "verification": "pnpm --filter @qyre/ui test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

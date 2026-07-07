@@ -25,4 +25,20 @@ describe("CellValue (component rendering, F055)", () => {
     fireEvent.click(screen.getByText("{ 1 key }"));
     expect(onInspect).toHaveBeenCalledWith(value);
   });
+
+  it("renders a short string as plain text, not a truncated button", () => {
+    render(<CellValue value="hello" onInspect={vi.fn()} />);
+    expect(screen.getByText("hello")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("renders a long string as a clickable truncated button and calls onInspect with the full value", () => {
+    const onInspect = vi.fn();
+    const long = "a".repeat(200);
+    render(<CellValue value={long} onInspect={onInspect} />);
+    const button = screen.getByRole("button");
+    expect(button).toHaveTextContent(long);
+    fireEvent.click(button);
+    expect(onInspect).toHaveBeenCalledWith(long);
+  });
 });

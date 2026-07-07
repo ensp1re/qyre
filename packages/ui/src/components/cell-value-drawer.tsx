@@ -1,4 +1,4 @@
-import { Binary, Braces, Check, Copy, X } from "lucide-react";
+import { Binary, Braces, Check, Copy, Type, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useFocusTrap } from "../use-focus-trap.js";
@@ -170,14 +170,16 @@ function TreeNode({
 }
 
 /**
- * A right-anchored drawer for exploring one structured cell value as an expandable tree
- * (see docs/product-specs/structured-cell-values.md) - the counterpart to CellValue's compact
- * in-table chip, following QueryHistoryDrawer's drawer pattern. The root level is expanded on
- * open; deeper levels expand on click, built lazily.
+ * A right-anchored drawer for exploring one cell value in full - a structured value as an
+ * expandable tree, a binary value as a hex dump, or (F069) a long plain string as wrapped text
+ * with a character count - the counterpart to CellValue's compact in-table chip/truncated text,
+ * following QueryHistoryDrawer's drawer pattern. The root level of a structured value is expanded
+ * on open; deeper levels expand on click, built lazily.
  */
 export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps): ReactNode {
   const [copied, setCopied] = useState(false);
   const binary = isBinaryValue(value) ? value : null;
+  const plainString = typeof value === "string" ? value : null;
   const asideRef = useRef<HTMLElement | null>(null);
   useFocusTrap(asideRef, true);
 
@@ -202,6 +204,8 @@ export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
           {binary ? (
             <Binary className="h-3 w-3 text-muted-foreground" />
+          ) : plainString !== null ? (
+            <Type className="h-3 w-3 text-muted-foreground" />
           ) : (
             <Braces className="h-3 w-3 text-muted-foreground" />
           )}
@@ -211,14 +215,21 @@ export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps
           {column && (
             <span className="truncate font-mono text-[10px] text-foreground/70">{column}</span>
           )}
+          {plainString !== null && (
+            <span className="shrink-0 font-mono text-[9px] text-muted-foreground/50">
+              {plainString.length.toLocaleString()} chars
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
-              aria-label={binary ? "Copy as hex" : "Copy as JSON"}
+              aria-label={
+                binary ? "Copy as hex" : plainString !== null ? "Copy text" : "Copy as JSON"
+              }
               onClick={() => {
                 const text = binary
                   ? binary.data.map((byte) => byte.toString(16).padStart(2, "0")).join("")
-                  : JSON.stringify(value, null, 2);
+                  : (plainString ?? JSON.stringify(value, null, 2));
                 void navigator.clipboard.writeText(text);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1500);
@@ -243,7 +254,15 @@ export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto p-2 font-mono text-[11px] text-foreground/80">
-          {binary ? <HexDump value={binary} /> : <TreeNode value={value} depth={0} defaultOpen />}
+          {binary ? (
+            <HexDump value={binary} />
+          ) : plainString !== null ? (
+            <p className="whitespace-pre-wrap break-all" style={{ color: "var(--c-blue)" }}>
+              {plainString}
+            </p>
+          ) : (
+            <TreeNode value={value} depth={0} defaultOpen />
+          )}
         </div>
       </aside>
     </>

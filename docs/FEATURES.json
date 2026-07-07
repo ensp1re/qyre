@@ -757,9 +757,9 @@
       "id": "F067",
       "behavior": "`npx qyre <target>` prints quiet output by default (Fastify's per-request logger no longer spams JSON lines at info level; add a `--verbose` flag to restore it), and the startup line becomes a short banner: version, engine, redacted target, URL, plus \"Bugs:\"/\"Contribute:\" links to the GitHub repo.",
       "verification": "pnpm --filter qyre test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "213d9c2b6727391f7e22fdc48bca9ca3d2c77e5c",
+      "evidence": "commit 213d9c2: Fastify's per-request logger defaults to { level: \"warn\" } instead of true (info-level, every request) - packages/cli/src/index.ts's --verbose flag restores the old behavior. The startup line is now a short banner (formatBanner): version (read from the CLI package's own package.json via resolveVersion), the redacted connected target (reusing @qyre/server's displayTarget, now exported instead of duplicated), the URL, and Bugs:/Contribute: links to the GitHub repo. packages/server/src/index.ts's CreateServerOptions.logger widened from boolean to boolean | { level: ... } to carry the pino level through. 21/21 @qyre/qyre tests pass (new: --verbose parsing, resolveVersion, formatBanner), 67/67 @qyre/server tests pass unchanged. pnpm check passes in full, including the Postgres/MySQL/MongoDB integration suites (34/16/23 tests) run against a real `docker compose up -d` stack. PR: https://github.com/ensp1re/qyre/pull/66.",
       "blockedReason": null,
       "spec": null
     },

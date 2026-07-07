@@ -1,13 +1,27 @@
 ---
 name: qyre-lean-output
-description: Use for every response and verification run in the Qyre repo. Cuts token usage by trimming narration and duplicate log output. Does not change what gets verified, checked, or how carefully code is written - only how results are reported.
+description: Use for every response and verification run in the Qyre repo. Cuts token usage by trimming narration, duplicate log output, and oversized command output. Does not change what gets verified, checked, or how carefully code is written - only how results are reported and how commands are invoked.
 ---
 
 # Qyre Lean Output
 
-Scope: this skill governs communication style only. It never reduces verification rigor,
-test coverage, or the thoroughness of a change. Run every check you would normally run, in full.
-Only the reporting changes.
+Scope: this skill governs communication style and command-invocation efficiency only. It never
+reduces verification rigor, test coverage, or the thoroughness of a change. Run every check you
+would normally run, in full. Only the reporting and the volume of output pulled into context change.
+
+## Token-efficient invocation
+
+Keep tool output out of context unless it carries signal:
+
+- Verification: prefer `pnpm check:quiet` (same coverage as `pnpm check`; turbo prints failing
+  tasks only). Reserve full `pnpm check` for the pre-push hook, which runs it automatically.
+- Feature state: `pnpm features` / `pnpm features <id>` - never read all of `docs/FEATURES.json`.
+- Long commands: pipe through `| tail -n 30` or grep for the failure marker instead of streaming
+  hundreds of green lines; turbo tasks accept `--output-logs=errors-only`.
+- Files: read the specific line ranges or grep for the symbol you need; read whole files only when
+  genuinely editing across them.
+- Re-running a failed command after a fix: capture to a file once (`> /tmp/out.log 2>&1`) and grep
+  it, rather than re-streaming the full log every retry.
 
 ## Rules
 

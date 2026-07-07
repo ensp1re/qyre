@@ -6,6 +6,7 @@ How Qyre proves it is healthy and restartable. Only a full-pipeline run counts a
 
 - Bootstrap: `pnpm install`
 - Verification (local): `pnpm check` - requires the live test databases below
+- Verification (same coverage, failing tasks only in output): `pnpm check:quiet`
 - Verification (CI-equivalent, adds E2E): `pnpm check:ci`
 - Start app (dev): `pnpm dev`
 - Start product (once implemented): `qyre <database-url>` (engine auto-detected from the target)

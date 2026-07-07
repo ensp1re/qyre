@@ -33,7 +33,9 @@
     "check:engine-lockstep": "node scripts/check-engine-lockstep.mjs",
     "check:state": "pnpm check:features && pnpm check:handoff && pnpm check:readme && pnpm check:engine-lockstep",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:state",
+    "check:quiet": "pnpm format:check && pnpm lint && turbo run typecheck test build --output-logs=errors-only && pnpm check:state",
     "check:ci": "pnpm check && pnpm test:e2e",
+    "features": "node scripts/features-summary.mjs",
     "release": "node scripts/publish.mjs",
     "clean": "turbo run clean && rimraf node_modules",
     "prepare": "lefthook install"

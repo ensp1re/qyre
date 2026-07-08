@@ -40,8 +40,14 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
   // F002: the UI reports the database is connected.
   await expect(page.getByTestId("status-badge")).toHaveAttribute("data-status", "connected");
 
-  // DF-05: the Schema tab shows every table in the database as a card - no prior selection needed.
+  // F074: the Schema tab defaults to the interactive ERD graph - every table a node, no prior
+  // selection needed.
   await page.getByRole("tab", { name: "Schema" }).click();
+  await expect(page.getByTestId("schema-graph")).toBeVisible();
+  await expect(page.locator(".react-flow__node").first()).toBeVisible();
+
+  // F074: the Grid toggle switches to the DF-05 card view, which still lists every table's columns.
+  await page.getByRole("button", { name: "Grid" }).click();
   await expect(page.getByTestId("schema-grid")).toBeVisible();
   await expect(page.getByTestId("table-detail")).toBeVisible();
   await expect(page.getByTestId("table-detail").getByText("email")).toBeVisible();

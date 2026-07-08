@@ -237,7 +237,7 @@ export function App(): ReactNode {
                   }}
                 />
               ) : tab === "schema" ? (
-                <SchemaTab allTables={allTables} />
+                <SchemaTab allTables={allTables} databaseKey={health?.target ?? null} />
               ) : tab === "files" ? (
                 <FilesTab
                   filesOverview={filesOverview}

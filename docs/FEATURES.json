@@ -807,9 +807,9 @@
       "id": "F072",
       "behavior": "`GET /api/tables/:schema/:table/rows` gains server-side filter parameters (column validated against the table's real columns, operator from a fixed whitelist, value always parameter-bound), each of the 4 adapters' `getRows` translates them into a real `WHERE`/`.find()` query, and the Rows table gets a structured filter bar (column/operator/value, no raw SQL needed so it works on MongoDB too). Clicking a primary-key value applies a filter on the current table; clicking a foreign-key value navigates to the referenced table pre-filtered to that row - both verified on all 4 engines, including MongoDB's `_id`, via new `@qyre/testing-conformance` cases. Needs a product-spec pass (filter grammar, API shape) before implementation, following the pattern used for F063-F066.",
       "verification": "pnpm test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "43d3b53",
+      "evidence": "PR #73 (https://github.com/ensp1re/qyre/pull/73), merged as 6295ff8. Server-side row filtering across all 4 engines plus a redesigned filter UX. @qyre/core: RowFilter/FilterOp types + JSON-encoded filters query param on rowsQuerySchema (value required except isNull/isNotNull). @qyre/server: resolveRowFilters/resolveRowQuery validate each filter column against the table's real introspected columns (same injection-surface pattern as F065 sort), sharing one getTable call for sort+filter; wired into /rows and /export.csv. All 4 adapters translate filters natively: Postgres/MySQL/SQLite parameterized WHERE (ILIKE/LIKE ... ESCAPE for contains, values always bound); MongoDB $and .find() document coercing each value to the column's real BSON type via F068 inferColumns. New shared escapeLikePattern/escapeRegExp helpers (packages/drivers/contract/src/filter-escape.ts). New per-engine conformance cases (eq/neq, same-column AND, contains, isNull/isNotNull). UI: new FilterBar component (packages/ui/src/components/filter-bar.tsx) - a Linear/Supabase-style anchored popover with a progressive column->operator->value flow (searchable type-to-filter column list with type icons + PK/FK badges, per-column-kind operator ordering, breadcrumb re-pick), applied filters as editable segmented chips joined by and separators, per-chip remove, clear-all; focus-trapped dialog, listbox/option roles, full arrow/Enter/Escape keyboard operation. classifyColumnKind exported from type-icon.tsx so operator ordering reuses the type-icon classification. RowsTable keeps PK-cell click-to-filter; onNavigateToForeignKey also passes the clicked value so FK clicks pre-filter the referenced table. apps/web threads filters state through use-rows/tables-tab/App and the CSV export URL. Tests: new filter-bar.render.test.tsx (9 tests), updated rows-table tests; @qyre/ui green (98 tests). Verified live via SQLite fixture through the browser (popover flow, per-kind operator order, AND semantics, edit-in-place, clear-all, PK click, 400s on bad column/op, filtered CSV export, no console errors) and confirmed passing on the full live-DB pnpm check before merge.",
       "blockedReason": null,
       "spec": "docs/product-specs/rows-table-filtering.md"
     },
@@ -827,11 +827,11 @@
       "id": "F074",
       "behavior": "The Schema tab gains an interactive graph/ERD view - pannable, zoomable, draggable table nodes connected by foreign-key relationship edges (SQL engines only; MongoDB renders as unconnected nodes) - replacing or supplementing the current static card grid. Needs a product-spec pass first (canvas library choice, auto-layout, position persistence), following the pattern used for F063-F066.",
       "verification": "pnpm test:e2e:full",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,
-      "spec": null
+      "spec": "docs/product-specs/schema-graph.md"
     }
   ]
 }

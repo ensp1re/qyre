@@ -60,6 +60,9 @@ single engine's behavior, not the whole product.
 - [`rows-table-filtering.md`](rows-table-filtering.md) - adds server-side filtering (column/op/
   value, AND-only, all 4 engines including MongoDB) to `RowsTable`'s rows and CSV export routes,
   plus click-to-filter on primary-/foreign-key cell values. Tracked as F072.
+- [`schema-graph.md`](schema-graph.md) - the Schema tab gains an interactive ERD (React Flow +
+  dagre): tables as draggable pan/zoom nodes, foreign keys as connecting edges, layout persisted
+  per database, with a Graph/Grid toggle keeping the existing card view. Tracked as F074.
 
 ## Rules
 

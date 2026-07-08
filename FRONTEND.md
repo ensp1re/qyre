@@ -29,10 +29,10 @@ Every data-driven view must explicitly handle:
 
 ## Guardrails
 
-- Reusable, presentation-only components live in `packages/ui`, one component per file under
-  `components/` (shadcn-style; see [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md)).
-  App-specific composition lives in `apps/web` (`api/` fetchers, `hooks/`, then composition
-  components).
+- Reusable, presentation-only components live in `packages/ui`, one component per file grouped into
+  cohesive families under `src/<family>/` (shadcn-style; see
+  [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md)). App-specific composition lives in
+  `apps/web` (`api/` fetchers, `hooks/`, then composition components).
 - `packages/ui` must not fetch data or import server/driver packages. It may import `@qyre/core` for
   shared domain types a component's props genuinely represent (e.g. `ConnectionStatus`).
 - Document the design system / component conventions in [`docs/references/`](docs/references/).

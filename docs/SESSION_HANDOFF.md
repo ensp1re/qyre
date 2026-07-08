@@ -97,6 +97,9 @@ gotchas in "Known issues / blockers").
   `adapter.connect()` now routes through `describeError()` (newly exported from `@qyre/server`)
   and `EADDRINUSE` gets a named, actionable message - both previously reached `bin.ts`'s generic
   catch-all raw. `docs/product-specs/database-switching.md` updated in place (no new spec doc).
+  Same PR, follow-up commit: the startup banner is now a big `figlet` "QYRE" wordmark in a
+  blue→purple gradient (`gradient-string`/`chalk`, new deps) matching the design system's
+  `--primary`/`--c-purple` colors, replacing the old plain log line.
 
 ## In progress
 

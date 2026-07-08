@@ -83,10 +83,17 @@ gotchas in "Known issues / blockers").
   opens a new `DateDetailPopover` anchored under the cell (not a full drawer) - raw value, ISO UTC,
   local timezone conversion, relative time, unix epoch, each copyable. `RowsTable` only; `QueryRunner`
   has no column type metadata for its SQL results, so unaffected.
+- **F071 `passing`** ([PR #71](https://github.com/ensp1re/qyre/pull/71)): new shared
+  `ResizeHandle` (WAI-ARIA separator pattern - drag + arrow keys) makes the sidebar width and the
+  SQL Editor's results-panel height user-adjustable, persisted via a new `usePanelSize`
+  localStorage hook. Both `Sidebar`/`QueryRunner`'s new size props are optional and default to the
+  old fixed sizes, so no existing caller changed. Real bug caught by live verification: the
+  vertical handle had no explicit height (`w-1`, no `h-*`), rendering as a zero-height unclickable
+  strip - fixed with `h-full`/`w-full` per orientation.
 
 ## In progress
 
-- Nothing in flight. F071-F074 (see `SUGGESTIONS.md` for the full analysis behind each) are
+- Nothing in flight. F072-F074 (see `SUGGESTIONS.md` for the full analysis behind each) are
   `not_started` and unclaimed.
 
 ## Known issues / blockers
@@ -123,14 +130,16 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-**F071-F074 are queued and `not_started`** (see `SUGGESTIONS.md` for the full reported-bug/fix-plan
-detail behind each): F071 (resizable sidebar/SQL-editor panels), F072 (server-side row filtering +
-PK/FK click-to-filter across all 4 engines - needs a product-spec pass first), F073 (guided no-URL
-CLI startup / connect-later flow), F074 (interactive schema graph/ERD - needs a product-spec pass
-first). Suggested order is in `SUGGESTIONS.md`'s "Suggested implementation order" table.
+**F072-F074 are queued and `not_started`** (see `SUGGESTIONS.md` for the full reported-bug/fix-plan
+detail behind each): F072 (server-side row filtering + PK/FK click-to-filter across all 4 engines -
+needs a product-spec pass first), F073 (guided no-URL CLI startup / connect-later flow), F074
+(interactive schema graph/ERD - needs a product-spec pass first). Suggested order is in
+`SUGGESTIONS.md`'s "Suggested implementation order" table.
 
 Separately, `--demo` mode (a zero-setup trial with a bundled sample DB) is still on
 `docs/exec-plans/tech-debt-tracker.md` with no spec written yet.
 
-A fresh session asking "what's next" should run `pnpm features` and pick up F071 (smallest,
-contained to `packages/ui`) unless the user directs otherwise.
+A fresh session asking "what's next" should run `pnpm features` and pick up F072 - the largest
+remaining item and the only one with no product spec yet, so it should get a spec pass first
+(matching how F063-F066 were run) rather than jumping straight to implementation - unless the user
+directs otherwise.

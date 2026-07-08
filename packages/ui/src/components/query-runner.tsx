@@ -15,7 +15,14 @@ import { CellValueDrawer } from "./cell-value-drawer.js";
 import type { InspectableValue } from "./cell-value.js";
 import { CellValue } from "./cell-value.js";
 import { ErrorState } from "./error-state.js";
+import { ResizeHandle } from "./resize-handle.js";
 import { Spinner } from "./spinner.js";
+
+/** Exported so the caller owning persistence (F071's `usePanelSize`) can seed/clamp against the
+ * same numbers this component uses, instead of duplicating them. */
+export const RESULTS_DEFAULT_HEIGHT = 256;
+const RESULTS_MIN_HEIGHT = 120;
+const RESULTS_MAX_HEIGHT = 600;
 
 export interface QueryRunnerProps {
   sql: string;
@@ -31,6 +38,10 @@ export interface QueryRunnerProps {
    * already-fetched schema data - this package must not fetch data itself (FRONTEND.md).
    */
   tableNames?: readonly string[];
+  /** Results panel height in px (F071). Omitted keeps the previous fixed 256px (`max-h-64`) - both
+   * this and `onResultsHeightChange` must be supplied together for the resize handle to appear. */
+  resultsHeight?: number;
+  onResultsHeightChange?: (height: number) => void;
 }
 
 const sqlHighlightStyle = HighlightStyle.define([
@@ -95,8 +106,11 @@ export function QueryRunner({
   result,
   error,
   onOpenHistory,
-  tableNames = []
+  tableNames = [],
+  resultsHeight,
+  onResultsHeightChange
 }: QueryRunnerProps): ReactNode {
+  const resizableResults = resultsHeight !== undefined && onResultsHeightChange !== undefined;
   const canRun = !isRunning && sql.trim().length > 0;
   const lineCount = sql.split("\n").length;
   const isMac =
@@ -235,11 +249,28 @@ export function QueryRunner({
         </div>
       )}
 
+      {result && !error && resizableResults && (
+        <ResizeHandle
+          orientation="horizontal"
+          value={resultsHeight}
+          min={RESULTS_MIN_HEIGHT}
+          max={RESULTS_MAX_HEIGHT}
+          onChange={onResultsHeightChange}
+          invert
+          aria-label="Resize query results panel"
+        />
+      )}
+
       {result && !error && (
         <div
           data-testid="query-result"
           ref={resultScrollRef}
-          className="max-h-64 shrink-0 overflow-auto border-t border-border"
+          style={resizableResults ? { height: resultsHeight } : undefined}
+          className={
+            resizableResults
+              ? "shrink-0 overflow-auto border-t border-border"
+              : "max-h-64 shrink-0 overflow-auto border-t border-border"
+          }
         >
           {result.rows.length === 0 ? (
             <p className="p-3 font-mono text-[11px] text-muted-foreground">

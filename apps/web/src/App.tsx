@@ -3,7 +3,9 @@ import {
   ConnectDrawer,
   ErrorBoundary,
   QueryHistoryDrawer,
+  RESULTS_DEFAULT_HEIGHT,
   Sidebar,
+  SIDEBAR_DEFAULT_WIDTH,
   Spinner,
   StatusBar,
   TabBar,
@@ -23,6 +25,7 @@ import { useClearConsole, useConsoleEvents } from "./hooks/use-console.js";
 import { useFileContent, useFilesOverview } from "./hooks/use-files.js";
 import { useHealth } from "./hooks/use-health.js";
 import { useOverview } from "./hooks/use-overview.js";
+import { usePanelSize } from "./hooks/use-panel-size.js";
 import { useQueryHistory } from "./hooks/use-query-history.js";
 import { useRecentTargets } from "./hooks/use-recent-targets.js";
 import { useRows } from "./hooks/use-rows.js";
@@ -52,6 +55,11 @@ export function App(): ReactNode {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const [sidebarWidth, setSidebarWidth] = usePanelSize("qyre-sidebar-width", SIDEBAR_DEFAULT_WIDTH);
+  const [resultsHeight, setResultsHeight] = usePanelSize(
+    "qyre-results-height",
+    RESULTS_DEFAULT_HEIGHT
+  );
   const queryHistory = useQueryHistory();
   const recentTargets = useRecentTargets();
   const connect = useConnect();
@@ -145,6 +153,8 @@ export function App(): ReactNode {
           onRetry={() => overview.refetch()}
           open={sidebarOpen}
           onOpenChange={setSidebarOpen}
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -185,6 +195,8 @@ export function App(): ReactNode {
                   runQuery={runQuery}
                   onOpenHistory={() => setHistoryOpen(true)}
                   tableNames={tableNames}
+                  resultsHeight={resultsHeight}
+                  onResultsHeightChange={setResultsHeight}
                 />
               ) : tab === "tables" ? (
                 <TablesTab

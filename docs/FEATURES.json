@@ -110,19 +110,20 @@
       "id": "F076",
       "behavior": "The web application uses an enforced shared-to-features-to-app architecture with api/model/ui feature segments, mirrored tests, explicit server/client/persisted state ownership, and credential-safe browser persistence.",
       "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/web typecheck && pnpm test:e2e",
-      "state": "active",
-      "commitHash": null,
-      "evidence": "Research compared the referenced Vite boilerplate with Bulletproof React, Feature-Sliced Design, React state guidance, TanStack Query, Redux Toolkit, and Zustand. Qyre now uses shared -> features -> app with api/model/ui feature segments and mechanically enforced dependency direction. TanStack Query owns server state; local React state owns component state; a tested reducer owns coordinated workspace transitions; a typed versioned adapter owns persistence. Raw credential-bearing recent targets are session-only and legacy stored secrets are purged. Web tests increased from 6 to 15 across mirrored app, feature, and shared paths. Local pnpm verify:pr passed: 34 package tasks, 5 smoke E2E passed/3 engine-duplicate skips, and 11 full E2E passed/5 engine-inapplicable skips across PostgreSQL, MySQL, SQLite, and MongoDB. Root test/check commands now load optional .env values without overriding CI/shell values; pnpm test passed with shell test URLs unset and all three Compose databases healthy. Awaiting final PR #77 CI evidence.",
+      "state": "passing",
+      "commitHash": "88cbe284ad4892207f2ae15c34afdcc8849f80c7",
+      "evidence": "Research compared the referenced Vite boilerplate with Bulletproof React, Feature-Sliced Design, React state guidance, TanStack Query, Redux Toolkit, and Zustand. Qyre now uses shared -> features -> app with api/model/ui feature segments and mechanically enforced dependency direction. TanStack Query owns server state; local React state owns component state; a tested reducer owns coordinated workspace transitions; a typed versioned adapter owns persistence. Raw credential-bearing recent targets are session-only and legacy stored secrets are purged. Web tests increased from 6 to 15 across mirrored app, feature, and shared paths. Local pnpm verify:pr passed: 34 package tasks, 5 smoke E2E passed/3 engine-duplicate skips, and 11 full E2E passed/5 engine-inapplicable skips across PostgreSQL, MySQL, SQLite, and MongoDB. Root test/check commands now load optional .env values without overriding CI/shell values; pnpm test passed with shell test URLs unset and all three Compose databases healthy. PR #77 merged as 88cbe28, CI confirmed on main (E2E and lint/typecheck/test/build both pass).",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-08T16:41:31.000Z"
     },
     {
       "id": "F077",
       "behavior": "The UI package is reorganized into cohesive component families selected from actual ownership rather than a prescribed folder list; tests move to a mirrored packages/ui/tests tree and the public package API remains compatible.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/ui build",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
-      "evidence": null,
+      "evidence": "The flat packages/ui/src/components/ directory is reorganized into seven cohesive families by actual ownership: data-grid (rows-table, cell-value, cell-value-drawer, filter-bar, date-detail-popover), schema (sidebar, schema-tree, schema-grid, table-detail), query (query-runner, query-history-drawer, console-log, sql-completion), connection (connect-drawer, files-browser), shell (title-bar, tab-bar, status-bar), feedback (spinner, error-state, error-boundary), and primitives (resize-handle, type-icon, format-cell, use-focus-trap - dependency-free concerns consumed across multiple families). Tests moved to a mirrored packages/ui/tests/<family> tree, including a tests/support/test-setup.ts. The public index.tsx barrel re-exports the identical named export set from their new paths, so apps/web (which only ever imports the @qyre/ui barrel, never a deep path) needed no changes. pnpm --filter @qyre/ui test (15 files, 98 tests), typecheck, and build all pass; pnpm --filter @qyre/web typecheck still passes unchanged against the rebuilt package. Not yet pushed/PR'd.",
       "blockedReason": null,
       "spec": null
     },
@@ -130,26 +131,6 @@
       "id": "F078",
       "behavior": "The Fastify server is split into an app builder, resource route plugins, services, and infrastructure plugins; tests move to mirrored routes/services/integration folders under packages/server/tests with no HTTP contract change.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/server typecheck && pnpm --filter @qyre/server build",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F079",
-      "behavior": "Each database driver is split from oversized entrypoints along its actual independent responsibilities; tests move to mirrored unit/integration trees and cross-engine conformance remains green without forcing identical modules across engines.",
-      "verification": "pnpm test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F080",
-      "behavior": "Root Playwright journeys move from e2e/ into tests/e2e/journeys with launchers and fixtures under tests/e2e/support; Playwright configuration and scripts discover the new structure without changing coverage.",
-      "verification": "pnpm test:e2e && pnpm test:e2e:full",
       "state": "not_started",
       "commitHash": null,
       "evidence": null,

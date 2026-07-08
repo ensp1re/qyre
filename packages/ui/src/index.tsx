@@ -1,27 +1,27 @@
 /**
  * Reusable, presentation-only UI components for Qyre.
  *
- * This package must not fetch data or import server/adapter packages. One component per file under
- * `components/`, shadcn-style. See FRONTEND.md and docs/CODE_ORGANIZATION.md.
+ * Components are grouped by cohesive ownership under `src/<family>/`, shadcn-style: one component
+ * per file. See FRONTEND.md and docs/CODE_ORGANIZATION.md.
  */
-export * from "./components/cell-value.js";
-export * from "./components/cell-value-drawer.js";
-export * from "./components/connect-drawer.js";
-export * from "./components/console-log.js";
-export * from "./components/date-detail-popover.js";
-export * from "./components/error-boundary.js";
-export * from "./components/error-state.js";
-export * from "./components/files-browser.js";
-export * from "./components/resize-handle.js";
-export * from "./components/schema-grid.js";
-export * from "./components/schema-tree.js";
-export * from "./components/sidebar.js";
-export * from "./components/spinner.js";
-export * from "./components/status-bar.js";
-export * from "./components/tab-bar.js";
-export * from "./components/table-detail.js";
-export * from "./components/title-bar.js";
-export * from "./components/type-icon.js";
-export * from "./components/rows-table.js";
-export * from "./components/query-runner.js";
-export * from "./components/query-history-drawer.js";
+export * from "./connection/connect-drawer.js";
+export * from "./connection/files-browser.js";
+export * from "./data-grid/cell-value-drawer.js";
+export * from "./data-grid/cell-value.js";
+export * from "./data-grid/date-detail-popover.js";
+export * from "./data-grid/rows-table.js";
+export * from "./feedback/error-boundary.js";
+export * from "./feedback/error-state.js";
+export * from "./feedback/spinner.js";
+export * from "./primitives/resize-handle.js";
+export * from "./primitives/type-icon.js";
+export * from "./query/console-log.js";
+export * from "./query/query-history-drawer.js";
+export * from "./query/query-runner.js";
+export * from "./schema/schema-grid.js";
+export * from "./schema/schema-tree.js";
+export * from "./schema/sidebar.js";
+export * from "./schema/table-detail.js";
+export * from "./shell/status-bar.js";
+export * from "./shell/tab-bar.js";
+export * from "./shell/title-bar.js";

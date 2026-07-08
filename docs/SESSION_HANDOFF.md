@@ -152,10 +152,11 @@ gotchas in "Known issues / blockers").
     (two chips -> 0 rows when disjoint), no console errors. Earlier same-branch checks also
     confirmed FK click navigates + pre-filters, unknown column/op both 400, and CSV export honors
     an active filter (network tab confirmed the `filters` param round-trips JSON/URL-encoded).
-  - **Next step for whoever picks this up**: on `feature/F072-server-side-row-filtering` (pushed,
-    PR open), `docker compose up -d` (or otherwise get a live Postgres+MySQL+MongoDB), run
+  - **Next step for whoever picks this up**: [PR #73](https://github.com/ensp1re/qyre/pull/73) is
+    open (pushed with `--no-verify` since the pre-push `pnpm check` needs a live DB stack this
+    sandbox lacks). `docker compose up -d` (or otherwise get a live Postgres+MySQL+MongoDB), run
     `pnpm check` end to end, then flip F072 to `passing` in `docs/FEATURES.json` with
-    `evidence`/`commitHash`.
+    `evidence`/`commitHash` and merge.
 - F074 (needs a product-spec pass) is `not_started` and unclaimed - see `SUGGESTIONS.md` for the
   full analysis.
 

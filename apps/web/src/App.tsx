@@ -1,4 +1,4 @@
-import type { ConnectionStatus, RowSort } from "@qyre/core";
+import type { ConnectionStatus, RowFilter, RowSort } from "@qyre/core";
 import {
   ConnectDrawer,
   ErrorBoundary,
@@ -47,6 +47,7 @@ export function App(): ReactNode {
   const [selected, setSelected] = useState<{ schema: string; table: string } | undefined>();
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState<RowSort | undefined>();
+  const [filters, setFilters] = useState<RowFilter[] | undefined>();
   const [querySql, setQuerySql] = useState("");
   const [tab, setTab] = useState<ShellTab>("sql-editor");
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
@@ -85,7 +86,7 @@ export function App(): ReactNode {
   // left clickable and silently failing every query.
   const supportsSql = overview.data?.capabilities.supportsSql ?? true;
   const table = useTable(selected?.schema, selected?.table);
-  const rows = useRows(selected?.schema, selected?.table, page, sort);
+  const rows = useRows(selected?.schema, selected?.table, page, sort, filters);
   const allTables = useAllTables({ enabled: status === "connected" });
   const tableNames = (overview.data?.schemas ?? []).flatMap((schema) => schema.tables);
   const filesOverview = useFilesOverview({ enabled: status === "connected" });
@@ -94,10 +95,11 @@ export function App(): ReactNode {
   const clearConsole = useClearConsole();
   const runQuery = useRunQuery();
 
-  function selectTable(schema: string, tableName: string): void {
+  function selectTable(schema: string, tableName: string, initialFilters?: RowFilter[]): void {
     setSelected({ schema, table: tableName });
     setPage(0);
     setSort(undefined);
+    setFilters(initialFilters);
     setTab("tables");
   }
 
@@ -137,6 +139,7 @@ export function App(): ReactNode {
     setSelected(undefined);
     setPage(0);
     setSort(undefined);
+    setFilters(undefined);
     setConnectOpen(false);
   }
 
@@ -217,12 +220,19 @@ export function App(): ReactNode {
                   rows={rows}
                   page={page}
                   onPageChange={setPage}
-                  onNavigateToForeignKey={(reference) =>
-                    selectTable(reference.schema ?? selected?.schema ?? "", reference.table)
+                  onNavigateToForeignKey={(reference, value) =>
+                    selectTable(reference.schema ?? selected?.schema ?? "", reference.table, [
+                      { column: reference.column, op: "eq", value: String(value) }
+                    ])
                   }
                   sort={sort}
                   onSortChange={(nextSort) => {
                     setSort(nextSort);
+                    setPage(0);
+                  }}
+                  filters={filters}
+                  onFiltersChange={(nextFilters) => {
+                    setFilters(nextFilters);
                     setPage(0);
                   }}
                 />

@@ -27,8 +27,10 @@ import type {
   FileContent,
   FilesOverview,
   HealthResponse,
+  RowFilter,
   RowSort,
-  SortDirection
+  SortDirection,
+  TableMetadata
 } from "@qyre/core";
 import { ReadOnlyViolationError, resolveAdapter } from "@qyre/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
@@ -103,19 +105,59 @@ export function displayTarget(target: ConnectionTarget): string {
  * global error handler below) for an unrecognized column; returns undefined when no sort was
  * requested at all.
  */
-async function resolveRowSort(
-  db: DatabaseAdapter,
-  schema: string,
-  table: string,
+function resolveRowSort(
+  tableMetadata: TableMetadata,
   sortColumn: string | undefined,
   sortDirection: SortDirection
-): Promise<RowSort | undefined> {
+): RowSort | undefined {
   if (!sortColumn) return undefined;
-  const tableMetadata = await db.getTable(schema, table);
   if (!tableMetadata.columns.some((column) => column.name === sortColumn)) {
     throw Object.assign(new Error(`Unknown sort column "${sortColumn}".`), { statusCode: 400 });
   }
   return { column: sortColumn, direction: sortDirection };
+}
+
+/**
+ * Validates each requested filter's column against the table's real columns before it's ever used
+ * in a query (F072) - same injection-surface reasoning as {@link resolveRowSort}'s `sortColumn`.
+ * Throws a 400-shaped error naming the first unrecognized column; returns undefined when no
+ * filters were requested at all.
+ */
+function resolveRowFilters(
+  tableMetadata: TableMetadata,
+  filters: RowFilter[] | undefined
+): RowFilter[] | undefined {
+  if (!filters || filters.length === 0) return undefined;
+  for (const filter of filters) {
+    if (!tableMetadata.columns.some((column) => column.name === filter.column)) {
+      throw Object.assign(new Error(`Unknown filter column "${filter.column}".`), {
+        statusCode: 400
+      });
+    }
+  }
+  return filters;
+}
+
+/**
+ * Resolves sort and filters together, sharing a single `getTable` introspection call between them
+ * - and skipping that call entirely when neither was requested, matching `resolveRowSort`'s
+ * previous lazy behavior (the common unsorted/unfiltered request shouldn't pay for introspection
+ * it doesn't need).
+ */
+async function resolveRowQuery(
+  db: DatabaseAdapter,
+  schema: string,
+  table: string,
+  sortColumn: string | undefined,
+  sortDirection: SortDirection,
+  filters: RowFilter[] | undefined
+): Promise<{ sort?: RowSort; filters?: RowFilter[] }> {
+  if (!sortColumn && (!filters || filters.length === 0)) return {};
+  const tableMetadata = await db.getTable(schema, table);
+  return {
+    sort: resolveRowSort(tableMetadata, sortColumn, sortDirection),
+    filters: resolveRowFilters(tableMetadata, filters)
+  };
 }
 
 /**
@@ -303,38 +345,44 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
     async (request, reply) => {
       const parsed = rowsQuerySchema.safeParse(request.query);
       if (!parsed.success) {
-        return reply.status(400).send({ error: "Invalid page/pageSize query parameters." });
+        return reply
+          .status(400)
+          .send({ error: "Invalid page/pageSize/sort/filters query parameters." });
       }
       const { schema, table } = request.params;
-      const { page, pageSize, sortColumn, sortDirection } = parsed.data;
+      const { page, pageSize, sortColumn, sortDirection, filters } = parsed.data;
       const db = requireAdapter(adapter);
-      const sort = await resolveRowSort(db, schema, table, sortColumn, sortDirection);
-      return db.getRows(schema, table, page, pageSize, sort);
+      const resolved = await resolveRowQuery(db, schema, table, sortColumn, sortDirection, filters);
+      return db.getRows(schema, table, page, pageSize, resolved.sort, resolved.filters);
     }
   );
 
-  // F066: streams every row of the table as CSV (honoring the sort above, if any) rather than
-  // capping at runReadOnlyQuery's 1,000-row limit (F050) - exporting the whole table is the point.
+  // F066: streams every row of the table as CSV (honoring the sort/filters above, if any) rather
+  // than capping at runReadOnlyQuery's 1,000-row limit (F050) - exporting the whole table is the
+  // point.
   app.get<{ Params: { schema: string; table: string }; Querystring: Record<string, string> }>(
     "/api/tables/:schema/:table/export.csv",
     async (request, reply) => {
       const parsed = rowsQuerySchema
-        .pick({ sortColumn: true, sortDirection: true })
+        .pick({ sortColumn: true, sortDirection: true, filters: true })
         .safeParse(request.query);
       if (!parsed.success) {
         return reply
           .status(400)
-          .send({ error: "Invalid sortColumn/sortDirection query parameters." });
+          .send({ error: "Invalid sortColumn/sortDirection/filters query parameters." });
       }
       const { schema, table } = request.params;
       const db = requireAdapter(adapter);
-      const sort = await resolveRowSort(
+      const resolved = await resolveRowQuery(
         db,
         schema,
         table,
         parsed.data.sortColumn,
-        parsed.data.sortDirection
+        parsed.data.sortDirection,
+        parsed.data.filters
       );
+      const sort = resolved.sort;
+      const filters = resolved.filters;
 
       reply.header("Content-Type", "text/csv; charset=utf-8");
       reply.header("Content-Disposition", `attachment; filename="${table}.csv"`);
@@ -350,7 +398,7 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
         let page = 0;
         let wroteHeader = false;
         for (;;) {
-          const rowPage = await db.getRows(schema, table, page, MAX_PAGE_SIZE, sort);
+          const rowPage = await db.getRows(schema, table, page, MAX_PAGE_SIZE, sort, filters);
           if (!wroteHeader) {
             stream.push(`${csvLine(rowPage.columns)}\n`);
             wroteHeader = true;

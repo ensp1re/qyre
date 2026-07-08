@@ -42,4 +42,36 @@ describe("rowsQuerySchema", () => {
   it("rejects an invalid sortDirection", () => {
     expect(rowsQuerySchema.safeParse({ sortDirection: "sideways" }).success).toBe(false);
   });
+
+  it("parses a valid filters JSON array (F072)", () => {
+    const filters = JSON.stringify([{ column: "status", op: "eq", value: "active" }]);
+    expect(rowsQuerySchema.parse({ filters }).filters).toEqual([
+      { column: "status", op: "eq", value: "active" }
+    ]);
+  });
+
+  it("accepts isNull/isNotNull filters without a value", () => {
+    const filters = JSON.stringify([{ column: "deletedAt", op: "isNull" }]);
+    expect(rowsQuerySchema.parse({ filters }).filters).toEqual([
+      { column: "deletedAt", op: "isNull" }
+    ]);
+  });
+
+  it("rejects a non-isNull filter missing a value", () => {
+    const filters = JSON.stringify([{ column: "status", op: "eq" }]);
+    expect(rowsQuerySchema.safeParse({ filters }).success).toBe(false);
+  });
+
+  it("rejects an unknown filter op", () => {
+    const filters = JSON.stringify([{ column: "status", op: "sideways", value: "x" }]);
+    expect(rowsQuerySchema.safeParse({ filters }).success).toBe(false);
+  });
+
+  it("rejects malformed filters JSON", () => {
+    expect(rowsQuerySchema.safeParse({ filters: "not json" }).success).toBe(false);
+  });
+
+  it("leaves filters undefined when omitted", () => {
+    expect(rowsQuerySchema.parse({}).filters).toBeUndefined();
+  });
 });

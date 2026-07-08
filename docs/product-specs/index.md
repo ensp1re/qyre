@@ -57,6 +57,9 @@ single engine's behavior, not the whole product.
 - [`server-side-sort-export.md`](server-side-sort-export.md) - `RowsTable`'s column sort and CSV
   export currently only cover the loaded page; this moves sort server-side and adds a whole-table
   streamed CSV export. Tracked as F065 (sort) and F066 (export), both `passing`.
+- [`rows-table-filtering.md`](rows-table-filtering.md) - adds server-side filtering (column/op/
+  value, AND-only, all 4 engines including MongoDB) to `RowsTable`'s rows and CSV export routes,
+  plus click-to-filter on primary-/foreign-key cell values. Tracked as F072.
 
 ## Rules
 

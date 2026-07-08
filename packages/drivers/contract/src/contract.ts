@@ -1,6 +1,7 @@
 import type {
   ConnectionTarget,
   DatabaseOverview,
+  RowFilter,
   RowPage,
   RowSort,
   TableMetadata
@@ -25,15 +26,17 @@ export interface DatabaseAdapter {
   getOverview(): Promise<DatabaseOverview>;
   /** Introspect a single table's columns and metadata. */
   getTable(schema: string, table: string): Promise<TableMetadata>;
-  /** Fetch a page of rows for a table, optionally sorted by one column (F065). `sort.column` must
-   * already be validated against the table's real columns by the caller - see
-   * docs/product-specs/server-side-sort-export.md. */
+  /** Fetch a page of rows for a table, optionally sorted by one column (F065) and/or narrowed by
+   * one or more AND-combined filters (F072). `sort.column`/each `filters[].column` must already be
+   * validated against the table's real columns by the caller - see
+   * docs/product-specs/server-side-sort-export.md and docs/product-specs/rows-table-filtering.md. */
   getRows(
     schema: string,
     table: string,
     page: number,
     pageSize: number,
-    sort?: RowSort
+    sort?: RowSort,
+    filters?: RowFilter[]
   ): Promise<RowPage>;
   /** Execute a read-only (SELECT-style) query. Implementations must reject mutations. */
   runReadOnlyQuery(sql: string): Promise<RowPage>;

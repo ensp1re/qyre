@@ -8,7 +8,9 @@ import type {
   ColumnMetadata,
   ConnectionTarget,
   DatabaseOverview,
+  FilterOp,
   IndexMetadata,
+  RowFilter,
   RowPage,
   RowSort,
   SchemaMetadata,
@@ -17,6 +19,7 @@ import type {
 import {
   assertReadOnly,
   capResultRows,
+  escapeLikePattern,
   resolvePageRequest,
   runInReadOnlyTransaction
 } from "@qyre/driver-contract";
@@ -53,6 +56,39 @@ function resolveStatementTimeoutMs(): number {
 /** Quote a SQL identifier safely. */
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
+}
+
+const COMPARE_OPERATORS: Partial<Record<FilterOp, string>> = {
+  eq: "=",
+  neq: "!=",
+  lt: "<",
+  lte: "<=",
+  gt: ">",
+  gte: ">="
+};
+
+/** Builds a parameterized `WHERE` clause from validated filters (F072) - `filter.column` is
+ * already checked against the table's real columns by the caller (packages/server), `quoteIdent`
+ * still guards against a stray identifier-quote character within it, same as sort's `ORDER BY`.
+ * `$`-numbered placeholders start at 1, matching the params array this returns 1:1. */
+function buildFilterClause(filters: RowFilter[] | undefined): {
+  clause: string;
+  params: unknown[];
+} {
+  if (!filters || filters.length === 0) return { clause: "", params: [] };
+  const params: unknown[] = [];
+  const conditions = filters.map((filter) => {
+    const column = quoteIdent(filter.column);
+    if (filter.op === "isNull") return `${column} IS NULL`;
+    if (filter.op === "isNotNull") return `${column} IS NOT NULL`;
+    if (filter.op === "contains") {
+      params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
+      return `${column} ILIKE $${params.length} ESCAPE '\\'`;
+    }
+    params.push(filter.value);
+    return `${column} ${COMPARE_OPERATORS[filter.op]} $${params.length}`;
+  });
+  return { clause: ` WHERE ${conditions.join(" AND ")}`, params };
 }
 
 /** Find the index just past the closing quote of a `'...'` literal starting at `sql[start]`. */
@@ -450,7 +486,8 @@ export class PostgresAdapter implements DatabaseAdapter {
     table: string,
     page: number,
     pageSize: number,
-    sort?: RowSort
+    sort?: RowSort,
+    filters?: RowFilter[]
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     // sort.column is already validated by the caller against the table's real columns (F065) -
@@ -458,10 +495,13 @@ export class PostgresAdapter implements DatabaseAdapter {
     const orderBy = sort
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
       : "";
+    const { clause: whereClause, params: filterParams } = buildFilterClause(filters);
 
     const result = await this.getPool().query(
-      `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${orderBy} LIMIT $1 OFFSET $2`,
-      [safePageSize, offset]
+      `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}${orderBy} LIMIT $${
+        filterParams.length + 1
+      } OFFSET $${filterParams.length + 2}`,
+      [...filterParams, safePageSize, offset]
     );
 
     return {

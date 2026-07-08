@@ -1,4 +1,4 @@
-import type { ForeignKeyReference, RowSort } from "@qyre/core";
+import type { ForeignKeyReference, RowFilter, RowSort } from "@qyre/core";
 import { ErrorState, RowsTable, Spinner } from "@qyre/ui";
 import type { ReactNode } from "react";
 import { exportRowsUrl } from "../api/rows.js";
@@ -11,9 +11,11 @@ export interface TablesTabProps {
   rows: ReturnType<typeof useRows>;
   page: number;
   onPageChange: (updater: (current: number) => number) => void;
-  onNavigateToForeignKey?: (reference: ForeignKeyReference) => void;
+  onNavigateToForeignKey?: (reference: ForeignKeyReference, value: unknown) => void;
   sort: RowSort | undefined;
   onSortChange: (sort: RowSort | undefined) => void;
+  filters: RowFilter[] | undefined;
+  onFiltersChange: (filters: RowFilter[] | undefined) => void;
 }
 
 /** Triggers a real browser download of the streamed export - not a fetch+Blob, so the download
@@ -33,7 +35,9 @@ export function TablesTab({
   onPageChange,
   onNavigateToForeignKey,
   sort,
-  onSortChange
+  onSortChange,
+  filters,
+  onFiltersChange
 }: TablesTabProps): ReactNode {
   if (!selected) {
     return <p className="text-[13px] text-muted-foreground">Select a table from the sidebar.</p>;
@@ -74,7 +78,11 @@ export function TablesTab({
       sortColumn={sort?.column}
       sortDirection={sort?.direction}
       onSortChange={onSortChange}
-      onExportAllRows={() => downloadExport(exportRowsUrl(selected.schema, selected.table, sort))}
+      onExportAllRows={() =>
+        downloadExport(exportRowsUrl(selected.schema, selected.table, sort, filters))
+      }
+      filters={filters}
+      onFiltersChange={onFiltersChange}
     />
   );
 }

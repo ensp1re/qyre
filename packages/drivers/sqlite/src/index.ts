@@ -9,13 +9,20 @@ import type {
   ColumnMetadata,
   ConnectionTarget,
   DatabaseOverview,
+  FilterOp,
   IndexMetadata,
+  RowFilter,
   RowPage,
   RowSort,
   SchemaMetadata,
   TableMetadata
 } from "@qyre/core";
-import { assertReadOnly, capResultRows, resolvePageRequest } from "@qyre/driver-contract";
+import {
+  assertReadOnly,
+  capResultRows,
+  escapeLikePattern,
+  resolvePageRequest
+} from "@qyre/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import Database from "better-sqlite3";
 
@@ -25,6 +32,40 @@ const MAIN_SCHEMA = "main";
 /** Quote a SQL identifier safely (SQLite uses the standard `"..."` convention, like Postgres). */
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
+}
+
+const COMPARE_OPERATORS: Partial<Record<FilterOp, string>> = {
+  eq: "=",
+  neq: "!=",
+  lt: "<",
+  lte: "<=",
+  gt: ">",
+  gte: ">="
+};
+
+/** Builds a parameterized `WHERE` clause from validated filters (F072) - `filter.column` is
+ * already checked against the table's real columns by the caller (packages/server), `quoteIdent`
+ * still guards against a stray identifier-quote character within it, same as sort's `ORDER BY`.
+ * SQLite's `LIKE` has no default escape character (unlike Postgres/MySQL), so `ESCAPE '\'` is
+ * always stated explicitly rather than relied on implicitly. */
+function buildFilterClause(filters: RowFilter[] | undefined): {
+  clause: string;
+  params: unknown[];
+} {
+  if (!filters || filters.length === 0) return { clause: "", params: [] };
+  const params: unknown[] = [];
+  const conditions = filters.map((filter) => {
+    const column = quoteIdent(filter.column);
+    if (filter.op === "isNull") return `${column} IS NULL`;
+    if (filter.op === "isNotNull") return `${column} IS NOT NULL`;
+    if (filter.op === "contains") {
+      params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
+      return `${column} LIKE ? ESCAPE '\\'`;
+    }
+    params.push(filter.value);
+    return `${column} ${COMPARE_OPERATORS[filter.op]} ?`;
+  });
+  return { clause: ` WHERE ${conditions.join(" AND ")}`, params };
 }
 
 interface TableInfoRow {
@@ -195,20 +236,22 @@ export class SqliteAdapter implements DatabaseAdapter {
     table: string,
     page: number,
     pageSize: number,
-    sort?: RowSort
+    sort?: RowSort,
+    filters?: RowFilter[]
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     // sort.column is already validated by the caller against the table's real columns (F065).
     const orderBy = sort
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
       : "";
+    const { clause: whereClause, params: filterParams } = buildFilterClause(filters);
 
     const stmt = this.getDb()
-      .prepare(`SELECT * FROM ${quoteIdent(table)}${orderBy} LIMIT ? OFFSET ?`)
+      .prepare(`SELECT * FROM ${quoteIdent(table)}${whereClause}${orderBy} LIMIT ? OFFSET ?`)
       .safeIntegers(true);
-    const rows = (stmt.all(safePageSize, offset) as Array<Record<string, unknown>>).map(
-      normalizeRow
-    );
+    const rows = (
+      stmt.all(...filterParams, safePageSize, offset) as Array<Record<string, unknown>>
+    ).map(normalizeRow);
 
     return {
       columns: stmt.columns().map((column) => column.name),

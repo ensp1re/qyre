@@ -1,4 +1,4 @@
-import type { ColumnMetadata, ForeignKeyReference, RowPage } from "@qyre/core";
+import type { ColumnMetadata, ForeignKeyReference, RowFilter, RowPage } from "@qyre/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowUpDown,
@@ -18,6 +18,7 @@ import { CellValueDrawer } from "./cell-value-drawer.js";
 import type { InspectableValue } from "./cell-value.js";
 import { CellValue } from "./cell-value.js";
 import { DateDetailPopover } from "./date-detail-popover.js";
+import { FilterBar } from "./filter-bar.js";
 import { TypeIcon } from "./type-icon.js";
 
 export interface RowsTableProps {
@@ -31,9 +32,10 @@ export interface RowsTableProps {
   onPrevious: () => void;
   onNext: () => void;
   onRefresh?: () => void;
-  /** Navigates to the table/column a foreign key cell references (F061). Omitted (cells render as
-   * plain values, not links) when the caller has no such navigation to offer. */
-  onNavigateToForeignKey?: (reference: ForeignKeyReference) => void;
+  /** Navigates to the table/column a foreign key cell references (F061), passed the clicked cell's
+   * raw value so the caller can pre-filter the referenced table to just that row (F072). Omitted
+   * (cells render as plain values, not links) when the caller has no such navigation to offer. */
+  onNavigateToForeignKey?: (reference: ForeignKeyReference, value: unknown) => void;
   /** The sort currently applied server-side (F065), or undefined when unsorted - drives the header
    * arrow indicator. Omitted (along with `onSortChange`) disables the sort affordance entirely. */
   sortColumn?: string;
@@ -47,6 +49,13 @@ export interface RowsTableProps {
    * the export button - this component doesn't fetch data itself (see FRONTEND.md), so the actual
    * request is the caller's responsibility. */
   onExportAllRows?: () => void;
+  /** The structured filters currently applied server-side (F072), or undefined/empty when none.
+   * Omitted (along with `onFiltersChange`) disables the filter bar and primary-key click-to-filter
+   * entirely. */
+  filters?: RowFilter[];
+  /** Reports the full next filter set (add, remove, or a primary-key cell click replacing it with
+   * a single drill-down filter) - the caller re-fetches `rowPage` filtered accordingly (F072). */
+  onFiltersChange?: (filters: RowFilter[] | undefined) => void;
 }
 
 /** Approximate row height in px (matches the `py-1.5` cell padding + 11px font) - only an estimate
@@ -89,7 +98,9 @@ export function RowsTable({
   sortColumn,
   sortDirection,
   onSortChange,
-  onExportAllRows
+  onExportAllRows,
+  filters,
+  onFiltersChange
 }: RowsTableProps): ReactNode {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -145,6 +156,13 @@ export function RowsTable({
     }
   }
 
+  /** Clicking a primary-key cell's value drills into just that row (F072) - replaces the active
+   * filter set rather than adding to it, since appending to whatever filters happened to already
+   * be active would be surprising. */
+  function filterToPrimaryKeyValue(column: string, value: unknown): void {
+    onFiltersChange?.([{ column, op: "eq", value: formatCell(value) }]);
+  }
+
   function toggleRow(index: number): void {
     setSelected((current) => {
       const next = new Set(current);
@@ -167,17 +185,21 @@ export function RowsTable({
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Filter this page..."
-            aria-label="Filter this page"
-            title="Filters only the rows currently loaded on this page, not the whole table"
+            placeholder="Search this page..."
+            aria-label="Search this page"
+            title="Searches only the rows currently loaded on this page - use Filter to query the whole table"
             className="w-28 min-w-0 bg-transparent text-foreground outline-none placeholder:text-muted-foreground sm:w-36"
           />
           {search && (
-            <button type="button" onClick={() => setSearch("")} aria-label="Clear filter">
+            <button type="button" onClick={() => setSearch("")} aria-label="Clear search">
               <X className="h-2.5 w-2.5" />
             </button>
           )}
         </div>
+
+        {onFiltersChange && (
+          <FilterBar columns={columns} filters={filters} onFiltersChange={onFiltersChange} />
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           {selected.size > 0 && (
@@ -335,11 +357,24 @@ export function RowsTable({
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                onNavigateToForeignKey?.(reference);
+                                onNavigateToForeignKey?.(reference, row[columnName]);
                               }}
                               title={`Go to ${reference.table}.${reference.column}`}
                               className="underline decoration-dotted underline-offset-2 hover:text-primary"
                               style={{ color: "var(--c-blue)" }}
+                            >
+                              {formatCell(row[columnName])}
+                            </button>
+                          ) : meta?.isPrimaryKey && onFiltersChange ? (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                filterToPrimaryKeyValue(columnName, row[columnName]);
+                              }}
+                              title={`Filter to this row (${columnName})`}
+                              className="underline decoration-dotted underline-offset-2 hover:text-primary"
+                              style={{ color: "var(--c-amber)" }}
                             >
                               {formatCell(row[columnName])}
                             </button>

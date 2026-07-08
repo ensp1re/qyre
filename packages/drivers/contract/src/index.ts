@@ -11,3 +11,4 @@ export * from "./pagination.js";
 export * from "./read-only.js";
 export * from "./read-only-transaction.js";
 export * from "./result-cap.js";
+export * from "./filter-escape.js";

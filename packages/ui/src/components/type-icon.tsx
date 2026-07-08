@@ -11,8 +11,12 @@ export interface TypeIconProps {
  * normalized enum: Postgres reports `information_schema` names ("integer", "character varying",
  * "timestamp with time zone"), SQLite reports raw declared types ("INTEGER", "TEXT", "REAL", or
  * "any" - see packages/drivers/sqlite). Prefix-matched case-insensitively so both read the same way.
+ * Exported for FilterBar (F072), which orders its operator list by the picked column's kind -
+ * reusing this exact classification so the filter flow and the type icons never disagree.
  */
-function classify(dataType: string): "numeric" | "text" | "boolean" | "datetime" | "other" {
+export function classifyColumnKind(
+  dataType: string
+): "numeric" | "text" | "boolean" | "datetime" | "other" {
   const type = dataType.toLowerCase();
   if (
     type.startsWith("int") ||
@@ -41,7 +45,7 @@ function classify(dataType: string): "numeric" | "text" | "boolean" | "datetime"
 
 /** A small colored icon for a column's data type, matching docs/references/design-system.md's mapping. */
 export function TypeIcon({ dataType }: TypeIconProps): ReactNode {
-  switch (classify(dataType)) {
+  switch (classifyColumnKind(dataType)) {
     case "numeric":
       return <Hash className="h-2.5 w-2.5 shrink-0" style={{ color: "var(--c-amber)" }} />;
     case "text":

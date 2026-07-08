@@ -1,0 +1,72 @@
+import { useCallback, useState } from "react";
+import {
+  readVersionedStorage,
+  removeStoredValue,
+  writeVersionedStorage
+} from "../../../shared/lib/storage/versioned-storage.js";
+
+/** A saved `{ x, y }` per node id. */
+export type SavedPositions = Record<string, { x: number; y: number }>;
+
+/** localStorage key for a given database's saved node layout - namespaced per database so each
+ * connection remembers its own arrangement (F074). */
+function storageKey(databaseKey: string): string {
+  return `qyre-schema-graph-positions:${databaseKey}`;
+}
+
+/**
+ * Reads/writes the schema graph's node positions to localStorage, keyed per database. Returns the
+ * currently-saved positions, a setter that merges + persists a batch of moves, and a `clear` for
+ * the "Reset layout" control. Mirrors `usePanelSize`'s persistence pattern.
+ */
+export function useGraphPositions(databaseKey: string): {
+  positions: SavedPositions;
+  savePositions: (updates: SavedPositions) => void;
+  clearPositions: () => void;
+} {
+  const [positions, setPositions] = useState<SavedPositions>(() => read(databaseKey));
+
+  const savePositions = useCallback(
+    (updates: SavedPositions) => {
+      setPositions((current) => {
+        const next = { ...current, ...updates };
+        writeVersionedStorage(localStorage, storageConfig(databaseKey), next);
+        return next;
+      });
+    },
+    [databaseKey]
+  );
+
+  const clearPositions = useCallback(() => {
+    setPositions({});
+    removeStoredValue(localStorage, storageKey(databaseKey));
+  }, [databaseKey]);
+
+  return { positions, savePositions, clearPositions };
+}
+
+function read(databaseKey: string): SavedPositions {
+  return readVersionedStorage(localStorage, storageConfig(databaseKey), {});
+}
+
+function storageConfig(databaseKey: string) {
+  return {
+    key: storageKey(databaseKey),
+    version: 1,
+    parse: parsePositions
+  };
+}
+
+function parsePositions(value: unknown): SavedPositions | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const positions = Object.entries(value).filter(
+    (entry): entry is [string, { x: number; y: number }] =>
+      typeof entry[1] === "object" &&
+      entry[1] !== null &&
+      "x" in entry[1] &&
+      typeof entry[1].x === "number" &&
+      "y" in entry[1] &&
+      typeof entry[1].y === "number"
+  );
+  return Object.fromEntries(positions);
+}

@@ -11,7 +11,8 @@ and expanding to many engines. It must be legible to AI agents and friendly to o
 
 - Monorepo with pnpm workspaces + Turborepo + Changesets.
 - Local server: Fastify (typed, fast, good plugin boundaries, simple static serving).
-- Frontend: React + Vite + TanStack Router/Query + Tailwind + a shadcn-style `@qyre/ui` kit.
+- Frontend: React + Vite + TanStack Query + Tailwind + a shadcn-style `@qyre/ui` kit. Add a router
+  only when the product has URL-addressable screens.
 - Postgres driver via `pg` in `packages/drivers/postgres` (`@qyre/postgres`), behind a generic
   `DatabaseAdapter` contract in `packages/drivers/contract` (`@qyre/driver-contract`).
 - New engines are additive `packages/drivers/<engine>` packages, named `@qyre/<engine>` (no `db-`
@@ -19,6 +20,9 @@ and expanding to many engines. It must be legible to AI agents and friendly to o
 - Within packages, code is organized by concern in folders (types, validation, components), not left
   flat - see `docs/CODE_ORGANIZATION.md`.
 - Strict directional layering enforced by docs now and checks over time.
+- The web app uses `shared -> features -> app`, with `api/model/ui` feature segments and mirrored
+  tests. TanStack Query owns server state; React local state/reducers own client state. A global
+  state dependency is added only after cross-tree consumption proves it necessary.
 
 ## Rationale
 

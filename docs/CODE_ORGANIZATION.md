@@ -66,24 +66,21 @@ when each package is migrated.
 
 ## Web application
 
-The migration should derive cohesive areas from the current imports and change patterns. A possible
-result—not a required taxonomy—could resemble:
+The web app uses an enforced three-layer architecture:
 
 ```text
-app/                  application composition and providers
-connection/           connection API, health, recent targets, hooks
-table/                table/row API, hooks, table composition
-schema/               overview, schema views, graph
-query/                query API, execution, history, editor composition
-files/                 file API and browser composition
-console/               event-log API and console composition
-shared/api/            fetch transport shared by multiple domains
-shared/hooks/          genuinely cross-domain browser hooks
+app/                           composition, providers, workspace state, global styles
+features/<capability>/api/     endpoint wrappers
+features/<capability>/model/   query hooks, state, and domain logic
+features/<capability>/ui/      web-only composition
+shared/api/                    HTTP transport
+shared/lib/<concern>/          dependency-free infrastructure
 ```
 
-An owned area may contain its API wrapper, query hooks, local composition components, and shared
-types. Avoid cycles between peer areas; compose them at an application boundary. Reusable
-presentation belongs in `@qyre/ui`.
+Dependency direction is `shared -> features -> app`. Features never import another feature; app
+composes them. Tests mirror the complete path under `apps/web/tests/`. Reusable presentation belongs
+in `@qyre/ui`; cross-runtime contracts belong in `@qyre/core`. Add routing/pages only when the
+product gains URL-addressable screens.
 
 ## UI package
 

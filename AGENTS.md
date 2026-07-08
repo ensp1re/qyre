@@ -22,11 +22,11 @@ coverage as `pnpm check` with failure-only Turbo output. Both require the live d
 in [`CONTRIBUTING.md`](CONTRIBUTING.md):
 
 ```bash
-docker compose up -d
-export QYRE_TEST_DATABASE_URL="postgres://postgres:postgres@localhost:5432/qyre_test"
-export QYRE_TEST_MYSQL_URL="mysql://root:root@localhost:3306/qyre_test"
-export QYRE_TEST_MONGO_URL="mongodb://localhost:27017/qyre_test"
+cp .env.example .env  # once; fill the standard URLs shown in that file
+docker compose up -d --wait
 ```
+
+Root test/check commands load `.env` without overriding already-exported CI or shell values.
 
 ## Working contract
 

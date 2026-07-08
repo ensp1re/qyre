@@ -13,7 +13,7 @@ import {
   type ShellTab
 } from "@qyre/ui";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ConsoleTab } from "./components/console-tab.js";
 import { FilesTab } from "./components/files-tab.js";
 import { SchemaTab } from "./components/schema-tab.js";
@@ -63,6 +63,18 @@ export function App(): ReactNode {
   const queryHistory = useQueryHistory();
   const recentTargets = useRecentTargets();
   const connect = useConnect();
+
+  // F073: `npx qyre` with no target starts the server unconnected - jump straight into the connect
+  // UI instead of leaving the developer looking at a passive "no database connected" message with
+  // no obvious next step. Only auto-opens once per load (hasAutoOpenedConnect), so closing it to
+  // look around doesn't get overridden by this effect re-running on the next health poll.
+  const [hasAutoOpenedConnect, setHasAutoOpenedConnect] = useState(false);
+  useEffect(() => {
+    if (!healthLoading && status === "unconfigured" && !hasAutoOpenedConnect) {
+      setConnectOpen(true);
+      setHasAutoOpenedConnect(true);
+    }
+  }, [healthLoading, status, hasAutoOpenedConnect]);
 
   const overview = useOverview({ enabled: status === "connected" });
   // F063: some engines (MongoDB today) have no read-only SQL query runner - no SQL dialect for a

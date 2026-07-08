@@ -122,9 +122,12 @@ async function resolveRowSort(
  * A connection failure to an unreachable host often throws Node's `AggregateError` (Node tries
  * IPv6 then IPv4 and wraps both failures) - confirmed live: its own `.message` is an empty string,
  * with the real reason ("connect ECONNREFUSED ...") only in `.errors[0]`. Falling back to that
- * nested message instead of surfacing an empty string to the developer.
+ * nested message instead of surfacing an empty string to the developer. Exported (F073) so
+ * packages/cli can apply the same unwrapping to its own initial `adapter.connect()` call, which
+ * previously had the same empty-message bug this fixed here for the `/api/health`/`/api/connect`
+ * paths.
  */
-function describeError(error: unknown): string {
+export function describeError(error: unknown): string {
   if (error instanceof AggregateError && error.errors.length > 0) {
     return describeError(error.errors[0]);
   }

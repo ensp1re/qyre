@@ -24,6 +24,19 @@ without restarting the CLI or losing their place more than switching targets inh
   - A list of recently-used targets (see "Recent targets" below), each one-click reconnectable.
 - Submitting a target shows a loading state on the Connect button and disables the input until the
   attempt resolves (success or failure) - no double-submit race.
+- **Guided no-target startup (F073).** `npx qyre` with no target argument no longer fails with "no
+  database target provided" - it starts the server with `adapter`/`target` both `undefined` (the
+  same "unconfigured" shape `POST /api/connect` already produces for a fresh connection) and opens
+  the browser straight into this same drawer, auto-opened once on load when `/api/health` reports
+  `database: "unconfigured"`. Closing it doesn't reopen it on the next health poll - the auto-open
+  fires once per page load, not every time the status happens to be unconfigured.
+- **Field entry mode (F073).** A "Use fields instead" toggle swaps the single text input for
+  discrete engine/host/port/user/password/database inputs (Postgres/MySQL/MongoDB only - SQLite's
+  file-path shape doesn't fit this form, so it stays URL/path-only), composed into a connection
+  string client-side (`composeConnectionString` in `connect-drawer.tsx`) before submitting through
+  the exact same `onConnect` path as the URL form. Blank host/port fall back to `localhost`/each
+  engine's documented default port; user/password/database are percent-encoded so a special
+  character doesn't corrupt the resulting URL.
 
 ### Server-side switching
 
@@ -70,6 +83,22 @@ without restarting the CLI or losing their place more than switching targets inh
   body itself when the developer actually chooses to connect to one - never logged, never sent in a
   GET request or query string.
 
+### CLI startup error messages (F073)
+
+Every known way `npx qyre <target>` can fail at startup gets a distinct, actionable message
+instead of a raw driver/Node error propagating to `bin.ts`'s generic `"Qyre failed to start: ..."`
+catch-all:
+
+- **Unparseable/unsupported target**: `parseConnectionTarget` (already existed) - names the exact
+  problem and lists every supported target shape.
+- **Unreachable host / auth failure during the initial connect**: `main()`'s own `adapter.connect()`
+  call is now wrapped and passed through `describeError()` (exported from `@qyre/server`, F064's
+  existing `AggregateError`-unwrapping helper) - previously this call had the same "empty message"
+  `AggregateError` bug `describeError` was built to fix for the `/api/health`/`/api/connect` paths,
+  just never routed through it. The message names the target (redacted) and the underlying reason.
+- **Port already in use**: `startServer`'s `EADDRINUSE` is caught and rethrown as `Port <port> is
+already in use. Try a different one with --port <port>, or stop whatever else is using it.`
+
 ### Trust model note
 
 This adds a new mutation endpoint that can make the local server connect to an arbitrary
@@ -103,3 +132,9 @@ it is.
 - A list of up to 5 recently-used targets is shown and one-click reconnectable.
 - `npx qyre <url>` with the connect UI never used behaves identically to today - no regression for
   the existing single-target workflow.
+- `npx qyre` with no target starts successfully (not an error exit) and opens the browser straight
+  into the connect drawer.
+- The field-entry form composes a working connection string for Postgres, MySQL, and MongoDB and
+  connects successfully through it.
+- A deliberately wrong port on `npx qyre <bad-target>` fails with a message naming the actual
+  problem, not an empty or generic one.

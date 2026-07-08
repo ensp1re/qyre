@@ -182,4 +182,12 @@ describe("formatBanner", () => {
     expect(banner).toContain("https://github.com/ensp1re/qyre/issues");
     expect(banner).toContain("https://github.com/ensp1re/qyre/blob/main/CONTRIBUTING.md");
   });
+
+  it("shows an explicit 'no database connected yet' line when target is null (F073)", () => {
+    const banner = formatBanner({ version: "1.2.3", target: null, url: "http://127.0.0.1:4000" });
+
+    expect(banner).toContain("Qyre v1.2.3 — no database connected yet");
+    expect(banner).toContain("http://127.0.0.1:4000");
+    expect(banner).not.toContain("connected to");
+  });
 });

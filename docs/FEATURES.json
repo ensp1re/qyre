@@ -817,7 +817,7 @@
       "id": "F073",
       "behavior": "Running `npx qyre` with no target starts the server unconnected and opens the browser straight into the existing ConnectDrawer (reusing F064's runtime adapter-swap instead of a new terminal wizard); the ConnectDrawer's form gains discrete host/port/user/password/database/engine fields as an alternative to pasting a URL; and every known startup failure (unparseable target, unreachable host, auth failure, port in use) gets a distinct, actionable message instead of a raw error.",
       "verification": "pnpm --filter qyre test && pnpm test:e2e:full",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

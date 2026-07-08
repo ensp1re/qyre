@@ -24,6 +24,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["exec", "tsx", ".local/preview-server-mongo.mjs"],
       "port": 8897
+    },
+    {
+      "name": "qyre-preview-unconfigured",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["exec", "tsx", ".local/preview-server-unconfigured.mjs"],
+      "port": 8896
     }
   ]
 }

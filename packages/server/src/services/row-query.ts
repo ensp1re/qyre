@@ -1,0 +1,65 @@
+import type { RowFilter, RowSort, SortDirection, TableMetadata } from "@qyre/core";
+import type { DatabaseAdapter } from "@qyre/driver-contract";
+
+/**
+ * Validates a requested sort column against the table's real columns before it's ever used in a
+ * query (F065) - this is the actual injection surface `page`/`pageSize` don't have, since a column
+ * name is a raw identifier rather than a value Zod can numeric-coerce or a driver can
+ * parameter-bind. Throws a 400-shaped error (matching `requireAdapter`'s convention, caught by the
+ * global error handler) for an unrecognized column; returns undefined when no sort was requested
+ * at all.
+ */
+export function resolveRowSort(
+  tableMetadata: TableMetadata,
+  sortColumn: string | undefined,
+  sortDirection: SortDirection
+): RowSort | undefined {
+  if (!sortColumn) return undefined;
+  if (!tableMetadata.columns.some((column) => column.name === sortColumn)) {
+    throw Object.assign(new Error(`Unknown sort column "${sortColumn}".`), { statusCode: 400 });
+  }
+  return { column: sortColumn, direction: sortDirection };
+}
+
+/**
+ * Validates each requested filter's column against the table's real columns before it's ever used
+ * in a query (F072) - same injection-surface reasoning as {@link resolveRowSort}'s `sortColumn`.
+ * Throws a 400-shaped error naming the first unrecognized column; returns undefined when no
+ * filters were requested at all.
+ */
+export function resolveRowFilters(
+  tableMetadata: TableMetadata,
+  filters: RowFilter[] | undefined
+): RowFilter[] | undefined {
+  if (!filters || filters.length === 0) return undefined;
+  for (const filter of filters) {
+    if (!tableMetadata.columns.some((column) => column.name === filter.column)) {
+      throw Object.assign(new Error(`Unknown filter column "${filter.column}".`), {
+        statusCode: 400
+      });
+    }
+  }
+  return filters;
+}
+
+/**
+ * Resolves sort and filters together, sharing a single `getTable` introspection call between them
+ * - and skipping that call entirely when neither was requested, matching `resolveRowSort`'s
+ * previous lazy behavior (the common unsorted/unfiltered request shouldn't pay for introspection
+ * it doesn't need).
+ */
+export async function resolveRowQuery(
+  db: DatabaseAdapter,
+  schema: string,
+  table: string,
+  sortColumn: string | undefined,
+  sortDirection: SortDirection,
+  filters: RowFilter[] | undefined
+): Promise<{ sort?: RowSort; filters?: RowFilter[] }> {
+  if (!sortColumn && (!filters || filters.length === 0)) return {};
+  const tableMetadata = await db.getTable(schema, table);
+  return {
+    sort: resolveRowSort(tableMetadata, sortColumn, sortDirection),
+    filters: resolveRowFilters(tableMetadata, filters)
+  };
+}

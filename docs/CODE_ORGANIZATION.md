@@ -1,82 +1,128 @@
-# CODE_ORGANIZATION.md
+# Code organization
 
-Folder-level rules for how code is organized within packages. `ARCHITECTURE.md` says which packages
-may depend on which; this file says how code inside those packages is laid out. Both exist so a
-fresh agent adding a type, a component, or a database engine has one obvious place to put it.
+Qyre groups code by cohesive responsibility. Domain, resource, capability, and technical layer are
+all valid boundaries when they match the code's ownership and dependencies. Examples in this file
+illustrate a decision; they do not prescribe folder names.
 
-## Why this exists
+Existing flat areas predate this contract and are migration debt in Plan 0005. Do not add more flat
+files while they are being moved. Structural moves remain behavior-preserving slices.
 
-`@qyre/core` is imported by both `packages/server` (backend) and `apps/web` (frontend). A single,
-well-organized source of truth for the types (and their runtime validation) that cross that
-boundary is what prevents the two sides from silently drifting apart - e.g. the frontend assuming a
-field is always present that the backend doesn't actually guarantee. That is a correctness and
-security concern (see `docs/SECURITY.md`'s "validate at the boundary" rule), not just tidiness.
+## Universal placement rules
 
-## `@qyre/core`: shared types and validation
+- Name a file's responsibility, layer, and consumers before creating it.
+- Choose folder boundaries from actual cohesion: code that changes together should be easy to find
+  together; unrelated behavior should not accumulate in one flat directory.
+- Keep roots for entrypoints and genuinely shared infrastructure.
+- File count and line count are warning signals, not quotas. Split when navigation, review, or
+  independent reasons to change show that a module owns too much.
+- Avoid `utils.ts`, `helpers.ts`, and global `types.ts`. Use a concern name such as
+  `row-filter.ts`, `query-retry.ts`, or `connection-target.ts`.
+- Package `index.ts` files expose the public API only. Internal code imports concrete modules.
 
-`packages/core/src/` is organized by concern, never one flat `index.ts`:
+## Types and validation
 
-- `types/<concern>.ts` - pure TypeScript types/interfaces with no logic (`connection.ts`,
-  `table.ts`, `schema.ts`, `query.ts`, `health.ts`).
-- `errors.ts` - shared error classes.
-- `connection-target.ts` - parsing/validation logic for the connection target (not a pure type).
-- `validation/<concern>.ts` - Zod schemas for HTTP API request/response boundaries. These are the
-  single source of truth for both the server's runtime enforcement and any client-side validation
-  (e.g. a future query-runner form validating input before it ever hits the network).
-- `index.ts` is a barrel only: `export * from "./..."`. It never defines anything itself.
+- A type used by one file stays beside its implementation, including component props.
+- Types used by multiple files in one cohesive area belong in that area's `types.ts`.
+- HTTP and product contracts shared between browser and server belong in a suitably named module
+  under `packages/core/src/types/`.
+- Runtime boundary schemas belong under `packages/core/src/validation/` with the same ownership.
+- Driver-only types stay inside the owning driver.
+- Use `import type` and `export type` for type-only edges. ESLint enforces this.
+- Never duplicate an existing shared shape merely to avoid an import.
 
-Rule of tqyre: if both `packages/server` and `apps/web` need to know a shape (an API request or
-response type), it belongs in `@qyre/core`, not hand-duplicated in each. `HealthResponse` and
-`ConnectionStatus` are the canonical example - they used to be redefined separately in `apps/web`
-and `packages/ui`; now both import them from here.
+Extracting every local interface into its own file is prohibited: it increases navigation and file
+count without creating ownership. Extract only when a second consumer exists or the type is a
+public contract.
 
-## `@qyre/ui`: one component per file
+## Tests
 
-`packages/ui/src/components/<component-name>.tsx`, kebab-case, shadcn-style (matches
-`docs/design-docs/stack-and-structure.md`). `index.tsx` is a barrel only.
+Every package uses a dedicated `tests/` tree mirroring `src/`:
 
-`@qyre/ui` may depend on `@qyre/core` for shared domain types when a component's prop is genuinely a
-shared domain concept (e.g. `StatusBadge`'s `status: ConnectionStatus`). It must not fetch data or
-import server/driver packages - see `FRONTEND.md`.
+```text
+packages/ui/
+  src/table/rows-table.tsx
+  tests/table/rows-table.render.test.tsx
 
-## `apps/web`: composition, not one giant component
+packages/server/
+  src/routes/rows.ts
+  tests/routes/rows.test.ts
 
-- `api/<resource>.ts` - typed `fetch` wrappers returning `@qyre/core` types.
-- `hooks/use-<resource>.ts` - React Query hooks wrapping the `api/` fetchers.
-- `App.tsx` (and future route/page components) - composition only: wire hooks to `@qyre/ui`
-  components. No inline `fetch` calls or hand-rolled response types.
+packages/drivers/postgres/
+  src/introspection.ts
+  tests/introspection.test.ts
+  tests/integration/adapter.test.ts
+```
 
-This flat shape is deliberate while the app is small. See
-[`apps/web/STRUCTURE.md`](../apps/web/STRUCTURE.md) for the feature-based structure to migrate to
-once it grows (multiple routes/pages, or `api/`/`hooks/` stop reading as one coherent unit) - do not
-migrate speculatively.
+- Mirror the chosen source organization so implementation and tests remain easy to pair.
+- Add `unit/`, `integration/`, or `render/` only when an area has multiple real test levels.
+- Put shared fixtures and setup in `tests/support/`, never mixed with assertions.
+- Root browser journeys live in `tests/e2e/journeys/`; fixtures and server launchers live in
+  `tests/e2e/support/`.
+- Use `*.test.ts(x)` for Vitest and `*.spec.ts` for Playwright.
+- A test filename names the behavior owner, not a ticket ID.
 
-## `packages/server`: routes inline until they don't fit in one file
+Vitest discovers tests in dedicated folders. Package configs must point setup files at `tests/`
+when each package is migrated.
 
-Currently one file (`packages/server/src/index.ts`) registering all routes directly - correct while
-there are only a handful of routes and one cross-cutting concern (static serving). See
-[`packages/server/STRUCTURE.md`](../packages/server/STRUCTURE.md) for the Fastify plugin/route/schema
-structure to migrate to once that stops being true.
+## Web application
 
-## Database drivers: `packages/drivers/`
+The migration should derive cohesive areas from the current imports and change patterns. A possible
+result—not a required taxonomy—could resemble:
 
-Every engine-related package lives under `packages/drivers/`:
+```text
+app/                  application composition and providers
+connection/           connection API, health, recent targets, hooks
+table/                table/row API, hooks, table composition
+schema/               overview, schema views, graph
+query/                query API, execution, history, editor composition
+files/                 file API and browser composition
+console/               event-log API and console composition
+shared/api/            fetch transport shared by multiple domains
+shared/hooks/          genuinely cross-domain browser hooks
+```
 
-- `packages/drivers/contract` (`@qyre/driver-contract`) - the engine-agnostic `DatabaseAdapter` /
-  `AdapterFactory` contract, plus genuinely engine-agnostic shared utilities (e.g. pagination
-  clamping via `resolvePageRequest`). It must not depend on a concrete engine.
-- `packages/drivers/<engine>` (`@qyre/<engine>`, e.g. `@qyre/postgres`) - one package per engine,
-  implementing the contract. Named `<engine>` alone, not `db-<engine>` - the `drivers/` folder
-  already conveys what these packages are.
+An owned area may contain its API wrapper, query hooks, local composition components, and shared
+types. Avoid cycles between peer areas; compose them at an application boundary. Reusable
+presentation belongs in `@qyre/ui`.
 
-**Only move logic into `driver-contract` if it is truly identical across every engine.** Some logic
-looks generic but isn't - SQL identifier quoting is the canonical trap: Postgres uses `"..."`, MySQL
-uses `` `...` ``, and a shared "generic" implementation would silently be wrong for the next engine.
-When in doubt, leave it in the engine's own package; only promote it once a second engine proves it's
-actually the same.
+## UI package
 
-## Maintenance
+Group presentation components when the existing flat directory becomes hard to navigate. Possible
+boundaries include product responsibility, layout, feedback, or primitives, but use only boundaries
+the components actually exhibit. UI code may depend on `core` types but must not fetch data or
+import server/driver packages.
 
-- If a package's `src/` grows past ~3-4 files serving different concerns without a folder split,
-  that's the signal to apply this rule, not a later cleanup task.
-- Update this file (and `ARCHITECTURE.md`'s domain map) if the rules above change.
+## Server
+
+`packages/server/src/` uses:
+
+```text
+app.ts                 builds Fastify and registers plugins/routes
+index.ts               public exports only
+routes/<resource>.ts   one resource-oriented Fastify plugin
+services/<concern>.ts  reusable application behavior without HTTP concerns
+plugins/<concern>.ts   Fastify decorators and cross-cutting infrastructure
+shared/                genuinely cross-domain errors or small infrastructure
+```
+
+Fastify plugins provide route encapsulation. Handlers validate the HTTP boundary, call services or
+adapters, and format responses; they do not accumulate unrelated helper logic.
+
+Reference: [Fastify Plugins](https://fastify.dev/docs/latest/Reference/Plugins/) and
+[Encapsulation](https://fastify.dev/docs/latest/Reference/Encapsulation/).
+
+## Drivers
+
+Split each driver by the engine's actual concerns. Adapter lifecycle, introspection, querying,
+filtering, conversion, and errors are examples, not a required file list. Do not force identical
+modules across engines. Promote behavior to `drivers/contract` only after at least two engines prove
+it is identical.
+
+## Mechanical enforcement
+
+After each area is migrated, enforce objective invariants such as barrel-only entrypoints, mirrored
+test ownership, and import boundaries. Do not encode arbitrary example folder names as checks.
+
+Vitest explicitly supports dedicated test directories and recursive discovery:
+[Writing Tests](https://vitest.dev/guide/learn/writing-tests). Type-only edges follow the
+[TypeScript modules reference](https://www.typescriptlang.org/docs/handbook/modules/reference).

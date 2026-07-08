@@ -210,7 +210,7 @@ run("git", ["add", "-A"]);
 run("git", ["commit", "-m", `chore: release v${nextVersion}`]);
 
 // 7. Push the branch to origin
-run("git", ["push", "-u", "origin", branchName, "--no-verify"]);
+run("git", ["push", "-u", "origin", branchName]);
 
 // 8. Create GitHub Pull Request
 try {

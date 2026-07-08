@@ -25,22 +25,21 @@ flowchart LR
 
 ## Domain map
 
-| Domain     | Purpose                                                  | Primary entry points                                     | Related spec                                         |
-| ---------- | -------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
-| CLI        | Parse target, start server, open browser, clean shutdown | `packages/cli/src/index.ts`                              | `docs/product-specs/connect-and-inspect-postgres.md` |
-| Server     | Local HTTP API, health, static UI serving                | `packages/server/src/index.ts`                           | `packages/server/STRUCTURE.md`                       |
-| Core       | Shared domain types, validation, and contracts           | `packages/core/src/` (`types/`, `validation/`)           | same                                                 |
-| DB drivers | Engine-agnostic interface + concrete engine drivers      | `packages/drivers/contract`, `packages/drivers/<engine>` | same                                                 |
-| Web UI     | Browser interface for inspection                         | `apps/web/src`                                           | `apps/web/STRUCTURE.md`                              |
-| UI kit     | Reusable presentation components                         | `packages/ui/src/components/`                            | `FRONTEND.md`                                        |
+| Domain     | Purpose                                                  | Primary entry points                                      | Related spec                                         |
+| ---------- | -------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------- |
+| CLI        | Parse target, start server, open browser, clean shutdown | `packages/cli/src/index.ts`                               | `docs/product-specs/connect-and-inspect-postgres.md` |
+| Server     | Local HTTP API, health, static UI serving                | `packages/server/src/` (`app.ts`, `routes/`, `services/`) | `packages/server/STRUCTURE.md`                       |
+| Core       | Shared domain types, validation, and contracts           | `packages/core/src/` (`types/`, `validation/`)            | same                                                 |
+| DB drivers | Engine-agnostic interface + concrete engine drivers      | `packages/drivers/contract`, `packages/drivers/<engine>`  | same                                                 |
+| Web UI     | Browser interface for inspection                         | `apps/web/src/`                                           | `apps/web/STRUCTURE.md`                              |
+| UI kit     | Reusable presentation components                         | `packages/ui/src/`                                        | `FRONTEND.md`                                        |
 
 ## Folder organization
 
-Every package that grows past a handful of exports is organized by concern, not left as one flat
-`index.ts`/`index.tsx`. See [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md) for the concrete
-rules (types vs. validation vs. errors in `core`, one component per file in `ui`, driver packages
-grouped under `packages/drivers/`). `index.ts`/`index.tsx` is a barrel only - it re-exports, it does
-not define things.
+Code is organized by cohesive responsibility; exact folder names follow actual ownership and
+dependencies rather than a prescribed taxonomy. Tests mirror the chosen source organization under
+each package's `tests/` tree. See [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md). Package
+`index.ts` files expose public APIs only; they do not define behavior.
 
 ## Layer model
 

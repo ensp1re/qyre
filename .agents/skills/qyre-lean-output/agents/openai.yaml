@@ -1,0 +1,4 @@
+interface:
+  display_name: "Qyre Lean Output"
+  short_description: "Keep Qyre agent output concise and focused"
+  default_prompt: "Use $qyre-lean-output to run and report this Qyre task with minimal context and log noise."

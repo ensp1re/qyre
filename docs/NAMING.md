@@ -38,8 +38,8 @@ intentional open-source project. These rules are enforced by review and, where p
 
 ## Features
 
-- Feature IDs are stable and machine-readable: `F001`, `F002`, ... defined in
-  [`FEATURES.json`](FEATURES.json). IDs are never reused or renumbered.
+- Feature IDs are stable and machine-readable: `F001`, `F002`, ... . [`FEATURES.json`](FEATURES.json)
+  is a 24-hour live queue, so old passing entries disappear; its `nextIds` counters prevent reuse.
 - Frontend/design-driven work (porting the dashboard UI redesign - see
   `docs/product-specs/dashboard-ui.md`) uses a separate `DF-01`, `DF-02`, ... series so it's
   visually distinct from backend/product feature work at a glance, while following the exact same
@@ -48,7 +48,10 @@ intentional open-source project. These rules are enforced by review and, where p
 ## Files and routes
 
 - Files and route segments use descriptive kebab-case (`table-view.tsx`, `/api/tables`).
-- Test files use `*.test.ts` (unit/integration) and `*.spec.ts` (Playwright E2E).
+- Responsibility folders use descriptive kebab-case nouns. Their names follow actual ownership;
+  examples in organization docs are not a required taxonomy.
+- Tests mirror source domains under `<package>/tests/`. Test files use `*.test.ts` for Vitest and
+  `*.spec.ts` for Playwright E2E.
 
 ## TypeScript symbols
 

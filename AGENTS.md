@@ -1,132 +1,117 @@
 # AGENTS.md
 
-Qyre is optimized for long-running coding-agent work. Keep this file short. It is a router into the
-system-of-record docs, not an instruction dump.
+Qyre is a CLI-launched, local-first database management UI. It supports Postgres, MySQL, SQLite,
+and MongoDB behind one adapter contract and is read-only. This file is the mandatory contract and
+router; load deeper documents only when the task requires them.
 
-## What Qyre is
+## Start with compact context
 
-A CLI-launched, local-first database management UI. `npx qyre <database-url>` detects what kind of
-database it's pointed at, starts a local server, and opens a browser so a developer can inspect and
-manage it — one command, no manual driver selection, no heavy IDE install. Read-only for now.
-Postgres is the first fully supported engine; see
-[`docs/product-specs/connect-and-inspect-postgres.md`](docs/product-specs/connect-and-inspect-postgres.md).
-Every other engine is added the same way (new `packages/drivers/<engine>` package, see
-`ARCHITECTURE.md`), never by hard-coding Postgres assumptions into the server, CLI, or UI.
+Before changing code:
 
-## Startup workflow
+1. Confirm the root with `pwd`.
+2. Run `pnpm context`. It summarizes the branch, worktree, live feature queue, handoff, and active
+   verification without loading historical state.
+3. Work the one `active` entry, or add/promote one live queue entry. Use `pnpm features <id>` only
+   when its full record is needed.
+4. Read the linked product spec before implementing specced behavior.
+5. Read [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md) before creating or moving files;
+   read [`ARCHITECTURE.md`](ARCHITECTURE.md) when package or layer boundaries are involved.
 
-Load context progressively - read what the task needs, when it needs it, not everything up front
-(`docs/FEATURES.json` alone is ~130KB, mostly historical evidence prose).
-
-Always, before changing code:
-
-1. Confirm the repo root with `pwd`.
-2. Read [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md) to see where the last session stopped.
-3. Run `pnpm features` for current feature states (compact summary; `pnpm features <id>` prints one
-   full entry including evidence - do not read all of `docs/FEATURES.json` into context). Work the
-   one `active` feature, or promote a `not_started` one.
-
-Then, only when the task calls for it:
-
-4. The feature's spec in [`docs/product-specs/`](docs/product-specs/) - required before
-   implementing a specced feature.
-5. [`ARCHITECTURE.md`](ARCHITECTURE.md) - when touching packages or layers you don't already know.
-6. [`docs/QUALITY_SCORE.md`](docs/QUALITY_SCORE.md) - when choosing what to improve, not for a
-   pre-picked task.
-7. Anything else via the routing map below, on demand.
-
-Before adding scope: run the standard verification path to confirm a clean baseline (the DB stack
-below must be up). If the baseline is failing, repair it before adding new work.
-
-## Standard commands
-
-- Install: `pnpm install`
-- Full verification: `pnpm check` (format, lint, typecheck, test, build, project-state checks)
-- Same coverage, less output: `pnpm check:quiet` (turbo prints failing tasks only - prefer this
-  when running as an agent; the pre-push hook still runs the full `pnpm check`)
-- CI-equivalent (adds E2E): `pnpm check:ci`
-- Feature states: `pnpm features` (summary) / `pnpm features <id>` (one full entry)
-- Dev: `pnpm dev`
-- Feature/handoff state checks: `pnpm check:state`
-
-**`pnpm check` requires live databases.** The Postgres/MySQL/MongoDB integration suites inside
-`pnpm test` fail loudly (they do not skip) when `QYRE_TEST_DATABASE_URL`, `QYRE_TEST_MYSQL_URL`,
-or `QYRE_TEST_MONGO_URL` is unset - and the pre-push hook runs `pnpm check`, so pushing needs them
-too, exported in the same shell. Standard setup (mirrors CI exactly):
+Before adding scope, establish a green baseline. Prefer `pnpm check:quiet`; it has the same package
+coverage as `pnpm check` with failure-only Turbo output. Both require the live databases described
+in [`CONTRIBUTING.md`](CONTRIBUTING.md):
 
 ```bash
-docker compose up -d   # starts all three; credentials/ports in .env.example
+docker compose up -d
 export QYRE_TEST_DATABASE_URL="postgres://postgres:postgres@localhost:5432/qyre_test"
 export QYRE_TEST_MYSQL_URL="mysql://root:root@localhost:3306/qyre_test"
 export QYRE_TEST_MONGO_URL="mongodb://localhost:27017/qyre_test"
 ```
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full test-stack guide, and
-`docs/SESSION_HANDOFF.md`'s "Known issues" for machine-specific gotchas (e.g. a dangling
-`/usr/local/bin/docker` symlink) before concluding Docker is unavailable.
-
-## Routing map
-
-- [`ARCHITECTURE.md`](ARCHITECTURE.md): domains, layers, package boundaries, dependency rules
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): environment setup, local test stack (Docker compose + env vars)
-- [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md): folder rules inside packages (types,
-  validation, UI components, driver packages)
-- [`FRONTEND.md`](FRONTEND.md): UI constraints and design rules
-- [`docs/NAMING.md`](docs/NAMING.md): naming rules for packages, files, commands, features, adapters
-- [`docs/PLANS.md`](docs/PLANS.md): execution-plan lifecycle
-- [`docs/FEATURES.json`](docs/FEATURES.json): machine-readable feature state (single source of
-  truth for scope) - query it via `pnpm features` / `pnpm features <id>` instead of reading the file
-- [`docs/PRODUCT_SENSE.md`](docs/PRODUCT_SENSE.md): durable product judgment
-- [`docs/QUALITY_SCORE.md`](docs/QUALITY_SCORE.md): domain and package health
-- [`docs/RELIABILITY.md`](docs/RELIABILITY.md): bootstrap, verification, end-to-end journeys, health signals
-- [`docs/SECURITY.md`](docs/SECURITY.md): database safety, secrets, destructive-action rules
-- [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md): current state and next action
-- [`docs/design-docs/index.md`](docs/design-docs/index.md): design decisions and core beliefs
-- [`CLAUDE.md`](CLAUDE.md): Claude Code auto-loaded pointer into this file plus the four core rules
-- [`.claude/skills/qyre-lean-output/SKILL.md`](.claude/skills/qyre-lean-output/SKILL.md): response/reporting style
-
 ## Working contract
 
-- Before starting a non-trivial change, state the plan and ask the user to proceed. This does not
-  require a formal plan-mode session — a stated plan plus an explicit go-ahead in conversation is
-  enough. Trivial, obviously-reversible edits do not need this pause.
-- Treat `docs/design-docs/stack-and-structure.md` as a starting point, not a fixed constraint. If a
-  better approach surfaces mid-task, propose it (see `docs/design-docs/index.md`) instead of silently
-  working around the existing decision or silently adopting the new one.
-- Work from one feature slice at a time (see `docs/FEATURES.json`).
-- **Cross-engine parity**: Qyre supports 4 database engines (Postgres, MySQL, SQLite, MongoDB) behind
-  one adapter contract (`packages/drivers/contract`). Any bug fix or feature touching adapter/driver
-  behavior must be checked against all 4, not just the engine that was open when the bug was found or
-  the feature was speced. State the check explicitly in the PR/evidence — "verified on Postgres,
-  MySQL, SQLite; not applicable to MongoDB because X" is fine, silently fixing/adding on one engine
-  is not. Prefer proving it via a shared `@qyre/testing-conformance` case (runs against every engine)
-  over per-driver tests, so parity is enforced structurally rather than by memory.
-- Do not mark work done from code inspection alone; runnable evidence is required.
-- A feature only becomes `passing` when its verification command actually passes.
-- If you change behavior, update the matching spec, plan, or reliability doc in the same session.
-- If you hit repeated review feedback, promote it into a lint rule or check instead of re-explaining.
-- Never push a completed feature directly to `main`. Work on a `feature/<ID>-<slug>` branch and
-  open a PR (see [`docs/NAMING.md`](docs/NAMING.md)); record the PR URL as evidence.
-- Keep generated artifacts in [`docs/generated/`](docs/generated/) and references in [`docs/references/`](docs/references/).
-- Respect [`docs/NAMING.md`](docs/NAMING.md) and the layer rules in `ARCHITECTURE.md`.
+- Before starting a non-trivial change, state a short plan and get explicit user approval.
+- Work one feature slice at a time. Do not bundle unrelated behavior or cleanup.
+- Make surgical changes. Remove only code made obsolete by the current change.
+- Do not mark work done from inspection; run the feature verification and record evidence.
+- A feature becomes `passing` only after verification passes and its PR/pushed commit is recorded.
+- Update the matching spec, plan, or reliability document when behavior changes.
+- Turn repeated review feedback into an executable check instead of more prose.
+- Use a `feature/<ID>-<slug>` branch and never push completed work directly to `main`.
 
-## Definition of done
+### Cross-engine parity
 
-A change is done only when all of these are true:
+Any adapter or driver behavior must be checked across Postgres, MySQL, SQLite, and MongoDB. Prefer a
+shared `@qyre/testing-conformance` case. Explicitly state verified and not-applicable engines.
 
-- target behavior is implemented;
-- required verification actually ran (`pnpm check`, plus E2E for cross-component changes);
-- evidence is linked from the feature entry or the active plan (command output, commit SHA, E2E artifact);
-- affected docs remain current;
-- the repository builds and restarts cleanly from the standard startup path.
+### Structure and types
 
-## End of session
+- Organize source by cohesive responsibility. Domain, resource, capability, and technical-layer
+  folders are options, not a prescribed taxonomy; choose boundaries from the code's actual
+  ownership and dependencies. Split a flat directory when unrelated concerns or navigation cost
+  make it hard to work in, not because an example folder name exists in this file.
+- Tests live under each package's `tests/` tree and mirror the chosen source organization. Root E2E
+  tests live under `tests/e2e/`.
+- Keep single-file types colocated. Put domain-shared types in `<domain>/types.ts` and cross-runtime
+  contracts in `@qyre/core`. Use `import type`; never create a global catch-all `types.ts`.
+- Package `index.ts` files are public barrels only. Do not define behavior in them.
 
-1. Update the active execution plan and `docs/FEATURES.json` states.
-2. Update [`docs/QUALITY_SCORE.md`](docs/QUALITY_SCORE.md) if any area meaningfully changed.
-3. Record deferred work in [`docs/exec-plans/tech-debt-tracker.md`](docs/exec-plans/tech-debt-tracker.md).
-4. Move finished plans to [`docs/exec-plans/completed/`](docs/exec-plans/completed/).
-5. Update [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md) and leave a clean, restartable state -
-   including compressing older "Completed" entries per that file's own maintenance note once it's
-   grown past a screenful; a fresh agent needs a one-line summary of last week's work, not the full
-   story (that already lives in `docs/FEATURES.json`'s `evidence` field and the PR itself).
+## Commands
+
+- Compact context: `pnpm context [feature-id]`
+- Live queue: `pnpm features` / `pnpm features <id>`
+- Remove passing entries older than 24 hours: `pnpm features:prune`
+- Full verification: `pnpm check`
+- Same package coverage, quieter output: `pnpm check:quiet`
+- Full local PR gate (starts/checks Docker databases, checks, smoke + full E2E): `pnpm verify:pr`
+- CI-equivalent checks plus smoke and full E2E: `pnpm check:ci`
+- State and harness: `pnpm check:state`
+- Development: `pnpm dev`
+
+## Response contract
+
+- Lead with the result. Use exact, normal sentences.
+- Omit praise, request restatement, plan repetition, obvious transitions, command narration, and
+  duplicate summaries.
+- During tool work, send one short update only at the start, a material finding, a blocker, or a
+  changed direction. Do not narrate every read or command.
+- Final responses contain only outcome, verification, risk/blocker, and next action. State each
+  fact once.
+- Brevity never removes security warnings, destructive-action detail, errors, or verification.
+
+## Routed documents
+
+- [`docs/CODE_ORGANIZATION.md`](docs/CODE_ORGANIZATION.md): domain folders, tests, types, size rules
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): layers and dependency directions
+- [`FRONTEND.md`](FRONTEND.md): UI constraints
+- [`docs/NAMING.md`](docs/NAMING.md): files, symbols, branches, feature IDs
+- [`docs/FEATURES.md`](docs/FEATURES.md): live queue lifecycle
+- [`docs/PLANS.md`](docs/PLANS.md): multi-session execution plans
+- [`docs/RELIABILITY.md`](docs/RELIABILITY.md): verification and restart behavior
+- [`docs/SECURITY.md`](docs/SECURITY.md): secrets, read-only enforcement, destructive-action rules
+- [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md): current-only handoff
+- [`.agents/skills/qyre-efficient-engineering/SKILL.md`](.agents/skills/qyre-efficient-engineering/SKILL.md): efficient exploration and placement
+- [`.agents/skills/qyre-lean-output/SKILL.md`](.agents/skills/qyre-lean-output/SKILL.md): output discipline
+
+## Done and closeout
+
+A change is done when behavior is implemented, required checks pass, evidence is recorded, affected
+docs are current, and the standard startup still works.
+
+### Delivery workflow
+
+1. Run `pnpm verify:pr`. It locates Docker (including Docker Desktop's macOS CLI), runs
+   `docker compose up -d --wait`, supplies the standard local test URLs, and runs checks plus smoke
+   and full E2E. If Docker is unavailable, repair/start it; do not substitute CI for an available
+   local stack.
+2. Review the complete diff and update the feature, plan, spec, and handoff as needed.
+3. Commit on the feature branch, then push normally. Never use `--no-verify`; the pre-push hook runs
+   `pnpm verify:pr` and a failure must be fixed, not bypassed.
+4. Open a draft PR with behavior, reasoning, and verification evidence. Wait for both CI jobs and
+   fix failures.
+5. After CI succeeds, record the PR URL, pushed commit, and `completedAt`, move the feature to
+   `passing`, run `pnpm features:prune`, and push that state update normally.
+
+At session end: update the active plan and queue, run `pnpm features:prune`, record deferred work in
+the tech-debt tracker, update quality only where it changed, and leave `SESSION_HANDOFF.md` short and
+restartable. Passing history belongs in specs and Git/PRs, not startup context.

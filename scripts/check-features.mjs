@@ -17,6 +17,7 @@ const ALLOWED_STATES = ["not_started", "active", "blocked", "passing"];
 // F### for backend/product features, DF-## for frontend/design-driven work (docs/NAMING.md).
 const ID_PATTERN = /^(F\d{3}|DF-\d{2,})$/;
 const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/i;
+const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 
 /** @type {string[]} */
 const errors = [];
@@ -37,6 +38,10 @@ if (!features) {
 
 const seenIds = new Set();
 let activeCount = 0;
+
+if (!Number.isInteger(data.nextIds?.F) || !Number.isInteger(data.nextIds?.DF)) {
+  errors.push("'nextIds.F' and 'nextIds.DF' must be integers so pruned IDs are never reused.");
+}
 
 for (const [index, feature] of features.entries()) {
   const label = feature?.id ?? `#${index}`;
@@ -75,9 +80,22 @@ for (const [index, feature] of features.entries()) {
     );
   }
 
+  if (feature.state === "passing" && !ISO_TIMESTAMP_PATTERN.test(feature.completedAt ?? "")) {
+    errors.push(`Feature ${label}: 'passing' features must record ISO UTC 'completedAt'.`);
+  }
+
   if (feature.state === "blocked" && !nonEmpty(feature.blockedReason)) {
     errors.push(`Feature ${label}: 'blocked' features must record a non-empty 'blockedReason'.`);
   }
+}
+
+for (const [prefix, next] of Object.entries(data.nextIds ?? {})) {
+  const used = features
+    .map((feature) => feature.id)
+    .filter((id) => (prefix === "F" ? /^F\d+$/.test(id) : id.startsWith("DF-")))
+    .map((id) => Number(id.replace(/\D/g, "")));
+  if (used.some((id) => id >= next))
+    errors.push(`nextIds.${prefix} must exceed every live ${prefix} ID.`);
 }
 
 if (activeCount > 1) {

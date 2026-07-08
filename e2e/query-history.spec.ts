@@ -18,6 +18,7 @@ import { expect, test } from "@playwright/test";
 test("@full SQL Editor records a successful query and prefills it from history", async ({
   page
 }, testInfo) => {
+  test.skip(testInfo.project.name === "mongodb", "MongoDB has no SQL Editor.");
   if (testInfo.project.name === "sqlite") {
     setupSqliteFixture(requireTestSqlitePath());
   } else if (testInfo.project.name === "mysql") {

@@ -8,3 +8,5 @@ Finished plans kept for future agent context. Each should link the evidence that
 - [`0004-editor-ux-and-new-engines.md`](0004-editor-ux-and-new-engines.md) - F012, F017, F013, F014,
   F016, F015, all `passing` (F018, F019 are related but separate fixes tracked in the same plan
   doc, also `passing`).
+- [`0005-agent-harness-and-structure.md`](0005-agent-harness-and-structure.md) - F075, compact agent
+  context, live feature pruning, tracked skills, scalable organization, and enforced PR delivery.

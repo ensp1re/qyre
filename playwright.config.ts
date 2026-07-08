@@ -6,12 +6,13 @@ import { defineConfig, devices } from "@playwright/test";
  * Playwright config for Qyre's end-to-end tests.
  *
  * - `@smoke` specs run with no database (just the built UI) and gate `pnpm test:e2e`.
- * - `@full` specs run against three live servers, one per engine (see e2e/server.ts), gated by
+ * - `@full` specs run against four live servers, one per engine (see e2e/server.ts), gated by
  *   `pnpm test:e2e:full` and matching `docs/product-specs/connect-and-inspect-sqlite.md`'s "same
  *   spec, parameterized by engine/fixture" requirement:
  *   - "postgres" project: requires QYRE_TEST_DATABASE_URL.
  *   - "sqlite" project: self-contained, no setup required - the fixture file is created on the fly.
  *   - "mysql" project: requires QYRE_TEST_MYSQL_URL (F014).
+ *   - "mongodb" project: requires QYRE_TEST_MONGO_URL; SQL-only specs skip it explicitly.
  *   All projects run every spec (including @smoke), since @qyre/web build's built once up front
  *   by the test:e2e/test:e2e:full npm scripts, not by any webServer command, to avoid multiple
  *   `vite build` processes racing to write apps/web/dist at once.
@@ -48,6 +49,10 @@ export default defineConfig({
     {
       name: "mysql",
       use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:4177" }
+    },
+    {
+      name: "mongodb",
+      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:4179" }
     }
   ],
   webServer: [
@@ -81,6 +86,16 @@ export default defineConfig({
       env: {
         QYRE_E2E_PORT: "4177",
         QYRE_E2E_ENGINE: "mysql"
+      }
+    },
+    {
+      command: "pnpm exec tsx e2e/server.ts",
+      url: "http://localhost:4179",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        QYRE_E2E_PORT: "4179",
+        QYRE_E2E_ENGINE: "mongodb"
       }
     }
   ]

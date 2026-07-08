@@ -17,9 +17,8 @@
  * - "postgres": connects to QYRE_TEST_DATABASE_URL.
  * - "sqlite": connects to QYRE_TEST_SQLITE_PATH (self-contained, no external service).
  * - "mysql": connects to QYRE_TEST_MYSQL_URL.
- * - "mongodb": connects to QYRE_TEST_MONGO_URL. No Playwright project uses this engine (F015 has
- *   no e2e coverage - see docs/product-specs/connect-and-inspect-mongodb.md) - this branch backs
- *   `.local/preview-server-mongo.mjs` for manual verification instead.
+ * - "mongodb": connects to QYRE_TEST_MONGO_URL. Browse journeys run against it; SQL-only journeys
+ *   skip it explicitly.
  * - No target env var set for the selected engine: `@smoke` specs need no database, the server
  *   just reports "unconfigured".
  * QYRE_E2E_PORT picks which port this instance listens on (default 4173). Never opens a browser -

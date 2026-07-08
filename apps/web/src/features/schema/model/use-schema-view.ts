@@ -1,0 +1,31 @@
+import { useCallback, useState } from "react";
+import {
+  readVersionedStorage,
+  writeVersionedStorage
+} from "../../../shared/lib/storage/versioned-storage.js";
+
+export type SchemaView = "graph" | "grid";
+
+const STORAGE = {
+  key: "qyre-schema-view",
+  version: 1,
+  parse: (value: unknown): SchemaView | undefined =>
+    value === "graph" || value === "grid" ? value : undefined,
+  parseLegacyRaw: (raw: string): SchemaView | undefined =>
+    raw === "graph" || raw === "grid" ? raw : undefined
+};
+
+/** Remembers whether the Schema tab shows the interactive graph (F074) or the card grid, persisted
+ * to localStorage like the theme. Graph is the default. */
+export function useSchemaView(): { view: SchemaView; setView: (view: SchemaView) => void } {
+  const [view, setViewState] = useState<SchemaView>(() =>
+    readVersionedStorage(localStorage, STORAGE, "graph")
+  );
+
+  const setView = useCallback((next: SchemaView) => {
+    setViewState(next);
+    writeVersionedStorage(localStorage, STORAGE, next);
+  }, []);
+
+  return { view, setView };
+}

@@ -69,16 +69,16 @@ without restarting the CLI or losing their place more than switching targets inh
 - The SQL Editor's current draft text is **not** cleared - a query someone was mid-editing shouldn't
   vanish just because the target changed underneath it, even though it may now fail against the new
   target (a `runReadOnlyQuery` error is a normal, recoverable outcome the editor already handles).
-- Query History (`localStorage`-backed, shared across all connections per `sql-editor.md`) is
+- Query History (versioned browser-storage-backed, shared across all connections per
+  `sql-editor.md`) is
   unaffected - it was already deliberately not scoped per-connection.
 
 ### Recent targets
 
-- The last 5 successfully-connected targets (redacted display string + the raw connection string,
-  so reconnecting doesn't require retyping credentials) are kept in `localStorage`, most-recent
-  first, oldest dropped past the cap - same bounded-list shape Query History (F012) and the Console
-  event log (DF-07) already use. Reconnecting to a listed target is one click (fills the input and
-  submits), not a retype.
+- The last 5 successfully-connected targets (redacted display string + raw target) are kept in
+  memory, most-recent first, oldest dropped past the cap. Credential-free URLs and file paths are
+  also persisted through the versioned browser-storage adapter. Targets containing URL userinfo or
+  sensitive query parameters are session-only and require re-entry after a reload.
 - Raw connection strings in this list never leave the browser except in the `POST /api/connect`
   body itself when the developer actually chooses to connect to one - never logged, never sent in a
   GET request or query string.
@@ -114,8 +114,7 @@ it is.
 
 - Multiple simultaneous connections (browsing two databases at once in separate tabs/panes) - this
   spec is "switch the one active connection," not multi-connection support.
-- Server-side encrypted storage or any server-side persistence of recent targets - client-side
-  `localStorage` only, matching Query History's existing precedent (`sql-editor.md`).
+- OS-keychain or server-side encrypted persistence of credential-bearing recent targets.
 - Auto-detecting or listing databases reachable on the local network - the developer still types or
   pastes a connection string themselves, same as the CLI's own argument today.
 
@@ -129,7 +128,8 @@ it is.
 - Submitting an invalid or unreachable target shows an error in the drawer and leaves the previous
   connection fully working - verified by running a query against the old database immediately after
   a failed switch attempt.
-- A list of up to 5 recently-used targets is shown and one-click reconnectable.
+- A list of up to 5 recently-used targets is shown and one-click reconnectable during the session;
+  only credential-free targets survive a reload.
 - `npx qyre <url>` with the connect UI never used behaves identically to today - no regression for
   the existing single-target workflow.
 - `npx qyre` with no target starts successfully (not an error exit) and opens the browser straight

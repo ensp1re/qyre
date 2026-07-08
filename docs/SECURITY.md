@@ -19,6 +19,8 @@ rules are first-class.
   errors, screenshots, and diagnostics - including a credential passed as a query parameter (e.g.
   `?password=...`, MySQL/Mongo's alternative to the `user:pass@host` form), not only the standard
   URL-userinfo form (`@qyre/core`'s `redactConnectionString`, F024).
+- Never persist raw credential-bearing connection targets in browser storage. They may remain in
+  memory for the current local session; persisted recent targets must be credential-free.
 - Real credentials never go in the repo. Use `.env` (gitignored) and `.env.example` for templates.
 
 ## Database safety (read-only)

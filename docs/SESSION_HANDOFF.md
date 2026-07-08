@@ -8,8 +8,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - Date: 2026-07-08.
 - Branch: `feature/F076-web-structure`, stacked on the merge-ready F075 PR #76 branch.
 - F001-F075 shipped. F076 is active; F077-F080 are queued structure migrations.
-- `pnpm verify:pr` passes locally against Docker: 34 package tasks, 4 smoke E2E, and 11 full E2E
-  tests across Postgres/MySQL/SQLite/MongoDB (5 intentional engine-inapplicable skips).
+- `pnpm verify:pr` passes locally against Docker: 34 package tasks, 5 smoke E2E, and 11 full E2E
+  tests across Postgres/MySQL/SQLite/MongoDB (8 intentional duplicate/inapplicable skips).
 
 ## Completed
 
@@ -23,8 +23,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F076: move web production code into ownership-derived areas, mirror Vitest tests under
-  `apps/web/tests/`, and enforce removal of the legacy flat API/hooks/components directories.
+- F076: finalize the enforced `shared -> features -> app` web architecture, state ownership,
+  versioned persistence, credential-safe recent targets, and mirrored tests in draft PR #77.
 
 ## Known issues / blockers
 

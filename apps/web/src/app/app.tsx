@@ -1,4 +1,4 @@
-import type { ConnectionStatus, RowFilter, RowSort } from "@qyre/core";
+import type { ConnectionStatus, RowFilter } from "@qyre/core";
 import {
   ConnectDrawer,
   ErrorBoundary,
@@ -9,29 +9,29 @@ import {
   Spinner,
   StatusBar,
   TabBar,
-  TitleBar,
-  type ShellTab
+  TitleBar
 } from "@qyre/ui";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { useConnect } from "../connection/use-connect.js";
-import { useHealth } from "../connection/use-health.js";
-import { useRecentTargets } from "../connection/use-recent-targets.js";
-import { ConsoleTab } from "../console/console-tab.js";
-import { useClearConsole, useConsoleEvents } from "../console/use-console.js";
-import { FilesTab } from "../files/files-tab.js";
-import { useFileContent, useFilesOverview } from "../files/use-files.js";
-import { SqlEditorTab } from "../query/sql-editor-tab.js";
-import { useQueryHistory } from "../query/use-query-history.js";
-import { useRunQuery } from "../query/use-run-query.js";
-import { SchemaTab } from "../schema/schema-tab.js";
-import { useAllTables } from "../schema/use-all-tables.js";
-import { useOverview } from "../schema/use-overview.js";
-import { TablesTab } from "../table/tables-tab.js";
-import { useRows } from "../table/use-rows.js";
-import { useTable } from "../table/use-table.js";
-import { usePanelSize } from "./use-panel-size.js";
-import { useTheme } from "./use-theme.js";
+import { useEffect, useReducer } from "react";
+import { useConnect } from "../features/connection/model/use-connect.js";
+import { useHealth } from "../features/connection/model/use-health.js";
+import { useRecentTargets } from "../features/connection/model/use-recent-targets.js";
+import { useClearConsole, useConsoleEvents } from "../features/console/model/use-console.js";
+import { ConsoleTab } from "../features/console/ui/console-tab.js";
+import { useFileContent, useFilesOverview } from "../features/files/model/use-files.js";
+import { FilesTab } from "../features/files/ui/files-tab.js";
+import { useQueryHistory } from "../features/query/model/use-query-history.js";
+import { useRunQuery } from "../features/query/model/use-run-query.js";
+import { SqlEditorTab } from "../features/query/ui/sql-editor-tab.js";
+import { useAllTables } from "../features/schema/model/use-all-tables.js";
+import { useOverview } from "../features/schema/model/use-overview.js";
+import { SchemaTab } from "../features/schema/ui/schema-tab.js";
+import { useRows } from "../features/table/model/use-rows.js";
+import { useTable } from "../features/table/model/use-table.js";
+import { TablesTab } from "../features/table/ui/tables-tab.js";
+import { usePanelSize } from "./model/use-panel-size.js";
+import { useTheme } from "./model/use-theme.js";
+import { createInitialWorkspaceState, workspaceReducer } from "./model/workspace-state.js";
 
 export function App(): ReactNode {
   const {
@@ -44,17 +44,25 @@ export function App(): ReactNode {
     ? "disconnected"
     : (health?.database ?? "unconfigured");
 
-  const [selected, setSelected] = useState<{ schema: string; table: string } | undefined>();
-  const [page, setPage] = useState(0);
-  const [sort, setSort] = useState<RowSort | undefined>();
-  const [filters, setFilters] = useState<RowFilter[] | undefined>();
-  const [querySql, setQuerySql] = useState("");
-  const [tab, setTab] = useState<ShellTab>("sql-editor");
-  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
-  const [lastQueryMs, setLastQueryMs] = useState<number>();
-  const [selectedFilePath, setSelectedFilePath] = useState<string>();
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [connectOpen, setConnectOpen] = useState(false);
+  const [workspace, dispatch] = useReducer(
+    workspaceReducer,
+    window.innerWidth,
+    createInitialWorkspaceState
+  );
+  const {
+    selected,
+    page,
+    sort,
+    filters,
+    querySql,
+    tab,
+    sidebarOpen,
+    lastQueryMs,
+    selectedFilePath,
+    historyOpen,
+    connectOpen,
+    hasAutoOpenedConnect
+  } = workspace;
   const { theme, toggleTheme } = useTheme();
   const [sidebarWidth, setSidebarWidth] = usePanelSize("qyre-sidebar-width", SIDEBAR_DEFAULT_WIDTH);
   const [resultsHeight, setResultsHeight] = usePanelSize(
@@ -69,11 +77,9 @@ export function App(): ReactNode {
   // UI instead of leaving the developer looking at a passive "no database connected" message with
   // no obvious next step. Only auto-opens once per load (hasAutoOpenedConnect), so closing it to
   // look around doesn't get overridden by this effect re-running on the next health poll.
-  const [hasAutoOpenedConnect, setHasAutoOpenedConnect] = useState(false);
   useEffect(() => {
     if (!healthLoading && status === "unconfigured" && !hasAutoOpenedConnect) {
-      setConnectOpen(true);
-      setHasAutoOpenedConnect(true);
+      dispatch({ type: "connectAutoOpened" });
     }
   }, [healthLoading, status, hasAutoOpenedConnect]);
 
@@ -96,11 +102,11 @@ export function App(): ReactNode {
   const runQuery = useRunQuery();
 
   function selectTable(schema: string, tableName: string, initialFilters?: RowFilter[]): void {
-    setSelected({ schema, table: tableName });
-    setPage(0);
-    setSort(undefined);
-    setFilters(initialFilters);
-    setTab("tables");
+    dispatch({
+      type: "tableSelected",
+      selected: { schema, table: tableName },
+      filters: initialFilters
+    });
   }
 
   function refresh(): void {
@@ -117,15 +123,14 @@ export function App(): ReactNode {
     const start = performance.now();
     runQuery.mutate(querySql, {
       onSuccess: () => {
-        setLastQueryMs(Math.round(performance.now() - start));
+        dispatch({ type: "queryCompleted", durationMs: Math.round(performance.now() - start) });
         queryHistory.record(querySql);
       }
     });
   }
 
   function selectFromHistory(sql: string): void {
-    setQuerySql(sql);
-    setHistoryOpen(false);
+    dispatch({ type: "historySelected", sql });
   }
 
   // F064: switches the running server to a different database. useConnect's onSuccess already
@@ -136,11 +141,7 @@ export function App(): ReactNode {
   async function connectToNewTarget(raw: string): Promise<void> {
     const result = await connect.mutateAsync(raw);
     recentTargets.record(raw, result.target);
-    setSelected(undefined);
-    setPage(0);
-    setSort(undefined);
-    setFilters(undefined);
-    setConnectOpen(false);
+    dispatch({ type: "connectionChanged" });
   }
 
   return (
@@ -152,8 +153,8 @@ export function App(): ReactNode {
         onToggleTheme={toggleTheme}
         onRefresh={refresh}
         isRefreshing={healthLoading}
-        onToggleSidebar={() => setSidebarOpen((current) => !current)}
-        onOpenSettings={() => setConnectOpen(true)}
+        onToggleSidebar={() => dispatch({ type: "sidebarChanged", open: !sidebarOpen })}
+        onOpenSettings={() => dispatch({ type: "connectChanged", open: true })}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -167,7 +168,7 @@ export function App(): ReactNode {
           isError={overview.isError}
           onRetry={() => overview.refetch()}
           open={sidebarOpen}
-          onOpenChange={setSidebarOpen}
+          onOpenChange={(open) => dispatch({ type: "sidebarChanged", open })}
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
         />
@@ -175,7 +176,7 @@ export function App(): ReactNode {
         <div className="flex min-w-0 flex-1 flex-col">
           <TabBar
             active={tab}
-            onChange={setTab}
+            onChange={(nextTab) => dispatch({ type: "tabChanged", tab: nextTab })}
             disabledTabs={
               !supportsSql
                 ? {
@@ -205,10 +206,10 @@ export function App(): ReactNode {
                 <SqlEditorTab
                   sqlDisabled={!supportsSql}
                   sql={querySql}
-                  onSqlChange={setQuerySql}
+                  onSqlChange={(sql) => dispatch({ type: "queryChanged", sql })}
                   onRun={runSql}
                   runQuery={runQuery}
-                  onOpenHistory={() => setHistoryOpen(true)}
+                  onOpenHistory={() => dispatch({ type: "historyChanged", open: true })}
                   tableNames={tableNames}
                   resultsHeight={resultsHeight}
                   onResultsHeightChange={setResultsHeight}
@@ -219,22 +220,18 @@ export function App(): ReactNode {
                   table={table}
                   rows={rows}
                   page={page}
-                  onPageChange={setPage}
+                  onPageChange={(update) => dispatch({ type: "pageChanged", page: update(page) })}
                   onNavigateToForeignKey={(reference, value) =>
                     selectTable(reference.schema ?? selected?.schema ?? "", reference.table, [
                       { column: reference.column, op: "eq", value: String(value) }
                     ])
                   }
                   sort={sort}
-                  onSortChange={(nextSort) => {
-                    setSort(nextSort);
-                    setPage(0);
-                  }}
+                  onSortChange={(nextSort) => dispatch({ type: "sortChanged", sort: nextSort })}
                   filters={filters}
-                  onFiltersChange={(nextFilters) => {
-                    setFilters(nextFilters);
-                    setPage(0);
-                  }}
+                  onFiltersChange={(nextFilters) =>
+                    dispatch({ type: "filtersChanged", filters: nextFilters })
+                  }
                 />
               ) : tab === "schema" ? (
                 <SchemaTab allTables={allTables} databaseKey={health?.target ?? null} />
@@ -243,12 +240,11 @@ export function App(): ReactNode {
                   filesOverview={filesOverview}
                   fileContent={fileContent}
                   selectedFilePath={selectedFilePath}
-                  onSelectFile={setSelectedFilePath}
+                  onSelectFile={(path) => dispatch({ type: "fileSelected", path })}
                   onRunInEditor={
                     supportsSql
                       ? (sql) => {
-                          setQuerySql(sql);
-                          setTab("sql-editor");
+                          dispatch({ type: "queryLoaded", sql });
                         }
                       : undefined
                   }
@@ -273,14 +269,14 @@ export function App(): ReactNode {
 
       <QueryHistoryDrawer
         open={historyOpen}
-        onOpenChange={setHistoryOpen}
+        onOpenChange={(open) => dispatch({ type: "historyChanged", open })}
         entries={queryHistory.entries}
         onSelect={selectFromHistory}
       />
 
       <ConnectDrawer
         open={connectOpen}
-        onOpenChange={setConnectOpen}
+        onOpenChange={(open) => dispatch({ type: "connectChanged", open })}
         currentTarget={health?.target ?? null}
         recentTargets={recentTargets.entries}
         onConnect={connectToNewTarget}

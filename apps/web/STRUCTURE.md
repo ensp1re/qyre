@@ -1,24 +1,38 @@
 # Web structure
 
-The web app is grouped by the responsibilities proven by its imports and change patterns:
+The web app uses three directional layers adapted to Qyre's single-screen IDE shell:
 
 ```text
 src/
-  app/          application composition and shell state
-  connection/   connect, health, and recent-target behavior
-  console/      event-log API, query state, and tab composition
-  files/        file API, query state, and browser composition
-  query/        SQL execution, history, and editor composition
-  schema/       database overview, schema views, and graph
-  table/        table metadata, row browsing, filtering, and export
-  shared/       cross-domain HTTP transport and query policy
-tests/          mirrors src/ ownership
+  app/                       entry composition, providers, workspace state, global styles
+  features/<capability>/
+    api/                     HTTP endpoint wrappers
+    model/                   query hooks, state, and domain logic
+    ui/                      web-only composition components
+  shared/
+    api/                     HTTP transport
+    lib/                     focused infrastructure such as query policy and storage
+tests/                       mirrors src/ ownership exactly
 ```
 
-These names describe current ownership; they are not a template for other packages. Peer areas do
-not import each other's implementation. `app/` composes them, while genuinely reusable
-presentation stays in `@qyre/ui`.
+Dependency direction is `shared -> features -> app`: shared imports neither feature nor app code;
+features may import shared code but never another feature or app code; app composes all layers.
+`pnpm check:web-structure` enforces these rules and the mirrored test tree.
 
-API wrappers, TanStack Query hooks, local state, and composition stay with the concern that owns
-them. Tests mirror the production path under `tests/`. `pnpm check:web-structure` rejects the old
-flat `api/`, `components/`, and `hooks/` roots and source-colocated tests.
+State is separated by ownership:
+
+- TanStack Query owns server state.
+- Component-local UI state stays in `useState`; coordinated shell transitions use the app reducer.
+- Persisted preferences/history use the typed, versioned adapter in `shared/lib/storage/`.
+- Raw credential-bearing connection targets are session-only and never written to browser storage.
+- Redux/Zustand are not installed until state must be consumed across independent branches and the
+  app reducer/context becomes a measured limitation.
+
+There is no `pages/` or router layer because Qyre currently has one shell with internal tabs. Add
+one only when URL-addressable screens exist. Reusable presentation belongs in `@qyre/ui`, and
+browser/server contracts belong in `@qyre/core`.
+
+This is Qyre's adaptation of
+[Bulletproof React's directional feature architecture](https://github.com/alan2207/bulletproof-react/blob/master/docs/project-structure.md)
+and [Feature-Sliced Design's layer rules](https://feature-sliced.design/docs/reference/layers), not
+a copy of either template.

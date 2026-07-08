@@ -26,7 +26,7 @@ SQL keyword/table completion as they type instead of relying on memory or the Sc
 - Only queries that ran **successfully** (no `ReadOnlyViolationError`, no adapter error) are
   recorded. A query that failed never appears in history - the developer was still mid-edit at that
   point, not at a query worth recalling.
-- History is stored in the browser (`localStorage`), not the server - Qyre has no server-side
+- History is stored through the typed, versioned browser-storage adapter, not the server - Qyre has no server-side
   per-user storage today and this is a convenience feature, not an audit log (Console/DF-07 already
   covers server-side event logging). It persists across page reloads and across which database
   target is currently connected (one shared list, not scoped per connection) - simplest model, and
@@ -53,7 +53,7 @@ SQL keyword/table completion as they type instead of relying on memory or the Sc
 - A failed query (rejected by the read-only check, or an adapter error) never appears in history.
 - Clicking a history card prefills the SQL Editor with that exact query text and closes the panel;
   the query is not executed automatically.
-- History survives a full page reload (backed by `localStorage`).
+- History survives a full page reload (backed by versioned browser storage).
 - The panel opens as a right-anchored slide-in drawer, not a centered/blocking modal.
 
 ## Autocomplete

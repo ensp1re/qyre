@@ -5,15 +5,15 @@ checks, the live queue, specs, and Git—not a manually copied table.
 
 Scale: `A` verified/stable, `B` working with bounded debt, `C` material risk, `D` broken.
 
-| Area                   | Grade | Current evidence                            | Main gap                                                    |
-| ---------------------- | ----- | ------------------------------------------- | ----------------------------------------------------------- |
-| Core contracts         | A     | Shared types/validation and package tests   | Validation coverage grows with new boundaries               |
-| Driver contract/parity | A     | Four engines plus conformance suite         | Keep all adapter changes in conformance where applicable    |
-| Drivers                | B     | Integration tests for all engines           | Large engine `index.ts` files need concern-based splits     |
-| Server                 | B     | Route/integration tests and live DB CI      | `src/index.ts` and its test are oversized and mix resources |
-| Web app                | A     | Owned areas, mirrored tests, Playwright E2E | Keep peer-area imports acyclic as behavior grows            |
-| UI                     | B     | Render/unit tests and accessibility E2E     | 35-component flat directory needs responsibility grouping   |
-| Agent harness          | A     | PR #76 CI, tracked skills, full PR gate     | Monitor context and verification cost                       |
+| Area                   | Grade | Current evidence                               | Main gap                                                    |
+| ---------------------- | ----- | ---------------------------------------------- | ----------------------------------------------------------- |
+| Core contracts         | A     | Shared types/validation and package tests      | Validation coverage grows with new boundaries               |
+| Driver contract/parity | A     | Four engines plus conformance suite            | Keep all adapter changes in conformance where applicable    |
+| Drivers                | B     | Integration tests for all engines              | Large engine `index.ts` files need concern-based splits     |
+| Server                 | B     | Route/integration tests and live DB CI         | `src/index.ts` and its test are oversized and mix resources |
+| Web app                | A     | Enforced layers, 15 unit tests, Playwright E2E | Keep app composition below its current size boundary        |
+| UI                     | B     | Render/unit tests and accessibility E2E        | 35-component flat directory needs responsibility grouping   |
+| Agent harness          | A     | PR #76 CI, tracked skills, full PR gate        | Monitor context and verification cost                       |
 
 ## Current structural pressure
 

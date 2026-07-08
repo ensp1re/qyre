@@ -110,9 +110,9 @@
       "id": "F076",
       "behavior": "The web application is reorganized from crowded flat directories into cohesive responsibility areas selected from its actual imports and change patterns; Vitest tests mirror the chosen structure under apps/web/tests without changing runtime behavior.",
       "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/web typecheck && pnpm test:e2e",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
-      "evidence": null,
+      "evidence": "Import graph mapped before migration: connection, table, schema, query, files, and console each own API/hooks/composition; app owns shell state; shared owns cross-domain HTTP transport and query retry policy. Production files moved without behavior changes; graph-model tests now mirror src/schema/graph under apps/web/tests. pnpm verify:pr passed locally: 34 package tasks, 4 smoke E2E, and 11 full E2E passed across PostgreSQL, MySQL, SQLite, and MongoDB with 5 intentional engine-inapplicable skips. Awaiting pushed commit, PR, and CI evidence.",
       "blockedReason": null,
       "spec": null
     },

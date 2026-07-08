@@ -6,8 +6,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-08.
-- Branch: `feature/F075-agent-harness`, based on the F074 passing-state commit after PR #74 merged.
-- F001-F075 shipped. F075 is `passing` in draft PR #76; F076-F080 are queued structure migrations.
+- Branch: `feature/F076-web-structure`, stacked on the merge-ready F075 PR #76 branch.
+- F001-F075 shipped. F076 is active; F077-F080 are queued structure migrations.
 - `pnpm verify:pr` passes locally against Docker: 34 package tasks, 4 smoke E2E, and 11 full E2E
   tests across Postgres/MySQL/SQLite/MongoDB (5 intentional engine-inapplicable skips).
 
@@ -23,8 +23,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- No active feature. Next is one queued behavior-preserving migration: F076 web/tests, F077
-  UI/tests, F078 server/tests, F079 drivers/tests, or F080 root Playwright layout.
+- F076: move web production code into ownership-derived areas, mirror Vitest tests under
+  `apps/web/tests/`, and enforce removal of the legacy flat API/hooks/components directories.
 
 ## Known issues / blockers
 
@@ -35,6 +35,6 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Continue the queued behavior-preserving migrations: F076 web/tests, F077 UI/tests, F078
-  server/tests, F079 drivers/tests, and F080 root Playwright layout.
+- Complete F076 without behavior changes, then continue F077 UI/tests, F078 server/tests, F079
+  drivers/tests, and F080 root Playwright layout.
 - Add structural enforcement per area immediately after each migration passes.

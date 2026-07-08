@@ -2,9 +2,11 @@ import AxeBuilder from "@axe-core/playwright";
 import {
   FIXTURE,
   requireTestDatabaseUrl,
+  requireTestMongoUrl,
   requireTestMysqlUrl,
   requireTestSqlitePath,
   setupFixture,
+  setupMongoFixture,
   setupMysqlFixture,
   setupSqliteFixture
 } from "@qyre/testing";
@@ -28,6 +30,8 @@ import { expect, test } from "@playwright/test";
 test("@full connect and inspect a table", async ({ page }, testInfo) => {
   if (testInfo.project.name === "sqlite") {
     setupSqliteFixture(requireTestSqlitePath());
+  } else if (testInfo.project.name === "mongodb") {
+    await setupMongoFixture(requireTestMongoUrl());
   } else if (testInfo.project.name === "mysql") {
     await setupMysqlFixture(requireTestMysqlUrl());
   } else {
@@ -39,6 +43,11 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
 
   // F002: the UI reports the database is connected.
   await expect(page.getByTestId("status-badge")).toHaveAttribute("data-status", "connected");
+
+  if (testInfo.project.name === "mongodb") {
+    await expect(page.getByRole("tab", { name: "SQL Editor" })).toBeDisabled();
+    await expect(page.getByText(/SQL Editor is not available for MongoDB/)).toBeVisible();
+  }
 
   // F074: the Schema tab defaults to the interactive ERD graph - every table a node, no prior
   // selection needed.
@@ -61,6 +70,14 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
   // F005: a page of the fixture's actual rows is visible.
   await expect(page.getByTestId("rows-table").getByText("ada@example.com")).toBeVisible();
   await expect(page.getByTestId("rows-table").getByText("grace@example.com")).toBeVisible();
+
+  if (testInfo.project.name === "mongodb") {
+    await page.getByTestId("rows-table").getByRole("button", { name: "{ 1 key }" }).click();
+    await expect(
+      page.getByTestId("cell-value-drawer").getByRole("button", { name: "account: { 1 key }" })
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Close cell value" }).click();
+  }
 
   // F056: a baseline accessibility scan of the fully-loaded, data-rich state (sidebar tree, Schema
   // grid, Tables tab) - a broader surface than smoke.spec.ts's disconnected-screen scan.

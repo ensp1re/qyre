@@ -15,7 +15,7 @@ feature tracking, definition of done) that this file only summarizes.
 
 ```bash
 pnpm install
-pnpm check   # format, lint, typecheck, tests, build, project-state checks
+pnpm verify:pr   # starts/checks DBs; checks, build, smoke E2E, full E2E
 ```
 
 **`pnpm check` needs the test databases below**: the Postgres/MySQL/MongoDB adapter integration
@@ -34,12 +34,13 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Then export the vars from `.env` into your shell (or use a tool like `direnv`) and run:
+`pnpm verify:pr` supplies the standard local URLs automatically. For individual commands, export
+the vars from `.env` into your shell (or use a tool like `direnv`) and run:
 
 ```bash
 pnpm test              # unit + integration tests (Postgres/MySQL/MongoDB tests need the env vars)
 pnpm test:e2e           # smoke E2E, no database required
-pnpm test:e2e:full      # full E2E journey, needs the Postgres/MySQL env vars
+pnpm test:e2e:full      # full E2E journey, needs Postgres/MySQL/MongoDB env vars
 ```
 
 Integration tests fail loudly (not skip silently) if their database's env var is unset - see
@@ -66,8 +67,11 @@ Formatting and linting are enforced by `pnpm check` (Prettier + ESLint) and a pr
 - Work on a branch, not directly on `main`.
 - Keep PRs focused - one feature or fix per PR is easier to review than a bundle of unrelated
   changes.
-- Make sure `pnpm check` passes locally; CI runs the same checks plus the full E2E suite
-  (`pnpm check:ci`).
+- Run `pnpm verify:pr` before committing. It verifies Docker, starts missing compose services, and
+  runs checks plus smoke/full E2E.
+- Push normally. Never use `--no-verify`; fix a failing pre-push gate instead of bypassing it.
+- Open a draft PR, wait for both CI jobs, and record the PR/check evidence before marking the
+  feature passing.
 - Describe what changed and why in the PR description - the "why" matters more than the "what",
   since the diff already shows the what.
 

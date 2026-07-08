@@ -1,0 +1,4 @@
+interface:
+  display_name: "Qyre Efficient Engineering"
+  short_description: "Structure changes with minimal agent context"
+  default_prompt: "Use $qyre-efficient-engineering to make a focused, well-placed, verified Qyre code change."

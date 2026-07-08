@@ -17,6 +17,7 @@ import { expect, test } from "@playwright/test";
 test("@full SQL Editor autocompletes keywords and table names, and still runs via Ctrl/Cmd+Enter", async ({
   page
 }, testInfo) => {
+  test.skip(testInfo.project.name === "mongodb", "MongoDB has no SQL Editor.");
   if (testInfo.project.name === "sqlite") {
     setupSqliteFixture(requireTestSqlitePath());
   } else if (testInfo.project.name === "mysql") {

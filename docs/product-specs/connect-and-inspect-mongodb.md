@@ -129,6 +129,9 @@ the same way it was necessary before the SQL query runner shipped for Postgres/S
    documents.
 5. The SQL Editor tab is not usable against a Mongo connection (see "Out of scope").
 
+`pnpm test:e2e:full` automates this journey in the MongoDB Playwright project. SQL-only journeys
+skip MongoDB explicitly; browse, nested-document rendering, and disabled-SQL behavior do not.
+
 ## Acceptance criteria
 
 - Running the CLI against a reachable MongoDB database results in a browser UI that shows the

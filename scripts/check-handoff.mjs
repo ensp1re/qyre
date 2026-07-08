@@ -30,6 +30,11 @@ try {
 
 const missing = REQUIRED_SECTIONS.filter((section) => !content.includes(section));
 
+if (Buffer.byteLength(content) > 6500) {
+  console.error("SESSION_HANDOFF.md exceeds the 6500-byte current-state budget.");
+  process.exit(1);
+}
+
 if (missing.length > 0) {
   console.error("SESSION_HANDOFF.md is missing required sections:\n");
   for (const section of missing) {

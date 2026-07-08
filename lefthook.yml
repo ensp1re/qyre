@@ -22,5 +22,5 @@ pre-push:
       use_stdin: true
       run: node scripts/check-no-direct-main-push.mjs
     full-check:
-      # A push must fail if the project cannot build or required tests fail.
-      run: pnpm check
+      # Detect/start the local DB stack and run checks plus smoke/full E2E. Never bypass this hook.
+      run: pnpm verify:pr

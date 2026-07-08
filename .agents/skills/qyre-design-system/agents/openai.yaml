@@ -1,0 +1,4 @@
+interface:
+  display_name: "Qyre Design System"
+  short_description: "Apply Qyre UI tokens and component patterns"
+  default_prompt: "Use $qyre-design-system to implement this Qyre UI change with the project design tokens and domain placement rules."

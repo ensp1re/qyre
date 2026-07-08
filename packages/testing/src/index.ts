@@ -3,7 +3,7 @@
  *
  * Private package: never imported by product code, only by tests and E2E specs.
  */
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
 import { MongoClient } from "mongodb";
@@ -167,7 +167,28 @@ export async function runStatements(connectionString: string, statements: string
  */
 export function ensureSqliteFile(path: string): void {
   mkdirSync(dirname(path), { recursive: true });
-  new Database(path).close();
+  try {
+    const database = new Database(path);
+    try {
+      const result = database.pragma("quick_check", { simple: true });
+      if (result !== "ok")
+        throw new Error(`generated SQLite fixture failed quick_check: ${result}`);
+    } finally {
+      database.close();
+    }
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      !/not a database|unsupported file format|generated SQLite fixture failed/i.test(error.message)
+    ) {
+      throw error;
+    }
+
+    // E2E fixtures are generated artifacts, never user databases. Recreate a stale/corrupt file
+    // instead of letting every SQLite project fail before the browser journey begins.
+    rmSync(path, { force: true });
+    new Database(path).close();
+  }
 }
 
 /**
@@ -247,10 +268,9 @@ export async function setupMysqlFixture(connectionString: string): Promise<void>
  * MongoDB - plus a nested `profile` field on one document (matching F016's structured-cell-value
  * e2e fixture), since a Mongo document's nested fields are the common case this engine exists to
  * browse (see docs/product-specs/connect-and-inspect-mongodb.md). Unlike setupFixture/
- * setupMysqlFixture/setupSqliteFixture, this isn't guarded by a lock against concurrent Playwright
- * workers - F015 has no Playwright e2e project (see that spec's "no query runner to exercise, no
- * Mongo-shaped fixture" note), so this is only ever called by `@qyre/mongodb`'s own integration
- * test file, never from multiple processes racing against the same collection.
+ * setupMysqlFixture/setupSqliteFixture, this isn't guarded by a lock: the Mongo Playwright project
+ * runs one browse journey that writes this fixture, while SQL-only journeys skip Mongo explicitly.
+ * The adapter integration suite also calls it, but package tests finish before E2E begins.
  */
 export async function setupMongoFixture(connectionString: string): Promise<void> {
   const databaseName = new URL(connectionString).pathname.slice(1) || "qyre_test";

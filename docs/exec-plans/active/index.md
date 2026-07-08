@@ -2,6 +2,6 @@
 
 Plans currently driving work. One plan should have one clearly owned current step.
 
-None currently active - see [`../completed/index.md`](../completed/index.md) for finished plans.
-Pick the next slice from `docs/FEATURES.json`'s `not_started` entries and `docs/SESSION_HANDOFF.md`'s
-"Next steps" before starting a new plan.
+- [`0005-agent-harness-and-structure.md`](0005-agent-harness-and-structure.md) - F075, compact agent
+  context, live feature pruning, skills, and scalable domain/test organization. Implementation and
+  local verification are complete; current step: pushed commit and PR evidence.

@@ -1,758 +1,12 @@
 {
   "version": 1,
-  "description": "Machine-readable feature state list. Single source of truth for scope. State transitions are gated by verification: a feature only becomes 'passing' when its verification command actually passes. See docs/FEATURES.md for rules.",
+  "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
+  "nextIds": {
+    "F": 81,
+    "DF": 10
+  },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
-    {
-      "id": "F001",
-      "behavior": "CLI accepts `npx qyre <database-url>`, auto-detects the database engine from the target (Postgres today), and starts the local server.",
-      "verification": "pnpm --filter qyre test",
-      "state": "passing",
-      "commitHash": "9c37ec2",
-      "evidence": "commit 9c37ec2 (PR #3): pnpm --filter qyre test passes (7/7, packages/cli/src/index.test.ts) on 2026-07-01. Manually re-verified end to end against a real Postgres container: `QYRE_PORT=7799 qyre <url>` listened on 7799 (env var previously silently ignored, now fixed via resolvePort), and `GET /` served the built apps/web UI (previously 404'd; fixed via static serving in packages/server) with `GET /api/health` reporting `connected`.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
-    },
-    {
-      "id": "F002",
-      "behavior": "Launching Qyre opens the browser UI which shows the database connection status.",
-      "verification": "pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "ec9ebf2",
-      "evidence": "commit ec9ebf2 (PR #6): pnpm test:e2e:full passes (1/1) on 2026-07-01 against a real Postgres container. Fixed a real infra gap along the way: Playwright's webServer only ran `vite preview` (no backend), so /api/health always failed - replaced with e2e/server.ts, which starts the real Qyre server (API + built web app on one port, matching a real `npx qyre <url>` launch) and connects to Postgres only when QYRE_TEST_DATABASE_URL is set.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
-    },
-    {
-      "id": "F003",
-      "behavior": "Postgres adapter introspects schemas, tables, columns, indexes, and row counts.",
-      "verification": "pnpm --filter @qyre/postgres test",
-      "state": "passing",
-      "commitHash": "4ec7345",
-      "evidence": "commit 4ec7345 (PR #4): pnpm --filter @qyre/db-postgres test passed (16/16) on 2026-07-01, including new integration tests (postgres-adapter.integration.test.ts) against a real Postgres container that previously did not exist for getOverview/getTable/getRows/runReadOnlyQuery. Auditing against the full spec found schemas/tables/columns were covered but indexes and row counts were entirely unimplemented (missing from @qyre/core's TableMetadata contract and the adapter) - added IndexMetadata to @qyre/core, index introspection via pg_index/pg_class/pg_attribute, and an approximate row count via pg_class.reltuples with a COUNT(*) fallback for never-analyzed tables (reltuples is -1 until ANALYZE runs). Manually re-verified end to end: GET /api/tables/public/qyre_demo_users returned real indexes (with a genuine string[] columns array, not the raw Postgres array-literal string node-postgres returns for untyped array columns - caught and fixed via an explicit ::text cast) and rowCount 3. Package later renamed/moved packages/db-postgres -> packages/drivers/postgres (@qyre/postgres) in commit cc3db12 (PR #5) as part of an architecture reorganization; re-verified the same 16/16 pass at the new location and updated this verification command accordingly.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
-    },
-    {
-      "id": "F004",
-      "behavior": "UI shows a database navigation tree (schemas/tables) and table metadata.",
-      "verification": "pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "ec9ebf2",
-      "evidence": "commit ec9ebf2 (PR #6): pnpm test:e2e:full passes (1/1) on 2026-07-01: added SchemaTree/TableDetail components (@qyre/ui), api/hooks (apps/web), wired into App.tsx. The connect-and-inspect journey now actually clicks the fixture table in the nav tree and asserts a column name is visible (previously only asserted the table name appeared as text, which would have passed without real interaction) - strengthened per the goal-driven-execution rule rather than leaving a superficial check.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
-    },
-    {
-      "id": "F005",
-      "behavior": "UI displays a paginated page of rows for a selected table.",
-      "verification": "pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "1f779da",
-      "evidence": "commit 1f779da: pnpm test:e2e:full passes (1/1) on 2026-07-01 against a real Postgres container: added RowsTable (@qyre/ui), api/rows.ts + useRows hook (apps/web, using TanStack Query's keepPreviousData to avoid flicker between pages), wired into App.tsx below TableDetail with Previous/Next controls. \"Can go next\" uses a simple rows.length === pageSize heuristic (no exact total count from the backend) - manually verified the boundary is correct via curl with page=0/1 at pageSize=2 against the 3-row fixture. The connect-and-inspect journey now asserts real fixture row values (ada@example.com, grace@example.com) are visible, not just presence of a table.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
-    },
-    {
-      "id": "F006",
-      "behavior": "Read-only SQL query runner executes SELECT-style statements and rejects mutations.",
-      "verification": "pnpm --filter @qyre/postgres test && pnpm --filter @qyre/server test",
-      "state": "passing",
-      "commitHash": "c049110",
-      "evidence": "commit c049110: pnpm --filter @qyre/postgres test (24/24) and pnpm --filter @qyre/server test (8/8) pass on 2026-07-01. Auditing found a real, exploitable security bug: assertReadOnly only checked the leading keyword, so a writable CTE (`WITH deleted AS (DELETE FROM t RETURNING *) SELECT * FROM deleted`) starts with the allowed \"with\" keyword but actually deletes data - confirmed this executed a real DELETE through the adapter against a live table before fixing it. Fixed with two layers: assertReadOnly now scans the whole statement (literals/identifiers stripped first) for forbidden keywords anywhere, not just leading; and runReadOnlyQuery now runs inside a real Postgres READ ONLY transaction as the authoritative backstop - proved this independently with a test hiding a DELETE inside a plpgsql function call, which no string check could ever catch. Also fixed a rejected query returning HTTP 500 instead of 400 (moved ReadOnlyViolationError to @qyre/driver-contract so packages/server can catch it without depending on a concrete engine). Built the missing UI (QueryRunner in @qyre/ui, wired via apps/web) and manually verified success/rejection/writable-CTE cases through the real HTTP path against a live Postgres container.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
-    },
-    {
-      "id": "F007",
-      "behavior": "Local server exposes health and runtime diagnostics endpoints for agent verification.",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/postgres test",
-      "state": "passing",
-      "commitHash": "5259102",
-      "evidence": "commit 5259102: pnpm --filter @qyre/server test (8/8) and pnpm --filter @qyre/postgres test (25/25) pass on 2026-07-01. Auditing /api/health (built in F001) against the full spec found a real bug, not just a coverage gap: node-postgres's Pool emits an unhandled \"error\" event when an idle client's connection is severed by the database (restart, network blip, admin kill) - confirmed live by starting the CLI against a real Postgres container, stopping the container mid-session, and watching the entire Node process crash instead of /api/health ever reporting \"disconnected\". Fixed by attaching pool.on(\"error\", ...) in packages/drivers/postgres/src/index.ts's connect() to log instead of crash. Re-verified live: after the fix, killing the database leaves the server up and /api/health correctly returns database: \"disconnected\"; a subsequent SIGINT still shuts down cleanly. Added a regression test (postgres-adapter.integration.test.ts) that reproduces the exact failure via pg_terminate_backend on an idle pooled connection against a real database - confirmed it fails (uncaught exception) without the fix and passes with it.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
-    },
-    {
-      "id": "F008",
-      "behavior": "CLI recognizes a SQLite file target (`npx qyre ./app.db`) and the full connect-and-inspect API surface (health, overview, table metadata, paginated rows, read-only query runner) works against it with zero credentials, per docs/product-specs/connect-and-inspect-sqlite.md. Also validates the driver-plugin architecture: a second engine is what actually proves packages/drivers/<engine> is reusable, not just designed to look reusable. Playwright coverage of the SQLite journey is split out as F011 (see docs/PLANS.md's rule on splitting oversized work) - this entry covers the backend adapter + CLI wiring, verified live end to end via the real HTTP path, not just package tests.",
-      "verification": "pnpm --filter @qyre/core test && pnpm --filter @qyre/driver-contract test && pnpm --filter @qyre/sqlite test && pnpm --filter qyre test",
-      "state": "passing",
-      "commitHash": "9c2162d",
-      "evidence": "commit 9c2162d: pnpm --filter @qyre/core test (17/17, includes new SQLite-path parseConnectionTarget cases), pnpm --filter @qyre/driver-contract test (21/21, includes assertReadOnly relocated here from @qyre/postgres so both engines share one implementation instead of duplicating it), pnpm --filter @qyre/sqlite test (12/12, including an integration test proving the read-only connection - not just assertReadOnly's string scan - is what actually refuses writes), and pnpm --filter qyre test (7/7) all pass. Re-verified @qyre/postgres (11/11) and the full connect-and-inspect Postgres journey (pnpm test:e2e:full, pnpm test:e2e) still pass unchanged after generalizing parseConnectionTarget - no regression from adding a second engine. Manually verified live end to end: built the whole monorepo, ran the real CLI (`qyre ./demo.db`) against a real SQLite file, and confirmed over the real HTTP path - /api/health reports connected with the raw file path unredacted (not the Postgres-only '<unparseable connection string>' placeholder a naive reuse of redactConnectionString would have produced - caught and fixed during this verification), /api/overview returns a single 'main' schema, /api/tables/main/qyre_demo_users returns correct columns/PK/rowCount, a read-only SELECT query runs successfully, and a DELETE is rejected with 400 (not 500) leaving all 3 rows intact. SIGINT still shuts down cleanly. Also verified via a direct better-sqlite3 smoke test that PRAGMA-based introspection behaves as assumed (table_info's pk field, index_list's origin='pk' only for composite/non-integer PKs, stmt.columns() works correctly on zero-row results) before relying on it in the adapter.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-sqlite.md"
-    },
-    {
-      "id": "F009",
-      "behavior": "README.md accurately reflects the current product (F001-F007 passing, not a skeleton), gives a working quick-start, and includes the marketing surface needed for GitHub/npm discovery: a demo GIF or asciicast, a \"why not X\" comparison section, badges (CI/npm/license), and the read-only-enforced-by-the-database security story from F006/F007.",
-      "verification": "node scripts/check-readme.mjs",
-      "state": "passing",
-      "commitHash": "7936c48",
-      "evidence": "commit 7936c48 (PR #25, https://github.com/ensp1re/qyre/pull/25): full rewrite of README.md - quick-start covers both Postgres and SQLite targets; CI/npm/license badges (shields.io, CI badge verified against the real workflow via `gh api repos/ensp1re/qyre/actions/workflows`); a \"Why not just use ___?\" section comparing against pgAdmin/DBeaver-style GUIs, a database's own CLI, and cloud-hosted DB GUIs; the read-only-enforced-by-the-database security story (assertReadOnly's scan plus the real Postgres READ ONLY transaction / SQLite readonly:true backstop from F006/F008). Demo asset: asked the user directly whether to (a) ship static screenshots now, (b) connect the Chrome extension to record a real animated GIF, or (c) skip the visual demo entirely - chose (a), so the behavior's \"demo GIF or asciicast\" is satisfied with three real screenshots (not mockups) instead of an animation: new scripts/capture-readme-screenshots.mjs starts a real server against a live Postgres fixture (with an added FK-constrained table for a meaningful Schema tab screenshot) and drives a real Playwright browser through the SQL Editor/Schema/Tables tabs, saving PNGs to docs/screenshots/ (a new directory, not docs/generated/ - that's gitignored for build-time ephemera, but these need to be committed to render on GitHub/npm). An animated demo remains a legitimate follow-up. New scripts/check-readme.mjs (checks for no skeleton language, a working quick-start, >=3 shields.io badges, a screenshot section, a \"why not\" heading, and the read-only story) wired into a new `check:readme` script and folded into `check:state`/`pnpm check`. `node scripts/check-readme.mjs` and `pnpm check` (full monorepo) both pass.",
-      "blockedReason": null,
-      "spec": "README.md"
-    },
-    {
-      "id": "F010",
-      "behavior": "`npm install -g qyre` (or `npx qyre@latest`) works standalone outside this monorepo: the published package serves the built apps/web UI (fixes the apps/web/dist monorepo-relative path tech debt tracked in docs/exec-plans/tech-debt-tracker.md), has npm-discoverability metadata (description, keywords, repository, homepage), and can be released via a repeatable script that bumps every publishable workspace package's version in lockstep and publishes them in dependency order.",
-      "verification": "node scripts/publish.mjs --dry-run && node scripts/verify-npm-package.mjs",
-      "state": "passing",
-      "commitHash": "370c645",
-      "evidence": "commit 370c645 (PR #28, https://github.com/ensp1re/qyre/pull/28): packages/cli's defaultWebRoot() located apps/web/dist via a path relative to its own file, which only resolved inside this monorepo checkout - fixed by bundling apps/web's build directly into the qyre package itself via tsup.config.ts's onSuccess hook (copies apps/web/dist into packages/cli's own dist/web after a successful build, included automatically since files:[\"dist\"] already covers the whole dist tree). defaultWebRoot(here) is now exported and takes an explicit directory instead of reading import.meta.url itself, making it a testable pure function like resolvePort/resolveFilesRoot - tries the bundled dist/web first, falls back to the old monorepo-relative path for local dev/test. turbo.json gets an explicit qyre#build -> @qyre/web#build task dependency since there's no package.json dependency edge between them for turbo to infer build order from. Added npm-discoverability metadata (keywords, homepage, repository, bugs) to packages/cli/package.json. New scripts/verify-npm-package.mjs packs the qyre package exactly as pnpm publish would, extracts that tarball into a fresh temp directory with zero relationship to this repo, symlinks in the already-built workspace dependencies (real npm-registry resolution isn't possible pre-publish), and starts the real server against a real SQLite file from that standalone location - asserts GET / serves the actual UI (not a 404) and GET /api/health reports a real connection; the generated harness imports defaultWebRoot from the packed \"qyre\" package itself via node's self-referencing package resolution, exercising the actual shipped function. Verified: rm -rf packages/cli/dist && pnpm build reproduces dist/web from scratch; node scripts/verify-npm-package.mjs passes; node scripts/publish.mjs --dry-run passes (had to temporarily relocate an unrelated pre-existing untracked CLAUDE.md out of the working tree to satisfy its clean-tree check, then restored it - confirmed via git status --porcelain unchanged after); pnpm test (all packages, including new defaultWebRoot unit tests) and pnpm test:e2e/test:e2e:full against a real postgres:16-alpine container pass; pnpm check (full monorepo) passes.",
-      "blockedReason": null,
-      "spec": "README.md"
-    },
-    {
-      "id": "F011",
-      "behavior": "The Playwright connect-and-inspect journey (e2e/connect-and-inspect.spec.ts) covers SQLite, not just Postgres - parameterized by engine/fixture per docs/product-specs/connect-and-inspect-sqlite.md's \"Primary end-to-end journey\" section, not a duplicated spec. Split out from F008 (see that entry's evidence) because it also needs e2e/server.ts to start against either a Postgres or SQLite fixture depending on the run, which is its own real slice of work.",
-      "verification": "pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "126ad1b",
-      "evidence": "commit 126ad1b (PR #35, https://github.com/ensp1re/qyre/pull/35): playwright.config.ts now runs two projects (\"postgres\", \"sqlite\") against two webServer instances (e2e/server.ts, parameterized by QYRE_TEST_SQLITE_PATH/QYRE_E2E_PORT); the @qyre/web build step moved out of the webServer commands into the test:e2e/test:e2e:full npm scripts themselves so it runs once instead of racing two vite build processes writing dist/ concurrently. @qyre/testing gained SQLite equivalents of the existing Postgres fixture helpers (ensureSqliteFile, setupSqliteFixture, requireTestSqlitePath) producing the same table/rows shape, so e2e/connect-and-inspect.spec.ts's assertions hold unmodified for either engine - the spec branches only its fixture setup call on testInfo.project.name, proving the UI is genuinely engine-agnostic rather than accidentally Postgres-shaped. Added the missing @qyre/sqlite tsconfig path mapping (tsconfig.base.json) needed for tsx to resolve it from e2e/server.ts. Verified: pnpm test:e2e (both projects boot and pass @smoke); pnpm test:e2e:full against a real Postgres container (both projects pass the full journey, run twice back-to-back to confirm both fixtures are idempotent); pnpm check (full monorepo) passes.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-sqlite.md"
-    },
-    {
-      "id": "F012",
-      "behavior": "The SQL Editor gains a query history drawer (icon in the toolbar, slides in from the right, one card per past query). Clicking a card prefills the editor with that query's text without auto-running it. Only successful queries are recorded, stored in localStorage (not server-side), capped at 50 entries, deduped on consecutive re-runs.",
-      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui build && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/web build && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "8f86d9a",
-      "evidence": "commit 8f86d9a: new QueryHistoryDrawer (packages/ui, presentation-only) opened via a new toolbar icon button on QueryRunner (onOpenHistory callback); new useQueryHistory hook (apps/web, localStorage key qyre-query-history, matches useTheme's existing localStorage pattern) capped at 50 entries, re-running a query already in history moves it to the front instead of duplicating it, only recorded on runQuery's onSuccess (never on a rejected/failed query). New e2e/query-history.spec.ts (@full) proves the run -> appears in history -> click -> prefills journey on both engine projects. Adding a second @full spec against the same live Postgres surfaced a real, pre-existing concurrency bug in @qyre/testing's setupFixture: DROP+CREATE isn't safe under concurrent Playwright workers (two concurrent CREATE TABLEs raced pg_class's uniqueness constraint) - fixed by running the whole operation on one session under a Postgres advisory lock, benefiting every current and future @full Postgres test, not just this one. pnpm --filter @qyre/ui build/typecheck and pnpm --filter @qyre/web build/typecheck clean; pnpm test:e2e/test:e2e:full (both engine projects, run twice back-to-back to confirm the race fix is robust) pass; pnpm check (full monorepo) passes. Manually verified live via Preview against a real Postgres fixture: empty state before any query, a successful query appears with a correct relative timestamp, clicking a card prefills without auto-running (confirmed the stale result table stays put, proving no re-run happened), re-running the same query dedupes (still 1 entry, not 2), a rejected DELETE (blocked by read-only enforcement) is correctly never recorded, history survives a full page reload, and both light and dark mode render correctly.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/sql-editor.md"
-    },
-    {
-      "id": "F013",
-      "behavior": "The SQL Editor migrates from a plain <textarea> to CodeMirror 6 and gains schema-aware autocomplete: SQL keyword completion (SELECT, FROM, WHERE, etc.) and real table-name completion after FROM/JOIN, sourced from the already-fetched schema data (no new backend endpoint). Column-name completion is explicitly deferred. Existing behavior (Ctrl/Cmd+Enter to run, toolbar, design tokens in both themes) is preserved exactly.",
-      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui build && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/web build && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "d315870",
-      "evidence": "commit d315870: QueryRunner (packages/ui) migrated from a plain <textarea> + hand-rolled gutter to CodeMirror 6 (@codemirror/lang-sql, @codemirror/autocomplete, codemirror's basicSetup for line numbers/history/bracket-matching), reskinned to docs/references/design-system.md's tokens rather than CodeMirror's default theme - verified live in both themes via Preview (keyword/table syntax highlighting in --c-purple/--c-blue/--c-green, gutter/border/selection colors all matching tokens). New packages/ui/src/sql-completion.ts (unit-tested, 8 tests): a schema-aware CompletionSource offering only the read-only-relevant SQL keywords (SELECT/FROM/WHERE/JOIN/ORDER BY/GROUP BY/LIMIT/HAVING/AS/DISTINCT/AND/OR/IN/LIKE/NULL/IS - never INSERT/UPDATE/DELETE, which the server rejects anyway per F006) everywhere, and real table names after FROM/JOIN, sourced from a new `tableNames` prop apps/web derives from the already-fetched schema overview (no new backend endpoint, no fetching inside packages/ui). Column-name completion is explicitly out of scope, matching the spec. Preserves the sql/onSqlChange/onRun prop contract and data-testid=\"query-runner\" exactly, so App.tsx's usage didn't need to change shape. Found and fixed a real bug while verifying live: CodeMirror's own defaultKeymap binds Mod-Enter to insertBlankLine, which silently intercepted the Ctrl/Cmd+Enter-to-run binding before it could ever fire - confirmed via a real Playwright run (Cmd+Enter was inserting a blank line, turning a 1-line query into 2, instead of running) - fixed with Prec.highest so the run binding takes priority. Updated e2e/query-history.spec.ts's textarea-based interactions for CodeMirror's contenteditable .cm-content (page.locator(...).fill()/toHaveText, Playwright 1.49+ supports contenteditable fill); new e2e/sql-editor-autocomplete.spec.ts covers keyword completion, table-name completion, and the Ctrl/Cmd+Enter run path on both engine projects. pnpm --filter @qyre/ui test (8/8) and build/typecheck, pnpm --filter @qyre/web build/typecheck, pnpm test:e2e:full (both projects, run twice) and pnpm test:e2e all pass; pnpm check (full monorepo) passes.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/sql-editor.md"
-    },
-    {
-      "id": "F014",
-      "behavior": "MySQL as Qyre's third engine (npx qyre mysql://...): read-only inspection (schemas/tables/columns/indexes/row counts), paginated row browsing, and the read-only SQL query runner - reusing @qyre/driver-contract's shared assertReadOnly heuristic plus an authoritative START TRANSACTION READ ONLY backstop (mirrors F006's Postgres precedent). Playwright coverage extends the same connect-and-inspect.spec.ts as a third project/fixture, per F011's precedent, not a duplicated spec.",
-      "verification": "pnpm --filter @qyre/core test && pnpm --filter @qyre/driver-contract test && pnpm --filter @qyre/mysql test && pnpm --filter @qyre/qyre test && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "9ccde55",
-      "evidence": "commit 9ccde55: new packages/drivers/mysql (@qyre/mysql) implements DatabaseAdapter on mysql2/promise, mirroring @qyre/postgres's shape - backtick identifier quoting (MySQL's own dialect, kept local to this package per ARCHITECTURE.md), information_schema introspection (explicit lowercase column aliases, since MySQL's server always returns information_schema results in UPPERCASE regardless of how the query is written - caught live via a real container), exact COUNT(*) row counts per spec, and a START TRANSACTION READ ONLY backstop in runReadOnlyQuery proven live by opening that same transaction directly (bypassing the adapter and assertReadOnly) and confirming MySQL itself still refuses a write. pool.on('error', ...) attached to the promise pool's underlying callback pool prevents a dropped idle connection from crashing the process (F007 precedent) - verified live via a real container. packages/core gained mysql:// detection; packages/cli wired mysqlAdapterFactory in. New e2e 'mysql' Playwright project/webServer; connect-and-inspect/query-history/sql-editor-autocomplete specs extended to a real 3-way branch. Found and fixed two real bugs while wiring this up: (1) every e2e webServer instance inherits every test-DB env var simultaneously, so the old 'whichever var is truthy' selection in e2e/server.ts was silently routing the new 'mysql' project to SQLite instead - fixed with an explicit QYRE_E2E_ENGINE env var per webServer entry, confirmed live via direct health-endpoint checks per port; (2) a real, reproduced concurrency bug in setupSqliteFixture (DROP+CREATE not race-safe across concurrent Playwright workers, once a third engine project pushed total parallelism higher) - fixed the same way F012 fixed the analogous Postgres bug, wrapping the whole sequence in one transaction with a busy_timeout, confirmed via 4 repeated full-parallelism runs with zero flakes afterward. Also needed a tsconfig.base.json '@qyre/mysql' paths entry (tsx/tsc resolve every workspace package straight to source this way) and turbo.json's 'test' task env allowlist to include QYRE_TEST_MYSQL_URL. pnpm --filter @qyre/mysql test (13/13, unit + integration against a real MySQL 8 container) and pnpm check (full monorepo) both pass; pnpm test:e2e:full (all three engine projects, run 4x) and pnpm test:e2e pass with zero flakes. Manually verified live via Preview against a real MySQL container with an FK-constrained fixture: Schema tab shows PK/FK badges correctly, Tables tab paginates rows, and the SQL Editor runs a query using a double-quoted string value (MySQL's own default dialect behavior, no adapter-side coercion needed - confirmed this is genuinely different from F018's Postgres-only fix).",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-mysql.md"
-    },
-    {
-      "id": "F015",
-      "behavior": "MongoDB as a fourth engine (npx qyre mongodb://...), deliberately scoped to basic read-only browsing only: databases as schemas, collections as tables, best-effort sampled field lists per collection, paginated document browsing (each page's columns are the union of fields observed on that page, not just a table-level sample). No query runner (the SQL Editor tab is not usable against a Mongo connection) and no driver-level read-only backstop - enforced instead by the adapter's code never calling any Mongo write API, explicitly weaker than every other engine's guarantee (see docs/product-specs/connect-and-inspect-mongodb.md's \"Read-only enforcement\" section). Depends on F016 (structured-cell viewer) shipping first - nested document fields are unusable as flat JSON text.",
-      "verification": "pnpm --filter @qyre/core test && pnpm --filter @qyre/driver-contract test && pnpm --filter @qyre/mongodb test && pnpm --filter @qyre/qyre test && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm check, plus a manual live-verification pass against a real MongoDB container (no Playwright e2e project for this engine - see evidence)",
-      "state": "passing",
-      "commitHash": "44a4f15",
-      "evidence": "commit 44a4f15: pnpm --filter @qyre/core test (22/22, incl. new mongodb://+mongodb+srv:// parsing tests), pnpm --filter @qyre/mongodb test (14/14: factory unit tests, a source-scan test asserting the adapter calls no Mongo write API, and integration tests against a real MongoDB container covering overview/getTable/getRows/ping/version/empty-collection/BSON normalization), pnpm --filter @qyre/qyre test (13/13) all pass. pnpm --filter @qyre/ui build/typecheck and pnpm --filter @qyre/web build both pass (TabBar's new disabledTabs support). pnpm check (full monorepo, live Postgres+MySQL+MongoDB) passes; pnpm test:e2e:full re-run against a fresh container confirms zero regression to the other three engines' Playwright projects from e2e/server.ts's new \"mongodb\" QYRE_E2E_ENGINE branch (no Playwright project exercises Mongo itself - per this spec's own \"decide when picked up\" note, skipped for this pass: no query runner to exercise and the existing generic connect-and-inspect spec would need a Mongo-shaped fixture). Manually verified live via the Preview tool against a real MongoDB container (github pipeline mirrors this with a new mongo service in the check job): Schema tab shows the collection card with _id flagged PK and every field nullable; a nested document field renders via F016's chip and opens its inspector drawer; a Long past Number.MAX_SAFE_INTEGER renders as an exact string and a Binary field renders as F019's binary chip with a working hex-dump-and-UTF-8-decode drawer, both reusing existing infrastructure rather than inventing new representations; the SQL Editor tab is visibly disabled (dimmed, cursor-not-allowed, unclickable) and shows an explanatory message instead of the query editor, confirmed even as the default initial tab (not just after switching away). Found and fixed BSON serialization gaps before they could surface as bugs, confirmed live against a real container first (same rigor as F019): Long/Decimal128 both serialize to useless internal shapes by default ({high,low,unsigned} and {\"$numberDecimal\":...}) - normalized to plain number/string/existing-binary-chip shapes; ObjectId/Date already serialize cleanly and were deliberately left untouched.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-mongodb.md"
-    },
-    {
-      "id": "F016",
-      "behavior": "RowsTable and QueryRunner's result table render any object/array cell value as a compact single-line chip ({ N keys } / [ N items ]) that never grows the row; clicking it opens a right-anchored inspector drawer with an expandable tree viewer (lazy, root-expanded), replacing the old flat JSON.stringify-to-text handling in formatCell. Engine-agnostic and useful today (Postgres/MySQL json/jsonb columns already hit this path) - not Mongo-specific, though it's a hard prerequisite for F015's documents to render usably. Read-only viewing plus copy-as-JSON, no inline editing.",
-      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui build && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/web build && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "16dfd4b",
-      "evidence": "commit 16dfd4b (polish on 57fd354, itself a redesign of 070f995 after user feedback that inline expansion broke the table layout): the cell is a compact chip that never grows the row (verified live: chip row 29.75px vs 27.25px plain rows) showing the count plus a dimmed truncated JSON preview for scanability; clicking opens CellValueDrawer, which closes via X/backdrop/Esc and flashes a check on copy-as-JSON. pnpm --filter @qyre/ui test/build/typecheck and pnpm --filter @qyre/web build all pass. pnpm test:e2e:full passes (10/12, 2 correctly skipped on sqlite/mysql) including e2e/structured-cell-values.spec.ts against a real Postgres jsonb column: chip -> drawer -> three nested levels (object -> object -> array) -> close, in both the Tables tab and a SQL Editor query result. Also manually verified live via the preview tool against a real Postgres container: drawer opens root-expanded with deeper levels lazy, syntax-colored primitives, close restores the untouched table; screenshots confirmed. Fixture: the jsonb column lives on the existing shared `qyre_demo_users` table (populated for one row only) rather than a second table - a second table made the Schema tab render two table-detail cards and broke connect-and-inspect.spec.ts's singular-card assertion under concurrent @full specs (caught during 070f995's verification).",
-      "blockedReason": null,
-      "spec": "docs/product-specs/structured-cell-values.md"
-    },
-    {
-      "id": "F017",
-      "behavior": "A single Fastify setErrorHandler normalizes every route's uncaught-error response into one consistent { error: string } shape (the real underlying message, not Fastify's generic reason phrase) - found a real bug while testing F012: POST /api/query only special-cased ReadOnlyViolationError, so any other failure (e.g. a bad table name) fell through to Fastify's default handler, and the frontend read the wrong field (body.error, literally \"Internal Server Error\") instead of the real Postgres message sitting in body.message. New shared ErrorState UI component (packages/ui) - occupies the same visual footprint the loaded view would, message centered, Retry action - replaces today's inconsistent inline error text across QueryRunner's result area, RowsTable, SchemaGrid, FilesBrowser, and ConsoleLog. Also distinguishes a genuine network-unreachable failure (friendlier message) from a real server-returned error (shows the actual message).",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui build && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/web build && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "053b023",
-      "evidence": "commit 053b023: packages/server gained a single app.setErrorHandler normalizing every route's uncaught-error response into { error: <real message> } (respecting an explicit error.statusCode, e.g. requireAdapter's existing 503, else 500) - existing specific handling (ReadOnlyViolationError's 400, InvalidFilePathError's 400) unchanged, the global handler is the catch-all beneath it. Simplified /api/query's catch block since the global handler now owns the generic-failure eventLog logging. New shared fetchJson (apps/web/src/api/fetch-json.ts) replacing each api/*.ts fetcher's own bespoke fetch+error logic (all six read the wrong field or discarded the server's real message entirely, except query.ts) - distinguishes a request that never reached a server (fetch() itself rejecting, a friendlier message than the raw browser string) from one the server responded to with an error (the real message). New shared ErrorState component (packages/ui) - centered message + Retry, same visual footprint the loaded view would occupy - replaces inconsistent inline error text in QueryRunner's result area, RowsTable, SchemaGrid, FilesBrowser (both tree-load and per-file content-load failures), and ConsoleLog. useAllTables now surfaces the first query's real error message. New @qyre/server tests: the previously-wrong 503 body shape, and a generic adapter error now surfacing its real message instead of \"Internal Server Error\". pnpm build/typecheck/lint/test (full monorepo) and pnpm test:e2e/test:e2e:full (both engine projects) pass. Manually verified live via Preview against a real Postgres fixture: reproduced the exact original bug (SELECT * FROM orders_items) and confirmed it now shows the real Postgres message (relation \"orders_items\" does not exist) centered in the result area with a working Retry button, in both light and dark mode; confirmed disconnecting the server and reconnecting recovers cleanly.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/error-handling.md"
-    },
-    {
-      "id": "F018",
-      "behavior": "The read-only query runner tolerates double-quoted string values against Postgres (e.g. `WHERE department=\"Support\"`), which most people write out of habit even though SQL reserves \"\" for identifiers - Postgres alone throws `column \"Support\" does not exist` for it (MySQL treats \"...\" as a string by default; SQLite falls back to treating it as a string when it doesn't match a real identifier). Before executing against Postgres, any double-quoted token that doesn't match a real column/table name in the connected database is rewritten to an equivalent single-quoted string literal; a token that does match a real identifier (including a legitimately quoted case-sensitive column) is left untouched, so no currently-working query changes meaning. Postgres-only - found and scoped after a user hit the exact error live while testing F013.",
-      "verification": "pnpm --filter @qyre/postgres test",
-      "state": "passing",
-      "commitHash": "a316bd3",
-      "evidence": "commit a316bd3: new coerceUnknownQuotedIdentifiers (packages/drivers/postgres) rewrites a double-quoted token in the query text to a single-quoted string literal only when it matches no real column/table name in the connected database (fetched via information_schema, short-circuited entirely when the query has no double quotes at all) - wired into PostgresAdapter.runReadOnlyQuery before assertReadOnly/execution. Unit tests cover doubled-quote escaping (`\"\"` -> `\"`), an embedded single quote getting escaped in the rewritten literal, a real identifier being left untouched, and a no-op when the query has no quotes. Integration tests against a real Postgres fixture reproduce the exact reported bug (`SELECT * FROM employees WHERE department=\"Support\"` now returns the matching row instead of `column \"Support\" does not exist`) and confirm a real double-quoted column reference (`SELECT \"name\" FROM ...`) still works as an identifier. pnpm --filter @qyre/postgres test (20/20) and pnpm check (full monorepo) both pass; pnpm test:e2e:full (both engine projects) - no regression. Manually verified live via Preview against a real Postgres fixture: the exact reported query now returns rows, and a real quoted column still resolves as an identifier.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/sql-editor.md"
-    },
-    {
-      "id": "F019",
-      "behavior": "Cell values reach the browser exactly as stored, across all three engines: Postgres/MySQL date and timestamp-without-timezone columns are no longer shifted by the server's local UTC offset; MySQL and SQLite BIGINT/INTEGER values past Number.MAX_SAFE_INTEGER no longer silently lose precision; Postgres bytea/MySQL blob/SQLite BLOB columns render as a 'binary · N bytes' chip with a hex-dump-and-UTF-8-decode drawer instead of a confusing generic JSON chip. Found via a systematic 'test every column type' sweep across all three engines prompted by F016.",
-      "verification": "pnpm --filter @qyre/postgres test && pnpm --filter @qyre/mysql test && pnpm --filter @qyre/sqlite test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui build && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/web build && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "f850c43",
-      "evidence": "commit f850c43: seeded a type_zoo fixture table (bigint, date, timestamp, timestamptz, bytea/blob/BLOB) against live Postgres/MySQL/SQLite containers and inspected the actual JSON each engine's rows endpoint returned - confirmed live, before any fix, that a stored Postgres/MySQL date of 2024-01-15 came back as \"2024-01-14T22:00:00.000Z\" on a UTC+2 host, and a stored MySQL/SQLite bigint of 9007199254740993 came back as 9007199254740992. All four fixes (Postgres types.setTypeParser, MySQL dateStrings + a magnitude-aware typeCast, SQLite per-statement safeIntegers + normalizeRow, and the UI's new BinaryValue chip/drawer) re-verified live afterward with the same fixture - see docs/product-specs/column-type-fidelity.md for full detail on each, including two second-order regressions caught and avoided before they shipped: MySQL's built-in bigNumberStrings option stringifies by column type not value magnitude, breaking ping()'s `=== 1` check and getTable()'s rowCount (both backed by a LONGLONG COUNT(*)) - caught by @qyre/mysql's existing integration tests failing; SQLite's defaultSafeIntegers is database-wide and would have flipped every internal pragma/COUNT(*) query to BigInt too, breaking notnull/unique comparisons the same way - caught before committing by tracing safeIntegers' scope, verified @qyre/sqlite's existing integration tests still pass with the per-statement version. pnpm --filter @qyre/postgres test (20/20), pnpm --filter @qyre/mysql test (13/13), pnpm --filter @qyre/sqlite test (14/14), pnpm --filter @qyre/ui test (18/18, incl. new isBinaryValue/toHex/summarizeBinaryValue/previewBinaryValue unit tests) all pass; pnpm check (full monorepo, real Postgres+MySQL) and pnpm test:e2e:full (10/12, 2 correctly skipped) both pass - zero regression to F016's jsonb chip/drawer flow (unaffected by these fixes). Manually verified live via the Preview tool: a bytea cell showing 'hello world' decoded correctly in both a compact chip and its hex-dump drawer.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/column-type-fidelity.md"
-    },
-    {
-      "id": "DF-01",
-      "behavior": "The dashboard UI redesign (source: github.com/ensp1re/UserDashboard, a private Figma Make export) is read and documented before any view is ported: docs/references/design-system.md captures the full token set (colors light/dark, typography, radius, component patterns), .claude/skills/qyre-design-system/SKILL.md makes it discoverable to future UI work, and docs/product-specs/dashboard-ui.md defines the engine-agnostic UI contract plus the backend gaps the design surfaces. The real tokens are wired into apps/web's Tailwind config (previously scaffolded but entirely unused) so the rules are backed by a working build, not just prose - with zero regression to the current passing UI, since no component uses a Tailwind class yet.",
-      "verification": "pnpm --filter @qyre/web build && pnpm --filter @qyre/web typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/ui typecheck && pnpm test:e2e",
-      "state": "passing",
-      "commitHash": "24fd66c",
-      "evidence": "commit 24fd66c: pnpm --filter @qyre/web build/typecheck and pnpm --filter @qyre/ui build/typecheck all clean; pnpm test:e2e (@smoke) and pnpm test:e2e:full (@full, with QYRE_TEST_DATABASE_URL) both still pass, confirming zero regression from wiring real Tailwind tokens into a config that was scaffolded from the start but genuinely unused (grepped for Tailwind classNames across apps/web and packages/ui before touching anything - zero hits - so no component code could be affected). Manually verified live via the Preview tool: pnpm --filter @qyre/web dev, screenshot confirms the app renders correctly (background/text now use the real design tokens instead of old hardcoded hex, no visual breakage), zero console errors. pnpm check passes end to end.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "DF-02",
-      "behavior": "apps/web's shell is rebuilt to match the design: title bar (wordmark, connection breadcrumb, status dot, dark/light toggle), collapsible sidebar with a searchable/highlightable schema tree (ports SchemaTree's data into the new tree pattern), a tab bar (SQL Editor/Tables/Schema/Files/Console - Files and Console tabs can render a real UI shell with an empty/placeholder state until DF-06/DF-07 add their backends), and a status bar. Uses only tokens from docs/references/design-system.md via Tailwind classes, no inline styles.",
-      "verification": "pnpm --filter @qyre/web build && pnpm --filter @qyre/web typecheck && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "0238265",
-      "evidence": "commit 2b3179c shipped the shell wired to DF-01's token doc, but drifted from the actual source component patterns (flat schema/table tree instead of connection->schema->table hierarchy, plain-HTML Tables/Schema views, underline tabs, ad hoc status bar) - flagged by the user against github.com/ensp1re/UserDashboard directly. commit 0238265 re-cloned and read the real App.tsx (previously only skimmed for token extraction) and ported its actual patterns: hierarchical sidebar tree matching the source's TreeNode depth/indent/hover exactly, VS Code-style attached tab bar, status bar moved to bg-sidebar with colored status text and separators, title bar at h-9 with a real prefix/database-name breadcrumb split. Root cause of the 'too dark, bad for the eyes' complaint: the theme toggle was an inert chrome-only placeholder deferred to DF-09 with no way to leave dark mode - fixed by implementing DF-09 now (see that entry) instead of deferring again. pnpm check (format/lint/typecheck/test/build across all 10 packages) and pnpm test:e2e/test:e2e:full (live Postgres) all pass. Manually verified live via Preview across desktop/tablet/mobile and both themes against a real Postgres fixture (docker postgres:16-alpine + qyre-cli): hierarchical tree + search/highlight, table selection auto-switching to Tables tab, Schema tab, theme toggle persistence (no FOUC on reload confirmed), and the mobile drawer opening/closing/auto-closing on table selection.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "DF-03",
-      "behavior": "The SQL Editor tab ports the design's line-numbered read-only query runner (Cmd/Ctrl+Enter to run, results panel below the editor) on top of the existing QueryRunner/useRunQuery data flow - presentation only, no change to F006's read-only enforcement.",
-      "verification": "pnpm --filter @qyre/web build && pnpm --filter @qyre/web typecheck && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "39bfc95",
-      "evidence": "commit 39bfc95 (PR #20, https://github.com/ensp1re/qyre/pull/20): the Run button, Cmd/Ctrl+Enter shortcut, and results panel were already ported in the DF-02 correction pass (commit 0238265) - the one piece explicitly deferred to this slice was the design's line-numbered gutter. Added a scrollable line-number column (packages/ui/src/components/query-runner.tsx) synced to the textarea's scrollTop via a real onScroll handler - the source mock (github.com/ensp1re/UserDashboard's SqlEditor) never scrolls a gutter since its query is always short, so this had no reference behavior to copy; verified live that a 60-line query keeps line numbers aligned with content while scrolling. pnpm --filter @qyre/web build/typecheck clean, pnpm --filter @qyre/ui build/typecheck clean, pnpm check (format/lint/typecheck/test/build across all packages) passes. Started a real postgres:16-alpine container (QYRE_TEST_DATABASE_URL) and re-ran pnpm --filter @qyre/postgres test (11/11) and pnpm test:e2e:full (1/1) - both pass, no regression from the DF-02 baseline. Manually verified live via Preview against a real SQLite fixture (better sqlite3 CLI, qyre_demo_users table): line numbers render and increment correctly, stay aligned while scrolling a 60-line query, a real query runs and results render below the editor, and the gutter's border/text colors adapt correctly in both dark and light mode.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "DF-04",
-      "behavior": "The Tables tab ports the design's searchable/sortable row browser on top of the existing RowsTable/useRows data flow (client-side search/sort over the fetched page). Write-shaped controls from the source design (\"Add row\") are dropped per docs/product-specs/dashboard-ui.md's out-of-scope list.",
-      "verification": "pnpm --filter @qyre/web build && pnpm --filter @qyre/web typecheck && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "0238265",
-      "evidence": "commit 0238265: folded into DF-02's correction pass since the Tables tab was the user's specific complaint against github.com/ensp1re/UserDashboard, not deferred further. RowsTable (packages/ui) now does client-side search (filters across all fetched columns) and per-column sort (asc/desc/none cycle, click a header) over the currently fetched page, a type/PK sub-header row (new shared TypeIcon helper), row-number + checkbox columns, and CSV export of the current page plus 'copy selected as CSV' for checked rows (both read-only, explicitly endorsed by docs/product-specs/dashboard-ui.md's out-of-scope carve-out). 'Add row' was never built. pnpm check and pnpm test:e2e/test:e2e:full pass; manually verified live (sort, filter, CSV export, row selection) via Preview against a real Postgres fixture.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "DF-05",
-      "behavior": "The Schema tab shows a grid of table cards (all tables in the connected database, each with its columns and a PK badge) - a full-database overview distinct from the existing single-table TableDetail. FK badges are deferred to DF-08 (needs new backend metadata); ship the grid with PK-only badges first if FK metadata isn't ready.",
-      "verification": "pnpm --filter @qyre/web build && pnpm --filter @qyre/web typecheck && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "3a51660",
-      "evidence": "commit 3a51660 (PR #21, https://github.com/ensp1re/qyre/pull/21): the old Schema tab required a sidebar selection and rendered a single TableDetail; replaced with a new SchemaGrid (packages/ui) that lays out every table in the database as a card, reusing TableDetail's exact column-row pattern (PK badge, TypeIcon, indexes, row count) unchanged - no new visual pattern invented. New useAllTables hook (apps/web) fans the existing single-table /api/tables/:schema/:table endpoint out across every schema.table pair via useQueries, sharing its query key with useTable so a table already viewed in the Tables tab is served from cache instead of refetched. FK badges deliberately out of scope, deferred to DF-08 (Postgres/SQLite don't expose FK metadata yet). pnpm --filter @qyre/web build/typecheck and pnpm --filter @qyre/ui build/typecheck clean; pnpm check (full monorepo) passes. Strengthened e2e/connect-and-inspect.spec.ts's Schema tab assertion to run before any table is selected (previously only reachable after selection), proving the grid genuinely doesn't require it - also had to scope the sidebar's table-name assertion to a role locator since the grid's own table-name text now creates a page-wide ambiguity for a bare getByText. Re-ran pnpm test:e2e:full against a real postgres:16-alpine container - passes. Manually verified live via Preview against a real 3-table Postgres fixture (qyre_demo_users/orders/products): grid renders all three cards with correct PK badges/type icons/index footers/row counts, wraps responsively at tablet width, and renders correctly in both light and dark mode.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "DF-06",
-      "behavior": "The Files tab lists and previews SQL-related files, backed by a new read-only, narrowly-scoped filesystem endpoint - the security boundary (which directory, which extensions, opt-in vs. default-on) must be decided and documented in docs/product-specs/dashboard-ui.md before the endpoint is written, per docs/SECURITY.md's untrusted-input rules. Never implement as \"read whatever path the client sends.\"",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web build && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "36791ae",
-      "evidence": "commit 36791ae (PR #22, https://github.com/ensp1re/qyre/pull/22): documented the security boundary in docs/product-specs/dashboard-ui.md's new \"Files tab security boundary\" section before writing any endpoint code - opt-in only via a new --files-dir CLI flag (resolved/validated at startup, no flag means disabled), one fixed root for the process's lifetime, *.sql extension allowlist, directories pruned if they contain no .sql file anywhere below them, no symlink following (fs.Dirent's isDirectory()/isFile() don't resolve symlinks). Backend: packages/server/src/files.ts (buildFileTree, resolveSqlFilePath + InvalidFilePathError) wired into GET /api/files (tree, or {enabled:false} when unconfigured) and GET /api/files/content?path=... (400 for a rejected path - '..' segments, wrong extension, or resolves outside the root; 404 for missing). New FileNode/FilesOverview/FileContent types + fileContentQuerySchema in @qyre/core. Frontend: new FilesBrowser (packages/ui) - a folder/file tree plus a line-numbered preview, both inside one scrollable container (no separate-scroll-sync problem, unlike DF-03's gutter) - wired into App.tsx via new useFilesOverview/useFileContent hooks, handling the same loading/error/empty/success states every other tab does. pnpm --filter @qyre/server test (30/30, real temp-directory/symlink fixtures, no mocks) and pnpm --filter qyre test (11/11, new --files-dir/resolveFilesRoot cases) pass; pnpm --filter @qyre/web build/typecheck and pnpm --filter @qyre/ui build/typecheck clean; pnpm check (full monorepo) passes. Re-ran pnpm test:e2e/test:e2e:full against a real postgres:16-alpine container - no regression. Manually verified live via Preview + curl against a real --files-dir fixture (a migrations/ folder plus a top-level schema.sql, and a notes.txt that correctly does not appear): tree renders, file selection switches the preview, a traversal attempt (?path=../../../../etc/passwd.sql) returns 400 with no file content, and the disabled-state message renders correctly with no --files-dir - all confirmed in both light and dark mode.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "DF-07",
-      "behavior": "The Console tab shows a stream of recent connection/query events, backed by a new server-side in-memory ring buffer (no persistence requirement) and an endpoint exposing it - structured logging already exists (Fastify/pino) but isn't queryable by the frontend today.",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web build && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "185e1ae",
-      "evidence": "commit 185e1ae (PR #23, https://github.com/ensp1re/qyre/pull/23): added a bounded in-memory event log (packages/server/src/event-log.ts, EventLog - a plain array with the oldest entry dropped past 200, not a literal ring-buffer data structure since that complexity isn't worth it at this size), wired to two real event sources already inside the server rather than synthetic data: POST /api/query logs info on success (duration + row count), warn when ReadOnlyViolationError rejects a query, error for any other adapter failure; GET /api/health logs a transition (not every poll, never the first observation) when ping()'s result actually changes. New GET /api/console (read) and DELETE /api/console (clear - safe, since it only resets Qyre's own diagnostic buffer, not the connected database, matching DF-04's CSV-export read-only-adjacent carve-out). New ConsoleEvent/ConsoleEvents types in @qyre/core. Frontend: new ConsoleLog (packages/ui) - level-colored stream with a Clear action; useConsoleEvents polls every 3s while connected (paused by React Query when the tab loses focus - confirmed this, not a bug, is why a headless Preview session never saw the auto-poll fire on its own). Fixed a real, pre-existing gap surfaced while wiring this up: the title bar's global Refresh button only refetched health+overview, never Files (DF-06) or the new Console data - refresh() now refetches both. pnpm --filter @qyre/server test (37/37, new event-log.ts unit tests plus new route tests covering success/rejection/failure logging, connection transitions, and clearing) and the rest of pnpm test pass; pnpm --filter @qyre/web build/typecheck and pnpm --filter @qyre/ui build/typecheck clean; pnpm test:e2e/test:e2e:full against a real postgres:16-alpine container - no regression; pnpm check (full monorepo) passes. Manually verified live via Preview against a real Postgres fixture: ran a successful query and a rejected one, confirmed both appear with correct level colors after a manual refresh; Clear empties the log; both light and dark mode render correctly.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "DF-08",
-      "behavior": "The status bar shows the connected engine + version (e.g. \"PostgreSQL 16.1\", \"SQLite 3.45.0\") via a new engine-agnostic field on HealthResponse/DatabaseAdapter (SELECT version() for Postgres, sqlite_version() pragma for SQLite), and the Schema tab's FK badges (deferred from DF-05) are backed by new FK metadata added to @qyre/core's column/table contracts, implemented per engine the same way IndexMetadata was added in F003.",
-      "verification": "pnpm --filter @qyre/core test && pnpm --filter @qyre/postgres test && pnpm --filter @qyre/sqlite test && pnpm --filter @qyre/server test",
-      "state": "passing",
-      "commitHash": "c7173fb",
-      "evidence": "commit c7173fb (PR #24, https://github.com/ensp1re/qyre/pull/24): added DatabaseAdapter.getVersion(): Promise<string>, implemented per engine like every other engine-specific concern (IndexMetadata's F003 precedent) - Postgres parses \"PostgreSQL 16.4\" out of SELECT version()'s full string; SQLite formats \"SQLite \" + sqlite_version(). New HealthResponse.engineVersion field, populated by GET /api/health only when actually connected (null otherwise, failures swallowed the same way ping() already is). StatusBar shows it in place of the bare engine id, falling back to the bare id if the version call ever fails. New ColumnMetadata.isForeignKey: boolean, detected via information_schema.table_constraints/key_column_usage (Postgres, the same tables the existing PK query already uses) and PRAGMA foreign_key_list (SQLite). TableDetail (reused by both SchemaGrid and the single-table view) now renders the FK badge and blue column-name color the source design always had, closing out DF-05's deferred badge. New integration tests for both adapters create a real second table with an actual FK constraint rather than a mocked shape, plus a getVersion() format assertion; existing DatabaseAdapter mocks in packages/server/src/index.test.ts updated with getVersion for the new required contract method, and new tests assert engineVersion is populated when connected and null otherwise. pnpm test (all packages, including @qyre/postgres/@qyre/sqlite integration suites against a real Postgres container) and pnpm test:e2e/test:e2e:full against a real postgres:16-alpine container all pass; pnpm check (full monorepo) passes. Manually verified live via Preview against a real Postgres fixture with a genuine FK (orders.user_id -> qyre_demo_users.id): Schema tab shows the FK badge with correct blue styling, status bar reads \"PostgreSQL 16.14\" instead of the bare \"postgres\" it showed before - both correct in light and dark mode.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "DF-09",
-      "behavior": "Dark/light theme toggling (the title bar's Sun/Moon button) actually switches the .dark class and persists the choice (localStorage) - dark is the default per docs/references/design-system.md. Purely frontend; no backend dependency.",
-      "verification": "pnpm --filter @qyre/web build && pnpm --filter @qyre/web typecheck && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "0238265",
-      "evidence": "commit 0238265: implemented ahead of schedule - DF-02's original pass left the toggle as an inert chrome-only placeholder, which turned out to be the actual mechanism behind a 'too dark, bad for the eyes' complaint (no way to leave dark mode). apps/web/src/hooks/use-theme.ts toggles the .dark class and persists to localStorage (`qyre-theme`); apps/web/index.html gained a pre-paint inline script reading that key before React mounts so there's no flash of the wrong theme on load. Manually verified live: toggled to light, reloaded, confirmed the choice persisted with zero flash of dark before light applied (checked via document.documentElement.classList and localStorage directly in Preview). pnpm check and pnpm test:e2e/test:e2e:full pass.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F020",
-      "behavior": "The Postgres query runner's `coerceUnknownQuotedIdentifiers` (packages/drivers/postgres) no longer rewrites double-quoted text that lives inside string literals, dollar-quoted blocks, schema-qualified names, or query-local aliases/CTE names - only genuine bare-identifier quoting gets coerced. `SELECT 'he said \"hi\" loudly' FROM users`, `SELECT * FROM \"public\".\"users\"`, and `SELECT \"a\" FROM (SELECT 1 AS a) sub` all run unmodified.",
-      "verification": "pnpm --filter @qyre/postgres test",
-      "state": "passing",
-      "commitHash": "3342268",
-      "evidence": "commit 3342268: replaced the regex-based `coerceUnknownQuotedIdentifiers` with a single-pass tokenizer that treats `'...'` string literals and `$$...$$`/`$tag$...$tag$` dollar-quoted blocks as opaque spans (never scanned for `\"`), added schema names to the known-identifiers set (new `information_schema.schemata` query in `fetchKnownIdentifiers`), and added a best-effort regex heuristic (`collectLocalIdentifiers`) recognizing `AS alias`/`AS \"alias\"` and `name AS (...)` shapes so query-local aliases/CTE names aren't miscoerced. `pnpm --filter @qyre/postgres test` passes (31/31: 15 new/updated unit tests in `index.test.ts` covering all three originally-reported corruption cases plus dollar-quoting, and 3 new live integration tests in `postgres-adapter.integration.test.ts` reproducing each case end to end against a real Postgres container - string-literal quote corruption, schema-qualified table reference, and a query-local column alias). `pnpm --filter @qyre/postgres typecheck`, `format:check`, and `lint` all pass. `docs/product-specs/sql-editor.md`'s \"Double-quoted string values\" section updated with the new behavior and acceptance criteria.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/sql-editor.md"
-    },
-    {
-      "id": "F021",
-      "behavior": "`assertReadOnly` (packages/drivers/contract) no longer rejects valid read-only queries whose string literals contain a `;` or a reserved keyword - the semicolon/statement-count check runs against the same literal-and-comment-stripped text the keyword scan already uses, not raw SQL. `SELECT 'a;b' AS x` is accepted.",
-      "verification": "pnpm --filter @qyre/driver-contract test",
-      "state": "passing",
-      "commitHash": "e1a78ad",
-      "evidence": "commit e1a78ad: the multiple-statement guard checked for `;` against raw SQL (only comments stripped), so filtering by any value containing a semicolon was wrongly rejected. Now runs the same `;` check against `stripLiterals`-masked text the forbidden-keyword scan already uses. `pnpm --filter @qyre/driver-contract test` passes (25/25: 4 new/updated unit tests in `read-only.test.ts` covering a semicolon inside a string literal, inside a double-quoted identifier, a real second statement still rejected, and a single trailing semicolon still tolerated). `pnpm --filter @qyre/postgres test` passes (32/32, including a new live integration test against a real Postgres container reproducing the exact regression end to end). `docs/product-specs/sql-editor.md` gained a new \"Multi-statement / semicolon detection\" section documenting the contract and acceptance criteria.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/sql-editor.md"
-    },
-    {
-      "id": "F022",
-      "behavior": "`GET /api/tables/:schema/:table/rows` returns a clean `400` with a readable error on invalid pagination params (e.g. `?page=abc`), matching `/api/query`'s `safeParse` pattern, instead of a `500` with a raw Zod issue dump.",
-      "verification": "pnpm --filter @qyre/server test",
-      "state": "passing",
-      "commitHash": "de28ebd",
-      "evidence": "commit de28ebd: the rows route called rowsQuerySchema.parse(), which threw a ZodError straight into the global error handler on invalid input - since ZodError carries no statusCode, the handler's 500 default applied, with a raw stringified array of Zod issues as the message. Switched to rowsQuerySchema.safeParse, returning a clean 400 with a readable message, matching /api/query's existing pattern. pnpm --filter @qyre/server test passes (34/34, including a new test asserting 400 - not 500 - for ?page=abc). format/lint/typecheck all pass. docs/product-specs/error-handling.md updated: corrected its stale claim that the rows route didn't have this class of bug, and added an acceptance criterion for it.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/error-handling.md"
-    },
-    {
-      "id": "F023",
-      "behavior": "`GET /api/files/content` re-validates the *real* (symlink-resolved) path against the Files-tab root, not just the lexical path, so a symlink inside `--files-dir` can no longer be used to read a file outside the configured root.",
-      "verification": "pnpm --filter @qyre/server test",
-      "state": "passing",
-      "commitHash": "65171f3",
-      "evidence": "commit 65171f3: resolveSqlFilePath only validated the lexical path, never the real one - a symlink inside --files-dir pointing outside it passed the lexical check and was readable, contradicting the security-boundary doc's no-symlink-following guarantee (which the tree walk already had, but the content-read endpoint never did). Fixed by resolving the path with realpathSync after the lexical check and re-asserting the result still starts within the root's own realpathSync'd form; a not-yet-existing path is left as-is since the caller's existsSync/statSync check already 404s it. pnpm --filter @qyre/server test passes (37/37: 3 new cases - a symlink escaping the root is rejected, a symlink to another in-root file is allowed, a nonexistent path still resolves lexically for the caller's 404 path). format/lint/typecheck all pass. docs/product-specs/dashboard-ui.md's Files tab security boundary section updated to describe real-path validation, not just lexical.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F024",
-      "behavior": "`redactConnectionString` (packages/core) also masks credentials passed as connection-string query parameters (e.g. `?password=...`), not just the `user:pass@host` form, so `/api/health`'s `target` field never surfaces a query-param password.",
-      "verification": "pnpm --filter @qyre/core test",
-      "state": "passing",
-      "commitHash": "9762d70",
-      "evidence": "commit 9762d70: redactConnectionString only masked url.password (the user:pass@host form); pg/mysql2 also accept ?password=... in the query string, and MongoDB accepts a TLS client-cert passphrase the same way, none of which was redacted. Now scans url.searchParams for credential-shaped keys (matched case-insensitively against a password|pwd|secret|token pattern - covers password, pwd, sslpassword, tlsCertificateKeyFilePassword, etc.) and masks their values. pnpm --filter @qyre/core test passes (24/24: 4 new cases - ?password=, ?pwd=, MongoDB's tlsCertificateKeyFilePassword, and an unrelated param like sslmode left untouched). Rebuilt @qyre/core and re-ran pnpm --filter @qyre/server test (37/37, no regression - /api/health consumes redactConnectionString). format/lint/typecheck all pass. docs/SECURITY.md's credential-redaction bullet updated to mention query-param credentials explicitly.",
-      "blockedReason": null,
-      "spec": "docs/SECURITY.md"
-    },
-    {
-      "id": "F025",
-      "behavior": "The local API server rejects requests whose `Host` header is not `127.0.0.1:<port>`/`localhost:<port>`, closing the DNS-rebinding vector against the unauthenticated localhost API.",
-      "verification": "pnpm --filter @qyre/server test",
-      "state": "passing",
-      "commitHash": "53ba237",
-      "evidence": "commit 53ba237: added an onRequest hook rejecting any request whose Host header isn't a loopback hostname (127.0.0.1, localhost, or the IPv6 loopback, with or without a port), closing the DNS-rebinding vector against the unauthenticated localhost-bound API. pnpm --filter @qyre/server test passes (39/39: 2 new cases - a non-loopback Host header is rejected with 400, and 127.0.0.1/localhost/IPv6-loopback/bare-localhost Host headers are all accepted). format/lint/typecheck all pass. Also manually re-verified against the real E2E suite for zero regression: pnpm test:e2e (3/3, all engine projects) and pnpm test:e2e:full against a real Postgres+MySQL container (9/9 passing, 1 pre-existing documented failure unrelated to this change - the dev-seed container's 11-table Schema-tab noise already called out in this file's Known issues, 2 skipped Postgres-only specs) both confirm the browser's real same-origin requests (Host: localhost:<port>) are unaffected. docs/SECURITY.md's Local-first boundary section updated to describe the new protection.",
-      "blockedReason": null,
-      "spec": "docs/SECURITY.md"
-    },
-    {
-      "id": "F026",
-      "behavior": "MongoDB's `getRows` applies a deterministic sort (`_id`) so paging forward never shows a duplicate or skipped document across separate page requests.",
-      "verification": "pnpm --filter @qyre/mongodb test",
-      "state": "passing",
-      "commitHash": "d174caa",
-      "evidence": "commit d174caa: find().skip().limit() ran with no sort, and MongoDB gives no ordering guarantee between separate queries. Added .sort({ _id: 1 }). pnpm --filter @qyre/mongodb test passes (15/15, including a new live case that pages one document at a time and confirms all are unique, plus a repeat-page-returns-same-document check, against a real MongoDB container). docs/product-specs/connect-and-inspect-mongodb.md updated.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-mongodb.md"
-    },
-    {
-      "id": "F027",
-      "behavior": "Opening the Schema tab issues one (or a few batched) lightweight server request(s) for per-table summaries instead of fanning `useAllTables` out into one HTTP request plus several catalog queries per table, so it scales to schemas with hundreds of tables.",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "6e2a3b7",
-      "evidence": "commit 6e2a3b7 (e2e locator fix in 0c53ea6): added GET /api/tables (new AllTablesResponse type in @qyre/core), which fetches every table's metadata server-side in one request instead of the browser fanning one out per table via useQueries. Rewrote useAllTables to a single useQuery against it. pnpm --filter @qyre/server test passes (42/42, 2 new cases) and pnpm --filter @qyre/web build/typecheck pass. Verified live via Preview: Schema tab renders identically (all tables, PK/FK badges, row counts) with exactly one /api/tables request. Also ran the full pnpm test:e2e:full across all three engines, which caught a real F031 regression (role=\"button\" -> \"treeitem\" broke two e2e locators) - fixed in commit 0c53ea6; full suite green afterward (one remaining failure is the pre-existing, documented dev-seed-container table-count noise, unrelated). docs/product-specs/dashboard-ui.md updated.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F028",
-      "behavior": "Postgres/MySQL connection-pool error events are routed into the server's structured `EventLog` (visible in the Console tab) instead of a bare `console.error`, so a dropped connection is visible where a user watching Console would look for it.",
-      "verification": "pnpm --filter @qyre/postgres test && pnpm --filter @qyre/mysql test && pnpm --filter @qyre/server test",
-      "state": "passing",
-      "commitHash": "1a03880",
-      "evidence": "commit 1a03880: added an optional onConnectionEvent hook to the DatabaseAdapter contract; Postgres/MySQL route their pool error listeners through it when set, falling back to console.error otherwise. startServer creates (or accepts) a shared EventLog and returns it on RunningServer so the CLI wires adapter.onConnectionEvent = (level, msg) => server.eventLog.log(level, msg) right after startup. pnpm --filter @qyre/postgres test (33/33), pnpm --filter @qyre/mysql test (15/15), and pnpm --filter @qyre/server test (40/40, new shared-EventLog case) all pass, including new live integration tests reproducing a real pool error for both engines against real containers.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F029",
-      "behavior": "`useHealth` polls on a modest interval (matching the Console poll's cadence) instead of only fetching once on mount, so the connection indicator and the server's connection-transition log entries reflect real disconnects/reconnects without a manual Refresh.",
-      "verification": "pnpm --filter @qyre/web test && pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "526e25b",
-      "evidence": "commit 526e25b: added a 3s refetchInterval to useHealth, matching useConsoleEvents' existing cadence. Verified live: stopped the real Postgres container mid-session and watched the status dot flip to \"Disconnected\" within one poll with no manual refresh, the Console tab logged \"Database connection lost.\"; restarted the container and watched auto-recovery to \"Connected\" with \"Database connection restored.\" logged - both previously-dormant transition log lines now genuinely fire. pnpm --filter @qyre/web build/typecheck pass.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F030",
-      "behavior": "A top-level React error boundary (plus a narrower one around the table/query result area) catches render errors and shows a recoverable fallback (reusing `ErrorState`) instead of white-screening the whole app.",
-      "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/web build",
-      "state": "passing",
-      "commitHash": "b63cd27",
-      "evidence": "commit b63cd27: new ErrorBoundary (packages/ui), reusing ErrorState for its fallback - a top-level one in main.tsx wrapping the whole app, and a narrower one in App.tsx around the tab content area, keyed by the active tab. Verified live via Preview: a real render error inside the tab-content subtree is caught by the narrower boundary (rest of the shell - title bar, sidebar toggle - stayed fully interactive), Retry re-attempts the render, and removing the fault fully recovers on next reload. pnpm --filter @qyre/web build/typecheck and pnpm --filter @qyre/ui build/typecheck pass.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F031",
-      "behavior": "Schema tree rows (`packages/ui/src/components/schema-tree.tsx`) are keyboard-focusable and operable (`Enter`/`Space` to activate, `ArrowRight`/`ArrowLeft` to expand/collapse) with proper `role=\"tree\"`/`role=\"treeitem\"` and `aria-expanded`/`aria-selected` semantics.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "da38eb6",
-      "evidence": "commit da38eb6 (e2e locator fix in 0c53ea6): every row is now a focusable role=\"treeitem\" (container role=\"tree\", expandable rows' children role=\"group\"), with aria-expanded/aria-selected/aria-level kept in sync; Enter/Space activate, ArrowRight/ArrowLeft expand/collapse. pnpm --filter @qyre/ui test passes (18/18, unchanged - no component-render test infra in this package, tracked separately as tech debt). Verified live via Preview: dispatched real keyboard events at a focused row - ArrowLeft/ArrowRight correctly toggled aria-expanded and visible-row count, Enter selected a table (switched tabs, loaded real rows, aria-selected flipped true) - and the browser's own accessibility tree reports tree/treeitem/group correctly. Changing table rows from role=\"button\" to \"treeitem\" broke two e2e locators, caught by the full pnpm test:e2e:full run done for F027 and fixed in commit 0c53ea6.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F032",
-      "behavior": "Postgres/MySQL/MongoDB adapters set a sane default statement/query timeout (e.g. `statement_timeout`/`max_execution_time`/`maxTimeMS`, configurable) on the read-only query and row-fetch paths, so a runaway query fails fast with a clear error instead of hanging the request and holding a pool connection indefinitely.",
-      "verification": "pnpm --filter @qyre/postgres test && pnpm --filter @qyre/mysql test && pnpm --filter @qyre/mongodb test",
-      "state": "passing",
-      "commitHash": "182bdf8",
-      "evidence": "commit 182bdf8: all three configurable via one shared QYRE_STATEMENT_TIMEOUT_MS env var (default 30s), read at connect() time. Postgres: pg's statement_timeout on the pool. MySQL: a per-query timeout option (MAX_EXECUTION_TIME, the session-variable equivalent, races the pool handing out a freshly created connection before the SET command lands - confirmed live, hence the per-query option instead). MongoDB: maxTimeMS on getRows/getTable's cursors. Verified live against real containers: a dedicated adapter with a 200ms timeout rejects pg_sleep(2)/SELECT SLEEP(2) via runReadOnlyQuery for Postgres/MySQL; MongoDB's getRows/getTable take no user-controllable filter to force a real slow query, so verified the underlying maxTimeMS mechanism directly (a $where server-side sleep against a real MongoDB container). pnpm --filter @qyre/postgres test (34/34), pnpm --filter @qyre/mysql test (16/16), pnpm --filter @qyre/mongodb test (16/16) all pass. docs/product-specs/sql-editor.md updated.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/sql-editor.md"
-    },
-    {
-      "id": "F033",
-      "behavior": "Overview/table/rows queries have an explicit freshness policy (a real `staleTime` and/or a light background refetch) instead of inheriting React Query's all-defaults cache, so a schema change in the connected database (table added/dropped, column changed) doesn't stay invisible until a manual Refresh.",
-      "verification": "pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "e723173",
-      "evidence": "commit e723173: added a 30s refetchInterval to useOverview while connected (longer than health/console polling since schema drift is far less frequent than a connection drop), in addition to the existing manual Refresh and refetch-on-focus. Verified live: created a table directly against the real Postgres container while Qyre stayed open with no interaction, and watched it appear in the sidebar within one poll with no manual refresh; dropped it and confirmed cleanup. pnpm --filter @qyre/web build/typecheck pass. docs/product-specs/dashboard-ui.md updated.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F034",
-      "behavior": "The connect-nothing empty state in `apps/web/src/App.tsx` (~line 146) lists all four supported engines (Postgres, MySQL, SQLite, MongoDB) instead of the stale \"Postgres or SQLite\".",
-      "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/web build",
-      "state": "passing",
-      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: apps/web/src/App.tsx's disconnected empty-state now lists \"Postgres, MySQL, SQLite, or MongoDB\" instead of the stale \"Postgres or SQLite\". pnpm --filter @qyre/web build/typecheck pass. Verified live via Preview: the copy renders correctly (this is a static string change with no branching logic). PR: https://github.com/ensp1re/qyre/pull/54.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F035",
-      "behavior": "CSV export/copy (`packages/ui/src/components/rows-table.tsx` `toCsv`) escapes cell values starting with `=`, `+`, `-`, or `@` so opening an exported CSV in Excel/Sheets can't execute a formula from untrusted DB data.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: toCsv (packages/ui/src/components/rows-table.tsx) now prefixes a leading apostrophe on any cell value starting with =, +, -, or @ before CSV quoting, so Excel/Sheets treats it as text instead of executing it as a formula. Added rows-table.test.ts covering quoting, formula-prefix escaping, and the non-leading-character case (3/3 passing). pnpm --filter @qyre/ui test (24/24) passes. PR: https://github.com/ensp1re/qyre/pull/54.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F036",
-      "behavior": "`apps/web`'s `canGoNext` pagination check no longer enables Next purely because `rows.length === pageSize`; an exact-page-size boundary can't land on an empty next page.",
-      "verification": "pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: apps/web/src/hooks/use-rows.ts's useRows now fetches the real page plus a 1-row probe at the next page's offset ((page + 1) * PAGE_SIZE) in parallel, and returns a real hasMore boolean instead of the rows.length === pageSize heuristic (wrong exactly on an exact-page-size boundary). Verified live against the real Postgres container: created a 25-row fixture table and confirmed canGoNext reads false on its one and only page (previously true, which would have fetched an empty next page); confirmed via curl against the 10,000-row events table that page 399 (the last full page) probes false while page 398 probes true. pnpm --filter @qyre/web build/typecheck pass. PR: https://github.com/ensp1re/qyre/pull/54.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F037",
-      "behavior": "Schema tree search (`packages/ui/src/components/schema-tree.tsx`) shows a hint for the 2-character minimum instead of silently showing the unfiltered tree on a single character.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: schema-tree.tsx shows \"keep typing - search needs 2+ characters\" when the trimmed query is exactly 1 character, instead of silently rendering the unfiltered tree. Verified live via Preview: typing a single character shows the hint; clearing or typing a second character restores normal search/tree behavior. pnpm --filter @qyre/ui test passes. PR: https://github.com/ensp1re/qyre/pull/54.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F038",
-      "behavior": "Connection status in `schema-tree.tsx` (`STATUS_DOT_COLOR`) is conveyed by adjacent text/`aria-label`, not dot color alone, so color-blind users can distinguish connection state.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: the schema tree's connection row now renders CircleCheck/CircleAlert/Circle (connected/disconnected/unconfigured) with aria-label=\"Connection status: <label>\" instead of a single Circle colored via STATUS_DOT_COLOR alone, so color-blind users get a distinct shape plus a screen-reader label. Verified live via Preview: confirmed the rendered icon carries role=\"img\" and the expected aria-label for a connected session. pnpm --filter @qyre/ui test passes. PR: https://github.com/ensp1re/qyre/pull/54.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F039",
-      "behavior": "`cell-value-drawer.tsx` and `query-history-drawer.tsx` trap Tab focus while open and restore focus to the trigger control on close, instead of letting keyboard focus escape into obscured background content.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: a new shared useFocusTrap hook (packages/ui/src/use-focus-trap.ts) traps Tab/Shift+Tab within a container while active and restores focus to whatever had it beforehand on close; wired into both CellValueDrawer and QueryHistoryDrawer (each aside gets tabIndex=-1 as a focus fallback). Verified live via Preview with real focus + keyboard events (synthetic .click() alone doesn't move focus the way a real user click does, so the test explicitly focused the trigger first): opening either drawer moves focus to its first control, Tab/Shift+Tab wrap at the last/first focusable element, and closing restores focus to the original trigger (History button / inspected cell chip). pnpm --filter @qyre/ui test passes. PR: https://github.com/ensp1re/qyre/pull/54.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F040",
-      "behavior": "Loading states move past plain \"Loading...\" text, and the Cmd/Ctrl+Enter run-query shortcut is discoverable beyond a single easy-to-miss hint.",
-      "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "bebe4ece22d0f672ed57547e80e648496e18e503",
-      "evidence": "commit bebe4ec: query-runner.tsx's shortcut hint is now platform-aware (⌘ Enter on Mac, Ctrl Enter elsewhere via navigator.platform), rendered as a bordered chip, and repeated as the Run button's title attribute so it's discoverable via hover, not only the one small always-visible label. Audited the app's other loading states (rows/tables/files/console) and found they already pair a Spinner with a specific noun (e.g. \"Loading rows...\"), not bare \"Loading...\" text, so no further change was needed there. Verified live via Preview at a desktop viewport width: the chip renders and the Run button's title reads \"Run query (⌘ Enter)\". pnpm --filter @qyre/web build/typecheck pass. PR: https://github.com/ensp1re/qyre/pull/54.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/sql-editor.md"
-    },
-    {
-      "id": "F041",
-      "behavior": "Query hooks (`use-health`, `use-overview`, `use-table`, `use-rows`, `use-files`, `use-console`) apply a bounded retry policy instead of `retry: false`, so a single transient blip doesn't immediately surface an error panel.",
-      "verification": "pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "b2c23e52346d7684952b85e86f569a59921b6512",
-      "evidence": "commit b2c23e5: a new shared QUERY_RETRY constant (apps/web/src/hooks/query-retry.ts, retry: 2 with a 500ms/1s backoff) replaces retry: false in use-health, use-overview, use-table, use-rows, and both use-files hooks, and use-console - exactly the 6 hooks named in the tech-debt row (use-all-tables, the Schema tab's batched fetch, was intentionally left alone - it wasn't named in that row). pnpm --filter @qyre/web build/typecheck pass. PR: https://github.com/ensp1re/qyre/pull/55.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/error-handling.md"
-    },
-    {
-      "id": "F042",
-      "behavior": "`/api/health` reports ping latency and the last error message alongside `connected`/`disconnected`/`unconfigured` and version, so \"disconnected\" and \"slow\" no longer look identical.",
-      "verification": "pnpm --filter @qyre/server test",
-      "state": "passing",
-      "commitHash": "b2c23e52346d7684952b85e86f569a59921b6512",
-      "evidence": "commit b2c23e5: GET /api/health now measures ping latency around the adapter.ping() call and reports it as pingLatencyMs (null when unconfigured), and captures the real ping() rejection reason as lastError (cleared back to null once a later ping succeeds) instead of swallowing it via .catch(() => false). Surfaced as a title tooltip on the status bar's connection label (StatusBar). Added 3 new server tests covering the unconfigured/connected/failed-then-recovered cases; pnpm --filter @qyre/server test (44/44) and pnpm --filter @qyre/core test pass. Verified live via Preview against a real Postgres container: GET /api/health returned {\"pingLatencyMs\": 1, \"lastError\": null} and the status-bar span's title read \"ping 1ms\". PR: https://github.com/ensp1re/qyre/pull/55.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/error-handling.md"
-    },
-    {
-      "id": "F043",
-      "behavior": "The CLI's `SIGINT`/`SIGTERM` handler enforces a shutdown timeout, guards against re-entrant signals, and exits non-zero when teardown fails, instead of being able to hang forever on a wedged DB connection.",
-      "verification": "pnpm --filter @qyre/qyre test",
-      "state": "passing",
-      "commitHash": "b2c23e52346d7684952b85e86f569a59921b6512",
-      "evidence": "commit b2c23e5: a new createShutdownHandler (packages/cli) wraps server.close()/adapter.disconnect() with a 5s timeout (Promise.race, configurable per-instance for tests), a re-entrancy guard (a second SIGINT/SIGTERM while teardown is in flight is a no-op instead of starting a second concurrent teardown), and exits 1 (logging the reason) instead of 0 on teardown failure or timeout. 4 new unit tests cover the success, teardown-throws, timeout, and re-entrancy cases with injected fakes (no real process.exit). pnpm --filter @qyre/qyre test (17/17) passes. PR: https://github.com/ensp1re/qyre/pull/55.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F044",
-      "behavior": "Static bundle assets are served with compression (gzip/brotli) and cache-control headers for hashed assets, instead of bare `@fastify/static` defaults.",
-      "verification": "pnpm --filter @qyre/server test",
-      "state": "passing",
-      "commitHash": "b2c23e52346d7684952b85e86f569a59921b6512",
-      "evidence": "commit b2c23e5: @fastify/compress is registered alongside the static-asset plugin (gzip/brotli negotiated via Accept-Encoding), and @fastify/static's setHeaders (with its own default cache-control disabled via cacheControl: false, which otherwise won by being applied after setHeaders) gives every file except index.html a 'public, max-age=31536000, immutable' Cache-Control, and index.html itself 'no-cache' so a stale copy can't reference hashed assets a redeploy removed. 2 new server tests cover both branches. pnpm --filter @qyre/server test (46/46) passes. Verified live via Preview against the real built apps/web/dist: curl -I on / returned Cache-Control: no-cache, and on the hashed JS bundle with Accept-Encoding: gzip returned both Cache-Control: public, max-age=31536000, immutable and Content-Encoding: gzip. PR: https://github.com/ensp1re/qyre/pull/55.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F045",
-      "behavior": "`normalizeBsonValue` (`packages/drivers/mongodb`) distinguishes BSON `Timestamp` (`{t, i}`) from `Long` and gives `Code`/`BSONRegExp`/`MinKey`/`MaxKey`/`BSONSymbol` dedicated branches instead of falling through to a generic object.",
-      "verification": "pnpm --filter @qyre/mongodb test",
-      "state": "passing",
-      "commitHash": "b2c23e52346d7684952b85e86f569a59921b6512",
-      "evidence": "commit b2c23e5: normalizeBsonValue (packages/drivers/mongodb) now checks Timestamp before Long (Timestamp subclasses Long) and returns {t, i} instead of misreading it as a signed 64-bit integer; Code returns {code, scope}; BSONRegExp and the native RegExp the driver actually decodes a BSON regex into by default (confirmed live - bsonRegExp: true isn't set) both return {pattern, options}; MinKey/MaxKey return extended-JSON-style {$minKey: 1}/{$maxKey: 1}; BSONSymbol returns its plain string value. normalizeBsonValue exported and 7 new unit tests added. Verified live end-to-end against a real MongoDB container: inserted a document with a Timestamp/MinKey/Code/regex field and confirmed mongodbAdapterFactory's getRows returns the correctly normalized shape for every field (the regex field initially came back as {} - the driver decodes it to a native RegExp, not BSONRegExp, by default - caught by this live check and fixed with an added RegExp branch). pnpm --filter @qyre/mongodb test (23/23, including the full integration suite) passes. PR: https://github.com/ensp1re/qyre/pull/55.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-mongodb.md"
-    },
-    {
-      "id": "F046",
-      "behavior": "Postgres/SQLite/MySQL driver packages import `assertReadOnly`/`ReadOnlyViolationError` directly from `@qyre/driver-contract` instead of re-exporting them verbatim.",
-      "verification": "pnpm --filter @qyre/postgres test && pnpm --filter @qyre/mysql test && pnpm --filter @qyre/sqlite test",
-      "state": "passing",
-      "commitHash": "b2c23e52346d7684952b85e86f569a59921b6512",
-      "evidence": "commit b2c23e5: removed the verbatim `export { assertReadOnly, ReadOnlyViolationError } from \"@qyre/driver-contract\"` line from all three of @qyre/postgres, @qyre/mysql, and @qyre/sqlite - confirmed no in-repo consumer imported either name from the driver packages rather than the contract package directly. pnpm --filter @qyre/postgres test (34/34), pnpm --filter @qyre/mysql test (16/16), pnpm --filter @qyre/sqlite test (14/14) pass. PR: https://github.com/ensp1re/qyre/pull/55.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F047",
-      "behavior": "Tuning constants (page sizes, `MAX_EVENTS`, `FIELD_SAMPLE_SIZE`, query-history `MAX_ENTRIES`) are defined in one shared module instead of independently per package, and the UI/server/core page-size numbers no longer diverge (25 vs. 50 vs. 200).",
-      "verification": "pnpm --filter @qyre/core test && pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "cccf39352c956743128ae766caf864890b69cfcf",
-      "evidence": "commit cccf393: @qyre/core/src/pagination.ts adds shared DEFAULT_PAGE_SIZE (50) and MAX_PAGE_SIZE (200) constants; packages/core/src/validation/rows.ts's rowsQuerySchema and packages/drivers/contract/src/pagination.ts's resolvePageRequest both import from there instead of hardcoding 50/200 independently. apps/web's own UI_PAGE_SIZE (25) stays a local constant with a comment pointing back here - @qyre/core bundles as a single flat file via tsup, and importing any real (non-type) value from its barrel drags in connection-target.ts's Node-only fs/path/url imports, which broke Vite's browser build (confirmed live via pnpm --filter @qyre/web build, caught and reverted to the local-constant approach before landing). The other tracker row (MAX_EVENTS/FIELD_SAMPLE_SIZE/history MAX_ENTRIES) was deliberately left alone - each is a private, single-use constant with no actual cross-package duplication, unlike the three page-size numbers. pnpm --filter @qyre/core test (24/24), pnpm --filter @qyre/driver-contract test (30/30), pnpm --filter @qyre/web build/typecheck all pass. PR: https://github.com/ensp1re/qyre/pull/56.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F048",
-      "behavior": "Postgres `getTable` issues a combined catalog query instead of 5 separate round-trips per table (columns, PK, FK, indexes, row-count).",
-      "verification": "pnpm --filter @qyre/postgres test",
-      "state": "passing",
-      "commitHash": "cccf39352c956743128ae766caf864890b69cfcf",
-      "evidence": "commit cccf393: Postgres getTable combines the separate PK and FK catalog queries into one (filtering on constraint_type IN ('PRIMARY KEY', 'FOREIGN KEY'), split client-side), and runs it plus the columns query, fetchIndexes, and fetchRowCountEstimate all via one Promise.all - 4 parallel round trips instead of 5, 3 of them previously sequential. Existing integration tests (isPrimaryKey/isForeignKey assertions) pass unchanged - pnpm --filter @qyre/postgres test (34/34, including the live-Postgres integration suite). Verified live via Preview against the real Postgres container: GET /api/tables/public/employees still correctly reports id as PK, company_id as FK, the index, and the 10,000 row count. PR: https://github.com/ensp1re/qyre/pull/56.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
-    },
-    {
-      "id": "F049",
-      "behavior": "Postgres and MySQL adapters share a common `SqlAdapterBase` for `getOverview`/`getTable`/`runReadOnlyQuery`'s transaction ceremony instead of duplicating it verbatim in each package.",
-      "verification": "pnpm --filter @qyre/postgres test && pnpm --filter @qyre/mysql test",
-      "state": "passing",
-      "commitHash": "cccf39352c956743128ae766caf864890b69cfcf",
-      "evidence": "commit cccf393: a new runInReadOnlyTransaction helper (@qyre/driver-contract) shares the begin/query/commit/catch-rollback-and-rethrow/finally-release ceremony; Postgres's runReadOnlyQuery and MySQL's runReadOnlyQuery both now call it with an engine-specific ReadOnlyTransactionClient instead of duplicating the try/catch/finally block verbatim. getOverview/getTable were not folded into a shared base - neither uses a transaction at all in either engine (plain pool queries), and their actual SQL differs enough per-dialect that a forced shared abstraction there would be leaky, not genuinely shared ceremony; scoped to the one piece the tracker row's own description (\"transaction ceremony\") literally names. pnpm --filter @qyre/postgres test (34/34) and pnpm --filter @qyre/mysql test (16/16), both including their live-database integration suites (read-only rejection, statement timeout, quoted-identifier coercion), pass unchanged. PR: https://github.com/ensp1re/qyre/pull/56.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/connect-and-inspect-postgres.md"
-    },
-    {
-      "id": "F050",
-      "behavior": "`runReadOnlyQuery` enforces a result-row cap so a single `SELECT * FROM huge_table` can't fetch/serialize/render an unbounded result set.",
-      "verification": "pnpm --filter @qyre/postgres test && pnpm --filter @qyre/mysql test && pnpm --filter @qyre/sqlite test",
-      "state": "passing",
-      "commitHash": "cccf39352c956743128ae766caf864890b69cfcf",
-      "evidence": "commit cccf393: a new capResultRows (@qyre/driver-contract) wraps any SELECT/WITH/VALUES/TABLE statement as `SELECT * FROM (<query>) AS qyre_capped_query LIMIT 1000` before running it, across Postgres/MySQL/SQLite's runReadOnlyQuery; EXPLAIN/SHOW are left unwrapped (not valid subquery sources, not the unbounded-rows risk). 5 new unit tests cover wrapping, the trailing-semicolon strip, and the EXPLAIN/SHOW exemption. Verified live against real Postgres/MySQL/SQLite: a 10,000-row Postgres table and a 1,500-row MySQL/SQLite table each capped at exactly 1000 rows via the real GET /api/query path; a WITH CTE, a trailing-semicolon query, and EXPLAIN all still behaved correctly. pnpm --filter @qyre/driver-contract test (30/30), pnpm --filter @qyre/postgres test (34/34), pnpm --filter @qyre/mysql test (16/16), pnpm --filter @qyre/sqlite test (14/14) all pass. PR: https://github.com/ensp1re/qyre/pull/56.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/sql-editor.md"
-    },
-    {
-      "id": "F051",
-      "behavior": "`RowsTable` and the query-result table virtualize row rendering instead of mounting every row/cell as a DOM node, so wide tables at max page size stay responsive.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "cccf39352c956743128ae766caf864890b69cfcf",
-      "evidence": "commit cccf393: RowsTable and QueryRunner's result table both virtualize row rendering via @tanstack/react-virtual (top/bottom spacer <tr>s sized from the virtualizer, only the visible + overscan rows actually mounted) - existing sort/filter/selection/CSV-export/cell-inspect behavior preserved unchanged. Verified live via Preview: ran a query against the 1000-row-capped events table and confirmed only ~15-23 <tr> elements were mounted in the DOM at any scroll position (via document.querySelectorAll), while the table's rendered height correctly reflected all 1000 rows (~30000px) and scrolling correctly shifted the mounted row-index window; cell-inspect (opening the value drawer) and the Tables tab's 25-row page still rendered real data correctly. pnpm --filter @qyre/ui test (21/21) and typecheck pass. PR: https://github.com/ensp1re/qyre/pull/56.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F052",
-      "behavior": "`apps/web/src/App.tsx` is decomposed out of its ~290-line single-component tab-routing ternary into smaller route/tab components, with no behavior change.",
-      "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/web build",
-      "state": "passing",
-      "commitHash": "cccf39352c956743128ae766caf864890b69cfcf",
-      "evidence": "commit cccf393: apps/web/src/App.tsx's ~290-line nested tab-routing ternary is split into 5 new components (apps/web/src/components/{sql-editor,tables,schema,files,console}-tab.tsx), each owning one tab's loading/error/empty/content states; App.tsx now just dispatches on `tab` and wires hooks to props, per apps/web/STRUCTURE.md's current (non-features/) shape - the features/ migration trigger (multiple routes, or api/hooks no longer reading as one coherent unit) hasn't fired, so that bigger restructure was deliberately not done. Pure refactor, no behavior change - verified live via Preview: clicked through all 5 tabs (SQL Editor/Tables/Schema/Files/Console) and confirmed each renders its expected content with no console errors, and selecting a table still loads real rows correctly. pnpm --filter @qyre/web typecheck/build and lint pass. PR: https://github.com/ensp1re/qyre/pull/56.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F053",
-      "behavior": "A test asserts the adapter/factory registry, `scripts/publish.mjs`'s `PUBLISH_ORDER`, and `connection-target.ts`'s protocol detection stay in lockstep, failing if an engine is added to one list but not the others.",
-      "verification": "pnpm --filter @qyre/core test",
-      "state": "passing",
-      "commitHash": "cccf39352c956743128ae766caf864890b69cfcf",
-      "evidence": "commit cccf393: a new scripts/check-engine-lockstep.mjs (wired into pnpm check:state) derives the canonical engine list from connection-target.ts's `engine: \"x\"` literals and asserts each engine's AdapterFactory is referenced in packages/cli/src/index.ts and each `@qyre/<engine>` package name appears in scripts/publish.mjs's PUBLISH_ORDER. Running it against the pre-existing state caught a real, live drift bug: @qyre/mysql and @qyre/mongodb were both missing from PUBLISH_ORDER (added in this same commit, in the correct dependency-ordered position alongside the other drivers). Confirmed the check fails loudly when that drift is reintroduced (manually reverted PUBLISH_ORDER, reran, got a clear error naming both missing packages, then restored the fix). node scripts/check-engine-lockstep.mjs and pnpm check:state both pass. PR: https://github.com/ensp1re/qyre/pull/56.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F054",
-      "behavior": "A shared parametrized adapter-conformance test suite exercises pagination clamping, empty-collection handling, bigint/date fidelity, read-only rejection, and error shapes identically across Postgres/MySQL/SQLite/Mongo.",
-      "verification": "pnpm --filter @qyre/testing test",
-      "state": "passing",
-      "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: packages/testing-conformance is a new dedicated package hosting a describe.each-parametrized adapter-conformance suite (pagination clamping, empty-collection getRows/getTable) that runs identically against Postgres/MySQL/SQLite/Mongo via each engine's real AdapterFactory. It could not live inside @qyre/testing itself - that package's own fixtures (FIXTURE, requireTestDatabaseUrl, etc.) are already a devDependency of all four driver packages, so @qyre/testing importing the drivers back would create a build cycle (caught live: `pnpm typecheck` failed with turbo's \"Cyclic dependency detected\" error the moment the suite was added there). Verified against a real docker-compose Postgres+MySQL+Mongo stack: `pnpm --filter @qyre/testing-conformance test` passes 20/20 (5 assertions x 4 engines, SQLite always configured, the other three via QYRE_TEST_*); `pnpm typecheck`/`pnpm build` pass cleanly across all 22 packages with no cycle. PR: https://github.com/ensp1re/qyre/pull/57.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F055",
-      "behavior": "`@qyre/ui` gains component-level test coverage (cell rendering, tree search, CSV escaping, sort) instead of being exercised only via E2E.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: packages/ui/src/test-setup.ts adds RTL's afterEach(cleanup) (this repo doesn't set vitest's test.globals: true, so RTL's own auto-cleanup never registered) and mocks HTMLElement.prototype.offsetWidth/offsetHeight, which @tanstack/react-virtual's getRect() reads directly in jsdom (not getBoundingClientRect, confirmed by reading virtual-core's source after an initial getBoundingClientRect mock produced zero rendered rows). New render tests cover CellValue, SchemaTree (search highlighting, keyboard nav), FilesBrowser, and RowsTable (sort, filter, and F061's FK-cell click/no-click behavior). `pnpm --filter @qyre/ui test` passes 40/40 (7 files). PR: https://github.com/ensp1re/qyre/pull/57.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F056",
-      "behavior": "Integration tests fail loudly instead of skipping silently when `QYRE_TEST_*` env vars are unset, and E2E gains baseline `axe` accessibility assertions.",
-      "verification": "pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: e2e/smoke.spec.ts and e2e/connect-and-inspect.spec.ts run @axe-core/playwright scans. This surfaced a real aria-input-field-name violation on CodeMirror's `role=\"textbox\"` content div, fixed via `EditorView.contentAttributes.of({ \"aria-label\": \"SQL query editor\" })` in query-runner.tsx. The tracker row's other claim (\"integration tests skip silently when QYRE_TEST_* is unset\") was investigated and found already false - requireTestDatabaseUrl/requireTestMysqlUrl/requireTestMongoUrl already throw loudly (confirmed live: running `pnpm --filter @qyre/mongodb test` with the env var unset exits 1, not 0) - so this feature is scoped to the axe assertions. Widespread text-muted-foreground/NN color-contrast violations are pre-existing and out of scope for this batch; the color-contrast axe rule is disabled with an explanatory comment and a new tech-debt-tracker.md row. Verified live: `pnpm test:e2e` and `pnpm test:e2e:full` both pass (13/13 non-skipped) against a real docker-compose Postgres+MySQL+Mongo stack, with axe scans running and passing (color-contrast excluded, all other rules enforced). PR: https://github.com/ensp1re/qyre/pull/57.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F057",
-      "behavior": "A committed `docker-compose.yml` starts the local Postgres+MySQL+Mongo test stack, and a root `.env.example` documents the `QYRE_TEST_*` vars, so a new contributor doesn't need to read CI YAML to find them.",
-      "verification": "docker compose -f docker-compose.yml config",
-      "state": "passing",
-      "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: a committed docker-compose.yml starts postgres:16/mysql:8/mongo:7 on the standard ports/credentials .env.example documents (QYRE_TEST_DATABASE_URL, QYRE_TEST_MYSQL_URL, QYRE_TEST_MONGO_URL, QYRE_TEST_SQLITE_PATH, QYRE_STATEMENT_TIMEOUT_MS), matching .github/workflows/ci.yml's service containers exactly. Verified live: `docker compose up -d` brought all three services to a healthy state, and the full `pnpm test`/`pnpm test:e2e:full` suites (see F056's evidence) ran against them successfully before `docker compose down`. PR: https://github.com/ensp1re/qyre/pull/57.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F058",
-      "behavior": "A human-facing `CONTRIBUTING.md` documents setup/build/test for an external contributor, distinct from the agent-facing `AGENTS.md`.",
-      "verification": "pnpm check:state",
-      "state": "passing",
-      "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: a new human-facing CONTRIBUTING.md covers setup (Node/pnpm versions, docker-compose stack, env vars), build/test/lint commands, and PR conventions, distinct from the agent-facing AGENTS.md. `pnpm check:state` passes. PR: https://github.com/ensp1re/qyre/pull/57.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F059",
-      "behavior": "Engine lists in the root README and per-package READMEs are mechanically checked (`scripts/check-readme.mjs` extended to assert the engine list), so a copy drift like the stale \"Postgres or SQLite\" empty-state can't recur undetected.",
-      "verification": "node scripts/check-readme.mjs",
-      "state": "passing",
-      "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: scripts/check-readme.mjs now derives the canonical engine list the same way scripts/check-engine-lockstep.mjs does (from connection-target.ts's `engine: \"x\"` literals) and asserts each engine's display name appears in README.md, so a copy-drift regression fails CI instead of going unnoticed. Running it against the pre-existing README caught a real drift: the \"Status\" section listed Postgres/MySQL/SQLite but not MongoDB - fixed in the same commit, along with packages/cli/README.md's stale \"Postgres first, more engines planned\" wording. `node scripts/check-readme.mjs` and `pnpm check:state` both pass. PR: https://github.com/ensp1re/qyre/pull/57.",
-      "blockedReason": null,
-      "spec": null
-    },
-    {
-      "id": "F060",
-      "behavior": "A user-facing doc covers per-engine connection-string formats, troubleshooting, and the read-only/local-first security model, distinct from the agent/contributor-facing docs.",
-      "verification": "pnpm check:state",
-      "state": "passing",
-      "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: a new docs/CONNECTING.md covers per-engine connection-string formats, a troubleshooting table, and a summary of the read-only/local-first security model, written for end users rather than agents/contributors. `pnpm check:state` passes. PR: https://github.com/ensp1re/qyre/pull/57.",
-      "blockedReason": null,
-      "spec": "docs/SECURITY.md"
-    },
-    {
-      "id": "F061",
-      "behavior": "FK columns in the Rows/Table view are clickable and navigate to the referenced table, using the FK metadata `getTable` already returns.",
-      "verification": "pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: getTable on Postgres (a LEFT JOIN against information_schema.constraint_column_usage), MySQL (information_schema.key_column_usage's built-in referenced_* columns), and SQLite (the foreign_key_list PRAGMA's table/to fields) now resolve which table/column each FK column references, not just that it is one - ColumnMetadata gained an optional `references: ForeignKeyReference` field. RowsTable renders a blue \"FK\" header badge and, when the caller supplies onNavigateToForeignKey, a clickable underlined cell (with a `Go to <table>.<column>` tooltip) instead of a plain value. apps/web wires this through TablesTab to App.tsx's existing selectTable, so clicking a FK cell switches the Tables tab to the referenced table. Verified live in the browser preview against a real SQLite fixture (users/orders tables with a real FK): clicking the `user_id` FK cell in the orders table navigated to the users table and rendered its rows. All 3 SQL drivers' integration tests extended with `references` assertions and passing (34/34 postgres, 16/16 mysql, 14/14 sqlite); `pnpm --filter @qyre/ui test` passes 40/40 including two new FK-click/no-click component tests; `pnpm --filter @qyre/web typecheck`/`build` both pass. PR: https://github.com/ensp1re/qyre/pull/57.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/dashboard-ui.md"
-    },
-    {
-      "id": "F062",
-      "behavior": "The Files tab can run a previewed `.sql` file into the SQL editor, reusing the existing read-only gate and editor-mount path.",
-      "verification": "pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "bd579e4205f5247e7e6d0e2f0670ebe4f6dc1f3c",
-      "evidence": "commit bd579e4: FilesBrowser gained an onRunInEditor prop and a \"Run in editor\" button (shown only for .sql files, via a canRunInEditor check) that apps/web wires to set the SQL editor's content and switch to the sql-editor tab, reusing the existing read-only gate and editor-mount path with no new plumbing. Verified live in the browser preview: opening a .sql file in the Files tab and clicking \"Run in editor\" switched to the SQL Editor tab with the file's content pre-filled. PR: https://github.com/ensp1re/qyre/pull/57.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/sql-editor.md"
-    },
-    {
-      "id": "F063",
-      "behavior": "DatabaseAdapter/AdapterFactory declare a capabilities.supportsSql flag (surfaced via DatabaseOverview), and apps/web reads that instead of string-comparing engine === \"mongodb\" to decide whether to disable the SQL Editor tab and the Files tab's \"Run in editor\" action.",
-      "verification": "pnpm --filter @qyre/web build && pnpm test",
-      "state": "passing",
-      "commitHash": "5f00bc4",
-      "evidence": "commit 5f00bc4: DatabaseOverview gains capabilities.supportsSql, declared by each adapter's getOverview() (true for Postgres/MySQL/SQLite, false for MongoDB - which has no read-only SQL query runner). apps/web's App.tsx reads overview.data?.capabilities.supportsSql instead of engine === \"mongodb\" to decide whether to disable the SQL Editor tab and the Files tab's \"Run in editor\" action; SqlEditorTabProps's isMongo prop is renamed to sqlDisabled to match (grep -rn '\"mongodb\"' apps/web/src returns only a comment, no remaining string comparison). Verified live via Preview against a real docker-compose Postgres container (GET /api/overview returned capabilities:{supportsSql:true}, SQL Editor tab aria-disabled=false) and a real MongoDB container (capabilities:{supportsSql:false}, SQL Editor tab aria-disabled=true with the same tooltip copy as before the change). pnpm check (format/lint/typecheck/test/build/check:state) and pnpm test:e2e:full (10/10 non-skipped) both pass against a real docker-compose Postgres+MySQL+Mongo stack. PR: https://github.com/ensp1re/qyre/pull/59.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/adapter-capabilities.md"
-    },
-    {
-      "id": "F064",
-      "behavior": "A developer can switch the running Qyre instance to a different database connection from the title bar's Settings drawer, without restarting the CLI - a new POST /api/connect endpoint swaps the server's live adapter/target, and apps/web resets cached state (overview/tables/rows/console, selected table, page) for the new connection.",
-      "verification": "pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "6d55edd",
-      "evidence": "commit 6d55edd: CreateServerOptions gains an optional adapterFactories field; when provided, a new POST /api/connect endpoint parses the target, resolves+connects a new adapter, and only swaps it in (disconnecting the old adapter) once a ping confirms the new one is live - a bad target never leaves the developer with no connection. adapter/target became mutable closure state (were const-destructured) so every route sees a switch immediately. packages/cli's main() and e2e/server.ts both pass the full factory list so the real CLI and Preview/e2e verification get this by default. The title bar's previously-disabled Settings button now opens a ConnectDrawer (same right-anchored pattern as QueryHistoryDrawer/CellValueDrawer) showing the current target, a connect form, and up to 5 recent targets (localStorage-backed, capped list, most-recent-first). useConnect invalidates every React Query cache on success; App.tsx resets the selected table/page; the SQL Editor's draft is deliberately left untouched. A real bug was caught live during verification: connecting to an unreachable host throws Node's AggregateError, whose own .message is empty (the real reason is in .errors[0]) - the drawer initially showed a blank error instead of \"connect ECONNREFUSED ...\". Fixed via a new describeError() helper (also applied to the pre-existing /api/health ping-failure path, which had the same latent bug) plus a regression test reproducing the exact AggregateError shape. Verified live via Preview against a real docker-compose Postgres+MySQL stack: switched a running instance from Postgres to MySQL and back (a different engine entirely, not just a different database - sidebar, engine version, and table list all updated with no restart), confirmed a failed switch attempt (bad host) leaves the old connection fully queryable with a real error message shown, and confirmed the recent-targets list populates and reconnects correctly. pnpm check (format/lint/typecheck/test/build/check:state) and pnpm test:e2e/test:e2e:full both pass against a real docker-compose Postgres+MySQL+Mongo stack (52/52 server tests including 6 new F064 cases, 10/10 e2e @full non-skipped, 3/3 @smoke). PR: https://github.com/ensp1re/qyre/pull/61.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/database-switching.md"
-    },
-    {
-      "id": "F065",
-      "behavior": "Clicking a RowsTable column header sorts the entire table (via a new sortColumn/sortDirection param on GET /api/tables/:schema/:table/rows and each engine's getRows), not just the currently loaded page, with the sort column validated server-side against the table's real columns.",
-      "verification": "pnpm test",
-      "state": "passing",
-      "commitHash": "a1fd8f9",
-      "evidence": "commit a1fd8f9: GET /api/tables/:schema/:table/rows gains sortColumn/sortDirection query params, validated against the table's real columns (via getTable) before use - the actual injection surface this feature introduces, since a column name can't be numeric-coerced by Zod or parameter-bound the way page/pageSize already are. Each adapter's getRows gains a matching optional sort param: Postgres/MySQL/SQLite append ORDER BY <quoted-column>, MongoDB uses .sort({ [column]: ... }) instead of its existing _id-only sort. RowsTable is now a controlled component for sort (sortColumn/sortDirection/onSortChange props) instead of sorting rows itself; apps/web's App.tsx owns the sort state alongside page, resetting both on a table switch or DB reconnect. Verified live via Preview against a real docker-compose Postgres container with a real 10,000-row table: clicking the id column header sorted the entire table (rows 1,2,3,4,5... visible on page 1, not just the loaded page re-sorted), the order persisted correctly across the page=25 probe used for pagination, and an invalid sortColumn returned 400 with a clear message. 67/67 server tests pass (9 new F065/F066 cases), 24/24 adapter-conformance tests pass (including a new cross-engine sort case run against all 4 engines), 43/43 @qyre/ui tests pass. pnpm check and pnpm test:e2e/test:e2e:full both pass against a real docker-compose Postgres+MySQL+Mongo stack.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/server-side-sort-export.md"
-    },
-    {
-      "id": "F066",
-      "behavior": "\"Export all rows as CSV\" streams every row of a table (honoring the active sort) from a new GET /api/tables/:schema/:table/export.csv endpoint, replacing today's page-only CSV export, without holding the whole table in server memory at once.",
-      "verification": "pnpm test",
-      "state": "passing",
-      "commitHash": "a1fd8f9",
-      "evidence": "commit a1fd8f9: a new GET /api/tables/:schema/:table/export.csv streams every row (honoring the current sort) in bounded MAX_PAGE_SIZE batches rather than materializing the whole table in memory - mirrors capResultRows's philosophy (F050) for a path that must NOT be capped, since exporting the whole table is the point. A small server-local csvLine() helper (packages/server/src/csv.ts) applies the same formula-injection escaping as the existing page-only export (F035) - kept independent from packages/ui's toCsv rather than shared through @qyre/core, since packages/server can't depend on packages/ui and this is a small enough function that duplicating it is simpler than a new shared package. RowsTable's \"Export this page as CSV\" button becomes \"Export all rows as CSV\", triggering a real browser download (not a fetch+Blob) so the download streams to disk instead of buffering the whole table in JS memory; the selected-rows \"Copy as CSV\" action is unchanged. Verified live via Preview against the same real 10,000-row Postgres table: the export endpoint returned a 10,001-line CSV (header + all 10,000 rows, not just the loaded page), correctly ordered by the active sort and CSV-escaped (a JSON metadata column with embedded quotes/commas escaped correctly); clicking the actual \"Export all rows as CSV\" button in the browser triggered a real native download via the browser's download manager, with the active sort's query params included. 67/67 server tests pass including the new streaming-loop and formula-injection-escaping cases.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/server-side-sort-export.md"
-    },
     {
       "id": "F067",
       "behavior": "`npx qyre <target>` prints quiet output by default (Fastify's per-request logger no longer spams JSON lines at info level; add a `--verbose` flag to restore it), and the startup line becomes a short banner: version, engine, redacted target, URL, plus \"Bugs:\"/\"Contribute:\" links to the GitHub repo.",
@@ -761,7 +15,8 @@
       "commitHash": "213d9c2b6727391f7e22fdc48bca9ca3d2c77e5c",
       "evidence": "commit 213d9c2: Fastify's per-request logger defaults to { level: \"warn\" } instead of true (info-level, every request) - packages/cli/src/index.ts's --verbose flag restores the old behavior. The startup line is now a short banner (formatBanner): version (read from the CLI package's own package.json via resolveVersion), the redacted connected target (reusing @qyre/server's displayTarget, now exported instead of duplicated), the URL, and Bugs:/Contribute: links to the GitHub repo. packages/server/src/index.ts's CreateServerOptions.logger widened from boolean to boolean | { level: ... } to carry the pino level through. 21/21 @qyre/qyre tests pass (new: --verbose parsing, resolveVersion, formatBanner), 67/67 @qyre/server tests pass unchanged. pnpm check passes in full, including the Postgres/MySQL/MongoDB integration suites (34/16/23 tests) run against a real `docker compose up -d` stack. PR: https://github.com/ensp1re/qyre/pull/66.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-07T16:09:20.000Z"
     },
     {
       "id": "F068",
@@ -771,7 +26,8 @@
       "commitHash": "324b5781de265ae45482914d3a681d23e3c02688",
       "evidence": "commit 324b578: packages/drivers/mongodb/src/index.ts gains classifyBsonValue() (maps a sampled field value to string/number/boolean/objectId/date/array/binary/object, collapsing Decimal128/Long/Timestamp/Code/etc. the same way normalizeBsonValue already does for display) and inferColumns() (aggregates each field's observed types and presence across the sample - size 0 concrete types reports \"null\", >1 reports \"mixed\", exactly 1 reports that type; nullable is true if the field was ever absent from a sampled document or ever explicitly null). getTable() now reports _id directly as { dataType: \"objectId\", nullable: false } rather than trusting inference, so an empty collection (nothing to sample) still reports it correctly, and always first regardless of sample key order. 33/33 @qyre/mongodb tests pass (20 new/updated: classifyBsonValue/inferColumns unit coverage for primitives, BSON instances, nested documents, absent-field nullability, explicit-null nullability, mixed types, and empty samples; the integration suite's fixture-backed test now asserts real per-field types - _id: objectId/non-null, name/email: string/non-null, profile: object/nullable (only 1 of 3 fixture docs has it) - replacing the old blanket \"every column is nullable\" assertion, which is no longer true once _id is correctly non-nullable). pnpm check:quiet (full monorepo check) passes against a real docker compose up -d Postgres+MySQL+MongoDB stack. PR: https://github.com/ensp1re/qyre/pull/68.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-07T16:49:47.000Z"
     },
     {
       "id": "F069",
@@ -781,7 +37,8 @@
       "commitHash": "f931402dbd7277c0b36d6be51d82105101a030e1",
       "evidence": "commit f931402: packages/ui/src/components/cell-value.tsx gains LONG_STRING_THRESHOLD (120 chars) and isLongString(); CellValue renders a string past that threshold as a clickable button (max-w-[360px] truncate) instead of a plain <span>, reusing the same stopPropagation()+onInspect() click pattern already used for JSON/binary chips. InspectableValue widens to StructuredValue | BinaryValue | string. cell-value-drawer.tsx detects a plain-string value and renders a Type icon, a \"<n> chars\" count next to the column name, the full text wrapped in the same blue PrimitiveValue color, and relabels the copy button \"Copy text\" (copying the raw string, not JSON.stringify-ing it). RowsTable and QueryRunner both share CellValue/CellValueDrawer, so both get long-string truncation with no change to either file. 51/51 @qyre/ui tests pass (10 new: isLongString unit coverage, CellValue render tests for short-string-unchanged vs long-string-truncated-and-clickable, a new cell-value-drawer.render.test.tsx covering the plain-string path's full value/char-count/copy-label). pnpm check:quiet (full monorepo check) passes against a real docker compose up -d Postgres+MySQL+MongoDB stack. Verified live via Preview against a real Postgres container: seeded a 366-character bio value on the fixture table (apps/web and @qyre/ui both needed a rebuild first - apps/web bundles @qyre/ui's built dist/, not its source, a real footgun for manual Preview verification worth remembering), confirmed the cell renders as one truncated line instead of stretching the row, and clicking it opened the drawer showing the full text, \"366 chars\", and a working copy button. Also fixed .local/preview-server.mjs (gitignored, not part of this PR's diff) which still used pre-rebrand HUMB_ env var names and the old ad-hoc port 5433 - it was silently non-functional for local Postgres Preview verification until fixed; a follow-up task was flagged for the same staleness in preview-server-mysql.mjs/preview-server-mongo.mjs. PR: https://github.com/ensp1re/qyre/pull/69.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-07T17:12:18.000Z"
     },
     {
       "id": "F070",
@@ -791,7 +48,8 @@
       "commitHash": "850dd4e0424d68ae4b829e575af067ca6ec80c1d",
       "evidence": "commit 850dd4e: isDateType(dataType) extracted from TypeIcon's classify() into format-cell.ts (shared, so the header icon and the new click affordance agree on what counts as a date column) - no behavior change to TypeIcon itself. CellValue gains an optional dataType prop and onInspectDate callback; a string value in a date-typed column renders as a clickable underlined link instead of plain text (only when both props are supplied, so QueryRunner's untyped SQL result columns are unaffected - no dataType there). New date-detail-popover.tsx renders DateDetailPopover, anchored just under the clicked cell's getBoundingClientRect() and clamped to the viewport, showing raw value, ISO 8601 UTC, local timezone conversion (Intl.DateTimeFormat, zone name + UTC offset), relative time (Intl.RelativeTimeFormat, coarsest readable unit), and unix epoch (s + ms) - each row individually copyable; closes on Escape or clicking the backdrop. RowsTable wires dataType={meta?.dataType} and onInspectDate into local popover state. 65/65 @qyre/ui tests pass (14 new: isDateType unit coverage, formatRelativeTime unit coverage, CellValue render tests for the date-click path and its two disabled cases - onInspectDate omitted, non-date-column value - and DateDetailPopover render tests for valid/invalid values, Escape/backdrop close, copy-to-clipboard). pnpm check:quiet (full monorepo check) passes against a real docker compose up -d Postgres+MySQL+MongoDB stack. Verified live via Preview against a real Postgres container: added a timestamptz column to the fixture table, confirmed the header's calendar icon and the underlined purple cell both render correctly, clicking the cell opened the popover with all five rows populated (Raw/UTC/Local Europe-Kiev UTC+03:00/Relative \"3 days ago\"/Unix epoch) and correctly positioned under the cell, and both Escape and click-outside closed it. PR: https://github.com/ensp1re/qyre/pull/70.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-07T21:12:53.000Z"
     },
     {
       "id": "F071",
@@ -801,7 +59,8 @@
       "commitHash": "8c3c0aa65b7161c6519b7b73cba1ce1d193956d3",
       "evidence": "commit 8c3c0aa: new packages/ui/src/components/resize-handle.tsx exports ResizeHandle - a WAI-ARIA separator-pattern drag handle (role=separator, aria-orientation/valuenow/valuemin/valuemax, tabIndex=0). Pointer-drag tracks window pointermove/pointerup and reports a clamped value continuously; arrow keys (ArrowLeft/Right for vertical, ArrowUp/Down for horizontal) adjust by a configurable step; an invert flag flips drag direction for a panel whose handle sits on its trailing edge (the results panel, whose handle is above it). Sidebar gains optional width/onWidthChange props (default MIN/MAX 180/480, exports SIDEBAR_DEFAULT_WIDTH=256) and QueryRunner gains optional resultsHeight/onResultsHeightChange (default MIN/MAX 120/600, exports RESULTS_DEFAULT_HEIGHT=256) - both omitted keeps each component's previous fixed-size behavior exactly, so no existing caller or test needed to change. New apps/web/src/hooks/use-panel-size.ts persists a size to localStorage under a caller-given key, mirroring use-theme.ts's pattern; App.tsx wires qyre-sidebar-width/qyre-results-height through to Sidebar and SqlEditorTab->QueryRunner. Real layout bug found and fixed during live verification: the vertical handle had w-1 but no height class, so it rendered as a zero-height unclickable strip (a block element's height:auto does not inherit a flex parent's stretched height the way width:auto fills it) - fixed with h-full/w-full per orientation. 78/78 @qyre/ui tests pass (16 new: resize-handle.render.test.tsx covering drag math, keyboard steps, clamping, invert, and drag-stop-on-pointerup; sidebar.render.test.tsx and query-runner.render.test.tsx covering the handle's presence/absence per prop combination and the value it drives). pnpm check:quiet (full monorepo check) passes against a real docker compose up -d Postgres+MySQL+MongoDB stack. Verified live via Preview against a real Postgres container: dragging the sidebar handle live-resized the aside element and persisted to localStorage (qyre-sidebar-width, confirmed 336 after an 80px drag), ArrowLeft on the focused handle then adjusted it by the 16px step (336 -> 320), and the accessibility tree showed a correctly positioned separator (value 336) sitting between the Explorer sidebar and the tab content with no layout breakage elsewhere - this live check is what caught the height bug above. The results-panel handle was not driven through a live query (CodeMirror is not drivable via synthetic DOM events - no prior test file for query-runner.tsx exists for the same reason) but shares the identical ResizeHandle primitive proven live for the sidebar, with its invert flag covered directly by resize-handle.render.test.tsx's dedicated invert case. PR: https://github.com/ensp1re/qyre/pull/71.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-07T22:38:54.000Z"
     },
     {
       "id": "F072",
@@ -811,7 +70,8 @@
       "commitHash": "43d3b53",
       "evidence": "PR #73 (https://github.com/ensp1re/qyre/pull/73), merged as 6295ff8. Server-side row filtering across all 4 engines plus a redesigned filter UX. @qyre/core: RowFilter/FilterOp types + JSON-encoded filters query param on rowsQuerySchema (value required except isNull/isNotNull). @qyre/server: resolveRowFilters/resolveRowQuery validate each filter column against the table's real introspected columns (same injection-surface pattern as F065 sort), sharing one getTable call for sort+filter; wired into /rows and /export.csv. All 4 adapters translate filters natively: Postgres/MySQL/SQLite parameterized WHERE (ILIKE/LIKE ... ESCAPE for contains, values always bound); MongoDB $and .find() document coercing each value to the column's real BSON type via F068 inferColumns. New shared escapeLikePattern/escapeRegExp helpers (packages/drivers/contract/src/filter-escape.ts). New per-engine conformance cases (eq/neq, same-column AND, contains, isNull/isNotNull). UI: new FilterBar component (packages/ui/src/components/filter-bar.tsx) - a Linear/Supabase-style anchored popover with a progressive column->operator->value flow (searchable type-to-filter column list with type icons + PK/FK badges, per-column-kind operator ordering, breadcrumb re-pick), applied filters as editable segmented chips joined by and separators, per-chip remove, clear-all; focus-trapped dialog, listbox/option roles, full arrow/Enter/Escape keyboard operation. classifyColumnKind exported from type-icon.tsx so operator ordering reuses the type-icon classification. RowsTable keeps PK-cell click-to-filter; onNavigateToForeignKey also passes the clicked value so FK clicks pre-filter the referenced table. apps/web threads filters state through use-rows/tables-tab/App and the CSV export URL. Tests: new filter-bar.render.test.tsx (9 tests), updated rows-table tests; @qyre/ui green (98 tests). Verified live via SQLite fixture through the browser (popover flow, per-kind operator order, AND semantics, edit-in-place, clear-all, PK click, 400s on bad column/op, filtered CSV export, no console errors) and confirmed passing on the full live-DB pnpm check before merge.",
       "blockedReason": null,
-      "spec": "docs/product-specs/rows-table-filtering.md"
+      "spec": "docs/product-specs/rows-table-filtering.md",
+      "completedAt": "2026-07-08T13:54:08.000Z"
     },
     {
       "id": "F073",
@@ -821,7 +81,8 @@
       "commitHash": "fe041d8f2da7183d206aa72a7a012b08891d947b",
       "evidence": "commit a96194d: packages/cli/src/index.ts's main() no longer requires a target - target/adapter are both `| undefined`, only resolved/connected when args.target is given. formatBanner's target param widens to string | null, printing \"no database connected yet\" instead of crashing on undefined. adapter.connect() is wrapped and rethrown through describeError() (newly exported from @qyre/server, F064's existing AggregateError-unwrapping helper) so an unreachable host/auth failure during the initial connect gets the same clean message the /api/health and /api/connect paths already had, instead of the empty-message bug that helper was built to fix. startServer()'s EADDRINUSE is caught and rethrown as \"Port <port> is already in use. Try a different one with --port <port>...\". packages/ui/src/components/connect-drawer.tsx gains a mode toggle (\"Use fields instead\"/\"Paste a URL instead\") and composeConnectionString(fields) - discrete engine/host/port/user/password/database inputs for Postgres/MySQL/MongoDB, composed into a connection string (blank host/port fall back to localhost/the engine's default port; user/password/database percent-encoded) and submitted through the same onConnect path as the URL form. apps/web/src/App.tsx adds a one-shot useEffect that opens ConnectDrawer when /api/health first reports status \"unconfigured\", not on every subsequent poll. docs/product-specs/database-switching.md (F064's spec) updated with the new no-target/field-entry/error-message behavior. 23/23 @qyre/qyre tests pass (new: formatBanner's null-target case), 94/94 @qyre/ui tests pass (new: connect-drawer.render.test.tsx - composeConnectionString unit coverage plus mode-toggle/fields-submit/error-display render tests). pnpm check:quiet (full monorepo check) passes against a real docker compose up -d Postgres+MySQL+MongoDB stack. pnpm test:e2e (@smoke, including the axe accessibility scan) passes with the drawer now auto-opening on the disconnected screen. pnpm test:e2e:full's postgres/mysql projects pass (11/11); the sqlite project's 3 @full specs fail with a pre-existing \"unsupported file format\" better-sqlite3 error, confirmed identical on the unmodified pre-F073 baseline via git stash - unrelated to this change. Verified live via Preview against a real Postgres container (new qyre-preview-unconfigured launch config, starting with no target): the drawer auto-opened, the field form composed and connected successfully to localhost:5432/qyre_test, and a subsequent bad-port attempt showed \"connect ECONNREFUSED ::1:59999\" inline while leaving the working connection untouched. Also ran the actual built CLI binary directly for the two error paths a browser session can't easily trigger: an unreachable MongoDB host (\"Could not connect to mongodb://...: connect ECONNREFUSED ...\") and a second instance on an already-bound port (\"Port 7797 is already in use. Try a different one with --port <port>...\"). PR: https://github.com/ensp1re/qyre/pull/72. Follow-up commit fe041d8 (same PR/session): the startup banner reworked from a plain log line into a big figlet-rendered \"QYRE\" wordmark in a blue→purple gradient matching docs/references/design-system.md's --primary/--c-blue #4a9eff → --c-purple #c47eff, followed by version, a colored connection-status dot (green #4fc46a when connected, amber #e09a40 when not), the URL, and the Bugs/Contribute links. New deps: figlet, gradient-string (depends on chalk anyway), chalk (reused directly for the rest of the banner instead of adding a second color library, e.g. picocolors). Verified with FORCE_COLOR=3 against the real built CLI binary in both disconnected and connected-to-a-real-Postgres states: the raw ANSI escape sequences are exact 24-bit RGB matches for the design system's hex values (e.g. ESC[38;2;74;158;255m = rgb(74,158,255) = #4a9eff). 22/22 @qyre/qyre tests pass (formatBanner's assertions rewritten for the new multi-line figlet format, since the literal text \"QYRE\" no longer appears as plain text - only the info lines below the ASCII art are asserted on verbatim).",
       "blockedReason": null,
-      "spec": "docs/product-specs/database-switching.md"
+      "spec": "docs/product-specs/database-switching.md",
+      "completedAt": "2026-07-08T09:28:58.000Z"
     },
     {
       "id": "F074",
@@ -831,7 +92,68 @@
       "commitHash": "d053db5",
       "evidence": "PR #74 (https://github.com/ensp1re/qyre/pull/74), merged as 28362de. CI run 28950817048 (both Lint/typecheck/test/build and End-to-end jobs) succeeded on main after merge, confirming the live-DB pnpm test:e2e:full gate this sandbox could not run locally. Interactive schema graph (ERD) for the Schema tab, built on @xyflow/react (React Flow) + @dagrejs/dagre for auto-layout - a user-directed library choice over a hand-rolled canvas. apps/web/src/components/schema-graph/: graph-model.ts (pure buildGraph() derives one node per table and one edge per foreign key from the existing ColumnMetadata.references - no server change needed; node ids schema-qualified; unresolvable refs skipped rather than drawn dangling; MongoDB/no-FK databases render as unconnected nodes; layoutGraph() is the dagre top-to-bottom layout adapter), table-node.tsx (custom React Flow node reusing TableDetail/TypeIcon visuals with a per-FK-column source handle so edges visibly leave from the key), use-graph-positions.ts (node positions persisted in localStorage keyed per database), schema-graph.tsx (the ReactFlowProvider canvas - zoom controls, minimap, dot background, Reset-layout, fit-view; persists via onNodeDragStop rather than onNodesChange dragging===false, a real bug caught live where the latter also captured mount-time position noise and made Reset re-save stale positions). schema-tab.tsx gained a Graph/Grid toggle (use-schema-view.ts, persisted, Graph default) keeping the existing SchemaGrid card view as the keyboard-accessible alternate; App.tsx passes the connection target as the per-database layout key. Spec: docs/product-specs/schema-graph.md. Tests: graph-model.test.ts (6 tests - edge derivation, dangling-skip, schema-qualified ids, Mongo unconnected nodes, dagre positions); e2e/connect-and-inspect.spec.ts updated to assert the graph by default then toggle to Grid for the card-view assertions. Manually verified live via a 6-table SQLite fixture with real FKs (users/organizations/posts/comments/tags/post_tags): 6 nodes auto-laid-out, all 7 FK edges drawn, pan/zoom/minimap/drag, Graph/Grid toggle + persistence, a real drag persists per-database, Reset clears + re-fits, no console errors.",
       "blockedReason": null,
-      "spec": "docs/product-specs/schema-graph.md"
+      "spec": "docs/product-specs/schema-graph.md",
+      "completedAt": "2026-07-08T14:31:18.000Z"
+    },
+    {
+      "id": "F075",
+      "behavior": "The agent harness uses compact generated context, a 24-hour live feature queue, tracked and validated project skills, cohesion-based source/test organization guidance, and a Docker-aware local-to-PR verification workflow so coding agents spend fewer tokens without skipping delivery gates.",
+      "verification": "pnpm verify:pr",
+      "state": "active",
+      "commitHash": null,
+      "evidence": "Local pnpm verify:pr passed against Docker Desktop: Postgres/MySQL/MongoDB healthy, 34 package check tasks passed, smoke E2E 4/4, full E2E 11 passed/5 intentionally engine-inapplicable skips across all four engines. MongoDB now has a Playwright project covering connected browse, schema/collection display, nested-document inspection, and disabled SQL Editor; SQL-only specs skip it explicitly. The gate also exposed a corrupt generated SQLite fixture previously accepted as an environment issue; ensureSqliteFile now quick-checks and recreates only invalid generated fixtures, covered by @qyre/testing regression test. All three tracked skills passed skill-creator quick_validate.py. Awaiting pushed commit, draft PR, and CI evidence before passing.",
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F076",
+      "behavior": "The web application is reorganized from crowded flat directories into cohesive responsibility areas selected from its actual imports and change patterns; Vitest tests mirror the chosen structure under apps/web/tests without changing runtime behavior.",
+      "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/web typecheck && pnpm test:e2e",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F077",
+      "behavior": "The UI package is reorganized into cohesive component families selected from actual ownership rather than a prescribed folder list; tests move to a mirrored packages/ui/tests tree and the public package API remains compatible.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/ui build",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F078",
+      "behavior": "The Fastify server is split into an app builder, resource route plugins, services, and infrastructure plugins; tests move to mirrored routes/services/integration folders under packages/server/tests with no HTTP contract change.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/server typecheck && pnpm --filter @qyre/server build",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F079",
+      "behavior": "Each database driver is split from oversized entrypoints along its actual independent responsibilities; tests move to mirrored unit/integration trees and cross-engine conformance remains green without forcing identical modules across engines.",
+      "verification": "pnpm test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F080",
+      "behavior": "Root Playwright journeys move from e2e/ into tests/e2e/journeys with launchers and fixtures under tests/e2e/support; Playwright configuration and scripts discover the new structure without changing coverage.",
+      "verification": "pnpm test:e2e && pnpm test:e2e:full",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
     }
   ]
 }

@@ -1,55 +1,35 @@
-# FEATURES.md
+# Live feature queue
 
-[`FEATURES.json`](FEATURES.json) is the single source of truth for scope. It is not a memo: it is
-read when choosing the next feature, judging whether a feature is done, and writing the session
-handoff.
+[`FEATURES.json`](FEATURES.json) stores current work, not permanent history. Use `pnpm features` for
+the compact queue and `pnpm features <id>` for one full entry.
 
-## The triple
+## Entry contract
 
-Every feature entry must have:
+Every live entry has `id`, `behavior`, `verification`, `state`, `commitHash`, `evidence`,
+`blockedReason`, and `spec`. Passing entries also have an ISO UTC `completedAt`.
 
-- `behavior`: what the user-visible outcome is.
-- `verification`: the exact command that proves it works.
-- `state`: one of `not_started`, `active`, `blocked`, `passing`.
+States are `not_started -> active -> passing`, with `active -> blocked -> active` when necessary.
+At most one entry is active. A feature becomes passing only after its verification passes and a
+pushed commit/PR is recorded.
 
-Plus metadata: `id`, `commitHash`, `evidence`, `blockedReason`, `spec`.
+## Retention
 
-## State machine
+Run `pnpm features:prune` during session closeout. It removes passing entries completed more than
+24 hours ago. This is deliberately not a CI validation step: time passing must not make an
+otherwise unchanged build fail.
 
-```mermaid
-flowchart TD
-  notStarted["not_started"] --> active["active"]
-  active --> verify{"verification passes?"}
-  verify -->|"no"| active
-  verify -->|"yes"| passing["passing"]
-  active --> blocked["blocked (needs blockedReason)"]
-  blocked --> active
-```
+Durable behavior stays in product specs; implementation and verification evidence stay in Git and
+PR history. `nextIds` remains after pruning so IDs are never reused. `pnpm features:prune --dry-run`
+previews removal.
 
-## Rules (enforced by `scripts/check-features.mjs`)
+## Rules enforced by `check-features`
 
-- IDs are unique and match `F` followed by three digits (e.g. `F008`), or `DF-` followed by two or
-  more digits (e.g. `DF-01`) for frontend/design-driven work - see `docs/NAMING.md`. Both series
-  follow every rule on this page identically; `DF-` is purely a visual/organizational split, not a
-  different process.
-- `state` is one of the allowed states.
-- At most one feature is `active` at a time, counting `F###` and `DF-##` together.
-- A `passing` feature must have non-empty `evidence` (command output ref, commit SHA, or E2E artifact)
-  **and** a `commitHash` (a real git SHA, 7-40 hex characters) — a dedicated, machine-checkable field
-  so anyone can confirm the work was actually committed/pushed without parsing prose. `evidence`
-  should still describe what was verified and how; `commitHash` is just the pointer to where.
-- A feature only becomes `passing` once its commit is actually pushed — `commitHash` must be a real,
-  pushed SHA, not a local-only one.
-- A `blocked` feature must have a non-empty `blockedReason`.
-- Every feature must have a non-empty `behavior` and `verification`.
-- The agent does not flip a feature to `passing` from inspection; it only does so after the
-  `verification` command actually passes, and records the evidence.
+- IDs match `F###` or `DF-##` and are unique among live entries.
+- `nextIds.F` and `nextIds.DF` exceed all corresponding live IDs.
+- Behavior and verification are non-empty.
+- At most one feature is active.
+- Passing entries have evidence, a 7-40 character commit SHA, and `completedAt`.
+- Blocked entries have `blockedReason`.
 
-## Granularity
-
-Each feature should be completable in roughly one session. Too broad will not finish; too narrow is
-overhead.
-
-If a requested feature turns out to be too broad once scoped, split it: implement and verify the
-first slice, and add the rest as new `not_started` entries rather than trying to push everything
-through `active` in one pass (see `docs/PLANS.md`).
+Keep slices small enough to complete and verify independently. Use an execution plan when work
+crosses packages or sessions.

@@ -33,15 +33,17 @@ test("@full SQL Editor autocompletes keywords and table names, and still runs vi
   await editor.click();
 
   await page.keyboard.type("SE");
-  await expect(page.locator(".cm-tooltip-autocomplete li", { hasText: "SELECT" })).toBeVisible();
-  await page.keyboard.press("Enter");
+  const selectCompletion = page.locator(".cm-tooltip-autocomplete li", { hasText: "SELECT" });
+  await expect(selectCompletion).toBeVisible();
+  await selectCompletion.click();
   await expect(editor).toHaveText("SELECT");
 
   await page.keyboard.type(` * FROM ${FIXTURE.table.slice(0, 2)}`);
-  await expect(
-    page.locator(".cm-tooltip-autocomplete li", { hasText: FIXTURE.table })
-  ).toBeVisible();
-  await page.keyboard.press("Enter");
+  const tableCompletion = page.locator(".cm-tooltip-autocomplete li", {
+    hasText: FIXTURE.table
+  });
+  await expect(tableCompletion).toBeVisible();
+  await tableCompletion.click();
   await expect(editor).toHaveText(`SELECT * FROM ${FIXTURE.table}`);
 
   await page.keyboard.press("ControlOrMeta+Enter");

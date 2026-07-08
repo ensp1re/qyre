@@ -827,11 +827,11 @@
       "id": "F074",
       "behavior": "The Schema tab gains an interactive graph/ERD view - pannable, zoomable, draggable table nodes connected by foreign-key relationship edges (SQL engines only; MongoDB renders as unconnected nodes) - replacing or supplementing the current static card grid. Needs a product-spec pass first (canvas library choice, auto-layout, position persistence), following the pattern used for F063-F066.",
       "verification": "pnpm test:e2e:full",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,
-      "spec": null
+      "spec": "docs/product-specs/schema-graph.md"
     }
   ]
 }

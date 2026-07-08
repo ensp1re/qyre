@@ -1,0 +1,133 @@
+/**
+ * Local HTTP server for Qyre, built on Fastify.
+ *
+ * Exposes a small JSON API the browser UI consumes, plus a health endpoint used for verification.
+ * The server never talks to a database directly; it goes through a {@link DatabaseAdapter}.
+ */
+import { DEFAULT_PORT } from "@qyre/core";
+import type { ConnectionTarget, HealthResponse } from "@qyre/core";
+import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
+import Fastify from "fastify";
+import type { FastifyInstance } from "fastify";
+import { registerErrorHandler } from "./plugins/error-handler.js";
+import { registerHostGuard } from "./plugins/host-guard.js";
+import { registerStaticWeb } from "./plugins/static-web.js";
+import { registerConnectRoute } from "./routes/connect.js";
+import { registerConsoleRoutes } from "./routes/console.js";
+import { registerFilesRoutes } from "./routes/files.js";
+import { registerHealthRoute } from "./routes/health.js";
+import { registerOverviewRoute } from "./routes/overview.js";
+import { registerQueryRoute } from "./routes/query.js";
+import { registerTablesRoutes } from "./routes/tables.js";
+import { EventLog } from "./services/event-log.js";
+
+export interface CreateServerOptions {
+  /** The connected (or to-be-connected) database adapter. */
+  adapter?: DatabaseAdapter;
+  /** The parsed connection target, for diagnostics (credentials are redacted in responses). */
+  target?: ConnectionTarget;
+  /**
+   * Enable Fastify's logger. Defaults to false (the CLI configures logging). Pass a pino level
+   * object (e.g. `{ level: "warn" }`) instead of `true` to log only warnings/errors, not every
+   * request (F067) - the CLI does this by default, only passing `true` under `--verbose`.
+   */
+  logger?: boolean | { level: "trace" | "debug" | "info" | "warn" | "error" | "fatal" };
+  /**
+   * Directory containing the built `apps/web` static assets (its `index.html` and bundle).
+   * When provided and it exists, the server serves the browser UI itself so `npx qyre <target>`
+   * has something to open. When omitted, only the `/api/*` routes are registered.
+   */
+  webRoot?: string;
+  /**
+   * Absolute path to the one directory the Files tab may read `.sql` files from (the `--files-dir`
+   * CLI flag, resolved and validated at startup). Omitted means file browsing is disabled - see
+   * docs/product-specs/dashboard-ui.md's "Files tab security boundary".
+   */
+  filesRoot?: string;
+  /**
+   * Shared event log instance. Omit to let `createServer` make its own (the common case, and what
+   * every existing test does) - only pass one in when a caller needs to log into the same log the
+   * server reads from, e.g. `startServer` handing it back so the CLI can wire an adapter's
+   * `onConnectionEvent` (F028) into the Console tab's event stream.
+   */
+  eventLog?: EventLog;
+  /**
+   * Engine factories to resolve a new adapter from when `POST /api/connect` is called (F064).
+   * Omitted means the endpoint isn't registered at all - `POST /api/connect` 404s, matching
+   * pre-F064 behavior everywhere this isn't explicitly opted into (every existing test, and any
+   * caller that hasn't been updated). `packages/cli`'s real `main()` passes its full factory list
+   * so switching connections works out of the box for the actual CLI.
+   */
+  adapterFactories?: AdapterFactory[];
+}
+
+/**
+ * Mutable state shared by reference across every route/plugin registered onto one `createServer`
+ * instance - e.g. `POST /api/connect` (F064) swaps `adapter`/`target` in place so every route
+ * reading them sees the new connection on its very next request, without restarting the server.
+ */
+export interface ServerContext {
+  adapter?: DatabaseAdapter;
+  target?: ConnectionTarget;
+  readonly eventLog: EventLog;
+  readonly filesRoot?: string;
+  readonly adapterFactories?: AdapterFactory[];
+  lastKnownStatus?: HealthResponse["database"];
+  lastError: string | null;
+}
+
+/** Build (but do not start) the Qyre HTTP server. */
+export function createServer(options: CreateServerOptions = {}): FastifyInstance {
+  const app = Fastify({ logger: options.logger ?? false });
+  const ctx: ServerContext = {
+    adapter: options.adapter,
+    target: options.target,
+    eventLog: options.eventLog ?? new EventLog(),
+    filesRoot: options.filesRoot,
+    adapterFactories: options.adapterFactories,
+    lastError: null
+  };
+
+  registerHostGuard(app);
+  registerErrorHandler(app, ctx.eventLog);
+
+  registerHealthRoute(app, ctx);
+  registerConnectRoute(app, ctx);
+  registerOverviewRoute(app, ctx);
+  registerTablesRoutes(app, ctx);
+  registerQueryRoute(app, ctx);
+  registerConsoleRoutes(app, ctx);
+  registerFilesRoutes(app, ctx);
+
+  registerStaticWeb(app, options.webRoot);
+
+  return app;
+}
+
+export interface StartServerOptions extends CreateServerOptions {
+  port?: number;
+  host?: string;
+}
+
+export interface RunningServer {
+  app: FastifyInstance;
+  url: string;
+  /** The server's event log - e.g. so the caller can wire an adapter's `onConnectionEvent` into it. */
+  eventLog: EventLog;
+  close: () => Promise<void>;
+}
+
+/** Build and start the Qyre HTTP server, listening on localhost. */
+export async function startServer(options: StartServerOptions = {}): Promise<RunningServer> {
+  const eventLog = options.eventLog ?? new EventLog();
+  const app = createServer({ ...options, eventLog });
+  const port = options.port ?? DEFAULT_PORT;
+  const host = options.host ?? "127.0.0.1";
+  await app.listen({ port, host });
+  return {
+    app,
+    url: `http://${host}:${port}`,
+    eventLog,
+    close: () => app.close()
+  };
+}

@@ -10,7 +10,7 @@ rules are first-class.
 - The server has no authentication, so a malicious page the developer visits could otherwise reach
   it via DNS rebinding (resolving its own hostname to `127.0.0.1`). Every request is rejected unless
   its `Host` header is a loopback hostname (`127.0.0.1`, `localhost`, or the IPv6 loopback) -
-  `packages/server/src/index.ts`'s `onRequest` hook, F025.
+  `packages/server/src/plugins/host-guard.ts`'s `onRequest` hook, F025.
 
 ## Secrets and credentials
 

@@ -2,7 +2,11 @@ import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildFileTree, InvalidFilePathError, resolveSqlFilePath } from "./files.js";
+import {
+  buildFileTree,
+  InvalidFilePathError,
+  resolveSqlFilePath
+} from "../../src/services/files.js";
 
 function makeRoot(): string {
   return mkdtempSync(join(tmpdir(), "qyre-files-"));

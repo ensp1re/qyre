@@ -6,16 +6,18 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-08.
-- Branch: `feature/F077-ui-structure`, branched off merged main (F076/PR #77 landed as 88cbe28).
-- F001-F076 shipped. F077 is active (not yet pushed/PR'd); F078 is the only remaining queued
-  structure migration.
-- `pnpm verify:pr` passes locally against Docker: 34 package tasks, 5 smoke E2E, and 11 full E2E
-  tests across Postgres/MySQL/SQLite/MongoDB (8 intentional duplicate/inapplicable skips), captured
-  before this session's F077 work; not yet re-run with it.
+- Branch: `feature/F077-ui-structure` (F077 tip `eb1fd5a`, merged into main as PR #78 / `36fc66e`).
+  F078 continues on this same branch, pushed as commit `6d78647`; PR #79 is open as a **draft**,
+  not yet merged, with CI green (End-to-end and Lint/typecheck/test/build both pass).
+- F001-F077 shipped. F078 is active (CI-green, unmerged); no further structure migrations are
+  queued after it.
+- `pnpm verify:pr` passed locally against Docker for both F077 and F078 (34 package tasks, 5 smoke
+  E2E, 11 full E2E across Postgres/MySQL/SQLite/MongoDB, 8 intentional duplicate/inapplicable
+  skips); GitHub Actions confirmed the same on PR #79.
 
 ## Completed
 
-- All product work through F076 is merged and passing. See product specs and Git/PR history.
+- All product work through F077 is merged and passing. See product specs and Git/PR history.
 - The full gate exposed and repaired a corrupt generated SQLite fixture; invalid generated fixtures
   are now recreated after `quick_check`, with a regression test.
 - MongoDB now has Playwright browse coverage, including nested documents and disabled SQL Editor;
@@ -23,12 +25,17 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F077: `packages/ui/src/components/` (flat) reorganized into seven cohesion-based families
-  (`data-grid`, `schema`, `query`, `connection`, `shell`, `feedback`, `primitives`), tests moved to
-  a mirrored `packages/ui/tests/` tree. Public `@qyre/ui` barrel API unchanged.
-  `pnpm --filter @qyre/ui test/typecheck/build` all pass and `@qyre/web` typechecks against the
-  rebuilt package. Verified live in Preview (unconfigured target) with no console errors. Not yet
-  pushed or PR'd.
+- F078: `packages/server/src/index.ts` (flat, 545 lines) split into `app.ts` (builds Fastify, owns
+  the shared mutable `ServerContext`, registers plugins/routes), `routes/<resource>.ts` (health,
+  connect, overview, tables, query, console, files), `plugins/<concern>.ts` (host-guard,
+  error-handler, static-web), and `services/<concern>.ts` (event-log, csv, files, row-query,
+  connection-display, require-adapter). `index.ts` re-exports only the public API - unchanged
+  surface, `packages/cli` needed no changes. The former single `src/index.test.ts` (934 lines, 67
+  tests) is split into `tests/{routes,plugins,services}/<name>.test.ts` mirroring the source tree,
+  plus `tests/support/fake-adapter.ts`; all 67 tests still pass.
+  `pnpm --filter @qyre/server test/typecheck/build` all pass; `@qyre/qyre` (cli) and `@qyre/web`
+  typecheck and their test suites still pass unchanged against the rebuilt package. Pushed as
+  `6d78647`; PR #79 open as a draft with CI green, awaiting merge.
 
 ## Known issues / blockers
 
@@ -39,5 +46,6 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Run `pnpm verify:pr` for F077, push, open a draft PR, and record evidence/PR URL once CI is green.
-- Then continue F078 server/tests.
+- Mark PR #79 ready for review and merge it, then mark F078 `passing` in `FEATURES.json` with the
+  merge commit hash (mirroring F074/F076/F077). No further structure migrations are queued after
+  F078.

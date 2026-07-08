@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { csvLine } from "./csv.js";
+import { csvLine } from "../../src/services/csv.js";
 
 describe("csvLine", () => {
   it("joins plain values with commas", () => {

@@ -23,8 +23,8 @@ A change is not done until the required levels pass, in order:
    `QYRE_TEST_DATABASE_URL`, `QYRE_TEST_MYSQL_URL`, and `QYRE_TEST_MONGO_URL` respectively;
    `docker compose up -d` starts all three with the credentials in `.env.example`, matching
    CI's service containers exactly). Each suite fails loudly if its env var is unset - required
-   verification is never silently skipped. Because the pre-push hook runs `pnpm check`, these
-   env vars must be exported in the shell you push from.
+   verification is never silently skipped. Root test/check commands load an optional gitignored
+   `.env` without overriding environment values supplied by CI or the current shell.
 4. End-to-end: Playwright's full connect-and-inspect journey for cross-component changes.
 
 The delivery gate runs all four levels locally before push. Never use `--no-verify`. If Docker is

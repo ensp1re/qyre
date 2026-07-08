@@ -21,7 +21,7 @@ pnpm verify:pr   # starts/checks DBs; checks, build, smoke E2E, full E2E
 **`pnpm check` needs the test databases below**: the Postgres/MySQL/MongoDB adapter integration
 suites run as part of `pnpm test` and fail loudly if their `QYRE_TEST_*` env var is unset (SQLite
 and pure unit tests need nothing external). The pre-push git hook also runs `pnpm check`, so the
-env vars must be exported in the shell you push from.
+URLs must be present in `.env` or exported in the shell you push from.
 
 ## Running the local test stack
 
@@ -34,8 +34,8 @@ cp .env.example .env
 docker compose up -d
 ```
 
-`pnpm verify:pr` supplies the standard local URLs automatically. For individual commands, export
-the vars from `.env` into your shell (or use a tool like `direnv`) and run:
+Root test/check commands load `.env` automatically without overriding values already exported by
+CI or the current shell. `pnpm verify:pr` also supplies the standard local URLs automatically:
 
 ```bash
 pnpm test              # unit + integration tests (Postgres/MySQL/MongoDB tests need the env vars)

@@ -28,7 +28,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Known issues / blockers
 
-- Full `pnpm check` requires Docker plus the Postgres/MySQL/MongoDB URLs in `AGENTS.md`.
+- Full `pnpm check` requires Docker; root test/check commands load the gitignored `.env` URLs.
 - If `docker` resolves to a dangling `/usr/local/bin/docker`, prepend
   `/Applications/Docker.app/Contents/Resources/bin` to `PATH`.
 - UI Preview must rebuild `@qyre/ui` before `@qyre/web` because the web package consumes UI `dist/`.

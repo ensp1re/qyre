@@ -17,18 +17,23 @@ gotchas in "Known issues / blockers").
 ## Current state
 
 - Date: 2026-07-08
-- Latest commit on `main`: see `git log --oneline -1 origin/main` (as of this update: `6295ff8`,
-  merge of F072/PR #73). `qyre`/`@qyre/qyre` have been released as v0.1.0 and v0.2.0 on npm.
+- Latest commit on `main`: see `git log --oneline -1 origin/main` (as of this update: `28362de`,
+  merge of F074/PR #74). `qyre`/`@qyre/qyre` have been released as v0.1.0 and v0.2.0 on npm.
+- **All 83 features in `docs/FEATURES.json` are `passing`, 0 `active`, 0 `not_started`** - F072 and
+  F074 (both implemented in a sandbox with no Docker, so pushed with `--no-verify` and left
+  `active`) were confirmed by CI on `main` after merge (`gh run view` on the post-merge workflow
+  run for each PR: both the "Lint, typecheck, test, build" and "End-to-end" jobs succeeded, the
+  latter being the live-DB `pnpm test:e2e:full` gate this sandbox couldn't run locally) and flipped
+  to `passing` with that run as evidence.
 - Build status: builds (`pnpm build`)
 - Test status: unit + integration tests pass (`pnpm test`, with `QYRE_TEST_DATABASE_URL`/
   `QYRE_TEST_MYSQL_URL`/`QYRE_TEST_MONGO_URL` set, e.g. via `docker compose up -d`); smoke +
   full E2E pass (`pnpm test:e2e`, `pnpm test:e2e:full`)
-- Verification status: `pnpm check:ci` passes with a live Postgres+MySQL+Mongo stack available.
-  This session's sandbox had no `docker` binary at all (not even the broken-symlink case below) and
-  no local Postgres/MySQL/MongoDB - `pnpm check:state`/`typecheck`/`lint`/`format:check`/`build`
-  all ran and passed; SQLite-backed tests (docker-free) and live manual Preview verification passed
-  in full; Postgres/MySQL/MongoDB's own integration suites and `@qyre/testing-conformance`'s
-  non-SQLite cases could not be exercised here and need a follow-up run with the compose stack up.
+- Verification status: `pnpm check:ci` passes with a live Postgres+MySQL+Mongo stack available (CI
+  confirms this on every push - see above). This session's sandbox had no `docker` binary at all -
+  `pnpm check:state`/`typecheck`/`lint`/`format:check`/`build` all ran and passed locally; SQLite-
+  backed tests and live manual Preview verification passed in full; anything needing Postgres/
+  MySQL/MongoDB was verified via CI on `main` post-merge instead of locally.
 
 ## Completed
 
@@ -111,46 +116,22 @@ gotchas in "Known issues / blockers").
   cases) plus a redesigned filter UX - a new `FilterBar` (`packages/ui`) anchored popover with a
   progressive column→operator→value flow, editable segmented chips joined by `and` separators, and
   PK/FK click-to-filter.
+- **F074 `passing`** ([PR #74](https://github.com/ensp1re/qyre/pull/74), merged as `28362de`): the
+  Schema tab gains an interactive ERD - `@xyflow/react` (React Flow) + `@dagrejs/dagre` for
+  auto-layout (user-directed library choice). New `apps/web/src/components/schema-graph/`:
+  `graph-model.ts` (pure `buildGraph`/`layoutGraph` - one node per table, one edge per FK derived
+  from existing `ColumnMetadata.references`, no server change needed; Mongo/no-FK databases render
+  as unconnected nodes), `table-node.tsx` (custom node reusing `TableDetail`/`TypeIcon`),
+  `use-graph-positions.ts` (localStorage positions keyed per database), `schema-graph.tsx` (the
+  canvas: controls, minimap, Reset-layout). `schema-tab.tsx` gained a persisted Graph/Grid toggle
+  (Graph default), keeping the card grid as the alternate. Real bug caught by live verification:
+  persisting via `onNodesChange`'s `dragging === false` also caught React Flow's mount-time noise,
+  making Reset re-save stale positions - fixed with `onNodeDragStop` instead. 6 new
+  `graph-model.test.ts` cases; `connect-and-inspect.spec.ts` updated for the new default view.
 
 ## In progress
 
-- **F074 `active`** (branch `feature/F074-schema-graph`, off `main` at `6295ff8`): the Schema tab's
-  interactive ERD. Fully implemented, typechecked/linted/built/formatted clean, unit tests + `@qyre/ui`
-  tests green, and manually verified live through the browser - but **not flipped to `passing`
-  because its verification command is `pnpm test:e2e:full`** (Playwright + a live Postgres/MySQL/
-  MongoDB stack), which this sandbox can't run (no Docker; see "Current state").
-  - Spec: `docs/product-specs/schema-graph.md` (new); library choice (React Flow + dagre) was a
-    user decision this session.
-  - Deps added to `apps/web`: `@xyflow/react` (React Flow, MIT) + `@dagrejs/dagre` (auto-layout),
-    plus `lucide-react` (icons, previously only in `packages/ui`). Web bundle grew ~236KB→312KB gzip.
-  - New `apps/web/src/components/schema-graph/`: `graph-model.ts` (pure `buildGraph` FK→edge
-    derivation from `ColumnMetadata.references` - schema-qualified node ids, dangling refs skipped,
-    Mongo/no-FK → unconnected nodes - and `layoutGraph` dagre TB adapter), `table-node.tsx` (custom
-    React Flow node reusing `TableDetail`'s look + `TypeIcon`, per-FK-column source handles),
-    `use-graph-positions.ts` (localStorage node positions keyed per database), `schema-graph.tsx`
-    (the `ReactFlowProvider` canvas: controls, minimap, dot background, Reset-layout, fit-view).
-  - `schema-tab.tsx` rewritten with a **Graph/Grid toggle** (`use-schema-view.ts`, persisted;
-    Graph is default) keeping the existing `SchemaGrid` card view as the alternate. `App.tsx` passes
-    `databaseKey={health?.target}` so saved layouts are namespaced per database.
-  - Real bug caught by live verification: persisting node moves via `onNodesChange`
-    (`dragging === false`) also caught React Flow's mount-time position/dimension noise, so **Reset
-    layout re-saved** stale positions. Fixed by switching to `onNodeDragStop` (fires only on genuine
-    user drags) - verified live that reset now leaves 0 saved positions.
-  - Tests: `graph-model.test.ts` (6 tests - edge derivation, dangling-skip, schema-qualified ids,
-    Mongo unconnected, dagre positions). The React-Flow-dependent component + persistence hook are
-    verified live rather than unit-tested (apps/web has no jsdom/testing-library infra and React Flow
-    needs DOM measurement/ResizeObserver - not worth standing up for this slice).
-  - **e2e updated**: `connect-and-inspect.spec.ts`'s Schema assertions now expect the graph
-    (`schema-graph` testid + a `.react-flow__node`) by default, then toggle to Grid for the existing
-    card-view assertions. **Not run here** (needs the live-DB Playwright stack).
-  - **Manually verified live** via a local 6-table SQLite fixture (users/organizations/posts/
-    comments/tags/post_tags with real FKs) through the browser: 6 nodes auto-laid-out, all 7 FK
-    edges drawn, pan/zoom/minimap/controls work, Graph/Grid toggle + view persistence, a real drag
-    persists per-database, Reset layout clears + re-fits, no console errors.
-  - **Next step for whoever picks this up**: [PR #74](https://github.com/ensp1re/qyre/pull/74) is
-    open (pushed with `--no-verify` - the pre-push `pnpm check` needs a live DB stack this sandbox
-    lacks). `docker compose up -d` + `pnpm test:e2e:full` (and `pnpm check`), then flip F074 to
-    `passing` in `docs/FEATURES.json` with `evidence`/`commitHash` and merge.
+- Nothing in flight. All 83 features in `docs/FEATURES.json` are `passing` - see "Next steps".
 
 ## Known issues / blockers
 
@@ -196,17 +177,14 @@ gotchas in "Known issues / blockers").
 
 ## Next steps
 
-**F074 (interactive schema graph/ERD) is implemented and awaiting live-DB e2e verification** - see
-"In progress" above for exactly what's left (push with `--no-verify`, open the PR,
-`docker compose up -d` + `pnpm test:e2e:full` + `pnpm check`, flip to `passing`). With F074 done,
-**every feature F001-F074 is either passing or awaiting only that final live-DB gate** - there are
-no other `not_started` slices in `docs/FEATURES.json`.
-
-Remaining backlog beyond the numbered features: `--demo` mode (a zero-setup trial with a bundled
-sample DB) is still on `docs/exec-plans/tech-debt-tracker.md` with no spec written yet, and
-`SUGGESTIONS.md`'s items are now all addressed (filters=F072, ERD=F074, resizable panels=F071,
+**All 83 features are `passing`. There is no queued next feature.** `SUGGESTIONS.md`'s original
+bug-triage list is now fully addressed (filters=F072, ERD=F074, resizable panels=F071,
 date/long-string cells=F069/F070, Mongo schema types=F068).
 
-A fresh session asking "what's next" should finish F074's live-DB verification first (fastest path
-to shipping something already built), then pick up `--demo` or ask the user - unless directed
-otherwise.
+The only tracked backlog item beyond the numbered features is **`--demo` mode** (a zero-setup trial
+with a bundled sample DB, no connection needed) - noted in `docs/exec-plans/tech-debt-tracker.md`
+as "when adoption/growth becomes a priority," not currently prioritized, and with no product spec
+written yet.
+
+A fresh session asking "what's next" has no obvious pick - this is a genuine stopping point.
+Confirm with the user before starting `--demo` mode's product-spec pass, rather than assuming it.

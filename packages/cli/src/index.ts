@@ -4,14 +4,17 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseConnectionTarget } from "@qyre/core";
+import { DEFAULT_PORT, parseConnectionTarget } from "@qyre/core";
 import { resolveAdapter } from "@qyre/driver-contract";
 import { mongodbAdapterFactory } from "@qyre/mongodb";
 import { mysqlAdapterFactory } from "@qyre/mysql";
 import { postgresAdapterFactory } from "@qyre/postgres";
-import { displayTarget, startServer } from "@qyre/server";
+import { describeError, displayTarget, startServer } from "@qyre/server";
 import { sqliteAdapterFactory } from "@qyre/sqlite";
+import chalk from "chalk";
 import { Command } from "commander";
+import figlet from "figlet";
+import gradient from "gradient-string";
 import open from "open";
 
 /**
@@ -50,7 +53,7 @@ export function parseArgs(argv: string[]): CliArgs {
     .description("Launch a local-first database management UI from your terminal.")
     .argument(
       "[target]",
-      "database connection string (postgres://user:pass@host:5432/db, mysql://user:pass@host:3306/db, mongodb://user:pass@host:27017/db) or a path to a SQLite file (./app.db)"
+      "database connection string (postgres://user:pass@host:5432/db, mysql://user:pass@host:3306/db, mongodb://user:pass@host:27017/db) or a path to a SQLite file (./app.db). Omit to start with no database connected and connect from the browser instead."
     )
     .option("-p, --port <port>", "port for the local server", (value) => parseInt(value, 10))
     .option(
@@ -104,13 +107,40 @@ export function resolveVersion(here: string): string {
   return (JSON.parse(raw) as { version: string }).version;
 }
 
-/** Builds the short banner printed on startup (F067) - replaces the bare "Qyre is running at" line. */
-export function formatBanner(info: { version: string; target: string; url: string }): string {
+/**
+ * Blue → purple gradient matching docs/references/design-system.md's dark-theme primary/accent
+ * colors (`--primary`/`--c-blue` #4a9eff, `--c-purple` #c47eff) - the terminal banner and the
+ * browser UI read as the same product instead of an arbitrary color choice.
+ */
+const qyreGradient = gradient(["#4a9eff", "#c47eff"]);
+
+/**
+ * Builds the banner printed on startup (F067; reworked into a big figlet wordmark in the same PR
+ * as F073): a gradient "QYRE" title, then version/connection-status/URL/issue-and-contributing
+ * links - the "proper open-source CLI" look most popular CLIs (nx, turbo, create-t3-app) use,
+ * instead of a bare log line. Colors auto-disable when stdout isn't a TTY (chalk's own detection),
+ * so piped/non-interactive output and test assertions on the plain text both stay unaffected.
+ * `target: null` (F073 - no database given on the command line) prints an explicit "no database
+ * connected yet" line instead of an empty/undefined one, so the no-target flow reads as intentional
+ * rather than broken.
+ */
+export function formatBanner(info: {
+  version: string;
+  target: string | null;
+  url: string;
+}): string {
+  const title = qyreGradient.multiline(figlet.textSync("QYRE"));
+  const statusLine = info.target
+    ? `${chalk.hex("#4fc46a")("●")} Connected to ${chalk.bold(info.target)}`
+    : `${chalk.hex("#e09a40")("●")} No database connected yet`;
+
   return [
-    `Qyre v${info.version} — connected to ${info.target}`,
-    `Running at ${info.url}`,
-    "Bugs: https://github.com/ensp1re/qyre/issues",
-    "Contribute: https://github.com/ensp1re/qyre/blob/main/CONTRIBUTING.md"
+    title,
+    `${chalk.dim(`v${info.version}`)}   ${statusLine}`,
+    `${chalk.dim("Running at")} ${chalk.underline(info.url)}`,
+    "",
+    `${chalk.dim("Bugs:")}       https://github.com/ensp1re/qyre/issues`,
+    `${chalk.dim("Contribute:")} https://github.com/ensp1re/qyre/blob/main/CONTRIBUTING.md`
   ].join("\n");
 }
 
@@ -176,9 +206,22 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     mysqlAdapterFactory,
     mongodbAdapterFactory
   ];
-  const target = parseConnectionTarget(args.target);
-  const adapter = resolveAdapter(adapterFactories, target);
-  await adapter.connect();
+  // F073: a target is no longer required at startup - omitting it starts the server unconnected
+  // (adapter/target both undefined, same "unconfigured" shape POST /api/connect already produces
+  // for a fresh connection - see @qyre/server's health handler) and the browser opens straight
+  // into the connect UI instead of the CLI failing with "no target provided".
+  const target = args.target ? parseConnectionTarget(args.target) : undefined;
+  const adapter = target ? resolveAdapter(adapterFactories, target) : undefined;
+  if (adapter && target) {
+    try {
+      await adapter.connect();
+    } catch (error) {
+      // Reuses the same AggregateError-unwrapping describeError() already applied to the
+      // /api/health and /api/connect paths (F064) - this initial connect() had the same
+      // empty-message bug for an unreachable host, just never routed through it before.
+      throw new Error(`Could not connect to ${displayTarget(target)}: ${describeError(error)}`);
+    }
+  }
 
   const filesRoot = resolveFilesRoot(args.filesDir, process.cwd());
   if (filesRoot && (!existsSync(filesRoot) || !statSync(filesRoot).isDirectory())) {
@@ -186,32 +229,48 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   }
 
   const here = dirname(fileURLToPath(import.meta.url));
-  const port = resolvePort(args.port, process.env);
-  const server = await startServer({
-    adapter,
-    target,
-    port,
-    // F067: quiet by default (only warnings/errors) - `true` (every request, Fastify's default
-    // level) is opt-in via --verbose, since per-request JSON logs drown out the startup banner.
-    logger: args.verbose ? true : { level: "warn" },
-    webRoot: defaultWebRoot(here),
-    filesRoot,
-    // F064: lets the running instance switch to a different database via POST /api/connect
-    // instead of requiring a process restart.
-    adapterFactories
-  });
+  const port = resolvePort(args.port, process.env) ?? DEFAULT_PORT;
+  let server: Awaited<ReturnType<typeof startServer>>;
+  try {
+    server = await startServer({
+      adapter,
+      target,
+      port,
+      // F067: quiet by default (only warnings/errors) - `true` (every request, Fastify's default
+      // level) is opt-in via --verbose, since per-request JSON logs drown out the startup banner.
+      logger: args.verbose ? true : { level: "warn" },
+      webRoot: defaultWebRoot(here),
+      filesRoot,
+      // F064: lets the running instance switch to a different database via POST /api/connect
+      // instead of requiring a process restart.
+      adapterFactories
+    });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "EADDRINUSE") {
+      throw new Error(
+        `Port ${port} is already in use. Try a different one with --port <port>, or stop whatever else is using it.`
+      );
+    }
+    throw error;
+  }
   // Wired after startServer (not before adapter.connect() above) so the CLI doesn't need to
   // construct its own EventLog - the pool "error" listener checks onConnectionEvent at fire time,
   // not at connect()-time, so this order is fine (F028).
-  adapter.onConnectionEvent = (level, message) => server.eventLog.log(level, message);
+  if (adapter) {
+    adapter.onConnectionEvent = (level, message) => server.eventLog.log(level, message);
+  }
   process.stdout.write(
-    `${formatBanner({ version: resolveVersion(here), target: displayTarget(target), url: server.url })}\n`
+    `${formatBanner({
+      version: resolveVersion(here),
+      target: target ? displayTarget(target) : null,
+      url: server.url
+    })}\n`
   );
   await open(server.url);
 
   const shutdown = createShutdownHandler({
     close: () => server.close(),
-    disconnect: () => adapter.disconnect(),
+    disconnect: () => adapter?.disconnect() ?? Promise.resolve(),
     exit: (code) => process.exit(code),
     log: (message) => process.stderr.write(`${message}\n`)
   });

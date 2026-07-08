@@ -90,11 +90,21 @@ gotchas in "Known issues / blockers").
   old fixed sizes, so no existing caller changed. Real bug caught by live verification: the
   vertical handle had no explicit height (`w-1`, no `h-*`), rendering as a zero-height unclickable
   strip - fixed with `h-full`/`w-full` per orientation.
+- **F073 `passing`** ([PR #72](https://github.com/ensp1re/qyre/pull/72)): `npx qyre` with no
+  target starts unconnected and auto-opens `ConnectDrawer` (reusing F064's `/api/connect`
+  infrastructure) instead of failing; the drawer gains a field-entry mode
+  (`composeConnectionString`) as an alternative to pasting a URL; `main()`'s initial
+  `adapter.connect()` now routes through `describeError()` (newly exported from `@qyre/server`)
+  and `EADDRINUSE` gets a named, actionable message - both previously reached `bin.ts`'s generic
+  catch-all raw. `docs/product-specs/database-switching.md` updated in place (no new spec doc).
+  Same PR, follow-up commit: the startup banner is now a big `figlet` "QYRE" wordmark in a
+  blue→purple gradient (`gradient-string`/`chalk`, new deps) matching the design system's
+  `--primary`/`--c-purple` colors, replacing the old plain log line.
 
 ## In progress
 
-- Nothing in flight. F072-F074 (see `SUGGESTIONS.md` for the full analysis behind each) are
-  `not_started` and unclaimed.
+- Nothing in flight. F072 (needs a product-spec pass) and F074 (needs a product-spec pass) are
+  `not_started` and unclaimed - see `SUGGESTIONS.md` for the full analysis behind each.
 
 ## Known issues / blockers
 
@@ -126,20 +136,29 @@ gotchas in "Known issues / blockers").
   `QYRE_TEST_DATABASE_URL`/`QYRE_E2E_PORT` env var names and the standard compose port 5432
   (previously stale pre-rebrand `HUMB_*` names pointing at port 5433, silently producing an
   "unconfigured" server). `.local/preview-server-mysql.mjs`/`preview-server-mongo.mjs` still have
-  the same staleness - a follow-up task was flagged for them, not yet done.
+  the same staleness - a follow-up task was flagged for them, not yet done. A new
+  `qyre-preview-unconfigured` launch config (`.local/preview-server-unconfigured.mjs`, gitignored)
+  was added for previewing/testing the no-target startup flow (F073).
+- **`pnpm test:e2e:full`'s sqlite project fails** with `SqliteError: unsupported file format` in
+  `setupSqliteFixture` (`packages/testing/src/index.ts:193`), regardless of the
+  `QYRE_TEST_SQLITE_PATH` value (relative or absolute) or whether the file pre-exists - confirmed
+  via `git stash` that this reproduces identically on the pre-F073 baseline, so it's a pre-existing
+  environmental issue on this machine (likely a `better-sqlite3` native binding problem), not a
+  regression from any recent feature. Postgres/MySQL `@full` specs are unaffected and pass. Not
+  yet root-caused - a session that needs sqlite E2E coverage should investigate the native module
+  (`node_modules/.pnpm/better-sqlite3@11.10.0`) rather than assume a fixture/env-var bug.
 
 ## Next steps
 
-**F072-F074 are queued and `not_started`** (see `SUGGESTIONS.md` for the full reported-bug/fix-plan
-detail behind each): F072 (server-side row filtering + PK/FK click-to-filter across all 4 engines -
-needs a product-spec pass first), F073 (guided no-URL CLI startup / connect-later flow), F074
-(interactive schema graph/ERD - needs a product-spec pass first). Suggested order is in
-`SUGGESTIONS.md`'s "Suggested implementation order" table.
+**F072 and F074 are queued and `not_started`, both needing a product-spec pass before
+implementation** (matching how F063-F066 were run) - see `SUGGESTIONS.md` for the full
+reported-bug/fix-plan detail behind each: F072 (server-side row filtering + PK/FK click-to-filter
+across all 4 engines - the larger and more load-bearing of the two), F074 (interactive schema
+graph/ERD). Suggested order is in `SUGGESTIONS.md`'s "Suggested implementation order" table.
 
 Separately, `--demo` mode (a zero-setup trial with a bundled sample DB) is still on
 `docs/exec-plans/tech-debt-tracker.md` with no spec written yet.
 
-A fresh session asking "what's next" should run `pnpm features` and pick up F072 - the largest
-remaining item and the only one with no product spec yet, so it should get a spec pass first
-(matching how F063-F066 were run) rather than jumping straight to implementation - unless the user
-directs otherwise.
+A fresh session asking "what's next" should run `pnpm features` and start a product-spec pass for
+F072 (the larger, more load-bearing of the two remaining items) rather than jumping straight to
+implementation - unless the user directs otherwise.

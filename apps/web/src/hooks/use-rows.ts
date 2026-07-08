@@ -1,4 +1,4 @@
-import type { RowPage, RowSort } from "@qyre/core";
+import type { RowFilter, RowPage, RowSort } from "@qyre/core";
 import { useQuery } from "@tanstack/react-query";
 import { fetchRows } from "../api/rows.js";
 import { QUERY_RETRY } from "./query-retry.js";
@@ -33,14 +33,15 @@ export function useRows(
   schema: string | undefined,
   table: string | undefined,
   page: number,
-  sort?: RowSort
+  sort?: RowSort,
+  filters?: RowFilter[]
 ) {
   return useQuery({
-    queryKey: ["rows", schema, table, page, sort?.column, sort?.direction],
+    queryKey: ["rows", schema, table, page, sort?.column, sort?.direction, filters],
     queryFn: async (): Promise<RowsResult> => {
       const [rowPage, nextPageProbe] = await Promise.all([
-        fetchRows(schema as string, table as string, page, UI_PAGE_SIZE, sort),
-        fetchRows(schema as string, table as string, (page + 1) * UI_PAGE_SIZE, 1, sort)
+        fetchRows(schema as string, table as string, page, UI_PAGE_SIZE, sort, filters),
+        fetchRows(schema as string, table as string, (page + 1) * UI_PAGE_SIZE, 1, sort, filters)
       ]);
       return { rowPage, hasMore: nextPageProbe.rows.length > 0 };
     },
@@ -48,7 +49,7 @@ export function useRows(
     ...QUERY_RETRY,
     placeholderData: (previousData, previousQuery) => {
       const previousKey = previousQuery?.queryKey as
-        [string, string, string, number, string | undefined, string | undefined] | undefined;
+        [string, string, string, ...unknown[]] | undefined;
       return previousKey?.[1] === schema && previousKey?.[2] === table ? previousData : undefined;
     }
   });

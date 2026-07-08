@@ -17,3 +17,27 @@ export interface RowSort {
   readonly column: string;
   readonly direction: SortDirection;
 }
+
+/** The fixed whitelist of filter operators `GET /api/tables/:schema/:table/rows` accepts (F072).
+ * See docs/product-specs/rows-table-filtering.md. */
+export const FILTER_OPS = [
+  "eq",
+  "neq",
+  "lt",
+  "lte",
+  "gt",
+  "gte",
+  "contains",
+  "isNull",
+  "isNotNull"
+] as const;
+export type FilterOp = (typeof FILTER_OPS)[number];
+
+/** A validated column/operator/value filter to narrow a table's rows by (F072). The column must
+ * already be checked against the table's real column names before this is constructed, same as
+ * {@link RowSort}'s `column`. `value` is absent for `isNull`/`isNotNull`, which don't use one. */
+export interface RowFilter {
+  readonly column: string;
+  readonly op: FilterOp;
+  readonly value?: string;
+}

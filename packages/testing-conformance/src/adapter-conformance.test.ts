@@ -68,11 +68,13 @@ const cases: EngineCase[] = [
       const raw = process.env[TEST_DB_ENV]?.trim();
       if (!raw) return undefined;
       const pool = new Pool({ connectionString: raw });
-      await pool.query(`CREATE TABLE ${populatedTable} (id serial PRIMARY KEY, n int)`);
+      // label is nullable text (F072 fixture: one NULL row, "apple"/"banana" so contains/isNull/
+      // isNotNull have something real to filter on, not just the numeric n column).
+      await pool.query(`CREATE TABLE ${populatedTable} (id serial PRIMARY KEY, n int, label text)`);
       await pool.query(
-        `INSERT INTO ${populatedTable} (n) SELECT generate_series(1, 3)` // 3 rows
+        `INSERT INTO ${populatedTable} (n, label) VALUES (1, 'apple'), (2, 'banana'), (3, NULL)`
       );
-      await pool.query(`CREATE TABLE ${emptyTable} (id serial PRIMARY KEY, n int)`);
+      await pool.query(`CREATE TABLE ${emptyTable} (id serial PRIMARY KEY, n int, label text)`);
       return {
         raw,
         fixture: { schema: "public", populatedTable, populatedRowCount: 3, emptyTable },
@@ -94,9 +96,15 @@ const cases: EngineCase[] = [
       if (!raw) return undefined;
       const databaseName = new URL(raw).pathname.slice(1);
       const pool = mysql.createPool(raw);
-      await pool.query(`CREATE TABLE ${populatedTable} (id INT AUTO_INCREMENT PRIMARY KEY, n INT)`);
-      await pool.query(`INSERT INTO ${populatedTable} (n) VALUES (1), (2), (3)`);
-      await pool.query(`CREATE TABLE ${emptyTable} (id INT AUTO_INCREMENT PRIMARY KEY, n INT)`);
+      await pool.query(
+        `CREATE TABLE ${populatedTable} (id INT AUTO_INCREMENT PRIMARY KEY, n INT, label VARCHAR(50))`
+      );
+      await pool.query(
+        `INSERT INTO ${populatedTable} (n, label) VALUES (1, 'apple'), (2, 'banana'), (3, NULL)`
+      );
+      await pool.query(
+        `CREATE TABLE ${emptyTable} (id INT AUTO_INCREMENT PRIMARY KEY, n INT, label VARCHAR(50))`
+      );
       return {
         raw,
         fixture: { schema: databaseName, populatedTable, populatedRowCount: 3, emptyTable },
@@ -117,9 +125,11 @@ const cases: EngineCase[] = [
       const dir = mkdtempSync(join(tmpdir(), "qyre-conformance-"));
       const dbPath = join(dir, "fixture.db");
       const db = new Database(dbPath);
-      db.exec(`CREATE TABLE ${populatedTable} (id INTEGER PRIMARY KEY, n INTEGER)`);
-      db.exec(`INSERT INTO ${populatedTable} (n) VALUES (1), (2), (3)`);
-      db.exec(`CREATE TABLE ${emptyTable} (id INTEGER PRIMARY KEY, n INTEGER)`);
+      db.exec(`CREATE TABLE ${populatedTable} (id INTEGER PRIMARY KEY, n INTEGER, label TEXT)`);
+      db.exec(
+        `INSERT INTO ${populatedTable} (n, label) VALUES (1, 'apple'), (2, 'banana'), (3, NULL)`
+      );
+      db.exec(`CREATE TABLE ${emptyTable} (id INTEGER PRIMARY KEY, n INTEGER, label TEXT)`);
       db.close();
       return {
         raw: dbPath,
@@ -140,7 +150,11 @@ const cases: EngineCase[] = [
       const client = new MongoClient(raw);
       await client.connect();
       const db = client.db(databaseName);
-      await db.collection(populatedTable).insertMany([{ n: 1 }, { n: 2 }, { n: 3 }]);
+      await db.collection(populatedTable).insertMany([
+        { n: 1, label: "apple" },
+        { n: 2, label: "banana" },
+        { n: 3, label: null }
+      ]);
       await db.createCollection(emptyTable);
       return {
         raw,
@@ -236,4 +250,56 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(descending.rows.map((row) => Number(row.n))).toEqual([3, 2, 1]);
     }
   );
+
+  it.skipIf(!configured)("filters rows with eq/neq identically (F072)", async () => {
+    const eq = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10, undefined, [
+      { column: "n", op: "eq", value: "2" }
+    ]);
+    expect(eq.rows.map((row) => Number(row.n))).toEqual([2]);
+
+    const neq = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10, undefined, [
+      { column: "n", op: "neq", value: "2" }
+    ]);
+    expect(neq.rows.map((row) => Number(row.n)).sort()).toEqual([1, 3]);
+  });
+
+  it.skipIf(!configured)(
+    "combines two filters on the same column with AND, not last-write-wins (F072)",
+    async () => {
+      const page = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10, undefined, [
+        { column: "n", op: "gt", value: "1" },
+        { column: "n", op: "lte", value: "2" }
+      ]);
+      expect(page.rows.map((row) => Number(row.n))).toEqual([2]);
+    }
+  );
+
+  it.skipIf(!configured)("filters rows with contains, case-insensitively (F072)", async () => {
+    const page = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10, undefined, [
+      { column: "label", op: "contains", value: "AN" }
+    ]);
+    expect(page.rows.map((row) => row.label)).toEqual(["banana"]);
+  });
+
+  it.skipIf(!configured)("filters rows with isNull/isNotNull identically (F072)", async () => {
+    const nullPage = await adapter.getRows(
+      fixture.schema,
+      fixture.populatedTable,
+      0,
+      10,
+      undefined,
+      [{ column: "label", op: "isNull" }]
+    );
+    expect(nullPage.rows).toHaveLength(1);
+
+    const notNullPage = await adapter.getRows(
+      fixture.schema,
+      fixture.populatedTable,
+      0,
+      10,
+      undefined,
+      [{ column: "label", op: "isNotNull" }]
+    );
+    expect(notNullPage.rows).toHaveLength(2);
+  });
 });

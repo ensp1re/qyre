@@ -80,7 +80,7 @@ describe("RowsTable server-side sort (component rendering, F065)", () => {
 
   it("filters rows by the search box, case-insensitively", () => {
     renderTable();
-    fireEvent.change(screen.getByLabelText("Filter this page"), { target: { value: "ali" } });
+    fireEvent.change(screen.getByLabelText("Search this page"), { target: { value: "ali" } });
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.queryByText("Bob")).not.toBeInTheDocument();
     expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
@@ -134,7 +134,10 @@ describe("RowsTable foreign key navigation (component rendering, F061)", () => {
     const [firstLink] = screen.getAllByTitle("Go to users.id");
     expect(firstLink).toBeDefined();
     fireEvent.click(firstLink as HTMLElement);
-    expect(onNavigateToForeignKey).toHaveBeenCalledWith({ table: "users", column: "id" });
+    expect(onNavigateToForeignKey).toHaveBeenCalledWith(
+      { table: "users", column: "id" },
+      "Charlie"
+    );
   });
 
   it("renders a foreign key cell as plain text when onNavigateToForeignKey is omitted", () => {
@@ -151,5 +154,53 @@ describe("RowsTable foreign key navigation (component rendering, F061)", () => {
     );
 
     expect(screen.queryByTitle("Go to users.id")).not.toBeInTheDocument();
+  });
+});
+
+describe("RowsTable server-side filtering (component rendering, F072)", () => {
+  const fkColumns: ColumnMetadata[] = [
+    { name: "id", dataType: "integer", nullable: false, isPrimaryKey: true, isForeignKey: false },
+    {
+      name: "name",
+      dataType: "text",
+      nullable: false,
+      isPrimaryKey: false,
+      isForeignKey: true,
+      references: { table: "users", column: "id" }
+    }
+  ];
+
+  it("hides the filter bar when onFiltersChange is omitted", () => {
+    renderTable({ columns: fkColumns });
+    expect(screen.queryByLabelText("Add filter")).not.toBeInTheDocument();
+  });
+
+  it("renders active filters as removable chips and clears them on click", () => {
+    const onFiltersChange = vi.fn();
+    renderTable({
+      columns: fkColumns,
+      filters: [{ column: "name", op: "eq", value: "Alice" }],
+      onFiltersChange
+    });
+
+    const chip = screen.getByTitle("Edit filter");
+    expect(chip).toHaveTextContent("name");
+    expect(chip).toHaveTextContent("Alice");
+    fireEvent.click(screen.getByLabelText("Remove filter on name"));
+    expect(onFiltersChange).toHaveBeenCalledWith(undefined);
+  });
+
+  it("clicking a primary-key value replaces the filter set with a single drill-down filter", () => {
+    const onFiltersChange = vi.fn();
+    renderTable({
+      columns: fkColumns,
+      filters: [{ column: "name", op: "eq", value: "Bob" }],
+      onFiltersChange
+    });
+
+    const [firstIdCell] = screen.getAllByTitle("Filter to this row (id)");
+    fireEvent.click(firstIdCell as HTMLElement);
+
+    expect(onFiltersChange).toHaveBeenCalledWith([{ column: "id", op: "eq", value: "3" }]);
   });
 });

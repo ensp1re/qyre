@@ -7,12 +7,13 @@ import type {
   ColumnMetadata,
   ConnectionTarget,
   DatabaseOverview,
+  RowFilter,
   RowPage,
   RowSort,
   SchemaMetadata,
   TableMetadata
 } from "@qyre/core";
-import { resolvePageRequest } from "@qyre/driver-contract";
+import { escapeRegExp, resolvePageRequest } from "@qyre/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import {
   Binary,
@@ -201,6 +202,70 @@ export function inferColumns(sample: Record<string, unknown>[]): ColumnMetadata[
   }));
 }
 
+/**
+ * Coerces a filter's raw string `value` (F072) to the BSON type its column actually holds -
+ * unlike the SQL engines, MongoDB documents store native types (a number field holds a number, not
+ * a string), so a raw string wouldn't match a numeric/boolean/date/objectId field as-is. Falls
+ * back to the string itself when coercion doesn't apply cleanly (e.g. a non-numeric value against
+ * a "number" column just won't match anything, which is correct - not an error).
+ */
+function coerceFilterValue(value: string, dataType: string): unknown {
+  switch (dataType) {
+    case "number": {
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? value : parsed;
+    }
+    case "boolean":
+      if (value === "true") return true;
+      if (value === "false") return false;
+      return value;
+    case "objectId":
+      return ObjectId.isValid(value) ? new ObjectId(value) : value;
+    case "date": {
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? value : parsed;
+    }
+    default:
+      return value;
+  }
+}
+
+/** Translates one validated {@link RowFilter} into a MongoDB condition document for its column. */
+function buildMongoCondition(
+  filter: RowFilter,
+  dataTypeByColumn: Map<string, string>
+): Record<string, unknown> {
+  if (filter.op === "isNull") return { [filter.column]: { $eq: null } };
+  if (filter.op === "isNotNull") return { [filter.column]: { $ne: null } };
+  if (filter.op === "contains") {
+    return { [filter.column]: { $regex: escapeRegExp(filter.value ?? ""), $options: "i" } };
+  }
+  const value = coerceFilterValue(
+    filter.value ?? "",
+    dataTypeByColumn.get(filter.column) ?? "string"
+  );
+  const mongoOp = { eq: "$eq", neq: "$ne", lt: "$lt", lte: "$lte", gt: "$gt", gte: "$gte" }[
+    filter.op
+  ];
+  return { [filter.column]: { [mongoOp]: value } };
+}
+
+/**
+ * Builds a MongoDB `.find()` filter document from validated filters (F072) - `filter.column` is
+ * already checked against the table's real columns by the caller (packages/server). Each filter
+ * becomes its own top-level condition under `$and` rather than merged into one object keyed by
+ * column - two filters on the *same* column (e.g. a numeric "between": `gte` + `lte`) would
+ * otherwise silently overwrite each other as plain object keys.
+ */
+function buildMongoFilter(
+  filters: RowFilter[] | undefined,
+  columns: ColumnMetadata[]
+): Record<string, unknown> {
+  if (!filters || filters.length === 0) return {};
+  const dataTypeByColumn = new Map(columns.map((column) => [column.name, column.dataType]));
+  return { $and: filters.map((filter) => buildMongoCondition(filter, dataTypeByColumn)) };
+}
+
 export class MongodbAdapter implements DatabaseAdapter {
   public readonly engine = "mongodb";
   private client: MongoClient | undefined;
@@ -297,9 +362,17 @@ export class MongodbAdapter implements DatabaseAdapter {
     table: string,
     page: number,
     pageSize: number,
-    sort?: RowSort
+    sort?: RowSort,
+    filters?: RowFilter[]
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
+
+    // Coercing a filter's string value to its column's real BSON type (F072) needs that column's
+    // dataType, which only getTable()'s sample-based inference (F068) has - fetched here only when
+    // filters were actually requested, not on every unfiltered getRows call.
+    const columns =
+      filters && filters.length > 0 ? (await this.getTable(schema, table)).columns : [];
+    const filterDocument = buildMongoFilter(filters, columns);
 
     // MongoDB gives no ordering guarantee between separate find() calls without an explicit sort -
     // skip/limit paging can then show the same document twice or skip one entirely, especially on
@@ -308,7 +381,7 @@ export class MongodbAdapter implements DatabaseAdapter {
     const documents = await this.getClient()
       .db(schema)
       .collection(table)
-      .find({}, { maxTimeMS: this.statementTimeoutMs })
+      .find(filterDocument, { maxTimeMS: this.statementTimeoutMs })
       .sort(sort ? { [sort.column]: sort.direction === "asc" ? 1 : -1 } : { _id: 1 })
       .skip(offset)
       .limit(safePageSize)

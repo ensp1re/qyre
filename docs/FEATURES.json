@@ -807,11 +807,11 @@
       "id": "F072",
       "behavior": "`GET /api/tables/:schema/:table/rows` gains server-side filter parameters (column validated against the table's real columns, operator from a fixed whitelist, value always parameter-bound), each of the 4 adapters' `getRows` translates them into a real `WHERE`/`.find()` query, and the Rows table gets a structured filter bar (column/operator/value, no raw SQL needed so it works on MongoDB too). Clicking a primary-key value applies a filter on the current table; clicking a foreign-key value navigates to the referenced table pre-filtered to that row - both verified on all 4 engines, including MongoDB's `_id`, via new `@qyre/testing-conformance` cases. Needs a product-spec pass (filter grammar, API shape) before implementation, following the pattern used for F063-F066.",
       "verification": "pnpm test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,
-      "spec": null
+      "spec": "docs/product-specs/rows-table-filtering.md"
     },
     {
       "id": "F073",

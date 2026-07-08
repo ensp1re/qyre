@@ -99,11 +99,12 @@
       "id": "F075",
       "behavior": "The agent harness uses compact generated context, a 24-hour live feature queue, tracked and validated project skills, cohesion-based source/test organization guidance, and a Docker-aware local-to-PR verification workflow so coding agents spend fewer tokens without skipping delivery gates.",
       "verification": "pnpm verify:pr",
-      "state": "active",
-      "commitHash": null,
-      "evidence": "Local pnpm verify:pr passed against Docker Desktop: Postgres/MySQL/MongoDB healthy, 34 package check tasks passed, smoke E2E 4/4, full E2E 11 passed/5 intentionally engine-inapplicable skips across all four engines. MongoDB now has a Playwright project covering connected browse, schema/collection display, nested-document inspection, and disabled SQL Editor; SQL-only specs skip it explicitly. The gate also exposed a corrupt generated SQLite fixture previously accepted as an environment issue; ensureSqliteFile now quick-checks and recreates only invalid generated fixtures, covered by @qyre/testing regression test. All three tracked skills passed skill-creator quick_validate.py. Awaiting pushed commit, draft PR, and CI evidence before passing.",
+      "state": "passing",
+      "commitHash": "7a9786f",
+      "evidence": "Draft PR #76 (https://github.com/ensp1re/qyre/pull/76), implementation commit 128c4d7 with CI fixes through 7a9786f. Local pnpm verify:pr passed against Docker Desktop: Postgres/MySQL/MongoDB healthy, 34 package check tasks passed, smoke E2E 4/4, full E2E 11 passed/5 intentionally engine-inapplicable skips across all four engines. MongoDB now has a Playwright project covering connected browse, schema/collection display, nested-document inspection, and disabled SQL Editor; SQL-only specs skip it explicitly. The gate also exposed a corrupt generated SQLite fixture previously accepted as an environment issue; ensureSqliteFile now quick-checks and recreates only invalid generated fixtures, covered by @qyre/testing regression test. All three tracked skills passed skill-creator quick_validate.py. GitHub Actions run 28956172263 passed both Lint/typecheck/test/build and End-to-end jobs with PostgreSQL, MySQL, SQLite, and MongoDB coverage.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-08T15:54:06.000Z"
     },
     {
       "id": "F076",

@@ -1,6 +1,6 @@
 # Plan 0005: Agent Harness and Scalable Structure
 
-Status: Active.
+Status: Completed.
 Owner: current session.
 Linked feature: F075.
 
@@ -44,8 +44,8 @@ guardrails without mixing a repository-wide import rewrite into the harness chan
 - `pnpm check:state`
 - `pnpm format:check && pnpm lint && pnpm typecheck`
 
-No product runtime behavior changes, so live database and Playwright gates are not required for
-this slice.
+No product runtime behavior changed, but the new delivery contract requires the live database and
+Playwright gates for this slice and all later PRs.
 
 ## Risks and blockers
 
@@ -91,6 +91,8 @@ this slice.
   connect-and-inspect now proves collection browsing, nested document inspection, and disabled SQL
   Editor behavior. Final local gate: 34 package tasks, 4 smoke E2E, 11 full E2E passed, 5 explicit
   engine-inapplicable skips.
+- 2026-07-08: Published draft PR #76. Fixed duplicate CI service keys and stabilized autocomplete
+  selection under Linux. GitHub Actions run 28956172263 passed both jobs; F075 moved to `passing`.
 
 ## Open decisions
 

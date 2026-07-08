@@ -169,25 +169,34 @@ describe("resolveVersion", () => {
 });
 
 describe("formatBanner", () => {
-  it("includes the version, target, url, and issue/contributing links", () => {
+  it("includes a multi-line figlet title, the version, target, url, and issue/contributing links", () => {
     const banner = formatBanner({
       version: "1.2.3",
       target: "postgres://localhost:5432/db",
       url: "http://127.0.0.1:4000"
     });
 
-    expect(banner).toContain("Qyre v1.2.3");
+    // The "QYRE" wordmark renders as figlet block-letter ASCII art (several lines of underscores/
+    // pipes/etc.), not the literal substring "QYRE" - only the info lines below it are asserted
+    // on verbatim.
+    expect(banner.split("\n").length).toBeGreaterThan(5);
+    expect(banner).toContain("v1.2.3");
+    expect(banner).toContain("Connected to");
     expect(banner).toContain("postgres://localhost:5432/db");
+    expect(banner).toContain("Running at");
     expect(banner).toContain("http://127.0.0.1:4000");
+    expect(banner).toContain("Bugs:");
     expect(banner).toContain("https://github.com/ensp1re/qyre/issues");
+    expect(banner).toContain("Contribute:");
     expect(banner).toContain("https://github.com/ensp1re/qyre/blob/main/CONTRIBUTING.md");
   });
 
   it("shows an explicit 'no database connected yet' line when target is null (F073)", () => {
     const banner = formatBanner({ version: "1.2.3", target: null, url: "http://127.0.0.1:4000" });
 
-    expect(banner).toContain("Qyre v1.2.3 — no database connected yet");
+    expect(banner).toContain("v1.2.3");
+    expect(banner).toContain("No database connected yet");
     expect(banner).toContain("http://127.0.0.1:4000");
-    expect(banner).not.toContain("connected to");
+    expect(banner).not.toContain("Connected to");
   });
 });

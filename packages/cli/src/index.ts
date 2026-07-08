@@ -11,7 +11,10 @@ import { mysqlAdapterFactory } from "@qyre/mysql";
 import { postgresAdapterFactory } from "@qyre/postgres";
 import { describeError, displayTarget, startServer } from "@qyre/server";
 import { sqliteAdapterFactory } from "@qyre/sqlite";
+import chalk from "chalk";
 import { Command } from "commander";
+import figlet from "figlet";
+import gradient from "gradient-string";
 import open from "open";
 
 /**
@@ -105,7 +108,18 @@ export function resolveVersion(here: string): string {
 }
 
 /**
- * Builds the short banner printed on startup (F067) - replaces the bare "Qyre is running at" line.
+ * Blue → purple gradient matching docs/references/design-system.md's dark-theme primary/accent
+ * colors (`--primary`/`--c-blue` #4a9eff, `--c-purple` #c47eff) - the terminal banner and the
+ * browser UI read as the same product instead of an arbitrary color choice.
+ */
+const qyreGradient = gradient(["#4a9eff", "#c47eff"]);
+
+/**
+ * Builds the banner printed on startup (F067; reworked into a big figlet wordmark in the same PR
+ * as F073): a gradient "QYRE" title, then version/connection-status/URL/issue-and-contributing
+ * links - the "proper open-source CLI" look most popular CLIs (nx, turbo, create-t3-app) use,
+ * instead of a bare log line. Colors auto-disable when stdout isn't a TTY (chalk's own detection),
+ * so piped/non-interactive output and test assertions on the plain text both stay unaffected.
  * `target: null` (F073 - no database given on the command line) prints an explicit "no database
  * connected yet" line instead of an empty/undefined one, so the no-target flow reads as intentional
  * rather than broken.
@@ -115,14 +129,18 @@ export function formatBanner(info: {
   target: string | null;
   url: string;
 }): string {
+  const title = qyreGradient.multiline(figlet.textSync("QYRE"));
   const statusLine = info.target
-    ? `Qyre v${info.version} — connected to ${info.target}`
-    : `Qyre v${info.version} — no database connected yet`;
+    ? `${chalk.hex("#4fc46a")("●")} Connected to ${chalk.bold(info.target)}`
+    : `${chalk.hex("#e09a40")("●")} No database connected yet`;
+
   return [
-    statusLine,
-    `Running at ${info.url}`,
-    "Bugs: https://github.com/ensp1re/qyre/issues",
-    "Contribute: https://github.com/ensp1re/qyre/blob/main/CONTRIBUTING.md"
+    title,
+    `${chalk.dim(`v${info.version}`)}   ${statusLine}`,
+    `${chalk.dim("Running at")} ${chalk.underline(info.url)}`,
+    "",
+    `${chalk.dim("Bugs:")}       https://github.com/ensp1re/qyre/issues`,
+    `${chalk.dim("Contribute:")} https://github.com/ensp1re/qyre/blob/main/CONTRIBUTING.md`
   ].join("\n");
 }
 

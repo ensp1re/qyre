@@ -44,9 +44,9 @@ export function FilesTab({
   if (!filesOverview.data?.enabled) {
     return (
       <p className="text-[13px] text-muted-foreground">
-        File browsing is disabled. Launch Qyre with{" "}
-        <code className="font-mono">--files-dir &lt;dir&gt;</code> to browse and preview{" "}
-        <code className="font-mono">.sql</code> files.
+        File browsing is available for every database engine when Qyre is launched with{" "}
+        <code className="font-mono">--files-dir &lt;dir&gt;</code>. No files directory is configured
+        for this session.
       </p>
     );
   }

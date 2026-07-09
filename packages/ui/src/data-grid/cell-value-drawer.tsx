@@ -1,9 +1,14 @@
-import { Binary, Braces, Check, Copy, Type, X } from "lucide-react";
+import { Binary, Braces, Check, Copy, ExternalLink, Image, Link, Type, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
 import type { BinaryValue, InspectableValue } from "./cell-value.js";
-import { isBinaryValue, isStructuredValue, summarizeStructuredValue } from "./cell-value.js";
+import {
+  classifyUrlValue,
+  isBinaryValue,
+  isStructuredValue,
+  summarizeStructuredValue
+} from "./cell-value.js";
 
 const HEX_DUMP_BYTE_LIMIT = 1024;
 
@@ -103,6 +108,36 @@ function PrimitiveValue({ value }: { value: unknown }): ReactNode {
   return <span className="break-all">{String(value)}</span>;
 }
 
+function UrlPreviewPane({ value }: { value: string }): ReactNode {
+  const preview = classifyUrlValue(value);
+  if (!preview) return null;
+
+  return (
+    <div className="space-y-3">
+      <a
+        href={preview.href}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex max-w-full items-center gap-1.5 rounded-[2px] border border-border bg-accent/30 px-2 py-1 font-mono text-[10px] hover:border-primary/50 hover:bg-accent/60"
+        style={{ color: "var(--c-blue)" }}
+      >
+        <ExternalLink className="h-3 w-3 shrink-0" />
+        <span className="truncate">{preview.href}</span>
+      </a>
+      {preview.kind === "image" && (
+        <img
+          src={preview.href}
+          alt={`Image preview for ${preview.label}`}
+          className="max-h-80 w-full rounded-[3px] border border-border bg-background object-contain"
+        />
+      )}
+      <p className="whitespace-pre-wrap break-all" style={{ color: "var(--c-blue)" }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function TreeNode({
   name,
   value,
@@ -180,6 +215,7 @@ export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps
   const [copied, setCopied] = useState(false);
   const binary = isBinaryValue(value) ? value : null;
   const plainString = typeof value === "string" ? value : null;
+  const urlPreview = plainString !== null ? classifyUrlValue(plainString) : null;
   const asideRef = useRef<HTMLElement | null>(null);
   useFocusTrap(asideRef, true);
 
@@ -204,6 +240,10 @@ export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
           {binary ? (
             <Binary className="h-3 w-3 text-muted-foreground" />
+          ) : urlPreview?.kind === "image" ? (
+            <Image className="h-3 w-3 text-muted-foreground" />
+          ) : urlPreview ? (
+            <Link className="h-3 w-3 text-muted-foreground" />
           ) : plainString !== null ? (
             <Type className="h-3 w-3 text-muted-foreground" />
           ) : (
@@ -256,6 +296,8 @@ export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps
         <div className="min-h-0 flex-1 overflow-auto p-2 font-mono text-[11px] text-foreground/80">
           {binary ? (
             <HexDump value={binary} />
+          ) : urlPreview && plainString !== null ? (
+            <UrlPreviewPane value={plainString} />
           ) : plainString !== null ? (
             <p className="whitespace-pre-wrap break-all" style={{ color: "var(--c-blue)" }}>
               {plainString}

@@ -6,9 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-09.
-- Branch: `feature/F085-database-switching-sync`; F084 is merged to `main` as PR #86 / `c2160d8`.
-- 15 live entries: 11 `passing` (F072, F074-F078, F081-F084, F089), 1 `active` (F085), 3
-  `not_started` (F086-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
+- Branch: `feature/F086-url-cell-previews`; F085 is merged to `main` as PR #87 / `78912a5`.
+- 15 live entries: 12 `passing` (F072, F074-F078, F081-F085, F089), 1 `active` (F086), 2
+  `not_started` (F087-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
 
 ## Completed
 
@@ -35,6 +35,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   connected relationship chains, explains disconnected/no-FK graphs, uses a stable MySQL
   `qyre_demo_orders -> qyre_demo_users` fixture edge, and keeps MongoDB `_id` out of relationship
   edges. Local `pnpm verify:pr` and pre-push `pnpm verify:pr` passed.
+- F085 (database switching sync): merged as PR #87/`78912a5`. Switching the active connection now
+  resets/refetches database-owned React Query caches, clears stale local table/file/query metrics
+  while preserving the SQL draft, hides unsupported tabs, and moves the active tab off SQL when
+  `supportsSql=false`. Local `pnpm verify:pr`, pre-push `pnpm verify:pr`, and GitHub CI passed.
 - The QA demo dataset (28-table B2B logistics/e-commerce set, 52k rows/table, plus `type_showcase`
   exercising each engine's native type system) now lives in a separate `qyre_demo` database
   (Postgres/MySQL/MongoDB) so it no longer collides with `qyre_test`, which the E2E fixtures expect
@@ -47,12 +51,13 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F085 (database switching sync): switching the active database connection from the UI must refresh
-  dependent schema/sidebar/table views automatically, and MongoDB connections must hide the SQL
-  Editor tab rather than showing a disabled SQL surface. Current implementation resets/refetches
-  database-owned React Query caches after successful connect, clears stale local table/file/query
-  metrics while preserving the SQL draft, hides unsupported tabs, and moves the active tab off SQL
-  when `supportsSql=false`. `pnpm verify:pr` is green.
+- F086 (URL cell previews): cell values that look like image URLs or plain URLs should render an
+  inspectable thumbnail/link treatment instead of plain truncated text; long raw-text cells past the
+  truncation threshold need a distinct visual cue; and the Files tab disabled message should say it
+  depends on the `--files-dir` CLI flag, not the connected database engine. Current implementation
+  adds strict http(s) URL classification, image thumbnails, URL inspection in `CellValueDrawer`,
+  a distinct long-text treatment, and updated Files tab copy. `pnpm verify:pr` is green when run
+  with `QYRE_DOCKER_BIN=/Applications/Docker.app/Contents/Resources/bin/docker`.
 
 ## Known issues / blockers
 
@@ -65,4 +70,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Run `pnpm verify:pr`, review the diff, commit/push F085, open a draft PR, then wait for CI.
+- Review the F086 diff, commit/push `feature/F086-url-cell-previews`, open a draft PR, then wait
+  for CI.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyUrlValue,
   isBinaryValue,
   isLongString,
   LONG_STRING_THRESHOLD,
@@ -9,6 +10,30 @@ import {
   summarizeStructuredValue,
   toHex
 } from "../../src/data-grid/cell-value.js";
+
+describe("classifyUrlValue", () => {
+  it("recognizes http(s) image URLs by pathname extension", () => {
+    expect(classifyUrlValue("https://example.com/path/photo.webp?size=small")).toEqual({
+      href: "https://example.com/path/photo.webp?size=small",
+      label: "example.com/path/photo.webp",
+      kind: "image"
+    });
+  });
+
+  it("recognizes plain http(s) URLs as links", () => {
+    expect(classifyUrlValue("https://example.com/docs")).toEqual({
+      href: "https://example.com/docs",
+      label: "example.com/docs",
+      kind: "link"
+    });
+  });
+
+  it("rejects non-http schemes, invalid URLs, and whitespace-padded strings", () => {
+    expect(classifyUrlValue("mailto:person@example.com")).toBeNull();
+    expect(classifyUrlValue("not a url")).toBeNull();
+    expect(classifyUrlValue(" https://example.com ")).toBeNull();
+  });
+});
 
 describe("summarizeStructuredValue", () => {
   it("summarizes arrays, singular and plural", () => {

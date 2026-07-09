@@ -14,6 +14,23 @@ describe("CellValueDrawer with a plain string value (F069)", () => {
     render(<CellValueDrawer value={"x".repeat(150)} onClose={vi.fn()} />);
     expect(screen.getByLabelText("Copy text")).toBeInTheDocument();
   });
+
+  it("shows an external link for URL strings", () => {
+    const value = "https://example.com/docs";
+    render(<CellValueDrawer value={value} onClose={vi.fn()} />);
+
+    expect(screen.getByRole("link", { name: value })).toHaveAttribute("href", value);
+    expect(screen.getAllByText(value)).toHaveLength(2);
+  });
+
+  it("shows an image preview for image URL strings", () => {
+    const value = "https://example.com/assets/photo.png";
+    render(<CellValueDrawer value={value} onClose={vi.fn()} />);
+
+    expect(
+      screen.getByRole("img", { name: /image preview for example.com\/assets\/photo.png/i })
+    ).toHaveAttribute("src", value);
+  });
 });
 
 describe("CellValueDrawer with a structured value", () => {

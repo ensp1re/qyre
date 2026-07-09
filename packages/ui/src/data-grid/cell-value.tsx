@@ -1,4 +1,4 @@
-import { Binary, Braces, Brackets } from "lucide-react";
+import { Binary, Braces, Brackets, Image, Link, Type } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { formatCell, isClickableDateType } from "../primitives/format-cell.js";
 
@@ -40,6 +40,44 @@ export const LONG_STRING_THRESHOLD = 120;
 
 export function isLongString(value: unknown): value is string {
   return typeof value === "string" && value.length > LONG_STRING_THRESHOLD;
+}
+
+export interface UrlPreview {
+  href: string;
+  label: string;
+  kind: "image" | "link";
+}
+
+const IMAGE_URL_EXTENSIONS = new Set([
+  "avif",
+  "bmp",
+  "gif",
+  "ico",
+  "jpeg",
+  "jpg",
+  "png",
+  "svg",
+  "webp"
+]);
+
+/** Strict http(s) URL detection for table cells; other URL-like schemes are data, not safe links. */
+export function classifyUrlValue(value: unknown): UrlPreview | null {
+  if (typeof value !== "string" || value.trim() !== value) return null;
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+
+  const extension = url.pathname.split(".").pop()?.toLowerCase();
+  const kind = extension && IMAGE_URL_EXTENSIONS.has(extension) ? "image" : "link";
+  const label = `${url.hostname}${url.pathname === "/" ? "" : url.pathname}`;
+
+  return { href: url.href, label, kind };
 }
 
 export function toHex(bytes: readonly number[]): string {
@@ -96,6 +134,41 @@ function InspectChip({
       <Icon className="h-2.5 w-2.5 shrink-0" style={{ color: "var(--c-amber)" }} />
       <span className="shrink-0">{summary}</span>
       <span className="truncate font-mono text-muted-foreground/50">{preview}</span>
+    </button>
+  );
+}
+
+function UrlChip({
+  preview,
+  onClick
+}: {
+  preview: UrlPreview;
+  onClick: (event: MouseEvent) => void;
+}): ReactNode {
+  const Icon = preview.kind === "image" ? Image : Link;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Inspect ${preview.kind} URL ${preview.label}`}
+      title="Click to inspect URL"
+      className="flex max-w-[360px] items-center gap-1.5 rounded-[2px] border border-border bg-accent/30 px-1.5 py-0.5 text-left font-mono text-[10px] text-foreground/80 hover:border-primary/50 hover:bg-accent/60"
+    >
+      {preview.kind === "image" ? (
+        <img
+          src={preview.href}
+          alt=""
+          loading="lazy"
+          className="h-7 w-9 shrink-0 rounded-[2px] border border-border bg-background object-cover"
+        />
+      ) : (
+        <Icon className="h-3 w-3 shrink-0" style={{ color: "var(--c-blue)" }} />
+      )}
+      <span className="shrink-0 text-muted-foreground">{preview.kind}</span>
+      <span className="truncate" style={{ color: "var(--c-blue)" }}>
+        {preview.label}
+      </span>
     </button>
   );
 }
@@ -170,6 +243,19 @@ export function CellValue({
       </button>
     );
   }
+  const urlValue = typeof value === "string" ? value : null;
+  const urlPreview = classifyUrlValue(urlValue);
+  if (urlPreview && urlValue !== null) {
+    return (
+      <UrlChip
+        preview={urlPreview}
+        onClick={(event) => {
+          event.stopPropagation();
+          onInspect(urlValue);
+        }}
+      />
+    );
+  }
   if (isLongString(value)) {
     return (
       <button
@@ -179,9 +265,12 @@ export function CellValue({
           onInspect(value);
         }}
         title="Click to view full value"
-        className="block max-w-[360px] truncate text-left hover:underline"
+        className="block max-w-[360px] truncate rounded-[2px] border border-border bg-muted/40 px-1.5 py-0.5 text-left font-mono text-[10px] text-foreground/80 hover:border-primary/50 hover:bg-accent/50"
       >
-        {value}
+        <span className="inline-flex max-w-full items-center gap-1.5">
+          <Type className="h-3 w-3 shrink-0" style={{ color: "var(--c-blue)" }} />
+          <span className="truncate">{value}</span>
+        </span>
       </button>
     );
   }

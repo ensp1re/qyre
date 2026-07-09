@@ -17,12 +17,6 @@ export interface TitleBarProps {
   onOpenSettings: () => void;
 }
 
-const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
-  connected: "bg-[var(--c-green)]",
-  disconnected: "bg-[var(--c-red)]",
-  unconfigured: "bg-muted-foreground"
-};
-
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
   connected: "Connected",
   disconnected: "Disconnected",
@@ -35,7 +29,7 @@ function splitTarget(target: string): { prefix?: string; name: string } {
   return { prefix: target.slice(0, lastSlash), name: target.slice(lastSlash + 1) };
 }
 
-/** Top chrome bar: wordmark, connection breadcrumb, status dot, and window-level actions. */
+/** Top chrome bar: wordmark, connection breadcrumb, and window-level actions. */
 export function TitleBar({
   status,
   target,
@@ -76,16 +70,7 @@ export function TitleBar({
         )}
       </div>
 
-      <span
-        data-testid="status-badge"
-        data-status={status}
-        title={STATUS_LABEL[status]}
-        className="ml-3 flex shrink-0 items-center gap-1.5"
-      >
-        <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT_COLOR[status])} />
-        {/* Visually redundant with the dot's color + the span's own title tooltip - kept in the
-         * accessibility tree (not display:none) rather than shown inline, since color alone
-         * shouldn't be the only signal for color-blind users. */}
+      <span data-testid="status-badge" data-status={status} title={STATUS_LABEL[status]}>
         <span data-testid="connection-summary" className="sr-only">
           {STATUS_LABEL[status]}
         </span>

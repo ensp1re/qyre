@@ -8,7 +8,7 @@ function renderScreen(overrides: Partial<Parameters<typeof SettingsScreen>[0]> =
     onThemeChange: vi.fn(),
     onClose: vi.fn(),
     connectionStatus: "connected" as const,
-    connectionTarget: "postgres://localhost/qyre_demo",
+    connectionTarget: "postgres://localhost/qyre_test",
     onOpenConnection: vi.fn(),
     queryHistoryCount: 3,
     onClearQueryHistory: vi.fn(),
@@ -49,7 +49,7 @@ describe("SettingsScreen", () => {
   it("surfaces the current connection and routes to the switcher", () => {
     const { onOpenConnection } = renderScreen();
 
-    expect(screen.getByText("postgres://localhost/qyre_demo")).toBeVisible();
+    expect(screen.getByText("postgres://localhost/qyre_test")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /Switch/ }));
     expect(onOpenConnection).toHaveBeenCalledTimes(1);
   });

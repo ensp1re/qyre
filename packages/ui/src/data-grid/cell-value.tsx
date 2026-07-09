@@ -165,7 +165,6 @@ function UrlChip({
       ) : (
         <Icon className="h-3 w-3 shrink-0" style={{ color: "var(--c-blue)" }} />
       )}
-      <span className="shrink-0 text-muted-foreground">{preview.kind}</span>
       <span className="truncate" style={{ color: "var(--c-blue)" }}>
         {preview.label}
       </span>

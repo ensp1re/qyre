@@ -2,6 +2,7 @@ import type { QueryHistoryEntry } from "@qyre/ui";
 import { useCallback, useState } from "react";
 import {
   readVersionedStorage,
+  removeStoredValue,
   writeVersionedStorage
 } from "../../../shared/lib/storage/versioned-storage.js";
 
@@ -25,6 +26,7 @@ function readEntries(): QueryHistoryEntry[] {
 export function useQueryHistory(): {
   entries: QueryHistoryEntry[];
   record: (sql: string) => void;
+  clear: () => void;
 } {
   const [entries, setEntries] = useState<QueryHistoryEntry[]>(readEntries);
 
@@ -40,7 +42,12 @@ export function useQueryHistory(): {
     });
   }, []);
 
-  return { entries, record };
+  const clear = useCallback(() => {
+    removeStoredValue(localStorage, STORAGE.key);
+    setEntries([]);
+  }, []);
+
+  return { entries, record, clear };
 }
 
 function parseEntries(value: unknown): QueryHistoryEntry[] | undefined {

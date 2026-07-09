@@ -2,8 +2,10 @@ import type { ConnectionStatus, RowFilter } from "@qyre/core";
 import {
   ConnectDrawer,
   ErrorBoundary,
+  type QyreSettings,
   QueryHistoryDrawer,
   RESULTS_DEFAULT_HEIGHT,
+  SettingsScreen,
   Sidebar,
   SIDEBAR_DEFAULT_WIDTH,
   Spinner,
@@ -25,6 +27,7 @@ import { useRunQuery } from "../features/query/model/use-run-query.js";
 import { SqlEditorTab } from "../features/query/ui/sql-editor-tab.js";
 import { useAllTables } from "../features/schema/model/use-all-tables.js";
 import { useOverview } from "../features/schema/model/use-overview.js";
+import { useSchemaView } from "../features/schema/model/use-schema-view.js";
 import { SchemaTab } from "../features/schema/ui/schema-tab.js";
 import { useRows } from "../features/table/model/use-rows.js";
 import { useTable } from "../features/table/model/use-table.js";
@@ -61,9 +64,11 @@ export function App(): ReactNode {
     selectedFilePath,
     historyOpen,
     connectOpen,
-    hasAutoOpenedConnect
+    hasAutoOpenedConnect,
+    settingsOpen
   } = workspace;
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, setTheme } = useTheme();
+  const { view: schemaView, setView: setSchemaView } = useSchemaView();
   const [sidebarWidth, setSidebarWidth] = usePanelSize("qyre-sidebar-width", SIDEBAR_DEFAULT_WIDTH);
   const [resultsHeight, setResultsHeight] = usePanelSize(
     "qyre-results-height",
@@ -72,6 +77,17 @@ export function App(): ReactNode {
   const queryHistory = useQueryHistory();
   const recentTargets = useRecentTargets();
   const connect = useConnect();
+
+  // F087: the Settings screen stages every workspace preference into one draft and applies them
+  // together on Save, so "saved vs unsaved" is a single explicit state rather than each control
+  // mutating on change. Theme/schema-view/panel sizes are the persisted preferences the app owns.
+  const settings: QyreSettings = { theme, schemaView, sidebarWidth, resultsHeight };
+  function saveSettings(next: QyreSettings): void {
+    setTheme(next.theme);
+    setSchemaView(next.schemaView);
+    setSidebarWidth(next.sidebarWidth);
+    setResultsHeight(next.resultsHeight);
+  }
 
   // F073: `npx qyre` with no target starts the server unconnected - jump straight into the connect
   // UI instead of leaving the developer looking at a passive "no database connected" message with
@@ -160,102 +176,123 @@ export function App(): ReactNode {
         onRefresh={refresh}
         isRefreshing={healthLoading}
         onToggleSidebar={() => dispatch({ type: "sidebarChanged", open: !sidebarOpen })}
-        onOpenSettings={() => dispatch({ type: "connectChanged", open: true })}
+        onOpenConnection={() => dispatch({ type: "connectChanged", open: true })}
+        onOpenSettings={() => dispatch({ type: "settingsChanged", open: true })}
       />
 
-      <div className="flex min-h-0 flex-1">
-        <Sidebar
-          target={health?.target ?? null}
-          status={status}
-          schemas={overview.data?.schemas ?? []}
-          selected={selected}
-          onSelect={selectTable}
-          isLoading={status === "connected" && overview.isLoading}
-          isError={overview.isError}
-          onRetry={() => overview.refetch()}
-          open={sidebarOpen}
-          onOpenChange={(open) => dispatch({ type: "sidebarChanged", open })}
-          width={sidebarWidth}
-          onWidthChange={setSidebarWidth}
+      {settingsOpen ? (
+        <SettingsScreen
+          settings={settings}
+          onSave={saveSettings}
+          onClose={() => dispatch({ type: "settingsChanged", open: false })}
+          connectionStatus={status}
+          connectionTarget={health?.target ?? null}
+          onOpenConnection={() => dispatch({ type: "connectChanged", open: true })}
+          queryHistoryCount={queryHistory.entries.length}
+          onClearQueryHistory={queryHistory.clear}
+          recentConnectionsCount={recentTargets.entries.length}
+          onClearRecentConnections={recentTargets.clear}
         />
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TabBar
-            active={tab}
-            onChange={(nextTab) => dispatch({ type: "tabChanged", tab: nextTab })}
-            hiddenTabs={!supportsSql ? ["sql-editor"] : undefined}
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <Sidebar
+            target={health?.target ?? null}
+            status={status}
+            schemas={overview.data?.schemas ?? []}
+            selected={selected}
+            onSelect={selectTable}
+            isLoading={status === "connected" && overview.isLoading}
+            isError={overview.isError}
+            onRetry={() => overview.refetch()}
+            open={sidebarOpen}
+            onOpenChange={(open) => dispatch({ type: "sidebarChanged", open })}
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
           />
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
-            <ErrorBoundary
-              key={tab}
-              fallbackMessage="This tab hit an unexpected error rendering its content. Try switching tabs and back, or reload if it persists."
-            >
-              {status !== "connected" ? (
-                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                  {healthLoading ? (
-                    <>
-                      <Spinner /> Checking connection...
-                    </>
-                  ) : (
-                    "No database is connected yet. Launch Qyre with a Postgres, MySQL, SQLite, or MongoDB target to get started."
-                  )}
-                </p>
-              ) : tab === "sql-editor" ? (
-                <SqlEditorTab
-                  sqlDisabled={!supportsSql}
-                  sql={querySql}
-                  onSqlChange={(sql) => dispatch({ type: "queryChanged", sql })}
-                  onRun={runSql}
-                  runQuery={runQuery}
-                  onOpenHistory={() => dispatch({ type: "historyChanged", open: true })}
-                  tableNames={tableNames}
-                  resultsHeight={resultsHeight}
-                  onResultsHeightChange={setResultsHeight}
-                />
-              ) : tab === "tables" ? (
-                <TablesTab
-                  selected={selected}
-                  table={table}
-                  engine={overview.data?.engine}
-                  rows={rows}
-                  page={page}
-                  onPageChange={(update) => dispatch({ type: "pageChanged", page: update(page) })}
-                  onNavigateToForeignKey={(reference, value) =>
-                    selectTable(reference.schema ?? selected?.schema ?? "", reference.table, [
-                      { column: reference.column, op: "eq", value: String(value) }
-                    ])
-                  }
-                  sort={sort}
-                  onSortChange={(nextSort) => dispatch({ type: "sortChanged", sort: nextSort })}
-                  filters={filters}
-                  onFiltersChange={(nextFilters) =>
-                    dispatch({ type: "filtersChanged", filters: nextFilters })
-                  }
-                />
-              ) : tab === "schema" ? (
-                <SchemaTab allTables={allTables} databaseKey={health?.target ?? null} />
-              ) : tab === "files" ? (
-                <FilesTab
-                  filesOverview={filesOverview}
-                  fileContent={fileContent}
-                  selectedFilePath={selectedFilePath}
-                  onSelectFile={(path) => dispatch({ type: "fileSelected", path })}
-                  onRunInEditor={
-                    supportsSql
-                      ? (sql) => {
-                          dispatch({ type: "queryLoaded", sql });
-                        }
-                      : undefined
-                  }
-                />
-              ) : tab === "console" ? (
-                <ConsoleTab consoleEvents={consoleEvents} onClear={() => clearConsole.mutate()} />
-              ) : null}
-            </ErrorBoundary>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <TabBar
+              active={tab}
+              onChange={(nextTab) => dispatch({ type: "tabChanged", tab: nextTab })}
+              hiddenTabs={!supportsSql ? ["sql-editor"] : undefined}
+            />
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+              <ErrorBoundary
+                key={tab}
+                fallbackMessage="This tab hit an unexpected error rendering its content. Try switching tabs and back, or reload if it persists."
+              >
+                {status !== "connected" ? (
+                  <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                    {healthLoading ? (
+                      <>
+                        <Spinner /> Checking connection...
+                      </>
+                    ) : (
+                      "No database is connected yet. Launch Qyre with a Postgres, MySQL, SQLite, or MongoDB target to get started."
+                    )}
+                  </p>
+                ) : tab === "sql-editor" ? (
+                  <SqlEditorTab
+                    sqlDisabled={!supportsSql}
+                    sql={querySql}
+                    onSqlChange={(sql) => dispatch({ type: "queryChanged", sql })}
+                    onRun={runSql}
+                    runQuery={runQuery}
+                    onOpenHistory={() => dispatch({ type: "historyChanged", open: true })}
+                    tableNames={tableNames}
+                    resultsHeight={resultsHeight}
+                    onResultsHeightChange={setResultsHeight}
+                  />
+                ) : tab === "tables" ? (
+                  <TablesTab
+                    selected={selected}
+                    table={table}
+                    engine={overview.data?.engine}
+                    rows={rows}
+                    page={page}
+                    onPageChange={(update) => dispatch({ type: "pageChanged", page: update(page) })}
+                    onNavigateToForeignKey={(reference, value) =>
+                      selectTable(reference.schema ?? selected?.schema ?? "", reference.table, [
+                        { column: reference.column, op: "eq", value: String(value) }
+                      ])
+                    }
+                    sort={sort}
+                    onSortChange={(nextSort) => dispatch({ type: "sortChanged", sort: nextSort })}
+                    filters={filters}
+                    onFiltersChange={(nextFilters) =>
+                      dispatch({ type: "filtersChanged", filters: nextFilters })
+                    }
+                  />
+                ) : tab === "schema" ? (
+                  <SchemaTab
+                    allTables={allTables}
+                    databaseKey={health?.target ?? null}
+                    view={schemaView}
+                    onViewChange={setSchemaView}
+                  />
+                ) : tab === "files" ? (
+                  <FilesTab
+                    filesOverview={filesOverview}
+                    fileContent={fileContent}
+                    selectedFilePath={selectedFilePath}
+                    onSelectFile={(path) => dispatch({ type: "fileSelected", path })}
+                    onRunInEditor={
+                      supportsSql
+                        ? (sql) => {
+                            dispatch({ type: "queryLoaded", sql });
+                          }
+                        : undefined
+                    }
+                  />
+                ) : tab === "console" ? (
+                  <ConsoleTab consoleEvents={consoleEvents} onClear={() => clearConsole.mutate()} />
+                ) : null}
+              </ErrorBoundary>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <StatusBar
         status={status}

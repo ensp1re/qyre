@@ -22,6 +22,7 @@ export * from "./schema/schema-grid.js";
 export * from "./schema/schema-tree.js";
 export * from "./schema/sidebar.js";
 export * from "./schema/table-detail.js";
+export * from "./shell/settings-screen.js";
 export * from "./shell/status-bar.js";
 export * from "./shell/tab-bar.js";
 export * from "./shell/title-bar.js";

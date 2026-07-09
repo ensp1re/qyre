@@ -1,5 +1,5 @@
 import type { ConnectionStatus } from "@qyre/core";
-import { ChevronRight, Menu, Moon, RefreshCw, Settings, Sun } from "lucide-react";
+import { ChevronRight, Database, Menu, Moon, RefreshCw, Settings, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
 
@@ -12,6 +12,8 @@ export interface TitleBarProps {
   isRefreshing?: boolean;
   onToggleSidebar: () => void;
   /** Opens the connection-switch drawer (F064). */
+  onOpenConnection: () => void;
+  /** Opens the full-screen Settings view (F087). */
   onOpenSettings: () => void;
 }
 
@@ -42,6 +44,7 @@ export function TitleBar({
   onRefresh,
   isRefreshing,
   onToggleSidebar,
+  onOpenConnection,
   onOpenSettings
 }: TitleBarProps): ReactNode {
   const breadcrumb = target ? splitTarget(target) : null;
@@ -117,8 +120,17 @@ export function TitleBar({
         </button>
         <button
           type="button"
-          onClick={onOpenSettings}
+          onClick={onOpenConnection}
           title="Switch database connection"
+          aria-label="Switch database connection"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <Database className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          title="Settings"
           aria-label="Settings"
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
         >

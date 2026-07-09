@@ -9,8 +9,8 @@ import { SchemaTree, type SelectedTable } from "./schema-tree.js";
 /** The default/min/max are exported so the caller owning persistence (F071's `usePanelSize`) can
  * seed and clamp against the same numbers this component uses, instead of duplicating them. */
 export const SIDEBAR_DEFAULT_WIDTH = 256;
-const MIN_WIDTH = 180;
-const MAX_WIDTH = 480;
+export const SIDEBAR_MIN_WIDTH = 180;
+export const SIDEBAR_MAX_WIDTH = 480;
 
 export interface SidebarProps {
   target: string | null;
@@ -133,8 +133,8 @@ export function Sidebar({
           <ResizeHandle
             orientation="vertical"
             value={width}
-            min={MIN_WIDTH}
-            max={MAX_WIDTH}
+            min={SIDEBAR_MIN_WIDTH}
+            max={SIDEBAR_MAX_WIDTH}
             onChange={onWidthChange}
             aria-label="Resize sidebar"
           />

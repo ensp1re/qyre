@@ -2,6 +2,7 @@ import type { RecentTarget } from "@qyre/ui";
 import { useCallback, useState } from "react";
 import {
   readVersionedStorage,
+  removeStoredValue,
   writeVersionedStorage
 } from "../../../shared/lib/storage/versioned-storage.js";
 import { canPersistTarget, nextRecentTargets, parseRecentTargets } from "./recent-targets.js";
@@ -29,6 +30,7 @@ function readEntries(): RecentTarget[] {
 export function useRecentTargets(): {
   entries: RecentTarget[];
   record: (raw: string, display: string) => void;
+  clear: () => void;
 } {
   const [entries, setEntries] = useState<RecentTarget[]>(readEntries);
 
@@ -44,5 +46,10 @@ export function useRecentTargets(): {
     });
   }, []);
 
-  return { entries, record };
+  const clear = useCallback(() => {
+    removeStoredValue(localStorage, STORAGE.key);
+    setEntries([]);
+  }, []);
+
+  return { entries, record, clear };
 }

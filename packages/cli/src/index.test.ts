@@ -42,6 +42,14 @@ describe("parseArgs", () => {
   it("parses the --verbose flag", () => {
     expect(parseArgs(["postgres://localhost/db", "--verbose"]).verbose).toBe(true);
   });
+
+  it("defaults login to false", () => {
+    expect(parseArgs(["postgres://localhost/db"]).login).toBe(false);
+  });
+
+  it("parses the --login flag", () => {
+    expect(parseArgs(["--login"]).login).toBe(true);
+  });
 });
 
 describe("resolvePort", () => {

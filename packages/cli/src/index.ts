@@ -4,8 +4,8 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_PORT, parseConnectionTarget } from "@qyre/core";
-import { resolveAdapter } from "@qyre/driver-contract";
+import { DEFAULT_PORT, parseConnectionTarget, type ConnectionTarget } from "@qyre/core";
+import { resolveAdapter, type AdapterFactory, type DatabaseAdapter } from "@qyre/driver-contract";
 import { mongodbAdapterFactory } from "@qyre/mongodb";
 import { mysqlAdapterFactory } from "@qyre/mysql";
 import { postgresAdapterFactory } from "@qyre/postgres";
@@ -16,6 +16,22 @@ import { Command } from "commander";
 import figlet from "figlet";
 import gradient from "gradient-string";
 import open from "open";
+import { createTerminalGuidedLoginIO } from "./guided-login-io.js";
+import { fillMissingCredentials, needsCredentialPrompt, runGuidedLogin } from "./guided-login.js";
+
+/**
+ * Blue → purple gradient matching docs/references/design-system.md's dark-theme primary/accent
+ * colors (`--primary`/`--c-blue` #4a9eff, `--c-purple` #c47eff) - the terminal banner, `--help`,
+ * and the guided-login prompts all read as the same product instead of an arbitrary color choice.
+ */
+const qyreGradient = gradient(["#4a9eff", "#c47eff"]);
+
+/** The gradient "QYRE" figlet wordmark, shared by the startup banner, `--help`, and the guided
+ * login flows. Colors auto-disable when stdout isn't a TTY (chalk/gradient-string's own
+ * detection), so piped/non-interactive output stays plain. */
+function renderQyreTitle(): string {
+  return qyreGradient.multiline(figlet.textSync("QYRE"));
+}
 
 /**
  * Where the built `apps/web` static assets live, relative to this file's own directory (`here` -
@@ -43,6 +59,7 @@ export interface CliArgs {
   port: number | undefined;
   filesDir: string | undefined;
   verbose: boolean;
+  login: boolean;
 }
 
 /** Parse CLI arguments. Throws (via commander) on malformed flags. */
@@ -61,16 +78,35 @@ export function parseArgs(argv: string[]): CliArgs {
       "directory the Files tab may read *.sql files from (opt-in; disabled by default)"
     )
     .option("--verbose", "log every HTTP request (default: only warnings and errors)", false)
+    .option(
+      "--login",
+      "skip the connection-string argument and enter connection details interactively (engine, user, password, host, port, database)",
+      false
+    )
+    .addHelpText("beforeAll", () => `${renderQyreTitle()}\n`)
+    .addHelpText(
+      "after",
+      "\nNote: `npx <connection-url>` on its own (e.g. `npx postgres://...`) fails with npm's own\n" +
+        "EUNSUPPORTEDPROTOCOL error - npx parses that URL as a package to install before qyre ever\n" +
+        "runs. Always include the package name (`npx qyre <connection-url>`), or omit the URL and\n" +
+        "run `npx qyre --login` for a guided, interactive setup instead.\n"
+    )
     .allowExcessArguments(false)
     .exitOverride();
 
   program.parse(argv, { from: "user" });
-  const opts = program.opts<{ port?: number; filesDir?: string; verbose: boolean }>();
+  const opts = program.opts<{
+    port?: number;
+    filesDir?: string;
+    verbose: boolean;
+    login: boolean;
+  }>();
   return {
     target: program.args[0],
     port: opts.port,
     filesDir: opts.filesDir,
-    verbose: opts.verbose
+    verbose: opts.verbose,
+    login: opts.login
   };
 }
 
@@ -108,13 +144,6 @@ export function resolveVersion(here: string): string {
 }
 
 /**
- * Blue → purple gradient matching docs/references/design-system.md's dark-theme primary/accent
- * colors (`--primary`/`--c-blue` #4a9eff, `--c-purple` #c47eff) - the terminal banner and the
- * browser UI read as the same product instead of an arbitrary color choice.
- */
-const qyreGradient = gradient(["#4a9eff", "#c47eff"]);
-
-/**
  * Builds the banner printed on startup (F067; reworked into a big figlet wordmark in the same PR
  * as F073): a gradient "QYRE" title, then version/connection-status/URL/issue-and-contributing
  * links - the "proper open-source CLI" look most popular CLIs (nx, turbo, create-t3-app) use,
@@ -129,10 +158,10 @@ export function formatBanner(info: {
   target: string | null;
   url: string;
 }): string {
-  const title = qyreGradient.multiline(figlet.textSync("QYRE"));
+  const title = renderQyreTitle();
   const statusLine = info.target
     ? `${chalk.hex("#4fc46a")("●")} Connected to ${chalk.bold(info.target)}`
-    : `${chalk.hex("#e09a40")("●")} No database connected yet`;
+    : `${chalk.hex("#e09a40")("●")} No database connected yet ${chalk.dim("(run with --login for a guided terminal setup)")}`;
 
   return [
     title,
@@ -196,6 +225,40 @@ export function createShutdownHandler(deps: ShutdownDeps): () => Promise<void> {
   };
 }
 
+/** Parses `raw`, resolves its adapter, connects, and pings it. Reused by the direct-target path
+ * and both guided-login flows so all three share the same connect-failure message.
+ *
+ * The ping matters: Postgres/MySQL's `connect()` only builds a connection pool (no real network
+ * round trip), so it resolves even against an unreachable host or port - only a later query would
+ * have failed. Mirrors `/api/connect`'s own connect()-then-ping() check (F085) so a bad target is
+ * caught here instead of surfacing later as a broken schema load in the browser, and so F088's
+ * retry-on-failure prompt actually has something to retry. */
+async function connectToRaw(
+  raw: string,
+  adapterFactories: AdapterFactory[]
+): Promise<{ target: ConnectionTarget; adapter: DatabaseAdapter }> {
+  const target = parseConnectionTarget(raw);
+  const adapter = resolveAdapter(adapterFactories, target);
+  try {
+    await adapter.connect();
+    if (!(await adapter.ping())) {
+      throw new Error("Connected, but the target did not respond to a ping.");
+    }
+  } catch (error) {
+    // Reuses the same AggregateError-unwrapping describeError() already applied to the
+    // /api/health and /api/connect paths (F064) - this initial connect() had the same
+    // empty-message bug for an unreachable host, just never routed through it before.
+    throw new Error(`Could not connect to ${displayTarget(target)}: ${describeError(error)}`);
+  }
+  return { target, adapter };
+}
+
+/** Prints the gradient "QYRE" title before either guided-login flow starts, so the prompt reads
+ * as part of the same product as the startup banner instead of a bare Q&A. */
+function printGuidedLoginIntro(): void {
+  process.stdout.write(`${renderQyreTitle()}\n${chalk.dim("Guided setup")}\n\n`);
+}
+
 /** Run the CLI. Returns the running server's URL. */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgs(argv);
@@ -206,22 +269,37 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     mysqlAdapterFactory,
     mongodbAdapterFactory
   ];
-  // F073: a target is no longer required at startup - omitting it starts the server unconnected
-  // (adapter/target both undefined, same "unconfigured" shape POST /api/connect already produces
-  // for a fresh connection - see @qyre/server's health handler) and the browser opens straight
-  // into the connect UI instead of the CLI failing with "no target provided".
-  const target = args.target ? parseConnectionTarget(args.target) : undefined;
-  const adapter = target ? resolveAdapter(adapterFactories, target) : undefined;
-  if (adapter && target) {
-    try {
-      await adapter.connect();
-    } catch (error) {
-      // Reuses the same AggregateError-unwrapping describeError() already applied to the
-      // /api/health and /api/connect paths (F064) - this initial connect() had the same
-      // empty-message bug for an unreachable host, just never routed through it before.
-      throw new Error(`Could not connect to ${displayTarget(target)}: ${describeError(error)}`);
+  let target: ConnectionTarget | undefined;
+  let adapter: DatabaseAdapter | undefined;
+
+  if (args.login) {
+    // F088: `--login` skips the connection-string argument entirely and builds one from prompted
+    // fields (engine, user, password, host, port, database), retrying on a failed connect instead
+    // of exiting.
+    printGuidedLoginIntro();
+    const io = createTerminalGuidedLoginIO();
+    await runGuidedLogin(io, async (raw) => {
+      ({ target, adapter } = await connectToRaw(raw, adapterFactories));
+    });
+  } else if (args.target) {
+    const parsedTarget = parseConnectionTarget(args.target);
+    // F088: a URL-shaped target with no username (e.g. `postgres://host:5432/db`) is prompted for
+    // credentials interactively rather than attempted anonymously - but only when there's a
+    // terminal to prompt on, so a piped/non-interactive invocation behaves exactly as before.
+    if (needsCredentialPrompt(parsedTarget) && process.stdin.isTTY) {
+      printGuidedLoginIntro();
+      const io = createTerminalGuidedLoginIO();
+      await fillMissingCredentials(io, parsedTarget, async (raw) => {
+        ({ target, adapter } = await connectToRaw(raw, adapterFactories));
+      });
+    } else {
+      ({ target, adapter } = await connectToRaw(args.target, adapterFactories));
     }
   }
+  // F073: a target is no longer required at startup - omitting it (and --login) starts the server
+  // unconnected (adapter/target both undefined, same "unconfigured" shape POST /api/connect already
+  // produces for a fresh connection - see @qyre/server's health handler) and the browser opens
+  // straight into the connect UI instead of the CLI failing with "no target provided".
 
   const filesRoot = resolveFilesRoot(args.filesDir, process.cwd());
   if (filesRoot && (!existsSync(filesRoot) || !statSync(filesRoot).isDirectory())) {

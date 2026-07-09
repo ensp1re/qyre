@@ -36,7 +36,8 @@ export type WorkspaceAction =
   | { type: "historySelected"; sql: string }
   | { type: "connectChanged"; open: boolean }
   | { type: "connectAutoOpened" }
-  | { type: "connectionChanged" };
+  | { type: "connectionChanged" }
+  | { type: "sqlUnavailableForConnection" };
 
 export function createInitialWorkspaceState(viewportWidth: number): WorkspaceState {
   return {
@@ -94,7 +95,11 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
         page: 0,
         sort: undefined,
         filters: undefined,
+        selectedFilePath: undefined,
+        lastQueryMs: undefined,
         connectOpen: false
       };
+    case "sqlUnavailableForConnection":
+      return state.tab === "sql-editor" ? { ...state, tab: "tables" } : state;
   }
 }

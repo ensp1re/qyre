@@ -32,15 +32,36 @@ describe("workspaceReducer", () => {
       ...createInitialWorkspaceState(1200),
       selected: { schema: "public", table: "users" },
       page: 2,
+      sort: { column: "name", direction: "desc" as const },
+      filters: [{ column: "id", op: "eq" as const, value: "1" }],
       querySql: "SELECT * FROM users",
+      selectedFilePath: "/tmp/query.sql",
+      lastQueryMs: 42,
       connectOpen: true
     };
 
     expect(workspaceReducer(initial, { type: "connectionChanged" })).toMatchObject({
       selected: undefined,
       page: 0,
+      sort: undefined,
+      filters: undefined,
       querySql: "SELECT * FROM users",
+      selectedFilePath: undefined,
+      lastQueryMs: undefined,
       connectOpen: false
+    });
+  });
+
+  it("moves off the SQL editor when the current connection does not support SQL", () => {
+    const initial = {
+      ...createInitialWorkspaceState(1200),
+      tab: "sql-editor" as const,
+      querySql: "SELECT * FROM users"
+    };
+
+    expect(workspaceReducer(initial, { type: "sqlUnavailableForConnection" })).toMatchObject({
+      tab: "tables",
+      querySql: "SELECT * FROM users"
     });
   });
 

@@ -123,7 +123,7 @@
       "verification": "pnpm --filter @qyre/web test && pnpm test:e2e",
       "state": "active",
       "commitHash": null,
-      "evidence": "Started on feature/F085-database-switching-sync after F084 merged.",
+      "evidence": "Started on feature/F085-database-switching-sync after F084 merged. Implemented explicit database-owned React Query cache reset/refetch after successful POST /api/connect, local workspace reset for stale selected table/file/query metrics while preserving the SQL draft, hidden unsupported shell tabs, and automatic move off SQL when the connected adapter reports supportsSql=false. Added isolated E2E coverage for switching from Postgres to MongoDB without reload: a Postgres-only table disappears from the sidebar, the MongoDB fixture appears, and SQL Editor is absent. Verified so far: pnpm --filter @qyre/web test; pnpm --filter @qyre/ui test; pnpm --filter @qyre/web typecheck; pnpm --filter @qyre/ui typecheck; node scripts/with-local-env.mjs pnpm exec playwright test e2e/connect-and-inspect.spec.ts --grep \"switching to MongoDB\" --project postgres; pnpm test:e2e; pnpm check:quiet; pnpm verify:pr.",
       "blockedReason": null,
       "spec": null
     },

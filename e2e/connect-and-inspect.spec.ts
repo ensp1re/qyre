@@ -1,16 +1,28 @@
 import AxeBuilder from "@axe-core/playwright";
+import { parseConnectionTarget } from "@qyre/core";
+import { resolveAdapter } from "@qyre/driver-contract";
+import { mongodbAdapterFactory } from "@qyre/mongodb";
+import { mysqlAdapterFactory } from "@qyre/mysql";
+import { postgresAdapterFactory } from "@qyre/postgres";
+import { startServer } from "@qyre/server";
+import { sqliteAdapterFactory } from "@qyre/sqlite";
 import {
   FIXTURE,
   requireTestDatabaseUrl,
   requireTestMongoUrl,
   requireTestMysqlUrl,
   requireTestSqlitePath,
+  runStatements,
   setupFixture,
   setupMongoFixture,
   setupMysqlFixture,
   setupSqliteFixture
 } from "@qyre/testing";
 import { expect, test } from "@playwright/test";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/web/dist");
 
 /**
  * Full end-to-end journey: connect and inspect a table. Runs once per engine project (see
@@ -45,8 +57,7 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
   await expect(page.getByTestId("status-badge")).toHaveAttribute("data-status", "connected");
 
   if (testInfo.project.name === "mongodb") {
-    await expect(page.getByRole("tab", { name: "SQL Editor" })).toBeDisabled();
-    await expect(page.getByText(/SQL Editor is not available for MongoDB/)).toBeVisible();
+    await expect(page.getByRole("tab", { name: "SQL Editor" })).toHaveCount(0);
   }
 
   // F074: the Schema tab defaults to the interactive ERD graph - every table a node, no prior
@@ -92,4 +103,52 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
     .disableRules(["color-contrast"])
     .analyze();
   expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
+});
+
+test("@full switching to MongoDB refreshes the shell without a reload", async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "postgres", "Run the cross-engine switch once.");
+
+  const postgresUrl = requireTestDatabaseUrl();
+  await setupFixture(postgresUrl);
+  await runStatements(postgresUrl, [
+    "DROP TABLE IF EXISTS qyre_switch_only_postgres",
+    "CREATE TABLE qyre_switch_only_postgres (id serial PRIMARY KEY, label text NOT NULL)"
+  ]);
+
+  const mongoUrl = requireTestMongoUrl();
+  await setupMongoFixture(mongoUrl);
+
+  const target = parseConnectionTarget(postgresUrl);
+  const adapter = resolveAdapter([postgresAdapterFactory], target);
+  await adapter.connect();
+  const server = await startServer({
+    adapter,
+    target,
+    port: 4191,
+    host: "127.0.0.1",
+    webRoot: WEB_ROOT,
+    logger: false,
+    adapterFactories: [
+      postgresAdapterFactory,
+      sqliteAdapterFactory,
+      mysqlAdapterFactory,
+      mongodbAdapterFactory
+    ]
+  });
+  try {
+    await page.goto(server.url);
+    await expect(page.getByRole("treeitem", { name: "qyre_switch_only_postgres" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByPlaceholder("postgres://user:pass@host:5432/db").fill(mongoUrl);
+    await page.getByRole("button", { name: "Connect", exact: true }).click();
+
+    await expect(page.getByRole("tab", { name: "SQL Editor" })).toHaveCount(0);
+    await expect(page.getByRole("treeitem", { name: FIXTURE.table })).toBeVisible();
+    await expect(page.getByRole("treeitem", { name: "qyre_switch_only_postgres" })).toHaveCount(0);
+  } finally {
+    await server.close();
+  }
 });

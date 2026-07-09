@@ -6,7 +6,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-09.
-- Branch: `main`; F084 is merged to `main` as PR #86 / `c2160d8`.
+- Branch: `feature/F085-database-switching-sync`; F084 is merged to `main` as PR #86 / `c2160d8`.
 - 15 live entries: 11 `passing` (F072, F074-F078, F081-F084, F089), 1 `active` (F085), 3
   `not_started` (F086-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
 
@@ -49,7 +49,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 - F085 (database switching sync): switching the active database connection from the UI must refresh
   dependent schema/sidebar/table views automatically, and MongoDB connections must hide the SQL
-  Editor tab rather than showing a disabled SQL surface.
+  Editor tab rather than showing a disabled SQL surface. Current implementation resets/refetches
+  database-owned React Query caches after successful connect, clears stale local table/file/query
+  metrics while preserving the SQL draft, hides unsupported tabs, and moves the active tab off SQL
+  when `supportsSql=false`. `pnpm verify:pr` is green.
 
 ## Known issues / blockers
 
@@ -62,5 +65,4 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Create `feature/F085-database-switching-sync`, read `docs/product-specs/database-switching.md`,
-  establish a green baseline, then implement F085.
+- Run `pnpm verify:pr`, review the diff, commit/push F085, open a draft PR, then wait for CI.

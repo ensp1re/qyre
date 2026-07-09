@@ -88,9 +88,15 @@ export function App(): ReactNode {
   // read-only backstop to run inside (see docs/product-specs/connect-and-inspect-mongodb.md's "Why
   // this engine is scoped differently"). Read from the adapter's declared capabilities instead of
   // an `engine === "mongodb"` string check, so a future non-SQL engine doesn't need its own
-  // conditional here (docs/product-specs/adapter-capabilities.md). The tab is disabled rather than
-  // left clickable and silently failing every query.
+  // conditional here (docs/product-specs/adapter-capabilities.md). Unsupported tabs are hidden from
+  // the shell instead of shown as disabled dead ends; the effect below moves the active tab away
+  // from SQL once capabilities load for a non-SQL engine.
   const supportsSql = overview.data?.capabilities.supportsSql ?? true;
+  useEffect(() => {
+    if (status === "connected" && !supportsSql) {
+      dispatch({ type: "sqlUnavailableForConnection" });
+    }
+  }, [status, supportsSql]);
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page, sort, filters);
   const allTables = useAllTables({ enabled: status === "connected" });
@@ -177,14 +183,7 @@ export function App(): ReactNode {
           <TabBar
             active={tab}
             onChange={(nextTab) => dispatch({ type: "tabChanged", tab: nextTab })}
-            disabledTabs={
-              !supportsSql
-                ? {
-                    "sql-editor":
-                      "Not available for MongoDB connections - browse collections directly."
-                  }
-                : undefined
-            }
+            hiddenTabs={!supportsSql ? ["sql-editor"] : undefined}
           />
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">

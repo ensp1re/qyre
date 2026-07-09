@@ -6,9 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-09.
-- Branch: `feature/F082-type-aware-filters`; F082 is merged to `main` as PR #83 / `7cacbe4`.
-- 14 live entries: 8 `passing` (F072, F074-F078, F081-F082), 0 `active`, 6 `not_started`
-  (F083-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
+- Branch: `feature/F089-filter-table-ux`; F082 is merged to `main` as PR #83 / `7cacbe4`.
+- 15 live entries: 8 `passing` (F072, F074-F078, F081-F082), 1 `active` (F089), 6
+  `not_started` (F083-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
 
 ## Completed
 
@@ -34,7 +34,13 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- None.
+- F089 (filter/table UX): audit and improve Rows table filtering across PostgreSQL, MySQL, SQLite,
+  MongoDB, and registered engines. Focus on meaningful per-engine type/operator capabilities,
+  server-side rejection of invalid filter combinations, removing MongoDB MinKey/MaxKey as normal
+  user-facing filter types, and polishing the filter/table layout with the Qyre design system.
+  Implemented: shared `@qyre/core/filter-capabilities`, UI and server both consume it, MongoDB
+  sentinels collapse to structured object metadata, and `docs/product-specs/rows-table-filtering.md`
+  is updated. Local `pnpm verify:pr` passed.
 
 ## Known issues / blockers
 
@@ -47,7 +53,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Start F083 (row selection and selected-row CSV export), branching off `main` as
-  `feature/F083-row-selection-export`.
-- Then continue through F084-F088 (see `docs/FEATURES.json`), branching off `main` as `feature/<ID>-<slug>`,
-  and follow the usual `pnpm verify:pr` -> push -> draft PR -> merge -> mark-passing loop.
+- Finish F089: commit, push, open a draft PR, wait for CI, then mark passing with PR/commit
+  evidence.
+- Then pick from F083-F088 (see `docs/FEATURES.json`), branching off `main` as
+  `feature/<ID>-<slug>`, and follow the usual `pnpm verify:pr` -> push -> draft PR -> merge ->
+  mark-passing loop.

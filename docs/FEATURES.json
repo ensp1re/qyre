@@ -2,7 +2,7 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 89,
+    "F": 90,
     "DF": 10
   },
   "states": ["not_started", "active", "blocked", "passing"],
@@ -154,6 +154,16 @@
       "evidence": null,
       "blockedReason": null,
       "spec": null
+    },
+    {
+      "id": "F089",
+      "behavior": "The Rows table filtering and table chrome are reviewed and rebuilt as a coherent cross-engine experience: operators and value inputs are derived from meaningful per-engine column capabilities rather than generic type strings, MongoDB BSON sentinels such as MinKey/MaxKey are not exposed as normal user-selectable filter types, invalid type/operator combinations are rejected consistently server-side, and the filter/table UI has clearer layout, hierarchy, spacing, and copy across PostgreSQL, MySQL, SQLite, MongoDB, and any registered engine.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/server test && pnpm --filter @qyre/testing-conformance test",
+      "state": "active",
+      "commitHash": null,
+      "evidence": "Implemented a shared browser-safe @qyre/core/filter-capabilities subpath that classifies engine-reported column metadata into meaningful filter capabilities and operator/value-input sets. The UI now receives the connected engine and uses that shared matrix to hide unsupported scalar fields, show only relevant operators, use boolean/date/time/datetime/number/ObjectId-appropriate value controls, and clarify filter/export copy. The server uses the same capability matrix to reject invalid direct API filter combinations before adapters run. MongoDB MinKey/MaxKey remain normalized for display but now collapse to structured object metadata instead of user-facing minKey/maxKey data types, and sentinel tokens are no longer coerced from scalar filter input. Updated rows-table-filtering.md to document capability-based validation and BSON sentinel behavior. Verified locally with pnpm --filter @qyre/core test, pnpm --filter @qyre/server test, pnpm --filter @qyre/ui test, node scripts/with-local-env.mjs pnpm --filter @qyre/mongodb test, node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test, pnpm check:quiet, and pnpm verify:pr (checks, build, smoke E2E, full E2E across PostgreSQL/MySQL/SQLite/MongoDB) all passing.",
+      "blockedReason": null,
+      "spec": "docs/product-specs/rows-table-filtering.md"
     }
   ]
 }

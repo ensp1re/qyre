@@ -28,8 +28,10 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
 - Each filter's `column` is validated server-side against the table's real columns (the same
   `getTable` introspection `resolveRowSort` already uses for `sortColumn` - see
   `server-side-sort-export.md`'s injection-surface note) before use. An unrecognized column is
-  rejected with `400`, same treatment as an unrecognized `sortColumn`. This is the real injection
-  surface here too: `op` is already whitelisted by a Zod enum and `value` is always
+  rejected with `400`, same treatment as an unrecognized `sortColumn`. The server also validates
+  that `op` is meaningful for the selected column's engine-aware capability (for example,
+  `contains` is valid for scalar text, not numeric/JSON/BSON object columns). This is the real
+  injection surface here too: `op` is already whitelisted by a Zod enum and `value` is always
   parameter-bound (SQL engines) or passed as a native driver value (MongoDB), never interpolated
   into a query string.
 - Each engine translates the validated filter list to its native mechanism:
@@ -50,9 +52,10 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
     reasoning as SQL's `LIKE` escaping above, just for regex instead of `%`/`_`); `isNull`/
     `isNotNull` -> `{$eq: null}`/`{$ne: null}`. Unlike the SQL engines, MongoDB documents store
     native BSON types (a number field holds a number, not a string), so a raw string `value` won't
-    match a numeric/boolean/date field as-is - the adapter coerces `value` using the same
+    match a numeric/boolean/date/ObjectId field as-is - the adapter coerces `value` using the same
     per-field type inference `getTable`'s `inferColumns` already performs (F068) before building
-    the filter document.
+    the filter document. BSON sentinels such as MinKey and MaxKey remain displayable as normalized
+    structured values but are not exposed as normal scalar filter types in metadata or the UI.
 - `RowsTable`'s toolbar gets a `Filter` button (funnel icon) sitting next to the page-local
   `Search this page` box, which stays a distinct, page-local free-text narrow (F065's spec already
   flagged this as a "distinct, filter-shaped feature, not addressed here"; this is that feature).
@@ -62,13 +65,14 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
   1. **Column** - a searchable, type-to-filter list of the table's real columns, each with its
      type icon (reusing `TypeIcon`'s numeric/text/boolean/date mapping) and a PK/FK badge; the
      search input holds keyboard focus and arrow/Enter drive the highlight (`aria-activedescendant`).
-  2. **Operator** - a list of operators, ordered by the picked column's kind (e.g. `contains`
-     first for text, comparisons first for numeric/date) so the likeliest choice is preselected;
+  2. **Operator** - a list of operators supported by the picked column's engine-aware capability
+     (e.g. `contains` for text, comparisons for numeric/date/time, equality for ObjectId/boolean)
+     so irrelevant choices are not shown;
      each shows a readable word (`equals`, `greater than`) with the SQL symbol as a muted hint.
      Picking `is null`/`is not null` applies immediately (no value step).
-  3. **Value** - a single text input with an Apply button; Enter applies. The column and operator
-     already chosen show as breadcrumb tokens at the popover's head, each clickable to re-pick that
-     step. Escape walks one step back, then closes.
+  3. **Value** - a type-appropriate control: text/ObjectId text, number, true/false, date, time, or
+     datetime. The column and operator already chosen show as breadcrumb tokens at the popover's
+     head, each clickable to re-pick that step. Escape walks one step back, then closes.
 - Applied filters render as compact **segmented chips** in the toolbar (type icon · column ·
   operator symbol · value), joined by small `and` separators to make the AND semantics visible.
   Clicking a chip reopens the popover to **edit that filter in place**; clicking its `×` removes
@@ -88,10 +92,7 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
   already gives for excluding it from sort: no server-known column list to validate a filter
   column against, and no stable "whole result set" to filter within beyond its own 1,000-row cap
   (F050).
-- Richer per-type value inputs (date picker, boolean toggle, enum dropdown) - the first pass ships
-  one plain text `value` input for every column type and op; the value is parsed/coerced
-  server-side (SQL engines via the driver, MongoDB via `inferColumns`) rather than the UI
-  constraining what can be typed.
+- Enum/dropdown value pickers based on live distinct values.
 - Filtering on nested/embedded MongoDB document fields (dot-notation paths) - only top-level
   document fields, matching `getTable`'s existing column list.
 
@@ -100,6 +101,8 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
 - A single `column eq value` filter returns exactly the matching rows, verified against a table
   with more rows than one page, identically across all 4 engines.
 - Requesting a `filters` entry with a column that isn't a real column on that table returns `400`.
+- Requesting a valid column with an unsupported operator for its type/engine returns `400` before
+  the adapter runs the row query.
 - `contains` matches case-insensitively and correctly handles a searched-for value that itself
   contains a literal `%`/`_` (Postgres/MySQL/SQLite) or regex metacharacter (MongoDB) instead of
   treating it as a wildcard.

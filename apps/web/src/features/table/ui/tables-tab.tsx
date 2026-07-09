@@ -1,4 +1,4 @@
-import type { ForeignKeyReference, RowFilter, RowSort } from "@qyre/core";
+import type { DatabaseEngine, ForeignKeyReference, RowFilter, RowSort } from "@qyre/core";
 import { ErrorState, RowsTable, Spinner } from "@qyre/ui";
 import type { ReactNode } from "react";
 import { exportRowsUrl } from "../api/rows.js";
@@ -8,6 +8,7 @@ import type { useTable } from "../model/use-table.js";
 export interface TablesTabProps {
   selected: { schema: string; table: string } | undefined;
   table: ReturnType<typeof useTable>;
+  engine?: DatabaseEngine;
   rows: ReturnType<typeof useRows>;
   page: number;
   onPageChange: (updater: (current: number) => number) => void;
@@ -30,6 +31,7 @@ function downloadExport(url: string): void {
 export function TablesTab({
   selected,
   table,
+  engine,
   rows,
   page,
   onPageChange,
@@ -66,6 +68,7 @@ export function TablesTab({
     <RowsTable
       rowPage={rows.data.rowPage}
       columns={table.data?.columns}
+      engine={engine}
       tableName={selected.table}
       approxRowCount={table.data?.rowCount}
       page={page}

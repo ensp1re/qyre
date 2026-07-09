@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./filter-capabilities": {
+      "types": "./dist/filter-capabilities.d.ts",
+      "import": "./dist/filter-capabilities.js"
     }
   },
   "main": "./dist/index.js",

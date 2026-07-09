@@ -1,4 +1,10 @@
-import type { ColumnMetadata, ForeignKeyReference, RowFilter, RowPage } from "@qyre/core";
+import type {
+  ColumnMetadata,
+  DatabaseEngine,
+  ForeignKeyReference,
+  RowFilter,
+  RowPage
+} from "@qyre/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowUpDown,
@@ -24,6 +30,7 @@ import { FilterBar } from "./filter-bar.js";
 export interface RowsTableProps {
   rowPage: RowPage;
   columns?: ColumnMetadata[];
+  engine?: DatabaseEngine;
   tableName?: string;
   approxRowCount?: number;
   page: number;
@@ -86,6 +93,7 @@ export function toCsv(columns: string[], rows: Array<Record<string, unknown>>): 
 export function RowsTable({
   rowPage,
   columns = [],
+  engine,
   tableName,
   approxRowCount,
   page,
@@ -198,7 +206,12 @@ export function RowsTable({
         </div>
 
         {onFiltersChange && (
-          <FilterBar columns={columns} filters={filters} onFiltersChange={onFiltersChange} />
+          <FilterBar
+            columns={columns}
+            engine={engine}
+            filters={filters}
+            onFiltersChange={onFiltersChange}
+          />
         )}
 
         <div className="ml-auto flex items-center gap-2">
@@ -221,7 +234,7 @@ export function RowsTable({
               type="button"
               onClick={onExportAllRows}
               aria-label="Export all rows as CSV"
-              title="Exports every row in the table, honoring the current sort"
+              title="Exports every row matching the current sort and filters"
               className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <Download className="h-3 w-3" />

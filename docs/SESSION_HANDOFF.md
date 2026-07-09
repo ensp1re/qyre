@@ -6,9 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-09.
-- Branch: `feature/F086-url-cell-previews`; F086 is open as draft PR #88 from commit `c00289a`.
-- 15 live entries: 13 `passing` (F072, F074-F078, F081-F086, F089), 1 `active` (F087), 1
-  `not_started` (F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
+- Branch: `feature/F088-cli-guided-login`; F088 is starting from updated `main`.
+- 15 live entries: 14 `passing` (F072, F074-F078, F081-F087, F089), 1 `active` (F088).
+  `pnpm features:prune` removed F067-F071 and F073 from the live queue.
 
 ## Completed
 
@@ -39,11 +39,12 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   resets/refetches database-owned React Query caches, clears stale local table/file/query metrics
   while preserving the SQL draft, hides unsupported tabs, and moves the active tab off SQL when
   `supportsSql=false`. Local `pnpm verify:pr`, pre-push `pnpm verify:pr`, and GitHub CI passed.
-- F086 (URL cell previews): draft PR #88 from `c00289a`. Shared cell rendering now classifies
-  strict http(s) URLs, renders image URL thumbnails and plain URL link chips, opens URL values in
-  `CellValueDrawer`, gives long raw text a distinct bordered muted treatment, and clarifies the
-  Files tab disabled copy as `--files-dir`-gated rather than engine-gated. Local `pnpm verify:pr`,
-  pre-push `pnpm verify:pr`, and GitHub CI passed.
+- F086 (URL cell previews): merged as PR #88/`060f6c7`-ancestor (pre-F087 merge). Shared cell
+  rendering now classifies strict http(s) URLs, renders image URL thumbnails and plain URL link
+  chips, opens URL values in `CellValueDrawer`, gives long raw text a distinct bordered muted
+  treatment, and clarifies the Files tab disabled copy as `--files-dir`-gated rather than
+  engine-gated. Local `pnpm verify:pr`, pre-push `pnpm verify:pr`, and GitHub CI passed.
+- F087 (settings UI): merged as PR #89/`060f6c7`. See `docs/FEATURES.json`'s F087 evidence.
 - The QA demo dataset (28-table B2B logistics/e-commerce set, 52k rows/table, plus `type_showcase`
   exercising each engine's native type system) now lives in a separate `qyre_demo` database
   (Postgres/MySQL/MongoDB) so it no longer collides with `qyre_test`, which the E2E fixtures expect
@@ -56,10 +57,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F087 (settings UI): rebuild the Settings surface as a polished, scannable in-app configuration
-  screen using the established Qyre/Fable visual language. Sections should be logically grouped,
-  binary/numeric/list settings should use the right shared UI primitives, and persistence state
-  should make saved vs. unsaved changes clear.
+- F088 (CLI guided login): add an interactive guided-login flow to the CLI for users who hit
+  npm's `EUNSUPPORTEDPROTOCOL` error running `npx <connection-url>` directly, or who run
+  `npx qyre` with no target. Prompt for engine, user, masked password, host, port, database; on a
+  failed connection, show the real error and offer retry (Y) or quit (N). Startup help should also
+  explain the npx protocol pitfall and point at the correct invocation shapes.
 
 ## Known issues / blockers
 
@@ -72,5 +74,4 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Push the F086 queue-state update to PR #88, then start F087 from updated `main` after PR #88 is
-  merged.
+- Implement F088's interactive guided-login flow in the `qyre` CLI package and open a draft PR.

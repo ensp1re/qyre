@@ -143,19 +143,20 @@
       "id": "F087",
       "behavior": "The Settings surface is rebuilt as a polished, scannable in-app configuration screen using the established Qyre/Fable visual language (docs/references/design-system.md) instead of its current one-off panel: sections are grouped logically, binary/numeric/list settings use the right shared-UI primitives, and persistence state (saved vs unsaved) is visually clear.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": "Promoted after F086 passed local verification and PR #88 CI.",
+      "state": "passing",
+      "commitHash": "060f6c78bb890c3a1608103c2fa58f9de2a3a391",
+      "evidence": "PR #89 (https://github.com/ensp1re/qyre/pull/89), merged as 060f6c7. Replaced the title-bar gear's one-off connection drawer with a full-screen SettingsScreen grouping Connection, Appearance, Layout, and Data & history sections; edits stage into a draft applied together on Save, with Discard restoring the baseline and the header showing unsaved-vs-saved state. Numeric fields clamp to bounds with a reset-to-default control; the gear opens Settings while a separate Database button keeps the connection switcher. Verified with pnpm --filter @qyre/ui test (130 passed), pnpm --filter @qyre/web test (21 passed), and pnpm verify:pr (checks, build, smoke + full E2E across PostgreSQL/MySQL/SQLite/MongoDB). GitHub CI passed.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-09T13:40:00.000Z"
     },
     {
       "id": "F088",
       "behavior": "`npx <connection-url>` (e.g. `npx mongodb://localhost:27017/qyre_test` or `npx postgres://...`) fails with npm's own EUNSUPPORTEDPROTOCOL error because npx parses the argument as a package spec before qyre ever runs. The CLI gains an interactive guided-login flow for users who hit this or simply run `npx qyre` with no target: pick an engine, then enter user, a masked password (echoed as ****), host, port, and database; on a failed connection attempt, show the real error and offer retry (Y) or quit (N) rather than exiting. Startup help/output also explains the npx protocol:// pitfall directly and points at the correct `npx qyre <connection-url>` shape or this new interactive prompt.",
       "verification": "pnpm --filter qyre test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
-      "evidence": null,
+      "evidence": "Promoted after F087 merged as PR #89/060f6c7.",
       "blockedReason": null,
       "spec": null
     },

@@ -112,7 +112,7 @@
       "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/mysql test",
       "state": "active",
       "commitHash": null,
-      "evidence": "Started on feature/F084-schema-graph-relationships after F083 merged.",
+      "evidence": "Started on feature/F084-schema-graph-relationships after F083 merged. Implemented graph relationship-chain highlighting, disconnected-cluster/no-FK notices, and stable MySQL fixture FK coverage via qyre_demo_orders -> qyre_demo_users. MongoDB graph coverage confirms `_id` remains a primary-key column, not a relationship edge. Verified so far: pnpm --filter @qyre/web test; node scripts/with-local-env.mjs pnpm --filter @qyre/mysql test; pnpm --filter @qyre/web typecheck; pnpm --filter @qyre/mysql typecheck; pnpm --filter @qyre/testing typecheck; pnpm check:quiet; pnpm verify:pr.",
       "blockedReason": null,
       "spec": null
     },

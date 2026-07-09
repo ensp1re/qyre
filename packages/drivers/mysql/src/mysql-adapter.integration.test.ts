@@ -5,7 +5,12 @@
  * verification: a missing env var fails these tests with an actionable message instead of passing
  * trivially.
  */
-import { FIXTURE, requireTestMysqlUrl, setupMysqlFixture } from "@qyre/testing";
+import {
+  FIXTURE,
+  MYSQL_RELATIONSHIP_FIXTURE,
+  requireTestMysqlUrl,
+  setupMysqlFixture
+} from "@qyre/testing";
 import mysql from "mysql2/promise";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MysqlAdapter } from "./index.js";
@@ -35,6 +40,7 @@ describe("MysqlAdapter integration", () => {
     const overview = await adapter.getOverview();
     const schema = overview.schemas.find((candidate) => candidate.name === databaseName);
     expect(schema?.tables).toContain(FIXTURE.table);
+    expect(schema?.tables).toContain(MYSQL_RELATIONSHIP_FIXTURE.table);
   });
 
   it("introspects columns, the primary key, indexes, and an exact row count", async () => {
@@ -60,30 +66,16 @@ describe("MysqlAdapter integration", () => {
   });
 
   it("flags a column referencing another table as a foreign key", async () => {
-    const pool = mysql.createPool(databaseUrl);
-    try {
-      await pool.query("DROP TABLE IF EXISTS qyre_test_orders");
-      await pool.query(`CREATE TABLE qyre_test_orders (
-         id INT AUTO_INCREMENT PRIMARY KEY,
-         user_id INT NOT NULL,
-         total DECIMAL(10,2) NOT NULL,
-         FOREIGN KEY (user_id) REFERENCES ${FIXTURE.table}(id)
-       )`);
-
-      const table = await adapter.getTable(databaseName, "qyre_test_orders");
-      const userIdColumn = table.columns.find((column) => column.name === "user_id");
-      expect(userIdColumn?.isForeignKey).toBe(true);
-      // F061: also resolves what the FK actually references, not just that it is one.
-      expect(userIdColumn?.references).toEqual({
-        schema: databaseName,
-        table: FIXTURE.table,
-        column: "id"
-      });
-      expect(table.columns.find((column) => column.name === "total")?.isForeignKey).toBe(false);
-    } finally {
-      await pool.query("DROP TABLE IF EXISTS qyre_test_orders");
-      await pool.end();
-    }
+    const table = await adapter.getTable(databaseName, MYSQL_RELATIONSHIP_FIXTURE.table);
+    const userIdColumn = table.columns.find((column) => column.name === "user_id");
+    expect(userIdColumn?.isForeignKey).toBe(true);
+    // F061/F084: resolves what the FK references so graph consumers can draw a real edge.
+    expect(userIdColumn?.references).toEqual({
+      schema: databaseName,
+      table: FIXTURE.table,
+      column: "id"
+    });
+    expect(table.columns.find((column) => column.name === "total")?.isForeignKey).toBe(false);
   });
 
   it("returns a page of rows", async () => {

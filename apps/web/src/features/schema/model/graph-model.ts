@@ -5,9 +5,22 @@ import type { Edge, Node } from "@xyflow/react";
 /** A table node's data payload - the whole `TableMetadata`, rendered by `TableNode`. */
 export interface TableNodeData extends Record<string, unknown> {
   table: TableMetadata;
+  highlighted?: boolean;
+  dimmed?: boolean;
 }
 
 export type TableFlowNode = Node<TableNodeData, "table">;
+
+export interface RelationshipHighlight {
+  nodeIds: Set<string>;
+  edgeIds: Set<string>;
+}
+
+export interface RelationshipSummary {
+  componentCount: number;
+  isolatedNodeCount: number;
+  edgeCount: number;
+}
 
 /** A stable node id for a table. Schema-qualified so two tables with the same name in different
  * schemas (Postgres/MySQL) don't collide. */
@@ -55,6 +68,63 @@ export function buildGraph(tables: TableMetadata[]): { nodes: TableFlowNode[]; e
   }
 
   return { nodes, edges };
+}
+
+function incidentEdgeIds(nodeId: string, edges: Edge[]): string[] {
+  return edges
+    .filter((edge) => edge.source === nodeId || edge.target === nodeId)
+    .map((edge) => edge.id);
+}
+
+function relationshipHighlight(seedNodeIds: string[], edges: Edge[]): RelationshipHighlight {
+  const nodeIds = new Set(seedNodeIds);
+  const edgeIds = new Set<string>();
+  const queue = [...seedNodeIds];
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId) continue;
+    for (const edge of edges) {
+      if (edge.source !== nodeId && edge.target !== nodeId) continue;
+      edgeIds.add(edge.id);
+      for (const nextNodeId of [edge.source, edge.target]) {
+        if (nodeIds.has(nextNodeId)) continue;
+        nodeIds.add(nextNodeId);
+        queue.push(nextNodeId);
+      }
+    }
+  }
+
+  return { nodeIds, edgeIds };
+}
+
+export function relationshipHighlightForNode(nodeId: string, edges: Edge[]): RelationshipHighlight {
+  return relationshipHighlight([nodeId], edges);
+}
+
+export function relationshipHighlightForEdge(edgeId: string, edges: Edge[]): RelationshipHighlight {
+  const edge = edges.find((candidate) => candidate.id === edgeId);
+  return edge
+    ? relationshipHighlight([edge.source, edge.target], edges)
+    : relationshipHighlight([], edges);
+}
+
+export function relationshipSummary(nodes: TableFlowNode[], edges: Edge[]): RelationshipSummary {
+  const unvisited = new Set(nodes.map((node) => node.id));
+  let componentCount = 0;
+
+  for (const node of nodes) {
+    if (!unvisited.has(node.id)) continue;
+    componentCount += 1;
+    const { nodeIds } = relationshipHighlightForNode(node.id, edges);
+    for (const nodeId of nodeIds) unvisited.delete(nodeId);
+  }
+
+  return {
+    componentCount,
+    isolatedNodeCount: nodes.filter((node) => incidentEdgeIds(node.id, edges).length === 0).length,
+    edgeCount: edges.length
+  };
 }
 
 /** Approximate node dimensions dagre uses to space nodes before React Flow measures the real DOM.

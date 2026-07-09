@@ -12,8 +12,16 @@ import {
 } from "@xyflow/react";
 import { RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { buildGraph, layoutGraph, type TableFlowNode } from "../../model/graph-model.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildGraph,
+  layoutGraph,
+  relationshipHighlightForEdge,
+  relationshipHighlightForNode,
+  relationshipSummary,
+  type RelationshipHighlight,
+  type TableFlowNode
+} from "../../model/graph-model.js";
 import { TableNode } from "./table-node.js";
 import { useGraphPositions } from "../../model/use-graph-positions.js";
 
@@ -45,10 +53,57 @@ function positionedNodes(
 function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode {
   const { positions, savePositions, clearPositions } = useGraphPositions(databaseKey);
   const { fitView } = useReactFlow();
+  const [highlight, setHighlight] = useState<RelationshipHighlight | null>(null);
 
   const edges = useMemo(() => buildGraph(tables).edges, [tables]);
   const [flowNodes, setNodes, onNodesChange] = useNodesState<TableFlowNode>([]);
   const [flowEdges, setEdges] = useEdgesState(edges);
+  const summary = useMemo(() => relationshipSummary(flowNodes, flowEdges), [flowNodes, flowEdges]);
+  const relationshipNotice = useMemo(() => {
+    if (flowNodes.length < 2) return null;
+    if (summary.edgeCount === 0) return "No declared foreign keys found; tables are separate.";
+    if (summary.componentCount > 1) {
+      return `${summary.componentCount} disconnected groups; only declared foreign keys are linked.`;
+    }
+    return null;
+  }, [flowNodes.length, summary.componentCount, summary.edgeCount]);
+  const visibleNodes = useMemo(
+    () =>
+      flowNodes.map((node) => {
+        const isHighlighted = highlight?.nodeIds.has(node.id) ?? false;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            highlighted: isHighlighted,
+            dimmed: Boolean(highlight) && !isHighlighted
+          }
+        };
+      }),
+    [flowNodes, highlight]
+  );
+  const visibleEdges = useMemo(
+    () =>
+      flowEdges.map((edge) => {
+        const isHighlighted = highlight?.edgeIds.has(edge.id) ?? false;
+        const isDimmed = Boolean(highlight) && !isHighlighted;
+        return {
+          ...edge,
+          selected: isHighlighted,
+          animated: isHighlighted,
+          style: {
+            ...edge.style,
+            stroke: isHighlighted
+              ? "var(--c-blue)"
+              : isDimmed
+                ? "rgb(var(--muted-foreground) / 0.35)"
+                : "rgb(var(--border))",
+            strokeWidth: isHighlighted ? 2 : 1
+          }
+        };
+      }),
+    [flowEdges, highlight]
+  );
 
   // Rebuild nodes/edges whenever the table set changes (new database, refresh). Positions come from
   // localStorage when known, dagre otherwise. Keyed on databaseKey + table identity so switching
@@ -62,6 +117,7 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
     const key = `${databaseKey}::${signature}`;
     if (appliedRef.current === key) return;
     appliedRef.current = key;
+    setHighlight(null);
     setNodes(positionedNodes(tables, positions));
     setEdges(edges);
   }, [databaseKey, signature, tables, positions, edges, setNodes, setEdges]);
@@ -78,6 +134,7 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
 
   const resetLayout = useCallback(() => {
     clearPositions();
+    setHighlight(null);
     const { nodes, edges: builtEdges } = buildGraph(tables);
     setNodes(layoutGraph(nodes, builtEdges));
     setEdges(builtEdges);
@@ -88,10 +145,17 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
   return (
     <div data-testid="schema-graph" className="h-full w-full">
       <ReactFlow
-        nodes={flowNodes}
-        edges={flowEdges}
+        nodes={visibleNodes}
+        edges={visibleEdges}
         nodeTypes={NODE_TYPES}
         onNodesChange={onNodesChange}
+        onNodeClick={(_event, node) =>
+          setHighlight(relationshipHighlightForNode(node.id, flowEdges))
+        }
+        onEdgeClick={(_event, edge) =>
+          setHighlight(relationshipHighlightForEdge(edge.id, flowEdges))
+        }
+        onPaneClick={() => setHighlight(null)}
         onNodeDragStop={handleNodeDragStop}
         fitView
         fitViewOptions={{ padding: 0.15 }}
@@ -99,6 +163,7 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
         proOptions={{ hideAttribution: true }}
         nodesConnectable={false}
         edgesFocusable={false}
+        elementsSelectable
         className="bg-background"
       >
         <Background className="!bg-background" color="var(--border)" gap={20} />
@@ -118,6 +183,11 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
         >
           <RotateCcw className="h-3 w-3" /> Reset layout
         </button>
+        {relationshipNotice && (
+          <div className="absolute left-2 top-2 z-10 max-w-[280px] rounded-[4px] border border-border bg-card px-2.5 py-1.5 font-mono text-[11px] leading-4 text-muted-foreground shadow-sm">
+            {relationshipNotice}
+          </div>
+        )}
       </ReactFlow>
     </div>
   );

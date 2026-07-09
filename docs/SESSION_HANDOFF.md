@@ -47,7 +47,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - F084 (schema graph relationships): make the Schema graph reflect real relationships. Scope from
   the queue: MySQL foreign keys should introspect/draw as edges, disconnected clusters need a clear
   explanation, clicking a table or edge should highlight its relationship chain, and MongoDB should
-  not treat `_id` as a relationship.
+  not treat `_id` as a relationship. Current implementation adds graph connected-component
+  highlighting, cluster/no-FK notices, and a stable MySQL `qyre_demo_orders -> qyre_demo_users`
+  fixture relationship. `pnpm --filter @qyre/web test`, MySQL tests through `with-local-env`,
+  targeted typechecks, `pnpm check:quiet`, and `pnpm verify:pr` are green.
 
 ## Known issues / blockers
 
@@ -60,5 +63,4 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Investigate F084 graph/model/driver code, state a short implementation plan, then implement and
-  verify with `pnpm --filter @qyre/web test && pnpm --filter @qyre/mysql test`.
+- Run `pnpm verify:pr`, review the diff, then commit/push F084 and open its draft PR.

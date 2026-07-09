@@ -30,6 +30,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["exec", "tsx", ".local/preview-server-unconfigured.mjs"],
       "port": 8896
+    },
+    {
+      "name": "qyre-preview-demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["exec", "tsx", ".local/preview-server-demo.mjs"],
+      "port": 8895
     }
   ]
 }

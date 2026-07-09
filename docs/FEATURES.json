@@ -99,9 +99,9 @@
       "id": "F083",
       "behavior": "Row selection in the Rows table supports real bulk workflows: the \"<n> selected\" indicator gains a clear-selection (x) icon button, a select-all-on-current-page control sits in the header row above the first data row, rows can be selected by pressing and dragging the mouse rather than only one click at a time, and the CSV/download export honors the current selection - exporting only selected rows when any are selected, the full result set when none are.",
       "verification": "pnpm --filter @qyre/ui test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
-      "evidence": null,
+      "evidence": "Started on feature/F083-row-selection-export after F089 merged.",
       "blockedReason": null,
       "spec": null
     },
@@ -159,11 +159,12 @@
       "id": "F089",
       "behavior": "The Rows table filtering and table chrome are reviewed and rebuilt as a coherent cross-engine experience: operators and value inputs are derived from meaningful per-engine column capabilities rather than generic type strings, MongoDB BSON sentinels such as MinKey/MaxKey are not exposed as normal user-selectable filter types, invalid type/operator combinations are rejected consistently server-side, and the filter/table UI has clearer layout, hierarchy, spacing, and copy across PostgreSQL, MySQL, SQLite, MongoDB, and any registered engine.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/server test && pnpm --filter @qyre/testing-conformance test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": "Implemented a shared browser-safe @qyre/core/filter-capabilities subpath that classifies engine-reported column metadata into meaningful filter capabilities and operator/value-input sets. The UI now receives the connected engine and uses that shared matrix to hide unsupported scalar fields, show only relevant operators, use boolean/date/time/datetime/number/ObjectId-appropriate value controls, and clarify filter/export copy. The server uses the same capability matrix to reject invalid direct API filter combinations before adapters run. MongoDB MinKey/MaxKey remain normalized for display but now collapse to structured object metadata instead of user-facing minKey/maxKey data types, and sentinel tokens are no longer coerced from scalar filter input. Updated rows-table-filtering.md to document capability-based validation and BSON sentinel behavior. Verified locally with pnpm --filter @qyre/core test, pnpm --filter @qyre/server test, pnpm --filter @qyre/ui test, node scripts/with-local-env.mjs pnpm --filter @qyre/mongodb test, node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test, pnpm check:quiet, and pnpm verify:pr (checks, build, smoke E2E, full E2E across PostgreSQL/MySQL/SQLite/MongoDB) all passing.",
+      "state": "passing",
+      "commitHash": "4f8ffe6289c8491cb4ff891bb0b928fd069486dd",
+      "evidence": "PR #84 (https://github.com/ensp1re/qyre/pull/84), merged as 4f8ffe6. Implemented a shared browser-safe @qyre/core/filter-capabilities subpath that classifies engine-reported column metadata into meaningful filter capabilities and operator/value-input sets. The UI now receives the connected engine and uses that shared matrix to hide unsupported scalar fields, show only relevant operators, use boolean/date/time/datetime/number/ObjectId-appropriate value controls, and clarify filter/export copy. The server uses the same capability matrix to reject invalid direct API filter combinations before adapters run. MongoDB MinKey/MaxKey remain normalized for display but now collapse to structured object metadata instead of user-facing minKey/maxKey data types, and sentinel tokens are no longer coerced from scalar filter input. Updated rows-table-filtering.md to document capability-based validation and BSON sentinel behavior. Verified locally with pnpm --filter @qyre/core test, pnpm --filter @qyre/server test, pnpm --filter @qyre/ui test, node scripts/with-local-env.mjs pnpm --filter @qyre/mongodb test, node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test, pnpm check:quiet, and pnpm verify:pr (checks, build, smoke E2E, full E2E across PostgreSQL/MySQL/SQLite/MongoDB) all passing. GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": "docs/product-specs/rows-table-filtering.md"
+      "spec": "docs/product-specs/rows-table-filtering.md",
+      "completedAt": "2026-07-09T11:55:45.000Z"
     }
   ]
 }

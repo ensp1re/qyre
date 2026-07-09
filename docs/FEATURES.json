@@ -121,29 +121,31 @@
       "id": "F085",
       "behavior": "Switching the active database connection from the UI (POST /api/connect, F064) keeps every dependent view in sync: the sidebar/schema tree currently keeps showing the previous connection's tables/schemas until a manual reload and must refresh to the new target automatically, and MongoDB connections hide the SQL Editor tab entirely instead of rendering it as a disabled/greyed-out panel, since MongoDB has no SQL surface to disable.",
       "verification": "pnpm --filter @qyre/web test && pnpm test:e2e",
-      "state": "active",
-      "commitHash": null,
-      "evidence": "Started on feature/F085-database-switching-sync after F084 merged. Implemented explicit database-owned React Query cache reset/refetch after successful POST /api/connect, local workspace reset for stale selected table/file/query metrics while preserving the SQL draft, hidden unsupported shell tabs, and automatic move off SQL when the connected adapter reports supportsSql=false. Added isolated E2E coverage for switching from Postgres to MongoDB without reload: a Postgres-only table disappears from the sidebar, the MongoDB fixture appears, and SQL Editor is absent. Verified so far: pnpm --filter @qyre/web test; pnpm --filter @qyre/ui test; pnpm --filter @qyre/web typecheck; pnpm --filter @qyre/ui typecheck; node scripts/with-local-env.mjs pnpm exec playwright test e2e/connect-and-inspect.spec.ts --grep \"switching to MongoDB\" --project postgres; pnpm test:e2e; pnpm check:quiet; pnpm verify:pr.",
+      "state": "passing",
+      "commitHash": "78912a54719156f066a72fd4519c03fafd4e6ac7",
+      "evidence": "PR #87 (https://github.com/ensp1re/qyre/pull/87) merged as 78912a5. Implemented explicit database-owned React Query cache reset/refetch after successful POST /api/connect, local workspace reset for stale selected table/file/query metrics while preserving the SQL draft, hidden unsupported shell tabs, and automatic move off SQL when the connected adapter reports supportsSql=false. Added isolated E2E coverage for switching from Postgres to MongoDB without reload: a Postgres-only table disappears from the sidebar, the MongoDB fixture appears, and SQL Editor is absent. Verified locally: pnpm --filter @qyre/web test; pnpm --filter @qyre/ui test; pnpm --filter @qyre/web typecheck; pnpm --filter @qyre/ui typecheck; node scripts/with-local-env.mjs pnpm exec playwright test e2e/connect-and-inspect.spec.ts --grep \"switching to MongoDB\" --project postgres; pnpm test:e2e; pnpm check:quiet; pnpm verify:pr; pre-push pnpm verify:pr. GitHub CI passed End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-09T13:01:33.000Z"
     },
     {
       "id": "F086",
       "behavior": "Cell values that look like an image URL or a plain URL get an inspectable preview (thumbnail/link) instead of rendering as plain truncated text; long raw-text cells past the truncation threshold get a distinct visual treatment (e.g. a color/background cue), not the same look as a normal short string; and the Files tab's \"File browsing is disabled\" message stops implying it's disabled because of the connected database engine - it's actually gated purely by the --files-dir CLI flag, independent of engine (Postgres/MySQL/MongoDB/SQLite can all use it) - the message should say that plainly instead of reading like a generic, unexplained restriction.",
       "verification": "pnpm --filter @qyre/ui test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "c00289a89d900eb83f00689d7a40bd38ca5167f8",
+      "evidence": "PR #88 (https://github.com/ensp1re/qyre/pull/88) opened from feature/F086-url-cell-previews at c00289a. Implemented strict http(s) URL classification in the shared cell renderer, image URL thumbnails, plain URL link chips, URL inspection in CellValueDrawer with external-link and image preview affordances, and a distinct bordered muted treatment for long raw text cells. Updated the Files tab disabled copy to state that file browsing is gated by --files-dir and works across database engines. Verified locally: pnpm --filter @qyre/ui test; pnpm --filter @qyre/web test; pnpm --filter @qyre/ui typecheck; pnpm --filter @qyre/web typecheck; pnpm check:quiet; QYRE_DOCKER_BIN=/Applications/Docker.app/Contents/Resources/bin/docker pnpm verify:pr; pre-commit format/typecheck/lint; pre-push pnpm verify:pr. GitHub CI passed End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-09T13:25:23.000Z"
     },
     {
       "id": "F087",
       "behavior": "The Settings surface is rebuilt as a polished, scannable in-app configuration screen using the established Qyre/Fable visual language (docs/references/design-system.md) instead of its current one-off panel: sections are grouped logically, binary/numeric/list settings use the right shared-UI primitives, and persistence state (saved vs unsaved) is visually clear.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
-      "evidence": null,
+      "evidence": "Promoted after F086 passed local verification and PR #88 CI.",
       "blockedReason": null,
       "spec": null
     },

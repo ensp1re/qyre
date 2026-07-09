@@ -6,9 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-09.
-- Branch: `feature/F085-database-switching-sync`; F084 is merged to `main` as PR #86 / `c2160d8`.
-- 15 live entries: 11 `passing` (F072, F074-F078, F081-F084, F089), 1 `active` (F085), 3
-  `not_started` (F086-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
+- Branch: `feature/F086-url-cell-previews`; F086 is open as draft PR #88 from commit `c00289a`.
+- 15 live entries: 13 `passing` (F072, F074-F078, F081-F086, F089), 1 `active` (F087), 1
+  `not_started` (F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
 
 ## Completed
 
@@ -35,6 +35,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   connected relationship chains, explains disconnected/no-FK graphs, uses a stable MySQL
   `qyre_demo_orders -> qyre_demo_users` fixture edge, and keeps MongoDB `_id` out of relationship
   edges. Local `pnpm verify:pr` and pre-push `pnpm verify:pr` passed.
+- F085 (database switching sync): merged as PR #87/`78912a5`. Switching the active connection now
+  resets/refetches database-owned React Query caches, clears stale local table/file/query metrics
+  while preserving the SQL draft, hides unsupported tabs, and moves the active tab off SQL when
+  `supportsSql=false`. Local `pnpm verify:pr`, pre-push `pnpm verify:pr`, and GitHub CI passed.
+- F086 (URL cell previews): draft PR #88 from `c00289a`. Shared cell rendering now classifies
+  strict http(s) URLs, renders image URL thumbnails and plain URL link chips, opens URL values in
+  `CellValueDrawer`, gives long raw text a distinct bordered muted treatment, and clarifies the
+  Files tab disabled copy as `--files-dir`-gated rather than engine-gated. Local `pnpm verify:pr`,
+  pre-push `pnpm verify:pr`, and GitHub CI passed.
 - The QA demo dataset (28-table B2B logistics/e-commerce set, 52k rows/table, plus `type_showcase`
   exercising each engine's native type system) now lives in a separate `qyre_demo` database
   (Postgres/MySQL/MongoDB) so it no longer collides with `qyre_test`, which the E2E fixtures expect
@@ -47,12 +56,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F085 (database switching sync): switching the active database connection from the UI must refresh
-  dependent schema/sidebar/table views automatically, and MongoDB connections must hide the SQL
-  Editor tab rather than showing a disabled SQL surface. Current implementation resets/refetches
-  database-owned React Query caches after successful connect, clears stale local table/file/query
-  metrics while preserving the SQL draft, hides unsupported tabs, and moves the active tab off SQL
-  when `supportsSql=false`. `pnpm verify:pr` is green.
+- F087 (settings UI): rebuild the Settings surface as a polished, scannable in-app configuration
+  screen using the established Qyre/Fable visual language. Sections should be logically grouped,
+  binary/numeric/list settings should use the right shared UI primitives, and persistence state
+  should make saved vs. unsaved changes clear.
 
 ## Known issues / blockers
 
@@ -65,4 +72,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Run `pnpm verify:pr`, review the diff, commit/push F085, open a draft PR, then wait for CI.
+- Push the F086 queue-state update to PR #88, then start F087 from updated `main` after PR #88 is
+  merged.

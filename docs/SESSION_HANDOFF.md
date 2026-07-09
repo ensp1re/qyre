@@ -6,9 +6,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-09.
-- Branch: `feature/F088-cli-guided-login`; F088 is starting from updated `main`.
-- 15 live entries: 14 `passing` (F072, F074-F078, F081-F087, F089), 1 `active` (F088).
-  `pnpm features:prune` removed F067-F071 and F073 from the live queue.
+- Branch: `feature/F088-cli-guided-login`; F088 is open as PR #90, CI green, not yet merged.
+- 15 live entries: all 15 `passing` (F072, F074-F078, F081-F089). No `active` or `not_started`
+  entries remain - the next feature ID is F090. `pnpm features:prune` removed F067-F071 and F073
+  from the live queue.
 
 ## Completed
 
@@ -45,6 +46,14 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   treatment, and clarifies the Files tab disabled copy as `--files-dir`-gated rather than
   engine-gated. Local `pnpm verify:pr`, pre-push `pnpm verify:pr`, and GitHub CI passed.
 - F087 (settings UI): merged as PR #89/`060f6c7`. See `docs/FEATURES.json`'s F087 evidence.
+- F088 (CLI guided login): open as PR #90/`c283172`. `--login` prompts interactively for engine
+  (Postgres/MySQL/MongoDB)/user/masked password/host/port/database, retrying the connect attempt
+  on failure; a direct target with no username is prompted for just the missing credentials when
+  stdin is a TTY. `connectToRaw` now also `ping()`s after `connect()` so a bad Postgres/MySQL
+  target (whose `connect()` alone doesn't test connectivity) is caught immediately instead of
+  surfacing later as a broken schema load. `--help` and the guided prompts explain the npx
+  protocol:// pitfall and share the startup banner's gradient "QYRE" title. See `docs/FEATURES.json`'s
+  F088 evidence.
 - The QA demo dataset (28-table B2B logistics/e-commerce set, 52k rows/table, plus `type_showcase`
   exercising each engine's native type system) now lives in a separate `qyre_demo` database
   (Postgres/MySQL/MongoDB) so it no longer collides with `qyre_test`, which the E2E fixtures expect
@@ -57,11 +66,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F088 (CLI guided login): add an interactive guided-login flow to the CLI for users who hit
-  npm's `EUNSUPPORTEDPROTOCOL` error running `npx <connection-url>` directly, or who run
-  `npx qyre` with no target. Prompt for engine, user, masked password, host, port, database; on a
-  failed connection, show the real error and offer retry (Y) or quit (N). Startup help should also
-  explain the npx protocol pitfall and point at the correct invocation shapes.
+- Nothing active. F088 is merge-ready (PR #90, CI green) but not yet merged into `main`.
 
 ## Known issues / blockers
 
@@ -74,4 +79,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Implement F088's interactive guided-login flow in the `qyre` CLI package and open a draft PR.
+- Merge PR #90 (F088) once reviewed. No feature is queued after it - the next feature ID is F090;
+  pick the next slice of work with the user before starting it.

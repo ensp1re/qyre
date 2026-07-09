@@ -1,9 +1,10 @@
-import { Settings, X } from "lucide-react";
+import { Database, X } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import { useRef, useState } from "react";
 import { cn } from "../cn.js";
-import { useFocusTrap } from "../primitives/use-focus-trap.js";
 import { Spinner } from "../feedback/spinner.js";
+import { Segmented } from "../primitives/segmented.js";
+import { useFocusTrap } from "../primitives/use-focus-trap.js";
 
 /** One previously-connected target (F064), most recent first. Persisted by the caller (apps/web),
  * not this package - packages/ui stays presentation-only per FRONTEND.md. */
@@ -31,6 +32,12 @@ export const FIELD_ENGINE_DEFAULT_PORT: Record<FieldEngine, string> = {
   postgres: "5432",
   mysql: "3306",
   mongodb: "27017"
+};
+
+const FIELD_ENGINE_LABEL: Record<FieldEngine, string> = {
+  postgres: "Postgres",
+  mysql: "MySQL",
+  mongodb: "MongoDB"
 };
 
 /**
@@ -79,6 +86,25 @@ const EMPTY_FIELDS: ConnectionFields = {
   database: ""
 };
 
+function Field({
+  id,
+  label,
+  children
+}: {
+  id: string;
+  label: string;
+  children: ReactNode;
+}): ReactNode {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <label htmlFor={id} className="font-mono text-[10px] text-muted-foreground/70">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
 export function ConnectDrawer({
   open,
   onOpenChange,
@@ -124,6 +150,9 @@ export function ConnectDrawer({
     setFields((current) => ({ ...current, [key]: fieldValue }));
   }
 
+  const inputClass =
+    "rounded-[3px] border border-border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50 disabled:opacity-50";
+
   return (
     <>
       {open && (
@@ -139,51 +168,49 @@ export function ConnectDrawer({
         tabIndex={-1}
         data-testid="connect-drawer"
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-border bg-card outline-none transition-transform duration-150",
+          "fixed inset-y-0 right-0 z-50 flex w-96 flex-col border-l border-border bg-card outline-none transition-transform duration-150",
           open ? "translate-x-0" : "translate-x-full"
         )}
       >
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-          <Settings className="h-3 w-3 text-muted-foreground" />
-          <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
-            Connection
-          </span>
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5">
+          <Database className="h-3.5 w-3.5 text-muted-foreground" />
+          <h2 className="m-0 text-[13px] font-medium text-foreground">Switch database</h2>
           <button
             type="button"
             aria-label="Close connection settings"
             onClick={() => onOpenChange(false)}
-            className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+            className="ml-auto rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
-            <X className="h-3 w-3" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
-            Current
-          </p>
-          <p className="mt-1 break-all font-mono text-[11px] text-foreground/80">
-            {currentTarget ?? "Not connected"}
-          </p>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="rounded-[4px] border border-border bg-background px-3 py-2">
+            <p className="m-0 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+              Current
+            </p>
+            <p className="mt-1 break-all font-mono text-[11px] text-foreground/80">
+              {currentTarget ?? "Not connected"}
+            </p>
+          </div>
 
-          <div className="mt-4 flex items-center justify-between">
-            <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
-              Connect to a different database
-            </span>
+          <div className="mt-5 flex items-center justify-between gap-3">
+            <h3 className="m-0 text-[12px] font-medium text-foreground">New connection</h3>
             <button
               type="button"
               onClick={() => {
                 setMode((current) => (current === "url" ? "fields" : "url"));
                 setError(undefined);
               }}
-              className="font-mono text-[10px] text-primary underline decoration-dotted underline-offset-2 hover:opacity-80"
+              className="shrink-0 font-mono text-[10px] text-primary underline decoration-dotted underline-offset-2 hover:opacity-80"
             >
               {mode === "url" ? "Use fields instead" : "Paste a URL instead"}
             </button>
           </div>
 
           {mode === "url" ? (
-            <form onSubmit={handleUrlSubmit} className="mt-2 flex flex-col gap-2">
+            <form onSubmit={handleUrlSubmit} className="mt-2.5 flex flex-col gap-2">
               <label htmlFor="connect-target-input" className="sr-only">
                 Connection string or SQLite file path
               </label>
@@ -193,7 +220,7 @@ export function ConnectDrawer({
                 onChange={(event) => setValue(event.target.value)}
                 disabled={isConnecting}
                 placeholder="postgres://user:pass@host:5432/db"
-                className="rounded-[3px] border border-border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
+                className={inputClass}
               />
               <button
                 type="submit"
@@ -205,68 +232,80 @@ export function ConnectDrawer({
               </button>
             </form>
           ) : (
-            <form onSubmit={handleFieldsSubmit} className="mt-2 flex flex-col gap-2">
-              <label htmlFor="connect-field-engine" className="sr-only">
-                Engine
-              </label>
-              <select
-                id="connect-field-engine"
+            <form onSubmit={handleFieldsSubmit} className="mt-2.5 flex flex-col gap-2.5">
+              <Segmented
+                aria-label="Engine"
                 value={fields.engine}
-                onChange={(event) => updateField("engine", event.target.value as FieldEngine)}
-                disabled={isConnecting}
-                className="rounded-[3px] border border-border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground outline-none disabled:opacity-50"
-              >
-                <option value="postgres">Postgres</option>
-                <option value="mysql">MySQL</option>
-                <option value="mongodb">MongoDB</option>
-              </select>
+                onChange={(engine) => updateField("engine", engine)}
+                options={(["postgres", "mysql", "mongodb"] as const).map((engine) => ({
+                  value: engine,
+                  label: FIELD_ENGINE_LABEL[engine]
+                }))}
+              />
+
               <div className="flex gap-2">
-                <input
-                  aria-label="Host"
-                  value={fields.host}
-                  onChange={(event) => updateField("host", event.target.value)}
-                  disabled={isConnecting}
-                  placeholder="localhost"
-                  className="min-w-0 flex-1 rounded-[3px] border border-border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
-                />
-                <input
-                  aria-label="Port"
-                  value={fields.port}
-                  onChange={(event) => updateField("port", event.target.value)}
-                  disabled={isConnecting}
-                  placeholder={FIELD_ENGINE_DEFAULT_PORT[fields.engine]}
-                  className="w-20 rounded-[3px] border border-border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
-                />
+                <Field id="connect-field-host" label="Host">
+                  <input
+                    id="connect-field-host"
+                    value={fields.host}
+                    onChange={(event) => updateField("host", event.target.value)}
+                    disabled={isConnecting}
+                    placeholder="localhost"
+                    className={cn(inputClass, "w-full")}
+                  />
+                </Field>
+                <div className="w-20 shrink-0">
+                  <Field id="connect-field-port" label="Port">
+                    <input
+                      id="connect-field-port"
+                      value={fields.port}
+                      onChange={(event) => updateField("port", event.target.value)}
+                      disabled={isConnecting}
+                      placeholder={FIELD_ENGINE_DEFAULT_PORT[fields.engine]}
+                      className={cn(inputClass, "w-full")}
+                    />
+                  </Field>
+                </div>
               </div>
-              <input
-                aria-label="User"
-                value={fields.user}
-                onChange={(event) => updateField("user", event.target.value)}
-                disabled={isConnecting}
-                placeholder="user (optional)"
-                className="rounded-[3px] border border-border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
-              />
-              <input
-                aria-label="Password"
-                type="password"
-                value={fields.password}
-                onChange={(event) => updateField("password", event.target.value)}
-                disabled={isConnecting}
-                placeholder="password (optional)"
-                className="rounded-[3px] border border-border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
-              />
-              <input
-                aria-label="Database"
-                value={fields.database}
-                onChange={(event) => updateField("database", event.target.value)}
-                disabled={isConnecting}
-                placeholder="database (optional)"
-                className="rounded-[3px] border border-border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
-              />
+
+              <Field id="connect-field-user" label="User">
+                <input
+                  id="connect-field-user"
+                  value={fields.user}
+                  onChange={(event) => updateField("user", event.target.value)}
+                  disabled={isConnecting}
+                  placeholder="optional"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field id="connect-field-password" label="Password">
+                <input
+                  id="connect-field-password"
+                  type="password"
+                  value={fields.password}
+                  onChange={(event) => updateField("password", event.target.value)}
+                  disabled={isConnecting}
+                  placeholder="optional"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field id="connect-field-database" label="Database">
+                <input
+                  id="connect-field-database"
+                  value={fields.database}
+                  onChange={(event) => updateField("database", event.target.value)}
+                  disabled={isConnecting}
+                  placeholder="optional"
+                  className={inputClass}
+                />
+              </Field>
+
               <button
                 type="submit"
                 disabled={isConnecting}
-                className="flex items-center justify-center gap-1.5 rounded-[3px] bg-primary px-2 py-1.5 font-mono text-[11px] text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-1 flex items-center justify-center gap-1.5 rounded-[3px] bg-primary px-2 py-1.5 font-mono text-[11px] text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isConnecting && <Spinner className="text-primary-foreground" />}
                 Connect
@@ -285,8 +324,8 @@ export function ConnectDrawer({
           )}
 
           {recentTargets.length > 0 && (
-            <div className="mt-4">
-              <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+            <div className="mt-5">
+              <p className="m-0 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
                 Recent
               </p>
               <ul className="mt-1.5 flex flex-col gap-1.5">

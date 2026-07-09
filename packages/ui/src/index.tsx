@@ -14,6 +14,7 @@ export * from "./feedback/error-boundary.js";
 export * from "./feedback/error-state.js";
 export * from "./feedback/spinner.js";
 export * from "./primitives/resize-handle.js";
+export * from "./primitives/segmented.js";
 export * from "./primitives/type-icon.js";
 export * from "./query/console-log.js";
 export * from "./query/query-history-drawer.js";

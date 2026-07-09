@@ -46,3 +46,17 @@ export function friendlyTypeLabel(dataType: string): string {
   if (type.startsWith("date")) return "date";
   return dataType;
 }
+
+/**
+ * Which native HTML date/time input best matches a date-ish `dataType`, or null for a non-date
+ * type - drives FilterBar's value step (F082). TIME gets its own "time" picker rather than being
+ * lumped in with DATE/TIMESTAMP's "date"/"datetime-local" pickers, the same TIME-has-no-date-
+ * component distinction `isClickableDateType` draws for the click-to-inspect popover (F081).
+ */
+export function dateInputKind(dataType: string): "date" | "time" | "datetime-local" | null {
+  const type = dataType.toLowerCase();
+  if (type.startsWith("timestamp") || type.startsWith("datetime")) return "datetime-local";
+  if (type.startsWith("time")) return "time";
+  if (type.startsWith("date")) return "date";
+  return null;
+}

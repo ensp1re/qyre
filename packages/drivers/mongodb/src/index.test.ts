@@ -17,6 +17,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   classifyBsonValue,
+  coerceFilterValue,
   inferColumns,
   mongodbAdapterFactory,
   normalizeBsonValue
@@ -78,8 +79,34 @@ describe("classifyBsonValue", () => {
     expect(classifyBsonValue(Decimal128.fromString("1.5"))).toBe("number");
   });
 
+  it("classifies MinKey/MaxKey as their own dataType, not the generic object bucket (F082)", () => {
+    expect(classifyBsonValue(new MinKey())).toBe("minKey");
+    expect(classifyBsonValue(new MaxKey())).toBe("maxKey");
+  });
+
   it("classifies a plain nested document as object", () => {
     expect(classifyBsonValue({ a: 1 })).toBe("object");
+  });
+});
+
+describe("coerceFilterValue (F082)", () => {
+  it("coerces a plain hex string to ObjectId for an objectId column", () => {
+    const id = new ObjectId();
+    expect(coerceFilterValue(id.toHexString(), "objectId")).toEqual(id);
+  });
+
+  it("falls back to the raw string when it isn't a valid ObjectId", () => {
+    expect(coerceFilterValue("not-an-id", "objectId")).toBe("not-an-id");
+  });
+
+  it("coerces the true/false strings the FilterBar picker sends for a boolean column", () => {
+    expect(coerceFilterValue("true", "boolean")).toBe(true);
+    expect(coerceFilterValue("false", "boolean")).toBe(false);
+  });
+
+  it("coerces to the real MinKey/MaxKey sentinel instances without hand-written raw query syntax", () => {
+    expect(coerceFilterValue("$minKey", "minKey")).toBeInstanceOf(MinKey);
+    expect(coerceFilterValue("anything", "maxKey")).toBeInstanceOf(MaxKey);
   });
 });
 

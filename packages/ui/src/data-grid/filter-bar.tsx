@@ -3,6 +3,7 @@ import { ListFilter, Search, X } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../cn.js";
+import { dateInputKind } from "../primitives/format-cell.js";
 import { classifyColumnKind, TypeIcon } from "../primitives/type-icon.js";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
 
@@ -35,12 +36,14 @@ const OP_META: Record<FilterOp, { word: string; symbol: string }> = {
 const NO_VALUE_OPS = new Set<FilterOp>(["isNull", "isNotNull"]);
 
 /** Operator menu order per column kind - the likeliest operator for that type comes first
- * (contains for text, comparisons for numeric/date), so the common case is one Enter away. */
+ * (contains for text, comparisons for numeric/date), so the common case is one Enter away.
+ * Boolean only offers the operators that make sense for a two-valued column (F082) - "contains"/
+ * comparisons against true/false are never meaningful. */
 const OP_ORDER_BY_KIND: Record<ReturnType<typeof classifyColumnKind>, FilterOp[]> = {
   text: ["contains", "eq", "neq", "gt", "gte", "lt", "lte", "isNull", "isNotNull"],
   numeric: ["eq", "neq", "gt", "gte", "lt", "lte", "contains", "isNull", "isNotNull"],
   datetime: ["eq", "neq", "gt", "gte", "lt", "lte", "contains", "isNull", "isNotNull"],
-  boolean: ["eq", "neq", "isNull", "isNotNull", "contains", "gt", "gte", "lt", "lte"],
+  boolean: ["eq", "neq", "isNull", "isNotNull"],
   other: ["eq", "neq", "contains", "gt", "gte", "lt", "lte", "isNull", "isNotNull"]
 };
 
@@ -100,6 +103,14 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
     ? OP_ORDER_BY_KIND[classifyColumnKind(draft.column.dataType)]
     : OP_ORDER_BY_KIND.other;
 
+  // Drives the value step's widget (F082): boolean gets a true/false picker instead of free text,
+  // a date-ish column gets the matching native picker (dateInputKind returns null for anything
+  // else, which falls back to a plain text input below).
+  const isBooleanColumn = draft.column
+    ? classifyColumnKind(draft.column.dataType) === "boolean"
+    : false;
+  const valueInputKind = draft.column ? (dateInputKind(draft.column.dataType) ?? "text") : "text";
+
   useEffect(() => setHighlighted(0), [query]);
 
   // Keep the highlighted column option visible while arrowing through a long list.
@@ -147,9 +158,10 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
     setDraft((current) => ({ ...current, op }));
   }
 
-  function applyValue(): void {
-    if (!draft.column || !draft.op || draft.value === "") return;
-    apply({ column: draft.column.name, op: draft.op, value: draft.value });
+  function applyValue(explicitValue?: string): void {
+    const value = explicitValue ?? draft.value;
+    if (!draft.column || !draft.op || value === "") return;
+    apply({ column: draft.column.name, op: draft.op, value });
   }
 
   /** Escape walks one step back; from the first step it closes. */
@@ -417,10 +429,34 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
               </>
             )}
 
-            {step === "value" && (
+            {step === "value" && isBooleanColumn && (
+              <>
+                <div className="flex items-center gap-1.5 p-2">
+                  <button
+                    type="button"
+                    autoFocus
+                    onClick={() => applyValue("true")}
+                    className="flex-1 rounded-[3px] border border-border px-2 py-1.5 text-foreground/80 hover:bg-accent hover:text-foreground"
+                  >
+                    true
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyValue("false")}
+                    className="flex-1 rounded-[3px] border border-border px-2 py-1.5 text-foreground/80 hover:bg-accent hover:text-foreground"
+                  >
+                    false
+                  </button>
+                </div>
+                <HintFooter text="select a value · esc back" />
+              </>
+            )}
+
+            {step === "value" && !isBooleanColumn && (
               <>
                 <div className="flex items-center gap-1.5 p-2">
                   <input
+                    type={valueInputKind}
                     value={draft.value}
                     onChange={(event) =>
                       setDraft((current) => ({ ...current, value: event.target.value }))
@@ -428,14 +464,14 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
                     onKeyDown={(event) => {
                       if (event.key === "Enter") applyValue();
                     }}
-                    placeholder="Value..."
+                    placeholder={valueInputKind === "text" ? "Value..." : undefined}
                     aria-label="Filter value"
                     autoFocus
                     className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary"
                   />
                   <button
                     type="button"
-                    onClick={applyValue}
+                    onClick={() => applyValue()}
                     disabled={draft.value === ""}
                     className="shrink-0 rounded-[3px] bg-primary px-2 py-1.5 text-primary-foreground disabled:opacity-40"
                   >

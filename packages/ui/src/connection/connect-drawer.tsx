@@ -1,6 +1,6 @@
 import { Database, X } from "lucide-react";
 import type { ClipboardEvent, FormEvent, ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../cn.js";
 import { Spinner } from "../feedback/spinner.js";
 import { Segmented } from "../primitives/segmented.js";
@@ -156,6 +156,18 @@ export function ConnectDrawer({
   const [value, setValue] = useState("");
   const [fields, setFields] = useState<ConnectionFields>(EMPTY_FIELDS);
   const [error, setError] = useState<string | undefined>();
+
+  // The drawer never unmounts (it's always rendered, just translated off-canvas when closed - see
+  // the `aside` below), so a leftover draft from a prior open/cancel would otherwise still be
+  // sitting in the form the next time it opens. Reset on every open so switching databases always
+  // starts from a clean slate, not whatever was last typed.
+  useEffect(() => {
+    if (!open) return;
+    setMode("url");
+    setValue("");
+    setFields(EMPTY_FIELDS);
+    setError(undefined);
+  }, [open]);
 
   async function attemptConnect(raw: string): Promise<void> {
     const trimmed = raw.trim();

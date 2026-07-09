@@ -103,6 +103,22 @@ describe("ConnectDrawer", () => {
     isConnecting: false
   };
 
+  it("clears a stale draft when reopened after being closed without connecting", () => {
+    // The drawer never unmounts (it's translated off-canvas, not removed), so without an
+    // open-triggered reset a value typed before canceling would still be sitting there the next
+    // time a user opens it to switch databases again.
+    const { rerender } = render(<ConnectDrawer {...baseProps} onConnect={vi.fn()} />);
+    fireEvent.click(screen.getByText("Use fields instead"));
+    fireEvent.change(screen.getByLabelText("Host"), { target: { value: "typed-host" } });
+    expect(screen.getByLabelText("Host")).toHaveValue("typed-host");
+
+    rerender(<ConnectDrawer {...baseProps} open={false} onConnect={vi.fn()} />);
+    rerender(<ConnectDrawer {...baseProps} open onConnect={vi.fn()} />);
+
+    expect(screen.queryByLabelText("Host")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("postgres://user:pass@host:5432/db")).toHaveValue("");
+  });
+
   it("defaults to URL entry mode", () => {
     render(<ConnectDrawer {...baseProps} onConnect={vi.fn()} />);
     expect(screen.getByPlaceholderText("postgres://user:pass@host:5432/db")).toBeInTheDocument();

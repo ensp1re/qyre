@@ -1,18 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { SettingsScreen, type QyreSettings } from "../../src/shell/settings-screen.js";
-
-const BASE_SETTINGS: QyreSettings = {
-  theme: "dark",
-  schemaView: "graph",
-  sidebarWidth: 256,
-  resultsHeight: 256
-};
+import { SettingsScreen } from "../../src/shell/settings-screen.js";
 
 function renderScreen(overrides: Partial<Parameters<typeof SettingsScreen>[0]> = {}) {
   const props = {
-    settings: BASE_SETTINGS,
-    onSave: vi.fn(),
+    theme: "dark" as const,
+    onThemeChange: vi.fn(),
     onClose: vi.fn(),
     connectionStatus: "connected" as const,
     connectionTarget: "postgres://localhost/qyre_demo",
@@ -28,45 +21,20 @@ function renderScreen(overrides: Partial<Parameters<typeof SettingsScreen>[0]> =
 }
 
 describe("SettingsScreen", () => {
-  it("starts clean and disables save until a setting is staged", () => {
-    renderScreen();
-
-    expect(screen.getByText("All changes saved")).toBeVisible();
-    expect(screen.getByTestId("settings-save")).toBeDisabled();
-  });
-
-  it("stages a change without applying it, then saves the whole draft at once", () => {
-    const { onSave } = renderScreen();
+  it("applies a theme change immediately, with no save/discard step", () => {
+    const { onThemeChange } = renderScreen();
 
     fireEvent.click(screen.getByRole("button", { name: "Light" }));
-
-    // Staged, not applied - the dirty banner shows and Save is enabled.
-    expect(screen.getByTestId("settings-dirty-badge")).toHaveTextContent("Unsaved changes");
-    expect(onSave).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByTestId("settings-save"));
-    expect(onSave).toHaveBeenCalledWith({ ...BASE_SETTINGS, theme: "light" });
+    expect(onThemeChange).toHaveBeenCalledWith("light");
+    expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Save/ })).not.toBeInTheDocument();
   });
 
-  it("discards staged edits back to the applied baseline", () => {
-    renderScreen();
+  it("reflects the given theme as the pressed segment", () => {
+    renderScreen({ theme: "light" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Grid" }));
-    expect(screen.getByTestId("settings-dirty-badge")).toHaveTextContent("Unsaved changes");
-
-    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
-    expect(screen.getByText("All changes saved")).toBeVisible();
-    expect(screen.getByTestId("settings-save")).toBeDisabled();
-  });
-
-  it("clamps numeric fields to their bounds", () => {
-    const { onSave } = renderScreen();
-
-    const widthInput = screen.getByLabelText("Sidebar width in pixels");
-    fireEvent.change(widthInput, { target: { value: "9999" } });
-    fireEvent.click(screen.getByTestId("settings-save"));
-
-    expect(onSave).toHaveBeenCalledWith({ ...BASE_SETTINGS, sidebarWidth: 480 });
+    expect(screen.getByRole("button", { name: "Light" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Dark" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("clears locally-stored lists and disables the control when empty", () => {
@@ -75,7 +43,6 @@ describe("SettingsScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear query history" }));
     expect(onClearQueryHistory).toHaveBeenCalledTimes(1);
 
-    // Recent connections is empty, so its Clear is disabled.
     expect(screen.getByRole("button", { name: "Clear recent connections" })).toBeDisabled();
   });
 
@@ -85,5 +52,12 @@ describe("SettingsScreen", () => {
     expect(screen.getByText("postgres://localhost/qyre_demo")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /Switch/ }));
     expect(onOpenConnection).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes via the close button", () => {
+    const { onClose } = renderScreen();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

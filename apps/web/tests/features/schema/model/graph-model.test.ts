@@ -5,7 +5,6 @@ import {
   layoutGraph,
   relationshipHighlightForEdge,
   relationshipHighlightForNode,
-  relationshipSummary,
   tableNodeId
 } from "../../../../src/features/schema/model/graph-model.js";
 
@@ -168,16 +167,6 @@ describe("relationship highlighting (F084)", () => {
 
     expect([...highlight.nodeIds].sort()).toEqual(["public.posts", "public.users"]);
     expect([...highlight.edgeIds]).toEqual(["public.posts.author_id->public.users"]);
-  });
-
-  it("summarizes disconnected relationship groups for the graph notice", () => {
-    const { nodes, edges } = buildGraph([users, posts, auditLog]);
-
-    expect(relationshipSummary(nodes, edges)).toEqual({
-      componentCount: 2,
-      isolatedNodeCount: 1,
-      edgeCount: 1
-    });
   });
 });
 

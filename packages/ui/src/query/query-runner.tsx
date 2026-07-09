@@ -21,8 +21,8 @@ import { createSqlCompletionSource } from "./sql-completion.js";
 /** Exported so the caller owning persistence (F071's `usePanelSize`) can seed/clamp against the
  * same numbers this component uses, instead of duplicating them. */
 export const RESULTS_DEFAULT_HEIGHT = 256;
-export const RESULTS_MIN_HEIGHT = 120;
-export const RESULTS_MAX_HEIGHT = 600;
+const RESULTS_MIN_HEIGHT = 120;
+const RESULTS_MAX_HEIGHT = 600;
 
 export interface QueryRunnerProps {
   sql: string;

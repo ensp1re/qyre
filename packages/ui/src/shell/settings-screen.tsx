@@ -1,43 +1,11 @@
 import type { ConnectionStatus } from "@qyre/core";
-import {
-  Check,
-  Database,
-  History,
-  LayoutGrid,
-  Moon,
-  Network,
-  PanelLeft,
-  RotateCcw,
-  Sun,
-  Table2,
-  Trash2,
-  X
-} from "lucide-react";
+import { Database, History, Moon, Sun, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
 import { cn } from "../cn.js";
-import { SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "../schema/sidebar.js";
-import {
-  RESULTS_DEFAULT_HEIGHT,
-  RESULTS_MAX_HEIGHT,
-  RESULTS_MIN_HEIGHT
-} from "../query/query-runner.js";
-
-/** The user-editable workspace preferences the Settings screen stages and saves as one unit. The
- * caller (apps/web) owns persistence; this package stays presentation-only per FRONTEND.md. */
-export interface QyreSettings {
-  theme: "light" | "dark";
-  /** Which Schema-tab view opens by default (F074's graph or the card grid). */
-  schemaView: "graph" | "grid";
-  sidebarWidth: number;
-  resultsHeight: number;
-}
 
 export interface SettingsScreenProps {
-  /** The persisted, currently-applied preferences - the baseline the staged draft diffs against. */
-  settings: QyreSettings;
-  /** Applies the staged draft. Called only when there are unsaved changes. */
-  onSave: (next: QyreSettings) => void;
+  theme: "light" | "dark";
+  onThemeChange: (theme: "light" | "dark") => void;
   onClose: () => void;
   connectionStatus: ConnectionStatus;
   connectionTarget: string | null;
@@ -61,24 +29,15 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
   unconfigured: "No database"
 };
 
-function settingsEqual(a: QyreSettings, b: QyreSettings): boolean {
-  return (
-    a.theme === b.theme &&
-    a.schemaView === b.schemaView &&
-    a.sidebarWidth === b.sidebarWidth &&
-    a.resultsHeight === b.resultsHeight
-  );
-}
-
 /**
- * A full-screen, grouped configuration view (F087). Edits are staged into a local draft so the
- * saved-vs-unsaved state is explicit: nothing is applied until Save, and Discard restores the
- * baseline. It replaces the old one-off panel where the title-bar gear silently opened the
- * connection drawer - that switcher now lives in its own labeled section here and in the title bar.
+ * A full-screen, grouped configuration view (F087). Every control applies immediately - there is
+ * no separate save/discard step. It replaces the old one-off panel where the title-bar gear
+ * silently opened the connection drawer - that switcher now lives in its own labeled section here
+ * and behind its own title-bar button.
  */
 export function SettingsScreen({
-  settings,
-  onSave,
+  theme,
+  onThemeChange,
   onClose,
   connectionStatus,
   connectionTarget,
@@ -88,43 +47,10 @@ export function SettingsScreen({
   recentConnectionsCount,
   onClearRecentConnections
 }: SettingsScreenProps): ReactNode {
-  const [draft, setDraft] = useState<QyreSettings>(settings);
-
-  // Re-seed the draft when the applied settings change under us (e.g. Save elsewhere, or the screen
-  // reopening after a discard) so a stale draft never masks the real baseline.
-  useEffect(() => {
-    setDraft(settings);
-  }, [settings]);
-
-  const dirty = !settingsEqual(draft, settings);
-
-  function update<Key extends keyof QyreSettings>(key: Key, value: QyreSettings[Key]): void {
-    setDraft((current) => ({ ...current, [key]: value }));
-  }
-
   return (
     <div data-testid="settings-screen" className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5">
         <h2 className="m-0 text-[13px] font-medium text-foreground">Settings</h2>
-        <span
-          data-testid="settings-dirty-badge"
-          className={cn(
-            "flex items-center gap-1 font-mono text-[10px]",
-            dirty ? "text-[var(--c-amber)]" : "text-muted-foreground/60"
-          )}
-        >
-          {dirty ? (
-            <>
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--c-amber)]" />
-              Unsaved changes
-            </>
-          ) : (
-            <>
-              <Check className="h-3 w-3" />
-              All changes saved
-            </>
-          )}
-        </span>
         <button
           type="button"
           aria-label="Close settings"
@@ -164,50 +90,12 @@ export function SettingsScreen({
           <Section title="Appearance" description="How the workspace looks.">
             <Row label="Theme" hint="Dark is the default for this developer tool.">
               <Segmented
-                value={draft.theme}
-                onChange={(value) => update("theme", value)}
+                value={theme}
+                onChange={onThemeChange}
                 options={[
                   { value: "light", label: "Light", icon: <Sun className="h-3 w-3" /> },
                   { value: "dark", label: "Dark", icon: <Moon className="h-3 w-3" /> }
                 ]}
-              />
-            </Row>
-          </Section>
-
-          <Section title="Layout" description="Default sizing and views for the workspace panels.">
-            <Row label="Schema default view" hint="Which Schema tab layout opens first.">
-              <Segmented
-                value={draft.schemaView}
-                onChange={(value) => update("schemaView", value)}
-                options={[
-                  { value: "graph", label: "Graph", icon: <Network className="h-3 w-3" /> },
-                  { value: "grid", label: "Grid", icon: <LayoutGrid className="h-3 w-3" /> }
-                ]}
-              />
-            </Row>
-            <Row label="Sidebar width" hint={`${SIDEBAR_MIN_WIDTH}–${SIDEBAR_MAX_WIDTH}px`}>
-              <NumberField
-                value={draft.sidebarWidth}
-                min={SIDEBAR_MIN_WIDTH}
-                max={SIDEBAR_MAX_WIDTH}
-                defaultValue={SIDEBAR_DEFAULT_WIDTH}
-                icon={<PanelLeft className="h-3 w-3" />}
-                ariaLabel="Sidebar width in pixels"
-                onChange={(value) => update("sidebarWidth", value)}
-              />
-            </Row>
-            <Row
-              label="Results panel height"
-              hint={`${RESULTS_MIN_HEIGHT}–${RESULTS_MAX_HEIGHT}px`}
-            >
-              <NumberField
-                value={draft.resultsHeight}
-                min={RESULTS_MIN_HEIGHT}
-                max={RESULTS_MAX_HEIGHT}
-                defaultValue={RESULTS_DEFAULT_HEIGHT}
-                icon={<Table2 className="h-3 w-3" />}
-                ariaLabel="Results panel height in pixels"
-                onChange={(value) => update("resultsHeight", value)}
               />
             </Row>
           </Section>
@@ -243,28 +131,6 @@ export function SettingsScreen({
             </Row>
           </Section>
         </div>
-      </div>
-
-      <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-card px-4 py-2.5">
-        <button
-          type="button"
-          onClick={() => setDraft(settings)}
-          disabled={!dirty}
-          className="flex items-center gap-1.5 rounded-[3px] border border-border px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <RotateCcw className="h-3 w-3" />
-          Discard
-        </button>
-        <button
-          type="button"
-          data-testid="settings-save"
-          onClick={() => onSave(draft)}
-          disabled={!dirty}
-          className="flex items-center gap-1.5 rounded-[3px] bg-primary px-3 py-1.5 font-mono text-[11px] text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Check className="h-3 w-3" />
-          Save changes
-        </button>
       </div>
     </div>
   );
@@ -345,57 +211,6 @@ function Segmented<Value extends string>({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function NumberField({
-  value,
-  min,
-  max,
-  defaultValue,
-  icon,
-  ariaLabel,
-  onChange
-}: {
-  value: number;
-  min: number;
-  max: number;
-  defaultValue: number;
-  icon: ReactNode;
-  ariaLabel: string;
-  onChange: (value: number) => void;
-}): ReactNode {
-  function clamp(next: number): number {
-    if (!Number.isFinite(next)) return value;
-    return Math.min(max, Math.max(min, Math.round(next)));
-  }
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex items-center gap-1.5 rounded-[3px] border border-border bg-background px-2 py-1">
-        <span className="text-muted-foreground">{icon}</span>
-        <input
-          type="number"
-          aria-label={ariaLabel}
-          value={value}
-          min={min}
-          max={max}
-          onChange={(event) => onChange(clamp(event.target.valueAsNumber))}
-          className="w-14 bg-transparent font-mono text-[11px] text-foreground outline-none"
-        />
-        <span className="font-mono text-[10px] text-muted-foreground">px</span>
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange(defaultValue)}
-        disabled={value === defaultValue}
-        aria-label={`Reset ${ariaLabel} to default`}
-        title={`Reset to ${defaultValue}px`}
-        className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <RotateCcw className="h-3 w-3" />
-      </button>
     </div>
   );
 }

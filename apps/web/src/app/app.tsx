@@ -2,7 +2,6 @@ import type { ConnectionStatus, RowFilter } from "@qyre/core";
 import {
   ConnectDrawer,
   ErrorBoundary,
-  type QyreSettings,
   QueryHistoryDrawer,
   RESULTS_DEFAULT_HEIGHT,
   SettingsScreen,
@@ -27,7 +26,6 @@ import { useRunQuery } from "../features/query/model/use-run-query.js";
 import { SqlEditorTab } from "../features/query/ui/sql-editor-tab.js";
 import { useAllTables } from "../features/schema/model/use-all-tables.js";
 import { useOverview } from "../features/schema/model/use-overview.js";
-import { useSchemaView } from "../features/schema/model/use-schema-view.js";
 import { SchemaTab } from "../features/schema/ui/schema-tab.js";
 import { useRows } from "../features/table/model/use-rows.js";
 import { useTable } from "../features/table/model/use-table.js";
@@ -68,7 +66,6 @@ export function App(): ReactNode {
     settingsOpen
   } = workspace;
   const { theme, toggleTheme, setTheme } = useTheme();
-  const { view: schemaView, setView: setSchemaView } = useSchemaView();
   const [sidebarWidth, setSidebarWidth] = usePanelSize("qyre-sidebar-width", SIDEBAR_DEFAULT_WIDTH);
   const [resultsHeight, setResultsHeight] = usePanelSize(
     "qyre-results-height",
@@ -77,17 +74,6 @@ export function App(): ReactNode {
   const queryHistory = useQueryHistory();
   const recentTargets = useRecentTargets();
   const connect = useConnect();
-
-  // F087: the Settings screen stages every workspace preference into one draft and applies them
-  // together on Save, so "saved vs unsaved" is a single explicit state rather than each control
-  // mutating on change. Theme/schema-view/panel sizes are the persisted preferences the app owns.
-  const settings: QyreSettings = { theme, schemaView, sidebarWidth, resultsHeight };
-  function saveSettings(next: QyreSettings): void {
-    setTheme(next.theme);
-    setSchemaView(next.schemaView);
-    setSidebarWidth(next.sidebarWidth);
-    setResultsHeight(next.resultsHeight);
-  }
 
   // F073: `npx qyre` with no target starts the server unconnected - jump straight into the connect
   // UI instead of leaving the developer looking at a passive "no database connected" message with
@@ -182,8 +168,8 @@ export function App(): ReactNode {
 
       {settingsOpen ? (
         <SettingsScreen
-          settings={settings}
-          onSave={saveSettings}
+          theme={theme}
+          onThemeChange={setTheme}
           onClose={() => dispatch({ type: "settingsChanged", open: false })}
           connectionStatus={status}
           connectionTarget={health?.target ?? null}
@@ -265,12 +251,7 @@ export function App(): ReactNode {
                     }
                   />
                 ) : tab === "schema" ? (
-                  <SchemaTab
-                    allTables={allTables}
-                    databaseKey={health?.target ?? null}
-                    view={schemaView}
-                    onViewChange={setSchemaView}
-                  />
+                  <SchemaTab allTables={allTables} databaseKey={health?.target ?? null} />
                 ) : tab === "files" ? (
                   <FilesTab
                     filesOverview={filesOverview}

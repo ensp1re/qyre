@@ -16,12 +16,6 @@ export interface RelationshipHighlight {
   edgeIds: Set<string>;
 }
 
-export interface RelationshipSummary {
-  componentCount: number;
-  isolatedNodeCount: number;
-  edgeCount: number;
-}
-
 /** A stable node id for a table. Schema-qualified so two tables with the same name in different
  * schemas (Postgres/MySQL) don't collide. */
 export function tableNodeId(schema: string | undefined, name: string): string {
@@ -70,12 +64,6 @@ export function buildGraph(tables: TableMetadata[]): { nodes: TableFlowNode[]; e
   return { nodes, edges };
 }
 
-function incidentEdgeIds(nodeId: string, edges: Edge[]): string[] {
-  return edges
-    .filter((edge) => edge.source === nodeId || edge.target === nodeId)
-    .map((edge) => edge.id);
-}
-
 function relationshipHighlight(seedNodeIds: string[], edges: Edge[]): RelationshipHighlight {
   const nodeIds = new Set(seedNodeIds);
   const edgeIds = new Set<string>();
@@ -107,24 +95,6 @@ export function relationshipHighlightForEdge(edgeId: string, edges: Edge[]): Rel
   return edge
     ? relationshipHighlight([edge.source, edge.target], edges)
     : relationshipHighlight([], edges);
-}
-
-export function relationshipSummary(nodes: TableFlowNode[], edges: Edge[]): RelationshipSummary {
-  const unvisited = new Set(nodes.map((node) => node.id));
-  let componentCount = 0;
-
-  for (const node of nodes) {
-    if (!unvisited.has(node.id)) continue;
-    componentCount += 1;
-    const { nodeIds } = relationshipHighlightForNode(node.id, edges);
-    for (const nodeId of nodeIds) unvisited.delete(nodeId);
-  }
-
-  return {
-    componentCount,
-    isolatedNodeCount: nodes.filter((node) => incidentEdgeIds(node.id, edges).length === 0).length,
-    edgeCount: edges.length
-  };
 }
 
 /** Approximate node dimensions dagre uses to space nodes before React Flow measures the real DOM.

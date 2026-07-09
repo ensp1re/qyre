@@ -17,7 +17,7 @@ export interface SchemaTreeProps {
   onSelect: (schema: string, table: string) => void;
 }
 
-type NodeType = "connection" | "schema" | "table";
+type NodeType = "schema" | "table";
 
 interface Node {
   id: string;
@@ -47,23 +47,18 @@ const STATUS_ICON: Record<ConnectionStatus, typeof Circle> = {
   unconfigured: Circle
 };
 
-function buildTree(target: string | null, schemas: SchemaMetadata[]): Node {
-  return {
-    id: "connection",
-    name: target ?? "not connected",
-    type: "connection",
-    children: schemas.map((schema) => ({
-      id: `schema:${schema.name}`,
-      name: schema.name,
-      type: "schema",
-      children: schema.tables.map((table) => ({
-        id: `table:${schema.name}:${table}`,
-        name: table,
-        type: "table",
-        schema: schema.name
-      }))
+function buildSchemaNodes(schemas: SchemaMetadata[]): Node[] {
+  return schemas.map((schema) => ({
+    id: `schema:${schema.name}`,
+    name: schema.name,
+    type: "schema",
+    children: schema.tables.map((table) => ({
+      id: `table:${schema.name}:${table}`,
+      name: table,
+      type: "table",
+      schema: schema.name
     }))
-  };
+  }));
 }
 
 function collectMatchIds(node: Node, query: string, ancestors: string[] = []): Set<string> {
@@ -99,8 +94,7 @@ function TreeRow({
   query,
   matchIds,
   selected,
-  onSelect,
-  status
+  onSelect
 }: {
   node: Node;
   depth: number;
@@ -108,9 +102,10 @@ function TreeRow({
   matchIds: Set<string>;
   selected?: SelectedTable;
   onSelect: (schema: string, table: string) => void;
-  status: ConnectionStatus;
 }): ReactNode {
-  const [manualOpen, setManualOpen] = useState(depth < 2);
+  // Only the schema level (depth 0) has children, so it's the only row whose default-open state
+  // matters - tables are leaves and always render once their parent schema is expanded.
+  const [manualOpen, setManualOpen] = useState(depth === 0);
   const forceOpen = query.length > 0 && matchIds.has(node.id);
   const open = query.length > 0 ? forceOpen : manualOpen;
 
@@ -169,18 +164,6 @@ function TreeRow({
           <span className="w-2.5 shrink-0" />
         )}
 
-        {node.type === "connection" &&
-          (() => {
-            const StatusIcon = STATUS_ICON[status];
-            return (
-              <StatusIcon
-                className="h-2.5 w-2.5 shrink-0"
-                role="img"
-                aria-label={`Connection status: ${STATUS_LABEL[status]}`}
-                style={{ color: STATUS_DOT_COLOR[status] }}
-              />
-            );
-          })()}
         {node.type === "schema" && (
           <FolderOpen className="h-3 w-3 shrink-0" style={{ color: "var(--c-amber)" }} />
         )}
@@ -194,6 +177,12 @@ function TreeRow({
         >
           {highlight(node.name, query)}
         </span>
+
+        {node.type === "schema" && node.children && (
+          <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground/50">
+            {node.children.length}
+          </span>
+        )}
       </div>
 
       {hasChildren && open && (
@@ -207,7 +196,6 @@ function TreeRow({
               matchIds={matchIds}
               selected={selected}
               onSelect={onSelect}
-              status={status}
             />
           ))}
         </div>
@@ -217,9 +205,14 @@ function TreeRow({
 }
 
 /**
- * A searchable, collapsible navigation tree: connection -> schema -> table, mirroring
+ * A searchable, collapsible navigation tree: schema -> table, mirroring
  * docs/references/design-system.md's TreeNode pattern. Purely presentational: selection is owned
  * by the caller. Matching a search term force-opens its ancestor path and highlights the match.
+ *
+ * The connection target and status render as a compact header line rather than as a synthetic
+ * root tree node - the title bar's breadcrumb already shows the full connection string, so
+ * repeating it as a giant truncated tree row wasted an indentation level on every table for no
+ * extra information (F087).
  */
 export function SchemaTree({
   target,
@@ -229,15 +222,33 @@ export function SchemaTree({
   onSelect
 }: SchemaTreeProps): ReactNode {
   const [query, setQuery] = useState("");
-  const tree = useMemo(() => buildTree(target, schemas), [target, schemas]);
-  const matchIds = useMemo(
-    () => (query.trim().length > 1 ? collectMatchIds(tree, query.trim()) : new Set<string>()),
-    [tree, query]
-  );
+  const schemaNodes = useMemo(() => buildSchemaNodes(schemas), [schemas]);
+  const matchIds = useMemo(() => {
+    if (query.trim().length <= 1) return new Set<string>();
+    const trimmed = query.trim();
+    const merged = new Set<string>();
+    for (const node of schemaNodes) {
+      for (const id of collectMatchIds(node, trimmed)) merged.add(id);
+    }
+    return merged;
+  }, [schemaNodes, query]);
   const trimmedQuery = query.trim();
+  const StatusIcon = STATUS_ICON[status];
 
   return (
     <div data-testid="schema-tree" className="flex h-full flex-col">
+      <div className="flex shrink-0 items-center gap-1.5 border-b border-border px-2.5 py-2">
+        <StatusIcon
+          className="h-2.5 w-2.5 shrink-0"
+          role="img"
+          aria-label={`Connection status: ${STATUS_LABEL[status]}`}
+          style={{ color: STATUS_DOT_COLOR[status] }}
+        />
+        <span className="truncate font-mono text-[10px] text-muted-foreground/70">
+          {target ?? "not connected"}
+        </span>
+      </div>
+
       <div className="shrink-0 border-b border-border px-2 py-2">
         <div className="flex items-center gap-1.5 rounded-[3px] border border-border bg-background px-2 py-1.5">
           <svg
@@ -262,7 +273,11 @@ export function SchemaTree({
       </div>
 
       <nav role="tree" className="flex-1 overflow-y-auto py-1">
-        {trimmedQuery.length === 1 ? (
+        {schemaNodes.length === 0 ? (
+          <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+            No tables found.
+          </div>
+        ) : trimmedQuery.length === 1 ? (
           <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
             keep typing - search needs 2+ characters
           </div>
@@ -271,15 +286,17 @@ export function SchemaTree({
             no results
           </div>
         ) : (
-          <TreeRow
-            node={tree}
-            depth={0}
-            query={trimmedQuery.length > 1 ? trimmedQuery : ""}
-            matchIds={matchIds}
-            selected={selected}
-            onSelect={onSelect}
-            status={status}
-          />
+          schemaNodes.map((node) => (
+            <TreeRow
+              key={node.id}
+              node={node}
+              depth={0}
+              query={trimmedQuery.length > 1 ? trimmedQuery : ""}
+              matchIds={matchIds}
+              selected={selected}
+              onSelect={onSelect}
+            />
+          ))
         )}
       </nav>
     </div>

@@ -3,26 +3,19 @@ import { LayoutGrid, Network } from "lucide-react";
 import type { ReactNode } from "react";
 import { SchemaGraph } from "./graph/schema-graph.js";
 import type { useAllTables } from "../model/use-all-tables.js";
-import type { SchemaView } from "../model/use-schema-view.js";
+import { useSchemaView } from "../model/use-schema-view.js";
 
 export interface SchemaTabProps {
   allTables: ReturnType<typeof useAllTables>;
   /** Stable per-database key (the redacted connection target) so the graph's saved layout is
    * namespaced per database. Null before a connection exists - the tab shows loading/empty then. */
   databaseKey: string | null;
-  /** The persisted default view, lifted to the app shell so Settings (F087) and this tab stay in
-   * sync when either changes it. */
-  view: SchemaView;
-  onViewChange: (view: SchemaView) => void;
 }
 
 /** Schema tab content - an interactive ERD (F074) or the full-database card grid, toggleable. */
-export function SchemaTab({
-  allTables,
-  databaseKey,
-  view,
-  onViewChange: setView
-}: SchemaTabProps): ReactNode {
+export function SchemaTab({ allTables, databaseKey }: SchemaTabProps): ReactNode {
+  const { view, setView } = useSchemaView();
+
   if (allTables.isLoading) {
     return (
       <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">

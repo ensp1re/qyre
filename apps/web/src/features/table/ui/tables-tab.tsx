@@ -27,6 +27,15 @@ function downloadExport(url: string): void {
   link.click();
 }
 
+function downloadCsv(filename: string, csv: string): void {
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 /** Tables tab content - the selected table's paginated row browser. */
 export function TablesTab({
   selected,
@@ -84,6 +93,7 @@ export function TablesTab({
       onExportAllRows={() =>
         downloadExport(exportRowsUrl(selected.schema, selected.table, sort, filters))
       }
+      onExportSelectedRows={(csv) => downloadCsv(`${selected.table}-selected.csv`, csv)}
       filters={filters}
       onFiltersChange={onFiltersChange}
     />

@@ -101,7 +101,7 @@
       "verification": "pnpm --filter @qyre/ui test",
       "state": "active",
       "commitHash": null,
-      "evidence": "Started on feature/F083-row-selection-export after F089 merged.",
+      "evidence": "Started on feature/F083-row-selection-export after F089 merged. Implemented page-local row selection controls in RowsTable: header select-all-current-page checkbox, clear-selection icon button, pointer drag select/deselect across visible rows, and export button routing that downloads selected loaded rows as CSV when any are selected or falls back to the existing server-side full filtered export when none are selected. TablesTab owns the Blob download for selected-row CSVs. Verified with pnpm --filter @qyre/ui test, pnpm --filter @qyre/ui typecheck, and pnpm --filter @qyre/web typecheck.",
       "blockedReason": null,
       "spec": null
     },

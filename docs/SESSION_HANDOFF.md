@@ -41,7 +41,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 - F083 (row selection/export): add clear selection, select-all-current-page, drag selection, and
   selected-row CSV export behavior in the Rows table. Work from the queue record; no linked product
-  spec exists yet.
+  spec exists yet. Implemented in `RowsTable`/`TablesTab` with focused render tests; narrow
+  `@qyre/ui` test/typecheck and `@qyre/web` typecheck pass.
 
 ## Known issues / blockers
 
@@ -54,5 +55,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Implement F083 on `feature/F083-row-selection-export`, verify with `pnpm --filter @qyre/ui test`,
-  then run `pnpm verify:pr`, push, open a draft PR, wait for CI, and mark passing after merge.
+- Run `pnpm verify:pr`, commit/push F083, open a draft PR, wait for CI, and mark passing after
+  merge.

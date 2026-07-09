@@ -110,19 +110,20 @@
       "id": "F084",
       "behavior": "The Schema tab's graph view reflects and lets you explore real relationships: MySQL foreign keys are introspected and drawn as edges (currently missing), disconnected node clusters get a visible explanation instead of silently looking broken, clicking a table or edge highlights the full relationship chain it belongs to, and MongoDB - which has no real foreign keys - stops rendering `_id` as though it were a relationship (currently clicking it navigates to a non-existent table showing no rows).",
       "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/mysql test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": "PR #86 (https://github.com/ensp1re/qyre/pull/86) opened as draft from feature/F084-schema-graph-relationships at 05662d4. Implemented graph relationship-chain highlighting, disconnected-cluster/no-FK notices, and stable MySQL fixture FK coverage via qyre_demo_orders -> qyre_demo_users. MongoDB graph coverage confirms `_id` remains a primary-key column, not a relationship edge. Verified locally: pnpm --filter @qyre/web test; node scripts/with-local-env.mjs pnpm --filter @qyre/mysql test; pnpm --filter @qyre/web typecheck; pnpm --filter @qyre/mysql typecheck; pnpm --filter @qyre/testing typecheck; pnpm check:quiet; pnpm verify:pr; pre-push pnpm verify:pr. GitHub CI run 29018185156 is queued.",
+      "state": "passing",
+      "commitHash": "c2160d8e68b76c1e7b690e7edfbac43440c0e95e",
+      "evidence": "PR #86 (https://github.com/ensp1re/qyre/pull/86) merged as c2160d8. Implemented graph relationship-chain highlighting, disconnected-cluster/no-FK notices, and stable MySQL fixture FK coverage via qyre_demo_orders -> qyre_demo_users. MongoDB graph coverage confirms `_id` remains a primary-key column, not a relationship edge. Verified locally: pnpm --filter @qyre/web test; node scripts/with-local-env.mjs pnpm --filter @qyre/mysql test; pnpm --filter @qyre/web typecheck; pnpm --filter @qyre/mysql typecheck; pnpm --filter @qyre/testing typecheck; pnpm check:quiet; pnpm verify:pr; pre-push pnpm verify:pr.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-09T12:33:41.000Z"
     },
     {
       "id": "F085",
       "behavior": "Switching the active database connection from the UI (POST /api/connect, F064) keeps every dependent view in sync: the sidebar/schema tree currently keeps showing the previous connection's tables/schemas until a manual reload and must refresh to the new target automatically, and MongoDB connections hide the SQL Editor tab entirely instead of rendering it as a disabled/greyed-out panel, since MongoDB has no SQL surface to disable.",
       "verification": "pnpm --filter @qyre/web test && pnpm test:e2e",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
-      "evidence": null,
+      "evidence": "Started on feature/F085-database-switching-sync after F084 merged. Implemented explicit database-owned React Query cache reset/refetch after successful POST /api/connect, local workspace reset for stale selected table/file/query metrics while preserving the SQL draft, hidden unsupported shell tabs, and automatic move off SQL when the connected adapter reports supportsSql=false. Added isolated E2E coverage for switching from Postgres to MongoDB without reload: a Postgres-only table disappears from the sidebar, the MongoDB fixture appears, and SQL Editor is absent. Verified so far: pnpm --filter @qyre/web test; pnpm --filter @qyre/ui test; pnpm --filter @qyre/web typecheck; pnpm --filter @qyre/ui typecheck; node scripts/with-local-env.mjs pnpm exec playwright test e2e/connect-and-inspect.spec.ts --grep \"switching to MongoDB\" --project postgres; pnpm test:e2e; pnpm check:quiet; pnpm verify:pr.",
       "blockedReason": null,
       "spec": null
     },

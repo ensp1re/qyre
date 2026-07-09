@@ -143,7 +143,7 @@
       "id": "F081",
       "behavior": "Column type metadata and cell rendering preserve each engine's real date/time semantics instead of collapsing everything into a date: a TIME column (e.g. type_showcase.col_time, a value like \"08:27:20\") must never be routed through the date parser (currently throws `Could not parse \"08:27:20\" as a date`), and a TIMESTAMP/TIMESTAMPTZ value must render and inspect as a timestamp rather than being silently truncated to date-only in the Rows table. A raw engine type name shown to the user (e.g. Postgres's `timestamp without time zone`) gets a clear, non-alarming label instead of leaking the literal internal type string verbatim. The Rows table header also visually attaches each column's type badge to its name (currently disconnected, making it hard to tell which type belongs to which column). Verify against every relevant column of the type_showcase table across Postgres/MySQL/SQLite, confirmed live via Preview.",
       "verification": "pnpm --filter @qyre/ui test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

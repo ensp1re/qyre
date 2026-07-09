@@ -87,6 +87,26 @@ describe("RowsTable server-side sort (component rendering, F065)", () => {
   });
 });
 
+describe("RowsTable header type badges (component rendering, F081)", () => {
+  it("renders each column's type badge inside its header cell, not a separate bar", () => {
+    const columns: ColumnMetadata[] = [
+      { name: "id", dataType: "integer", nullable: false, isPrimaryKey: true, isForeignKey: false },
+      {
+        name: "name",
+        dataType: "timestamp without time zone",
+        nullable: false,
+        isPrimaryKey: false,
+        isForeignKey: false
+      }
+    ];
+    renderTable({ columns });
+
+    const nameHeader = screen.getByText("name").closest("th");
+    expect(nameHeader).toHaveTextContent("timestamp");
+    expect(nameHeader).not.toHaveTextContent("timestamp without time zone");
+  });
+});
+
 describe("RowsTable whole-table export (component rendering, F066)", () => {
   it("shows the export button and calls onExportAllRows when clicked", () => {
     const onExportAllRows = vi.fn();

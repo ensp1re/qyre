@@ -121,6 +121,52 @@ describe("RowsTable whole-table export (component rendering, F066)", () => {
   });
 });
 
+describe("RowsTable row selection workflows (component rendering, F083)", () => {
+  it("selects and clears every visible row from the header control", () => {
+    renderTable();
+
+    const selectPage = screen.getByLabelText("Select all rows on this page") as HTMLInputElement;
+    expect(selectPage.closest("th")).toBeInTheDocument();
+
+    fireEvent.click(selectPage);
+    expect(screen.getByText("3 selected")).toBeInTheDocument();
+    expect(selectPage.checked).toBe(true);
+
+    fireEvent.click(screen.getByLabelText("Clear selected rows"));
+    expect(screen.queryByText("3 selected")).not.toBeInTheDocument();
+  });
+
+  it("selects consecutive rows by pressing and dragging across them", () => {
+    renderTable();
+
+    const firstRow = screen.getByText("Charlie").closest("tr");
+    const secondRow = screen.getByText("Alice").closest("tr");
+    expect(firstRow).toBeTruthy();
+    expect(secondRow).toBeTruthy();
+
+    fireEvent.pointerDown(firstRow as HTMLTableRowElement, { button: 0 });
+    fireEvent.pointerEnter(secondRow as HTMLTableRowElement);
+    fireEvent.pointerUp(window);
+
+    expect(screen.getByText("2 selected")).toBeInTheDocument();
+  });
+
+  it("exports selected rows from the loaded page instead of calling whole-table export", () => {
+    const onExportAllRows = vi.fn();
+    const onExportSelectedRows = vi.fn();
+    renderTable({ onExportAllRows, onExportSelectedRows });
+
+    fireEvent.click(screen.getByLabelText("Export all rows as CSV"));
+    expect(onExportAllRows).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByLabelText("Select row 1"));
+    fireEvent.click(screen.getByLabelText("Export selected rows as CSV"));
+
+    expect(onExportSelectedRows).toHaveBeenCalledWith("id,name\n3,Charlie");
+    expect(onExportAllRows).toHaveBeenCalledOnce();
+  });
+});
+
 describe("RowsTable foreign key navigation (component rendering, F061)", () => {
   const fkColumns: ColumnMetadata[] = [
     { name: "id", dataType: "integer", nullable: false, isPrimaryKey: true, isForeignKey: false },

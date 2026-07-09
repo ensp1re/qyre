@@ -16,8 +16,8 @@ import {
   Search,
   X
 } from "lucide-react";
-import type { ReactNode } from "react";
-import { useMemo, useRef, useState } from "react";
+import type { PointerEvent, ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../cn.js";
 import { formatCell, friendlyTypeLabel } from "../primitives/format-cell.js";
 import { TypeIcon } from "../primitives/type-icon.js";
@@ -56,6 +56,9 @@ export interface RowsTableProps {
    * the export button - this component doesn't fetch data itself (see FRONTEND.md), so the actual
    * request is the caller's responsibility. */
   onExportAllRows?: () => void;
+  /** Downloads a CSV generated from the selected rows currently loaded in this component. The
+   * caller owns the actual browser download so packages/ui stays presentation-oriented. */
+  onExportSelectedRows?: (csv: string) => void;
   /** The structured filters currently applied server-side (F072), or undefined/empty when none.
    * Omitted (along with `onFiltersChange`) disables the filter bar and primary-key click-to-filter
    * entirely. */
@@ -107,6 +110,7 @@ export function RowsTable({
   sortDirection,
   onSortChange,
   onExportAllRows,
+  onExportSelectedRows,
   filters,
   onFiltersChange
 }: RowsTableProps): ReactNode {
@@ -121,6 +125,7 @@ export function RowsTable({
     anchorRect: DOMRect;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dragSelectionMode = useRef<"select" | "deselect" | null>(null);
 
   const columnByName = useMemo(
     () => new Map(columns.map((column) => [column.name, column])),
@@ -138,6 +143,28 @@ export function RowsTable({
       Object.values(row).some((value) => formatCell(value).toLowerCase().includes(query))
     );
   }, [indexed, search]);
+
+  const visibleIndexes = useMemo(() => filtered.map(({ index }) => index), [filtered]);
+  const selectedVisibleCount = visibleIndexes.filter((index) => selected.has(index)).length;
+  const allVisibleSelected =
+    visibleIndexes.length > 0 && selectedVisibleCount === visibleIndexes.length;
+  const someVisibleSelected = selectedVisibleCount > 0 && !allVisibleSelected;
+
+  useEffect(() => {
+    setSelected(new Set());
+  }, [rowPage.rows, search]);
+
+  useEffect(() => {
+    const stopDrag = () => {
+      dragSelectionMode.current = null;
+    };
+    window.addEventListener("pointerup", stopDrag);
+    window.addEventListener("pointercancel", stopDrag);
+    return () => {
+      window.removeEventListener("pointerup", stopDrag);
+      window.removeEventListener("pointercancel", stopDrag);
+    };
+  }, []);
 
   // F051: only the visible rows (plus overscan) mount as DOM nodes, instead of every row in the
   // current page - a wide table at the SQL Editor's 1000-row cap (F050) would otherwise mount
@@ -180,9 +207,61 @@ export function RowsTable({
     });
   }
 
+  function setRowSelected(index: number, shouldSelect: boolean): void {
+    setSelected((current) => {
+      if (current.has(index) === shouldSelect) return current;
+      const next = new Set(current);
+      if (shouldSelect) next.add(index);
+      else next.delete(index);
+      return next;
+    });
+  }
+
+  function toggleVisibleRows(): void {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) {
+        for (const index of visibleIndexes) next.delete(index);
+      } else {
+        for (const index of visibleIndexes) next.add(index);
+      }
+      return next;
+    });
+  }
+
+  function isInteractiveTarget(target: EventTarget | null): boolean {
+    return target instanceof Element
+      ? Boolean(target.closest("button,input,a,select,textarea,label"))
+      : false;
+  }
+
+  function startRowSelectionDrag(index: number, event: PointerEvent<HTMLTableRowElement>) {
+    if (event.button !== 0 || isInteractiveTarget(event.target)) return;
+    const shouldSelect = !selected.has(index);
+    dragSelectionMode.current = shouldSelect ? "select" : "deselect";
+    setRowSelected(index, shouldSelect);
+    event.preventDefault();
+  }
+
+  function applyRowSelectionDrag(index: number): void {
+    if (!dragSelectionMode.current) return;
+    setRowSelected(index, dragSelectionMode.current === "select");
+  }
+
   async function copySelected(): Promise<void> {
     const rows = filtered.filter(({ index }) => selected.has(index)).map(({ row }) => row);
     await navigator.clipboard.writeText(toCsv(rowPage.columns, rows));
+  }
+
+  const canExportSelectedRows = selected.size > 0 && Boolean(onExportSelectedRows);
+
+  function exportRows(): void {
+    if (!canExportSelectedRows) {
+      onExportAllRows?.();
+      return;
+    }
+    const rows = filtered.filter(({ index }) => selected.has(index)).map(({ row }) => row);
+    onExportSelectedRows?.(toCsv(rowPage.columns, rows));
   }
 
   return (
@@ -222,6 +301,15 @@ export function RowsTable({
               </span>
               <button
                 type="button"
+                onClick={() => setSelected(new Set())}
+                aria-label="Clear selected rows"
+                title="Clear selected rows"
+                className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
                 onClick={() => void copySelected()}
                 className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
               >
@@ -229,12 +317,18 @@ export function RowsTable({
               </button>
             </>
           )}
-          {onExportAllRows && (
+          {(onExportAllRows || canExportSelectedRows) && (
             <button
               type="button"
-              onClick={onExportAllRows}
-              aria-label="Export all rows as CSV"
-              title="Exports every row matching the current sort and filters"
+              onClick={exportRows}
+              aria-label={
+                canExportSelectedRows ? "Export selected rows as CSV" : "Export all rows as CSV"
+              }
+              title={
+                canExportSelectedRows
+                  ? "Exports the selected rows on this page"
+                  : "Exports every row matching the current sort and filters"
+              }
               className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <Download className="h-3 w-3" />
@@ -262,7 +356,24 @@ export function RowsTable({
           <table className="w-full border-collapse font-mono text-[11px]">
             <thead className="sticky top-0 z-10 bg-card">
               <tr>
-                <th className="w-8 border-b border-r border-border px-2 py-2" />
+                <th className="w-8 border-b border-r border-border px-2 py-2 text-center">
+                  <label className="inline-flex cursor-pointer items-center justify-center">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      disabled={visibleIndexes.length === 0}
+                      onChange={toggleVisibleRows}
+                      ref={(input) => {
+                        if (input) input.indeterminate = someVisibleSelected;
+                      }}
+                      aria-label="Select all rows on this page"
+                      aria-checked={
+                        someVisibleSelected ? "mixed" : allVisibleSelected ? "true" : "false"
+                      }
+                      className="h-3 w-3 accent-primary"
+                    />
+                  </label>
+                </th>
                 <th className="w-8 border-b border-r border-border px-2 py-2 text-right font-normal text-muted-foreground/40">
                   #
                 </th>
@@ -323,9 +434,10 @@ export function RowsTable({
                   <tr
                     key={index}
                     data-index={virtualRow.index}
-                    onClick={() => toggleRow(index)}
+                    onPointerDown={(event) => startRowSelectionDrag(index, event)}
+                    onPointerEnter={() => applyRowSelectionDrag(index)}
                     className={cn(
-                      "cursor-pointer border-b border-border-subtle hover:bg-accent/40",
+                      "cursor-pointer select-none border-b border-border-subtle hover:bg-accent/40",
                       selected.has(index) && "bg-primary/5"
                     )}
                   >

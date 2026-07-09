@@ -6,9 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-09.
-- Branch: `feature/F089-filter-table-ux`; F082 is merged to `main` as PR #83 / `7cacbe4`.
-- 15 live entries: 8 `passing` (F072, F074-F078, F081-F082), 1 `active` (F089), 6
-  `not_started` (F083-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
+- Branch: `feature/F083-row-selection-export`; F089 is merged to `main` as PR #84 / `4f8ffe6`.
+- 15 live entries: 9 `passing` (F072, F074-F078, F081-F082, F089), 1 `active` (F083), 5
+  `not_started` (F084-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
 
 ## Completed
 
@@ -22,6 +22,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   date/time/datetime inputs; MongoDB MinKey/MaxKey values classify and coerce as BSON sentinels.
   Local `pnpm verify:pr` passed, and GitHub CI passed both End-to-end and
   Lint/typecheck/test/build.
+- F089 (filter/table UX): merged as PR #84/`4f8ffe6`. Shared
+  `@qyre/core/filter-capabilities` now drives UI operator/value controls and server-side rejection
+  of invalid filter combinations; MongoDB MinKey/MaxKey display as structured values rather than
+  scalar filter types. Local `pnpm verify:pr` passed, and GitHub CI passed both End-to-end and
+  Lint/typecheck/test/build.
 - The QA demo dataset (28-table B2B logistics/e-commerce set, 52k rows/table, plus `type_showcase`
   exercising each engine's native type system) now lives in a separate `qyre_demo` database
   (Postgres/MySQL/MongoDB) so it no longer collides with `qyre_test`, which the E2E fixtures expect
@@ -34,13 +39,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F089 (filter/table UX): audit and improve Rows table filtering across PostgreSQL, MySQL, SQLite,
-  MongoDB, and registered engines. Focus on meaningful per-engine type/operator capabilities,
-  server-side rejection of invalid filter combinations, removing MongoDB MinKey/MaxKey as normal
-  user-facing filter types, and polishing the filter/table layout with the Qyre design system.
-  Implemented: shared `@qyre/core/filter-capabilities`, UI and server both consume it, MongoDB
-  sentinels collapse to structured object metadata, and `docs/product-specs/rows-table-filtering.md`
-  is updated. Local `pnpm verify:pr` passed.
+- F083 (row selection/export): add clear selection, select-all-current-page, drag selection, and
+  selected-row CSV export behavior in the Rows table. Work from the queue record; no linked product
+  spec exists yet. Implemented in `RowsTable`/`TablesTab` with focused render tests; narrow
+  `@qyre/ui` test/typecheck and `@qyre/web` typecheck pass.
 
 ## Known issues / blockers
 
@@ -53,8 +55,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Finish F089: commit, push, open a draft PR, wait for CI, then mark passing with PR/commit
-  evidence.
-- Then pick from F083-F088 (see `docs/FEATURES.json`), branching off `main` as
-  `feature/<ID>-<slug>`, and follow the usual `pnpm verify:pr` -> push -> draft PR -> merge ->
-  mark-passing loop.
+- Run `pnpm verify:pr`, commit/push F083, open a draft PR, wait for CI, and mark passing after
+  merge.

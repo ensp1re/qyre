@@ -272,33 +272,45 @@ export function SchemaTree({
         </div>
       </div>
 
-      <nav role="tree" className="flex-1 overflow-y-auto py-1">
-        {schemaNodes.length === 0 ? (
-          <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
-            No tables found.
-          </div>
-        ) : trimmedQuery.length === 1 ? (
-          <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
-            keep typing - search needs 2+ characters
-          </div>
-        ) : trimmedQuery.length > 1 && matchIds.size === 0 ? (
-          <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
-            no results
-          </div>
-        ) : (
-          schemaNodes.map((node) => (
-            <TreeRow
-              key={node.id}
-              node={node}
-              depth={0}
-              query={trimmedQuery.length > 1 ? trimmedQuery : ""}
-              matchIds={matchIds}
-              selected={selected}
-              onSelect={onSelect}
-            />
-          ))
-        )}
-      </nav>
+      {(() => {
+        const hasRows =
+          schemaNodes.length > 0 &&
+          trimmedQuery.length !== 1 &&
+          !(trimmedQuery.length > 1 && matchIds.size === 0);
+
+        // `role="tree"` requires at least one `treeitem`/`group` descendant (axe's
+        // aria-required-children) - only apply it when rows actually render, otherwise these are
+        // plain status messages, not an empty tree widget.
+        return (
+          <nav role={hasRows ? "tree" : undefined} className="flex-1 overflow-y-auto py-1">
+            {schemaNodes.length === 0 ? (
+              <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+                No tables found.
+              </div>
+            ) : trimmedQuery.length === 1 ? (
+              <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+                keep typing - search needs 2+ characters
+              </div>
+            ) : trimmedQuery.length > 1 && matchIds.size === 0 ? (
+              <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+                no results
+              </div>
+            ) : (
+              schemaNodes.map((node) => (
+                <TreeRow
+                  key={node.id}
+                  node={node}
+                  depth={0}
+                  query={trimmedQuery.length > 1 ? trimmedQuery : ""}
+                  matchIds={matchIds}
+                  selected={selected}
+                  onSelect={onSelect}
+                />
+              ))
+            )}
+          </nav>
+        );
+      })()}
     </div>
   );
 }

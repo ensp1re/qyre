@@ -89,4 +89,13 @@ describe("SchemaTree (component rendering, F055)", () => {
     );
     expect(screen.getByLabelText("Connection status: Connected")).toBeInTheDocument();
   });
+
+  it("does not apply role=tree when there are no rows to render (aria-required-children)", () => {
+    // Regression: `role="tree"` requires a treeitem/group descendant. With zero schemas (the
+    // disconnected/unconfigured screen the smoke test scans) this used to leave the nav's role
+    // on a message-only div, which axe flags as a critical aria-required-children violation.
+    render(<SchemaTree target={null} status="unconfigured" schemas={[]} onSelect={vi.fn()} />);
+    expect(screen.getByText("No tables found.")).toBeInTheDocument();
+    expect(screen.queryByRole("tree")).not.toBeInTheDocument();
+  });
 });

@@ -1,5 +1,5 @@
 import { Database, X } from "lucide-react";
-import type { FormEvent, ReactNode } from "react";
+import type { ClipboardEvent, FormEvent, ReactNode } from "react";
 import { useRef, useState } from "react";
 import { cn } from "../cn.js";
 import { Spinner } from "../feedback/spinner.js";
@@ -59,6 +59,43 @@ export function composeConnectionString(fields: ConnectionFields): string {
     : "";
   const path = database ? `/${encodeURIComponent(database)}` : "";
   return `${fields.engine}://${auth}${host}:${port}${path}`;
+}
+
+const FIELD_ENGINE_BY_PROTOCOL: Record<string, FieldEngine> = {
+  "postgres:": "postgres",
+  "postgresql:": "postgres",
+  "mysql:": "mysql",
+  "mongodb:": "mongodb",
+  "mongodb+srv:": "mongodb"
+};
+
+/**
+ * The inverse of `composeConnectionString` - splits a pasted full connection string back into
+ * discrete fields, so pasting a URL into any single field-mode input (not just a dedicated "paste
+ * here" box) fills in the whole form instead of dropping the raw string into that one field.
+ * Returns null for anything that isn't a URL with a supported engine scheme, so an ordinary paste
+ * (e.g. just a hostname) falls through to the default single-field paste behavior.
+ */
+export function parsePastedConnectionString(text: string): ConnectionFields | null {
+  let url: URL;
+  try {
+    url = new URL(text.trim());
+  } catch {
+    return null;
+  }
+
+  const engine = FIELD_ENGINE_BY_PROTOCOL[url.protocol];
+  if (!engine) return null;
+
+  const database = url.pathname.replace(/^\//, "");
+  return {
+    engine,
+    host: url.hostname,
+    port: url.port,
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: database ? decodeURIComponent(database) : ""
+  };
 }
 
 export interface ConnectDrawerProps {
@@ -148,6 +185,14 @@ export function ConnectDrawer({
     fieldValue: ConnectionFields[Key]
   ): void {
     setFields((current) => ({ ...current, [key]: fieldValue }));
+  }
+
+  function handleFieldPaste(event: ClipboardEvent<HTMLInputElement>): void {
+    const parsed = parsePastedConnectionString(event.clipboardData.getData("text"));
+    if (!parsed) return;
+    event.preventDefault();
+    setFields(parsed);
+    setError(undefined);
   }
 
   const inputClass =
@@ -249,6 +294,7 @@ export function ConnectDrawer({
                     id="connect-field-host"
                     value={fields.host}
                     onChange={(event) => updateField("host", event.target.value)}
+                    onPaste={handleFieldPaste}
                     disabled={isConnecting}
                     placeholder="localhost"
                     className={cn(inputClass, "w-full")}
@@ -260,6 +306,7 @@ export function ConnectDrawer({
                       id="connect-field-port"
                       value={fields.port}
                       onChange={(event) => updateField("port", event.target.value)}
+                      onPaste={handleFieldPaste}
                       disabled={isConnecting}
                       placeholder={FIELD_ENGINE_DEFAULT_PORT[fields.engine]}
                       className={cn(inputClass, "w-full")}
@@ -273,6 +320,7 @@ export function ConnectDrawer({
                   id="connect-field-user"
                   value={fields.user}
                   onChange={(event) => updateField("user", event.target.value)}
+                  onPaste={handleFieldPaste}
                   disabled={isConnecting}
                   placeholder="optional"
                   className={inputClass}
@@ -285,6 +333,7 @@ export function ConnectDrawer({
                   type="password"
                   value={fields.password}
                   onChange={(event) => updateField("password", event.target.value)}
+                  onPaste={handleFieldPaste}
                   disabled={isConnecting}
                   placeholder="optional"
                   className={inputClass}
@@ -296,6 +345,7 @@ export function ConnectDrawer({
                   id="connect-field-database"
                   value={fields.database}
                   onChange={(event) => updateField("database", event.target.value)}
+                  onPaste={handleFieldPaste}
                   disabled={isConnecting}
                   placeholder="optional"
                   className={inputClass}

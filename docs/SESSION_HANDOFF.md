@@ -6,9 +6,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-09.
-- Branch: `feature/F083-row-selection-export`; F089 is merged to `main` as PR #84 / `4f8ffe6`.
-- 15 live entries: 9 `passing` (F072, F074-F078, F081-F082, F089), 1 `active` (F083), 5
-  `not_started` (F084-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
+- Branch: `feature/F084-schema-graph-relationships`; F083 is merged to `main` as PR #85 /
+  `3bfde82`.
+- 15 live entries: 10 `passing` (F072, F074-F078, F081-F083, F089), 1 `active` (F084), 4
+  `not_started` (F085-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
 
 ## Completed
 
@@ -27,6 +28,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   of invalid filter combinations; MongoDB MinKey/MaxKey display as structured values rather than
   scalar filter types. Local `pnpm verify:pr` passed, and GitHub CI passed both End-to-end and
   Lint/typecheck/test/build.
+- F083 (row selection/export): merged as PR #85/`3bfde82`. RowsTable now supports clear selection,
+  select-all-current-page, pointer drag selection, and selected-row CSV export while preserving the
+  existing full filtered export when nothing is selected. Local `pnpm verify:pr` passed, and GitHub
+  CI passed both End-to-end and Lint/typecheck/test/build.
 - The QA demo dataset (28-table B2B logistics/e-commerce set, 52k rows/table, plus `type_showcase`
   exercising each engine's native type system) now lives in a separate `qyre_demo` database
   (Postgres/MySQL/MongoDB) so it no longer collides with `qyre_test`, which the E2E fixtures expect
@@ -39,10 +44,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F083 (row selection/export): add clear selection, select-all-current-page, drag selection, and
-  selected-row CSV export behavior in the Rows table. Work from the queue record; no linked product
-  spec exists yet. Implemented in `RowsTable`/`TablesTab` with focused render tests; narrow
-  `@qyre/ui` test/typecheck and `@qyre/web` typecheck pass.
+- F084 (schema graph relationships): make the Schema graph reflect real relationships. Scope from
+  the queue: MySQL foreign keys should introspect/draw as edges, disconnected clusters need a clear
+  explanation, clicking a table or edge should highlight its relationship chain, and MongoDB should
+  not treat `_id` as a relationship.
 
 ## Known issues / blockers
 
@@ -55,5 +60,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Run `pnpm verify:pr`, commit/push F083, open a draft PR, wait for CI, and mark passing after
-  merge.
+- Investigate F084 graph/model/driver code, state a short implementation plan, then implement and
+  verify with `pnpm --filter @qyre/web test && pnpm --filter @qyre/mysql test`.

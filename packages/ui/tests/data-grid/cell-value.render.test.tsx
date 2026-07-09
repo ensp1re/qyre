@@ -61,6 +61,21 @@ describe("CellValue (component rendering, F055)", () => {
     );
   });
 
+  it("renders a TIME-column value as plain text, never routed through the date parser (F081)", () => {
+    // A bare TIME value like "08:27:20" has no date component and can't be parsed by `new
+    // Date(...)`, so unlike DATE/TIMESTAMP it must never get the click-to-inspect date affordance.
+    render(
+      <CellValue
+        value="08:27:20"
+        dataType="time without time zone"
+        onInspect={vi.fn()}
+        onInspectDate={vi.fn()}
+      />
+    );
+    expect(screen.getByText("08:27:20")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
   it("does not treat a date-column value as clickable when onInspectDate is omitted", () => {
     render(<CellValue value="2024-01-15T10:30:00.000Z" dataType="date" onInspect={vi.fn()} />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();

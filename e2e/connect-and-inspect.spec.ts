@@ -56,10 +56,15 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
   await expect(page.locator(".react-flow__node").first()).toBeVisible();
 
   // F074: the Grid toggle switches to the DF-05 card view, which still lists every table's columns.
+  // Scoped to the fixture's own card (by name) rather than "the" table-detail card - the target
+  // database may hold other tables besides the fixture (e.g. a developer's own data alongside it),
+  // and asserting on an unscoped `table-detail` locator broke under Playwright's strict mode as
+  // soon as more than one table existed.
   await page.getByRole("button", { name: "Grid" }).click();
   await expect(page.getByTestId("schema-grid")).toBeVisible();
-  await expect(page.getByTestId("table-detail")).toBeVisible();
-  await expect(page.getByTestId("table-detail").getByText("email")).toBeVisible();
+  const fixtureCard = page.getByTestId("table-detail").filter({ hasText: FIXTURE.table });
+  await expect(fixtureCard).toBeVisible();
+  await expect(fixtureCard.getByText("email")).toBeVisible();
 
   // F004: the navigation tree lists the fixture table; selecting it switches to the Tables tab.
   // Tree rows are role="treeitem", not "button" (F031's accessibility fix).

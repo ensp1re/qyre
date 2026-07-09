@@ -13,7 +13,7 @@ import {
 import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import { cn } from "../cn.js";
-import { formatCell } from "../primitives/format-cell.js";
+import { formatCell, friendlyTypeLabel } from "../primitives/format-cell.js";
 import { TypeIcon } from "../primitives/type-icon.js";
 import { CellValueDrawer } from "./cell-value-drawer.js";
 import type { InspectableValue } from "./cell-value.js";
@@ -240,35 +240,6 @@ export function RowsTable({
         </div>
       </div>
 
-      {columns.length > 0 && (
-        <div className="flex shrink-0 overflow-x-auto overflow-y-hidden border-b border-border bg-card">
-          <div className="w-8 shrink-0 border-r border-border" />
-          <div className="w-8 shrink-0 border-r border-border" />
-          {rowPage.columns.map((columnName) => {
-            const meta = columnByName.get(columnName);
-            return (
-              <div
-                key={columnName}
-                className="flex min-w-[120px] shrink-0 items-center gap-1 whitespace-nowrap border-r border-border px-3 py-1 font-mono text-[9px] text-muted-foreground"
-              >
-                {meta && <TypeIcon dataType={meta.dataType} />}
-                <span>{meta?.dataType ?? "unknown"}</span>
-                {meta?.isPrimaryKey && (
-                  <span className="ml-1 font-bold" style={{ color: "var(--c-amber)" }}>
-                    PK
-                  </span>
-                )}
-                {meta?.isForeignKey && (
-                  <span className="ml-1 font-bold" style={{ color: "var(--c-blue)" }}>
-                    FK
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {rowPage.rows.length === 0 ? (
         <div data-testid="rows-table" className="flex-1 p-3">
           <p className="font-mono text-[11px] text-muted-foreground">No rows in this table.</p>
@@ -282,30 +253,47 @@ export function RowsTable({
                 <th className="w-8 border-b border-r border-border px-2 py-2 text-right font-normal text-muted-foreground/40">
                   #
                 </th>
-                {rowPage.columns.map((columnName) => (
-                  <th
-                    key={columnName}
-                    onClick={onSortChange ? () => handleSort(columnName) : undefined}
-                    className={cn(
-                      "group whitespace-nowrap border-b border-r border-border px-3 py-2 text-left font-medium text-muted-foreground",
-                      onSortChange ? "cursor-pointer hover:text-foreground" : undefined
-                    )}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      {columnName}
-                      {onSortChange && (
-                        <ArrowUpDown
-                          className={cn(
-                            "h-2.5 w-2.5 transition-opacity",
-                            sortColumn === columnName
-                              ? "text-primary opacity-100"
-                              : "opacity-0 group-hover:opacity-40"
-                          )}
-                        />
+                {rowPage.columns.map((columnName) => {
+                  const meta = columnByName.get(columnName);
+                  return (
+                    <th
+                      key={columnName}
+                      onClick={onSortChange ? () => handleSort(columnName) : undefined}
+                      className={cn(
+                        "group whitespace-nowrap border-b border-r border-border px-3 py-1.5 text-left font-medium text-muted-foreground",
+                        onSortChange ? "cursor-pointer hover:text-foreground" : undefined
                       )}
-                    </div>
-                  </th>
-                ))}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        {columnName}
+                        {onSortChange && (
+                          <ArrowUpDown
+                            className={cn(
+                              "h-2.5 w-2.5 transition-opacity",
+                              sortColumn === columnName
+                                ? "text-primary opacity-100"
+                                : "opacity-0 group-hover:opacity-40"
+                            )}
+                          />
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-normal text-muted-foreground/60">
+                        {meta && <TypeIcon dataType={meta.dataType} />}
+                        <span>{meta ? friendlyTypeLabel(meta.dataType) : "unknown"}</span>
+                        {meta?.isPrimaryKey && (
+                          <span className="font-bold" style={{ color: "var(--c-amber)" }}>
+                            PK
+                          </span>
+                        )}
+                        {meta?.isForeignKey && (
+                          <span className="font-bold" style={{ color: "var(--c-blue)" }}>
+                            FK
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>

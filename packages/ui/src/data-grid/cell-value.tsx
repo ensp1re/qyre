@@ -1,6 +1,6 @@
 import { Binary, Braces, Brackets } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
-import { formatCell, isDateType } from "../primitives/format-cell.js";
+import { formatCell, isClickableDateType } from "../primitives/format-cell.js";
 
 /** A non-null object or array cell value - the shape CellValue/CellValueDrawer render as a tree. */
 export type StructuredValue = Record<string, unknown> | unknown[];
@@ -154,7 +154,7 @@ export function CellValue({
       />
     );
   }
-  if (onInspectDate && dataType && isDateType(dataType) && typeof value === "string") {
+  if (onInspectDate && dataType && isClickableDateType(dataType) && typeof value === "string") {
     return (
       <button
         type="button"

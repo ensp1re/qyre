@@ -50,7 +50,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   not treat `_id` as a relationship. Current implementation adds graph connected-component
   highlighting, cluster/no-FK notices, and a stable MySQL `qyre_demo_orders -> qyre_demo_users`
   fixture relationship. `pnpm --filter @qyre/web test`, MySQL tests through `with-local-env`,
-  targeted typechecks, `pnpm check:quiet`, and `pnpm verify:pr` are green.
+  targeted typechecks, `pnpm check:quiet`, `pnpm verify:pr`, and pre-push `pnpm verify:pr` are
+  green. Draft PR #86 is open at https://github.com/ensp1re/qyre/pull/86; GitHub Actions run
+  29018185156 is queued.
 
 ## Known issues / blockers
 
@@ -63,4 +65,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Run `pnpm verify:pr`, review the diff, then commit/push F084 and open its draft PR.
+- Wait for PR #86 CI. If both jobs pass, record the PR URL and pushed commit, move F084 to
+  `passing`, run `pnpm features:prune`, push the state update, then start F085.

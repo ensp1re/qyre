@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildGraph,
   layoutGraph,
+  relationshipHighlightForEdge,
+  relationshipHighlightForNode,
+  relationshipSummary,
   tableNodeId
 } from "../../../../src/features/schema/model/graph-model.js";
 
@@ -82,11 +85,99 @@ describe("buildGraph (F074)", () => {
     const { nodes, edges } = buildGraph(collections);
     expect(nodes).toHaveLength(2);
     expect(edges).toHaveLength(0);
+    expect(collections.flatMap((table) => table.columns)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "_id", isPrimaryKey: true, isForeignKey: false })
+      ])
+    );
+  });
+
+  it("draws MySQL-style fixture foreign keys as schema-qualified table edges", () => {
+    const mysqlUsers: TableMetadata = { ...users, schema: "qyre_test", name: "qyre_demo_users" };
+    const mysqlOrders: TableMetadata = {
+      schema: "qyre_test",
+      name: "qyre_demo_orders",
+      columns: [
+        col("id", { isPrimaryKey: true }),
+        col("user_id", {
+          isForeignKey: true,
+          references: { schema: "qyre_test", table: "qyre_demo_users", column: "id" }
+        }),
+        col("total", { dataType: "decimal" })
+      ],
+      indexes: [],
+      rowCount: 2
+    };
+
+    const { edges } = buildGraph([mysqlUsers, mysqlOrders]);
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({
+      source: "qyre_test.qyre_demo_orders",
+      target: "qyre_test.qyre_demo_users",
+      sourceHandle: "col-user_id"
+    });
   });
 
   it("schema-qualifies node ids so same-named tables in different schemas don't collide", () => {
     expect(tableNodeId("public", "users")).toBe("public.users");
     expect(tableNodeId(undefined, "users")).toBe("users");
+  });
+});
+
+describe("relationship highlighting (F084)", () => {
+  const comments: TableMetadata = {
+    schema: "public",
+    name: "comments",
+    columns: [
+      col("id", { isPrimaryKey: true }),
+      col("post_id", {
+        isForeignKey: true,
+        references: { schema: "public", table: "posts", column: "id" }
+      })
+    ],
+    indexes: [],
+    rowCount: 9
+  };
+
+  const auditLog: TableMetadata = {
+    schema: "public",
+    name: "audit_log",
+    columns: [col("id", { isPrimaryKey: true })],
+    indexes: [],
+    rowCount: 1
+  };
+
+  it("highlights the full connected relationship chain for a selected table", () => {
+    const { edges } = buildGraph([users, posts, comments, auditLog]);
+    const highlight = relationshipHighlightForNode("public.posts", edges);
+
+    expect([...highlight.nodeIds].sort()).toEqual([
+      "public.comments",
+      "public.posts",
+      "public.users"
+    ]);
+    expect([...highlight.edgeIds].sort()).toEqual([
+      "public.comments.post_id->public.posts",
+      "public.posts.author_id->public.users"
+    ]);
+  });
+
+  it("highlights both ends of a selected relationship edge", () => {
+    const { edges } = buildGraph([users, posts]);
+    const highlight = relationshipHighlightForEdge("public.posts.author_id->public.users", edges);
+
+    expect([...highlight.nodeIds].sort()).toEqual(["public.posts", "public.users"]);
+    expect([...highlight.edgeIds]).toEqual(["public.posts.author_id->public.users"]);
+  });
+
+  it("summarizes disconnected relationship groups for the graph notice", () => {
+    const { nodes, edges } = buildGraph([users, posts, auditLog]);
+
+    expect(relationshipSummary(nodes, edges)).toEqual({
+      componentCount: 2,
+      isolatedNodeCount: 1,
+      edgeCount: 1
+    });
   });
 });
 

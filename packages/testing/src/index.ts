@@ -102,6 +102,12 @@ export const FIXTURE = {
   rowCount: 3
 } as const;
 
+/** Child fixture table used where relationship introspection needs a stable FK. */
+export const MYSQL_RELATIONSHIP_FIXTURE = {
+  table: "qyre_demo_orders",
+  rowCount: 2
+} as const;
+
 /** Arbitrary fixed key for setupFixture's advisory lock - scoped to this one fixture, not shared. */
 const FIXTURE_LOCK_KEY = 958312;
 
@@ -244,16 +250,26 @@ export async function setupMysqlFixture(connectionString: string): Promise<void>
   try {
     await connection.query("SELECT GET_LOCK(?, 10)", [MYSQL_FIXTURE_LOCK_NAME]);
     try {
+      await connection.query(`DROP TABLE IF EXISTS ${MYSQL_RELATIONSHIP_FIXTURE.table}`);
       await connection.query(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
       await connection.query(`CREATE TABLE ${FIXTURE.table} (
          id INT AUTO_INCREMENT PRIMARY KEY,
          name VARCHAR(255) NOT NULL,
          email VARCHAR(255) NOT NULL
        )`);
+      await connection.query(`CREATE TABLE ${MYSQL_RELATIONSHIP_FIXTURE.table} (
+         id INT AUTO_INCREMENT PRIMARY KEY,
+         user_id INT NOT NULL,
+         total DECIMAL(10,2) NOT NULL,
+         FOREIGN KEY (user_id) REFERENCES ${FIXTURE.table}(id)
+       )`);
       await connection.query(`INSERT INTO ${FIXTURE.table} (name, email) VALUES
          ('Ada Lovelace', 'ada@example.com'),
          ('Alan Turing', 'alan@example.com'),
          ('Grace Hopper', 'grace@example.com')`);
+      await connection.query(`INSERT INTO ${MYSQL_RELATIONSHIP_FIXTURE.table} (user_id, total) VALUES
+         (1, 42.50),
+         (2, 13.99)`);
     } finally {
       await connection.query("SELECT RELEASE_LOCK(?)", [MYSQL_FIXTURE_LOCK_NAME]);
     }

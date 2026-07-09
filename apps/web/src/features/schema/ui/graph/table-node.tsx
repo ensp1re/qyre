@@ -18,12 +18,15 @@ const MAX_VISIBLE_ROWS = 12;
 export function TableNode({ data, selected }: NodeProps<TableFlowNode>): ReactNode {
   const { table } = data;
   const capped = table.columns.length > MAX_VISIBLE_ROWS;
+  const isHighlighted = data.highlighted || selected;
+  const isDimmed = data.dimmed && !selected;
 
   return (
     <div
       className={
-        "w-60 overflow-hidden rounded-[4px] border bg-card shadow-sm " +
-        (selected ? "border-primary" : "border-border")
+        "w-60 overflow-hidden rounded-[4px] border bg-card shadow-sm transition-[border-color,opacity,box-shadow] " +
+        (isHighlighted ? "border-primary shadow-primary/15" : "border-border") +
+        (isDimmed ? " opacity-45" : "")
       }
     >
       {/* Incoming FK edges (this table is referenced) land on the node's left edge. */}
@@ -34,7 +37,12 @@ export function TableNode({ data, selected }: NodeProps<TableFlowNode>): ReactNo
         className="!border-none !bg-transparent"
       />
 
-      <div className="flex items-center gap-2 border-b border-border bg-accent/40 px-3 py-2">
+      <div
+        className={
+          "flex items-center gap-2 border-b border-border px-3 py-2 " +
+          (isHighlighted ? "bg-primary/10" : "bg-accent/40")
+        }
+      >
         <Table2 className="h-3 w-3 shrink-0" style={{ color: "var(--c-blue)" }} />
         <span className="truncate font-mono text-[12px] font-medium text-foreground">
           {table.name}

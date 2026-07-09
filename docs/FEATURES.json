@@ -2,7 +2,7 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 81,
+    "F": 89,
     "DF": 10
   },
   "states": ["not_started", "active", "blocked", "passing"],
@@ -138,6 +138,86 @@
       "blockedReason": null,
       "spec": null,
       "completedAt": "2026-07-08T22:48:37.000Z"
+    },
+    {
+      "id": "F081",
+      "behavior": "Column type metadata and cell rendering preserve each engine's real date/time semantics instead of collapsing everything into a date: a TIME column (e.g. type_showcase.col_time, a value like \"08:27:20\") must never be routed through the date parser (currently throws `Could not parse \"08:27:20\" as a date`), and a TIMESTAMP/TIMESTAMPTZ value must render and inspect as a timestamp rather than being silently truncated to date-only in the Rows table. A raw engine type name shown to the user (e.g. Postgres's `timestamp without time zone`) gets a clear, non-alarming label instead of leaking the literal internal type string verbatim. The Rows table header also visually attaches each column's type badge to its name (currently disconnected, making it hard to tell which type belongs to which column). Verify against every relevant column of the type_showcase table across Postgres/MySQL/SQLite, confirmed live via Preview.",
+      "verification": "pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F082",
+      "behavior": "The Rows table's filter bar becomes genuinely type-aware instead of offering one generic operator list for every column: boolean columns offer only true/false (no contains/starts-with/etc.), date and timestamp columns get real before/after/range date pickers instead of a raw text value, time columns use a time picker rather than a date parser, and MongoDB filters can target BSON-only values - ObjectId, null, and edge sentinels such as $minKey/$maxKey - without requiring hand-written raw query syntax. Verify against type_showcase's boolean/date/time columns on the 3 SQL engines and the BSON edge-value columns on MongoDB.",
+      "verification": "pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F083",
+      "behavior": "Row selection in the Rows table supports real bulk workflows: the \"<n> selected\" indicator gains a clear-selection (x) icon button, a select-all-on-current-page control sits in the header row above the first data row, rows can be selected by pressing and dragging the mouse rather than only one click at a time, and the CSV/download export honors the current selection - exporting only selected rows when any are selected, the full result set when none are.",
+      "verification": "pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F084",
+      "behavior": "The Schema tab's graph view reflects and lets you explore real relationships: MySQL foreign keys are introspected and drawn as edges (currently missing), disconnected node clusters get a visible explanation instead of silently looking broken, clicking a table or edge highlights the full relationship chain it belongs to, and MongoDB - which has no real foreign keys - stops rendering `_id` as though it were a relationship (currently clicking it navigates to a non-existent table showing no rows).",
+      "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/mysql test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F085",
+      "behavior": "Switching the active database connection from the UI (POST /api/connect, F064) keeps every dependent view in sync: the sidebar/schema tree currently keeps showing the previous connection's tables/schemas until a manual reload and must refresh to the new target automatically, and MongoDB connections hide the SQL Editor tab entirely instead of rendering it as a disabled/greyed-out panel, since MongoDB has no SQL surface to disable.",
+      "verification": "pnpm --filter @qyre/web test && pnpm test:e2e",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F086",
+      "behavior": "Cell values that look like an image URL or a plain URL get an inspectable preview (thumbnail/link) instead of rendering as plain truncated text; long raw-text cells past the truncation threshold get a distinct visual treatment (e.g. a color/background cue), not the same look as a normal short string; and the Files tab's \"File browsing is disabled\" message stops implying it's disabled because of the connected database engine - it's actually gated purely by the --files-dir CLI flag, independent of engine (Postgres/MySQL/MongoDB/SQLite can all use it) - the message should say that plainly instead of reading like a generic, unexplained restriction.",
+      "verification": "pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F087",
+      "behavior": "The Settings surface is rebuilt as a polished, scannable in-app configuration screen using the established Qyre/Fable visual language (docs/references/design-system.md) instead of its current one-off panel: sections are grouped logically, binary/numeric/list settings use the right shared-UI primitives, and persistence state (saved vs unsaved) is visually clear.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F088",
+      "behavior": "`npx <connection-url>` (e.g. `npx mongodb://localhost:27017/qyre_test` or `npx postgres://...`) fails with npm's own EUNSUPPORTEDPROTOCOL error because npx parses the argument as a package spec before qyre ever runs. The CLI gains an interactive guided-login flow for users who hit this or simply run `npx qyre` with no target: pick an engine, then enter user, a masked password (echoed as ****), host, port, and database; on a failed connection attempt, show the real error and offer retry (Y) or quit (N) rather than exiting. Startup help/output also explains the npx protocol:// pitfall directly and points at the correct `npx qyre <connection-url>` shape or this new interactive prompt.",
+      "verification": "pnpm --filter qyre test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
     }
   ]
 }

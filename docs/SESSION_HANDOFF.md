@@ -5,13 +5,12 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Current state
 
-- Date: 2026-07-08.
-- Branch: `main`, tip `d2e2edc` (merge of F078/PR #79).
-- **All 12 features in `docs/FEATURES.json` are `passing`, 0 `active`, 0 `not_started`.** F078
-  (PR #79) was verified with `pnpm verify:pr` locally against Docker and confirmed again by CI on
-  `main` after merge (both "Lint, typecheck, test, build" and "End-to-end" jobs green).
-- The `packages/{server,ui}` and `apps/web` structure migrations (F076-F078) are all complete; no
-  further structure migrations are queued.
+- Date: 2026-07-09.
+- Branch: `main`, tip `d2e2edc` (merge of F078/PR #79). No code changes since; only `FEATURES.json`
+  triage below.
+- 12 features `passing` (F067-F078), **8 new `not_started` (F081-F088), 0 `active`**. F081-F088
+  were triaged from manual QA notes taken against a live Preview session (seeded with the 28-table
+  `type_showcase`-inclusive demo dataset across all 4 engines) - see "Completed" for the source.
 
 ## Completed
 
@@ -21,20 +20,19 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   are now recreated after `quick_check`, with a regression test.
 - MongoDB now has Playwright browse coverage, including nested documents and disabled SQL Editor;
   SQL-only journeys skip it explicitly.
-- **F078 `passing`** ([PR #79](https://github.com/ensp1re/qyre/pull/79), merged as `d2e2edc`):
-  `packages/server/src/index.ts` (flat, 545 lines) split per `docs/CODE_ORGANIZATION.md`'s server
-  contract into `app.ts` (builds Fastify, owns the shared mutable `ServerContext`, registers
-  plugins/routes), `routes/<resource>.ts` (health, connect, overview, tables, query, console,
-  files), `plugins/<concern>.ts` (host-guard, error-handler, static-web), and
-  `services/<concern>.ts` (event-log, csv, files, row-query, connection-display,
-  require-adapter). `index.ts` re-exports only the public API - unchanged surface, `packages/cli`
-  needed no changes. The former single `src/index.test.ts` (934 lines, 67 tests) is split into
-  `tests/{routes,plugins,services}/<name>.test.ts` mirroring the source tree, plus
-  `tests/support/fake-adapter.ts`; all 67 tests still pass.
+- Seeded a 28-table B2B logistics/e-commerce dataset (52k rows/table) plus a `type_showcase`
+  table/collection exercising each engine's native type system, across Postgres/MySQL/SQLite/
+  MongoDB (ephemeral scratchpad scripts, not part of the repo; `.local/demo.sqlite` gitignored).
+- Triaged 26 manual QA notes taken against that dataset into 8 independently shippable
+  `FEATURES.json` entries (F081-F088, not yet started): date/time type fidelity (F081), type-aware
+  filters (F082), bulk row selection/export (F083), schema graph correctness (F084), connection-
+  switch UI staleness (F085), cell preview/messaging polish (F086), Settings UI rebuild (F087),
+  and a guided CLI login flow (F088). Kept as 8 slices rather than fewer/bigger ones since each
+  spans a distinct package/surface and needs its own verification.
 
 ## In progress
 
-- Nothing in flight. All 12 features are `passing` - see "Next steps".
+- Nothing in flight. F081-F088 are `not_started` and unclaimed - see "Next steps".
 
 ## Known issues / blockers
 
@@ -45,6 +43,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- No queued feature work. Pick the next `F###`/`DF-##` from product priorities, branch off `main`
-  as `feature/<ID>-<slug>`, and follow the usual `pnpm verify:pr` -> push -> draft PR -> merge ->
-  mark-passing loop.
+- Pick from F081-F088 (see `docs/FEATURES.json`), branch off `main` as `feature/<ID>-<slug>`, and
+  follow the usual `pnpm verify:pr` -> push -> draft PR -> merge -> mark-passing loop. F081 (date/
+  time type fidelity) is a reasonable first pick: it names concrete repro cases against the
+  `type_showcase` table already seeded in every engine.

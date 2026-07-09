@@ -143,19 +143,20 @@
       "id": "F081",
       "behavior": "Column type metadata and cell rendering preserve each engine's real date/time semantics instead of collapsing everything into a date: a TIME column (e.g. type_showcase.col_time, a value like \"08:27:20\") must never be routed through the date parser (currently throws `Could not parse \"08:27:20\" as a date`), and a TIMESTAMP/TIMESTAMPTZ value must render and inspect as a timestamp rather than being silently truncated to date-only in the Rows table. A raw engine type name shown to the user (e.g. Postgres's `timestamp without time zone`) gets a clear, non-alarming label instead of leaking the literal internal type string verbatim. The Rows table header also visually attaches each column's type badge to its name (currently disconnected, making it hard to tell which type belongs to which column). Verify against every relevant column of the type_showcase table across Postgres/MySQL/SQLite, confirmed live via Preview.",
       "verification": "pnpm --filter @qyre/ui test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "2250b622de77cae237c3e4a99364511ea42f0e3a",
+      "evidence": "isClickableDateType() split from isDateType() so a bare TIME value (no date component) never reaches new Date(...) via the click-to-inspect popover, while TypeIcon/classifyColumnKind still treat TIME as date-ish for icon/kind purposes. friendlyTypeLabel() maps verbose engine-reported names (Postgres's \"timestamp without time zone\") to short labels (timestamp, timestamp (tz), time, date) in the Rows table header. The header's type badge (icon + label + PK/FK) now renders inside each column's own <th>, stacked under the column name, instead of a separate horizontally-scrolled bar that could drift out of alignment. Grid-cell text and the DATE/TIMESTAMP/TIMESTAMPTZ popover were already correct (raw value, not truncated) - verified live via Preview against Postgres's type_showcase and left unchanged. MySQL/SQLite type-string handling covered by unit tests; MongoDB dates arrive pre-serialized as ISO strings, unaffected. pnpm --filter @qyre/ui test and pnpm verify:pr (checks, build, smoke E2E, full E2E across all 4 engines) both passed locally. PR #82 merged as 2250b62, CI confirmed on main.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-09T10:24:21.000Z"
     },
     {
       "id": "F082",
       "behavior": "The Rows table's filter bar becomes genuinely type-aware instead of offering one generic operator list for every column: boolean columns offer only true/false (no contains/starts-with/etc.), date and timestamp columns get real before/after/range date pickers instead of a raw text value, time columns use a time picker rather than a date parser, and MongoDB filters can target BSON-only values - ObjectId, null, and edge sentinels such as $minKey/$maxKey - without requiring hand-written raw query syntax. Verify against type_showcase's boolean/date/time columns on the 3 SQL engines and the BSON edge-value columns on MongoDB.",
       "verification": "pnpm --filter @qyre/ui test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
-      "evidence": null,
+      "evidence": "FilterBar: OP_ORDER_BY_KIND.boolean now offers only eq/neq/isNull/isNotNull (was every operator, just reordered); the value step renders a true/false picker for boolean columns and a native <input type=\"date\"|\"time\"|\"datetime-local\"> for date-ish columns (dateInputKind() in format-cell.ts, mirroring F081's isClickableDateType split so TIME gets its own picker instead of being lumped with DATE/TIMESTAMP). MongoDB: _id (ObjectId) and null filtering already worked server-side via existing coerceFilterValue/isNull handling - verified live, no code change needed. minKeyField/maxKeyField previously collapsed into the generic \"object\" dataType with no filter coercion at all; classifyBsonValue now reports them as their own dataType and coerceFilterValue resolves a typed \"$minKey\"/\"$maxKey\" token to the real BSON sentinel instance. Verified live via Preview: Postgres type_showcase (boolean picker, date/time/timestamp/timestamptz pickers all render the correct native input and apply correctly), MongoDB type_showcase (_id eq by plain hex matched 1/~52,000 rows; minKeyField eq \"$minKey\" and nullField isNull each matched the full page - all rows have those sentinel/null values by seed design). pnpm --filter @qyre/ui test (14 filter-bar tests, 8 format-cell tests) and pnpm --filter @qyre/mongodb test (25 unit + 13 integration, including new classifyBsonValue/coerceFilterValue coverage) both pass. pnpm verify:pr (checks, build, smoke E2E, full E2E across all 4 engines) passed locally.",
       "blockedReason": null,
       "spec": null
     },

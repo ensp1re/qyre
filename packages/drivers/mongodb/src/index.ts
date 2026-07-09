@@ -128,19 +128,34 @@ function normalizeDocument(document: Record<string, unknown>): Record<string, un
 
 /**
  * Coarse BSON type name for a sampled field value, reported as `ColumnMetadata.dataType` (F068).
- * Not exhaustive BSON - Int32/Long/Decimal128 all collapse to "number" and structured/exotic types
- * (nested documents, Timestamp, Code, regex, MinKey/MaxKey, BSONSymbol) collapse to "object",
- * matching how `normalizeBsonValue` already flattens most of these for display. The goal is a
- * label a developer can actually read in the Schema tab, not a full BSON type system.
+ * Not exhaustive BSON - Int32/Long/Decimal128 all collapse to "number" and most other structured/
+ * exotic types (nested documents, Timestamp, Code, regex, BSONSymbol) collapse to "object",
+ * matching how `normalizeBsonValue` already flattens most of these for display; MinKey/MaxKey get
+ * their own dataType instead (F082) so they're filterable. The goal is a label a developer can
+ * actually read in the Schema tab, not a full BSON type system.
  */
 type InferredBsonType =
-  "string" | "number" | "boolean" | "objectId" | "date" | "array" | "binary" | "object";
+  | "string"
+  | "number"
+  | "boolean"
+  | "objectId"
+  | "date"
+  | "array"
+  | "binary"
+  | "minKey"
+  | "maxKey"
+  | "object";
 
 export function classifyBsonValue(value: unknown): InferredBsonType | "null" {
   if (value === null || value === undefined) return "null";
   if (value instanceof ObjectId) return "objectId";
   if (value instanceof Date) return "date";
   if (value instanceof Binary) return "binary";
+  // MinKey/MaxKey are BSON's sentinel "smallest possible"/"largest possible" values (F082) - like
+  // ObjectId, they get their own dataType so filters can target them without hand-written raw
+  // query syntax (`{"$minKey":1}`), rather than collapsing into the generic "object" bucket below.
+  if (value instanceof MinKey) return "minKey";
+  if (value instanceof MaxKey) return "maxKey";
   if (Array.isArray(value)) return "array";
   if (value instanceof Long || value instanceof Decimal128 || typeof value === "number") {
     return "number";
@@ -209,7 +224,7 @@ export function inferColumns(sample: Record<string, unknown>[]): ColumnMetadata[
  * back to the string itself when coercion doesn't apply cleanly (e.g. a non-numeric value against
  * a "number" column just won't match anything, which is correct - not an error).
  */
-function coerceFilterValue(value: string, dataType: string): unknown {
+export function coerceFilterValue(value: string, dataType: string): unknown {
   switch (dataType) {
     case "number": {
       const parsed = Number(value);
@@ -225,6 +240,13 @@ function coerceFilterValue(value: string, dataType: string): unknown {
       const parsed = new Date(value);
       return Number.isNaN(parsed.getTime()) ? value : parsed;
     }
+    // MinKey/MaxKey are singleton sentinel values (F082) - there's only one possible instance of
+    // each, so the typed value is just a recognizable token ("$minKey"/"$maxKey" - matching how
+    // normalizeBsonValue already displays them), not something to parse.
+    case "minKey":
+      return new MinKey();
+    case "maxKey":
+      return new MaxKey();
     default:
       return value;
   }

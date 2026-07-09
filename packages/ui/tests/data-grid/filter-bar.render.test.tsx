@@ -12,6 +12,21 @@ const columns: ColumnMetadata[] = [
     nullable: true,
     isPrimaryKey: false,
     isForeignKey: false
+  },
+  {
+    name: "is_active",
+    dataType: "boolean",
+    nullable: false,
+    isPrimaryKey: false,
+    isForeignKey: false
+  },
+  { name: "col_date", dataType: "date", nullable: true, isPrimaryKey: false, isForeignKey: false },
+  {
+    name: "col_time",
+    dataType: "time without time zone",
+    nullable: true,
+    isPrimaryKey: false,
+    isForeignKey: false
   }
 ];
 
@@ -152,5 +167,76 @@ describe("FilterBar (F072)", () => {
   it("disables the trigger when the table has no columns", () => {
     render(<FilterBar columns={[]} filters={undefined} onFiltersChange={vi.fn()} />);
     expect(screen.getByLabelText("Add filter")).toBeDisabled();
+  });
+});
+
+describe("FilterBar type-aware operators and values (F082)", () => {
+  it("offers only eq/neq/isNull/isNotNull for a boolean column, not text/comparison operators", () => {
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
+
+    openPopover();
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Columns" })).getByText("is_active")
+    );
+
+    const options = within(screen.getByRole("listbox", { name: "Operators" })).getAllByRole(
+      "option"
+    );
+    expect(options.map((option) => option.textContent)).toEqual([
+      "equals=",
+      "not equals≠",
+      "is null",
+      "is not null"
+    ]);
+  });
+
+  it("shows a true/false picker (not a text input) for a boolean column's value step", () => {
+    const onFiltersChange = vi.fn();
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={onFiltersChange} />);
+
+    openPopover();
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Columns" })).getByText("is_active")
+    );
+    fireEvent.click(screen.getByRole("option", { name: /^equals/ }));
+
+    expect(screen.queryByLabelText("Filter value")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("false"));
+
+    expect(onFiltersChange).toHaveBeenCalledWith([
+      { column: "is_active", op: "eq", value: "false" }
+    ]);
+  });
+
+  it("uses a native date input for a DATE column's value step", () => {
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
+
+    openPopover();
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("col_date"));
+    fireEvent.click(screen.getByRole("option", { name: /^equals/ }));
+
+    expect(screen.getByLabelText("Filter value")).toHaveAttribute("type", "date");
+  });
+
+  it("uses a native time input (not the date picker) for a TIME column's value step", () => {
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
+
+    openPopover();
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("col_time"));
+    fireEvent.click(screen.getByRole("option", { name: /^equals/ }));
+
+    expect(screen.getByLabelText("Filter value")).toHaveAttribute("type", "time");
+  });
+
+  it("uses a native datetime-local input for a TIMESTAMP column's value step", () => {
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
+
+    openPopover();
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Columns" })).getByText("deleted_at")
+    );
+    fireEvent.click(screen.getByRole("option", { name: /^equals/ }));
+
+    expect(screen.getByLabelText("Filter value")).toHaveAttribute("type", "datetime-local");
   });
 });

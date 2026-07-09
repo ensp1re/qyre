@@ -141,7 +141,7 @@ test("@full switching to MongoDB refreshes the shell without a reload", async ({
     await page.goto(server.url);
     await expect(page.getByRole("treeitem", { name: "qyre_switch_only_postgres" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("button", { name: "Switch database connection" }).click();
     await page.getByPlaceholder("postgres://user:pass@host:5432/db").fill(mongoUrl);
     await page.getByRole("button", { name: "Connect", exact: true }).click();
 

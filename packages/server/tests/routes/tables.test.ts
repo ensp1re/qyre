@@ -71,6 +71,108 @@ describe("GET /api/tables/:schema/:table/rows", () => {
   });
 });
 
+describe("Server-side filtering", () => {
+  const filtersParam = (filters: unknown): string =>
+    `filters=${encodeURIComponent(JSON.stringify(filters))}`;
+
+  it("passes validated filters through to getRows", async () => {
+    let receivedFilters: unknown;
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "x",
+        columns: [
+          {
+            name: "name",
+            dataType: "text",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]
+      }),
+      getRows: async (_schema, _table, _page, _pageSize, _sort, filters) => {
+        receivedFilters = filters;
+        return { columns: ["name"], rows: [], page: 0, pageSize: 50 };
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/tables/public/x/rows?${filtersParam([
+        { column: "name", op: "contains", value: "ada" }
+      ])}`
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(receivedFilters).toEqual([{ column: "name", op: "contains", value: "ada" }]);
+    await app.close();
+  });
+
+  it("rejects operators that do not match the selected column capability", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "x",
+        columns: [
+          {
+            name: "amount",
+            dataType: "numeric",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]
+      })
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/tables/public/x/rows?${filtersParam([
+        { column: "amount", op: "contains", value: "10" }
+      ])}`
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: expect.stringContaining("not supported for column")
+    });
+    await app.close();
+  });
+
+  it("does not allow MongoDB MinKey/MaxKey sentinel columns to be scalar-filtered", async () => {
+    const adapter = makeFakeAdapter({
+      engine: "mongodb",
+      getTable: async () => ({
+        schema: "qyre_test",
+        name: "type_showcase",
+        columns: [
+          {
+            name: "minKeyField",
+            dataType: "minKey",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]
+      })
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/tables/qyre_test/type_showcase/rows?${filtersParam([
+        { column: "minKeyField", op: "eq", value: "$minKey" }
+      ])}`
+    });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+});
+
 describe("Server-side sort (F065)", () => {
   function makeSortableAdapter(
     getRowsSpy: (

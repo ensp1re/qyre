@@ -1,4 +1,5 @@
 import type { RowFilter, RowSort, SortDirection, TableMetadata } from "@qyre/core";
+import { filterCapabilityForColumn } from "@qyre/core/filter-capabilities";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 
 /**
@@ -29,14 +30,25 @@ export function resolveRowSort(
  */
 export function resolveRowFilters(
   tableMetadata: TableMetadata,
-  filters: RowFilter[] | undefined
+  filters: RowFilter[] | undefined,
+  engine?: DatabaseAdapter["engine"]
 ): RowFilter[] | undefined {
   if (!filters || filters.length === 0) return undefined;
   for (const filter of filters) {
-    if (!tableMetadata.columns.some((column) => column.name === filter.column)) {
+    const column = tableMetadata.columns.find((candidate) => candidate.name === filter.column);
+    if (!column) {
       throw Object.assign(new Error(`Unknown filter column "${filter.column}".`), {
         statusCode: 400
       });
+    }
+    const capability = filterCapabilityForColumn(column, engine);
+    if (!capability.operators.includes(filter.op)) {
+      throw Object.assign(
+        new Error(
+          `Filter operator "${filter.op}" is not supported for column "${filter.column}" (${capability.label}).`
+        ),
+        { statusCode: 400 }
+      );
     }
   }
   return filters;
@@ -60,6 +72,6 @@ export async function resolveRowQuery(
   const tableMetadata = await db.getTable(schema, table);
   return {
     sort: resolveRowSort(tableMetadata, sortColumn, sortDirection),
-    filters: resolveRowFilters(tableMetadata, filters)
+    filters: resolveRowFilters(tableMetadata, filters, db.engine)
   };
 }

@@ -171,7 +171,7 @@ describe("FilterBar (F072)", () => {
 });
 
 describe("FilterBar type-aware operators and values (F082)", () => {
-  it("offers only eq/neq/isNull/isNotNull for a boolean column, not text/comparison operators", () => {
+  it("offers only eq/neq for a non-null boolean column, not text/comparison/null operators", () => {
     render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
 
     openPopover();
@@ -182,11 +182,25 @@ describe("FilterBar type-aware operators and values (F082)", () => {
     const options = within(screen.getByRole("listbox", { name: "Operators" })).getAllByRole(
       "option"
     );
+    expect(options.map((option) => option.textContent)).toEqual(["equals=", "not equals≠"]);
+  });
+
+  it("does not offer contains for numeric columns", () => {
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
+
+    openPopover();
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("id"));
+
+    const options = within(screen.getByRole("listbox", { name: "Operators" })).getAllByRole(
+      "option"
+    );
     expect(options.map((option) => option.textContent)).toEqual([
       "equals=",
       "not equals≠",
-      "is null",
-      "is not null"
+      "greater than>",
+      "greater or equal≥",
+      "less than<",
+      "less or equal≤"
     ]);
   });
 
@@ -238,5 +252,45 @@ describe("FilterBar type-aware operators and values (F082)", () => {
     fireEvent.click(screen.getByRole("option", { name: /^equals/ }));
 
     expect(screen.getByLabelText("Filter value")).toHaveAttribute("type", "datetime-local");
+  });
+
+  it("hides MongoDB MinKey/MaxKey sentinel columns from scalar filtering", () => {
+    render(
+      <FilterBar
+        engine="mongodb"
+        columns={[
+          {
+            name: "_id",
+            dataType: "objectId",
+            nullable: false,
+            isPrimaryKey: true,
+            isForeignKey: false
+          },
+          {
+            name: "minKeyField",
+            dataType: "minKey",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          },
+          {
+            name: "maxKeyField",
+            dataType: "maxKey",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]}
+        filters={undefined}
+        onFiltersChange={vi.fn()}
+      />
+    );
+
+    openPopover();
+
+    const listbox = screen.getByRole("listbox", { name: "Columns" });
+    expect(within(listbox).getByText("_id")).toBeInTheDocument();
+    expect(within(listbox).queryByText("minKeyField")).not.toBeInTheDocument();
+    expect(within(listbox).queryByText("maxKeyField")).not.toBeInTheDocument();
   });
 });

@@ -218,6 +218,7 @@ export function App(): ReactNode {
                 <TablesTab
                   selected={selected}
                   table={table}
+                  engine={overview.data?.engine}
                   rows={rows}
                   page={page}
                   onPageChange={(update) => dispatch({ type: "pageChanged", page: update(page) })}

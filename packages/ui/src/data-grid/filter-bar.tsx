@@ -1,15 +1,18 @@
-import type { ColumnMetadata, FilterOp, RowFilter } from "@qyre/core";
+import type { ColumnMetadata, DatabaseEngine, FilterOp, RowFilter } from "@qyre/core";
+import type { FilterCapability } from "@qyre/core/filter-capabilities";
+import { filterCapabilityForColumn } from "@qyre/core/filter-capabilities";
 import { ListFilter, Search, X } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../cn.js";
-import { dateInputKind } from "../primitives/format-cell.js";
-import { classifyColumnKind, TypeIcon } from "../primitives/type-icon.js";
+import { TypeIcon } from "../primitives/type-icon.js";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
 
 export interface FilterBarProps {
   /** The table's real columns - drives the popover's column picker and each chip's type icon. */
   columns: ColumnMetadata[];
+  /** Connected engine, used to interpret engine-reported column type names accurately. */
+  engine?: DatabaseEngine;
   /** The filters currently applied server-side (F072), or undefined when none. */
   filters: RowFilter[] | undefined;
   /** Reports the full next filter set; undefined means "no filters" (matching RowsTable's
@@ -34,18 +37,6 @@ const OP_META: Record<FilterOp, { word: string; symbol: string }> = {
 };
 
 const NO_VALUE_OPS = new Set<FilterOp>(["isNull", "isNotNull"]);
-
-/** Operator menu order per column kind - the likeliest operator for that type comes first
- * (contains for text, comparisons for numeric/date), so the common case is one Enter away.
- * Boolean only offers the operators that make sense for a two-valued column (F082) - "contains"/
- * comparisons against true/false are never meaningful. */
-const OP_ORDER_BY_KIND: Record<ReturnType<typeof classifyColumnKind>, FilterOp[]> = {
-  text: ["contains", "eq", "neq", "gt", "gte", "lt", "lte", "isNull", "isNotNull"],
-  numeric: ["eq", "neq", "gt", "gte", "lt", "lte", "contains", "isNull", "isNotNull"],
-  datetime: ["eq", "neq", "gt", "gte", "lt", "lte", "contains", "isNull", "isNotNull"],
-  boolean: ["eq", "neq", "isNull", "isNotNull"],
-  other: ["eq", "neq", "contains", "gt", "gte", "lt", "lte", "isNull", "isNotNull"]
-};
 
 /** In-progress filter being composed or edited. Which popover step renders is derived from what's
  * filled in (no column -> pick column; no op -> pick operator; both -> type the value), so "go
@@ -79,7 +70,12 @@ function HintFooter({ text }: { text: string }): ReactNode {
  * Escape walks one step back until it closes. Focus is trapped while open and restored to the
  * trigger on close (useFocusTrap).
  */
-export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps): ReactNode {
+export function FilterBar({
+  columns,
+  engine,
+  filters,
+  onFiltersChange
+}: FilterBarProps): ReactNode {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   /** Index into `filters` being edited, or null when composing a new one. */
@@ -93,23 +89,24 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
   const active = filters ?? [];
   const step: "column" | "op" | "value" = !draft.column ? "column" : !draft.op ? "op" : "value";
 
+  const filterableColumns = useMemo(
+    () =>
+      columns.filter((column) => filterCapabilityForColumn(column, engine).operators.length > 0),
+    [columns, engine]
+  );
+
   const matchingColumns = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return columns;
-    return columns.filter((column) => column.name.toLowerCase().includes(q));
-  }, [columns, query]);
+    if (!q) return filterableColumns;
+    return filterableColumns.filter((column) => column.name.toLowerCase().includes(q));
+  }, [filterableColumns, query]);
 
-  const operatorOrder = draft.column
-    ? OP_ORDER_BY_KIND[classifyColumnKind(draft.column.dataType)]
-    : OP_ORDER_BY_KIND.other;
-
-  // Drives the value step's widget (F082): boolean gets a true/false picker instead of free text,
-  // a date-ish column gets the matching native picker (dateInputKind returns null for anything
-  // else, which falls back to a plain text input below).
-  const isBooleanColumn = draft.column
-    ? classifyColumnKind(draft.column.dataType) === "boolean"
-    : false;
-  const valueInputKind = draft.column ? (dateInputKind(draft.column.dataType) ?? "text") : "text";
+  const draftCapability: FilterCapability | undefined = draft.column
+    ? filterCapabilityForColumn(draft.column, engine)
+    : undefined;
+  const operatorOrder = draftCapability?.operators ?? [];
+  const isBooleanColumn = draftCapability?.valueInput === "boolean";
+  const valueInputKind = draftCapability?.valueInput ?? "text";
 
   useEffect(() => setHighlighted(0), [query]);
 
@@ -145,6 +142,8 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
   }
 
   function pickColumn(column: ColumnMetadata): void {
+    const capability = filterCapabilityForColumn(column, engine);
+    if (capability.operators.length === 0) return;
     setDraft((current) => ({ ...current, column }));
     setQuery("");
   }
@@ -265,7 +264,7 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
       <button
         type="button"
         onClick={() => (open ? close() : setOpen(true))}
-        disabled={columns.length === 0}
+        disabled={filterableColumns.length === 0}
         aria-label="Add filter"
         aria-expanded={open}
         title="Filter the whole table server-side"
@@ -277,7 +276,7 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
         )}
       >
         <ListFilter className="h-3 w-3" />
-        {active.length === 0 && "Filter"}
+        {active.length === 0 ? "Filter rows" : active.length}
       </button>
 
       {active.length >= 2 && (
@@ -355,7 +354,11 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
                   className="max-h-56 overflow-y-auto p-1"
                 >
                   {matchingColumns.length === 0 ? (
-                    <p className="px-2 py-2 text-muted-foreground/60">No matching columns</p>
+                    <p className="px-2 py-2 text-muted-foreground/60">
+                      {filterableColumns.length === 0
+                        ? "No filterable columns"
+                        : "No matching columns"}
+                    </p>
                   ) : (
                     matchingColumns.map((column, index) => (
                       <button
@@ -386,8 +389,10 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
                             FK
                           </span>
                         )}
-                        <span className="ml-auto shrink-0 text-[9px] text-muted-foreground/60">
-                          {column.dataType}
+                        <span className="ml-auto flex shrink-0 items-center gap-1 text-[9px] text-muted-foreground/60">
+                          <span>{filterCapabilityForColumn(column, engine).label}</span>
+                          <span className="text-muted-foreground/30">·</span>
+                          <span>{column.dataType}</span>
                         </span>
                       </button>
                     ))
@@ -464,9 +469,12 @@ export function FilterBar({ columns, filters, onFiltersChange }: FilterBarProps)
                     onKeyDown={(event) => {
                       if (event.key === "Enter") applyValue();
                     }}
-                    placeholder={valueInputKind === "text" ? "Value..." : undefined}
+                    placeholder={
+                      draftCapability?.kind === "objectId" ? "ObjectId hex..." : "Value..."
+                    }
                     aria-label="Filter value"
                     autoFocus
+                    inputMode={valueInputKind === "number" ? "decimal" : undefined}
                     className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary"
                   />
                   <button

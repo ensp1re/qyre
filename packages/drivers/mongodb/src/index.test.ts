@@ -79,9 +79,9 @@ describe("classifyBsonValue", () => {
     expect(classifyBsonValue(Decimal128.fromString("1.5"))).toBe("number");
   });
 
-  it("classifies MinKey/MaxKey as their own dataType, not the generic object bucket (F082)", () => {
-    expect(classifyBsonValue(new MinKey())).toBe("minKey");
-    expect(classifyBsonValue(new MaxKey())).toBe("maxKey");
+  it("classifies MinKey/MaxKey as structured objects, not user-facing scalar filter types", () => {
+    expect(classifyBsonValue(new MinKey())).toBe("object");
+    expect(classifyBsonValue(new MaxKey())).toBe("object");
   });
 
   it("classifies a plain nested document as object", () => {
@@ -104,9 +104,9 @@ describe("coerceFilterValue (F082)", () => {
     expect(coerceFilterValue("false", "boolean")).toBe(false);
   });
 
-  it("coerces to the real MinKey/MaxKey sentinel instances without hand-written raw query syntax", () => {
-    expect(coerceFilterValue("$minKey", "minKey")).toBeInstanceOf(MinKey);
-    expect(coerceFilterValue("anything", "maxKey")).toBeInstanceOf(MaxKey);
+  it("does not coerce MinKey/MaxKey tokens from scalar filter input", () => {
+    expect(coerceFilterValue("$minKey", "minKey")).toBe("$minKey");
+    expect(coerceFilterValue("anything", "maxKey")).toBe("anything");
   });
 });
 

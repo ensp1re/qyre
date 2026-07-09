@@ -182,8 +182,6 @@ export function App(): ReactNode {
       ) : (
         <div className="flex min-h-0 flex-1">
           <Sidebar
-            target={health?.target ?? null}
-            status={status}
             schemas={overview.data?.schemas ?? []}
             selected={selected}
             onSelect={selectTable}
@@ -280,6 +278,7 @@ export function App(): ReactNode {
         engine={overview.data?.engine}
         engineVersion={health?.engineVersion}
         schema={selected?.schema}
+        target={health?.target ?? null}
         lastQueryMs={lastQueryMs}
         pingLatencyMs={health?.pingLatencyMs}
         lastError={health?.lastError}

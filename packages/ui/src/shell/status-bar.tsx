@@ -7,6 +7,9 @@ export interface StatusBarProps {
   engine?: DatabaseEngine;
   engineVersion?: string | null;
   schema?: string;
+  /** The current connection target (e.g. `postgres://user:***@host:5432/qyre_test`) - its final
+   * path segment is shown after `schema` as the database name. */
+  target?: string | null;
   lastQueryMs?: number;
   /** Round-trip time of the health check this status is based on, in ms (F042). */
   pingLatencyMs?: number | null;
@@ -30,17 +33,27 @@ function Separator(): ReactNode {
   return <span className="text-border">·</span>;
 }
 
-/** Bottom chrome bar: connection status, engine + version, current schema, encoding. */
+/** The final path segment of a connection target - the database name for a network connection
+ * string, or the filename for a SQLite file path. */
+function databaseNameFromTarget(target: string): string | undefined {
+  const trimmed = target.replace(/\/+$/, "");
+  const lastSlash = trimmed.lastIndexOf("/");
+  return lastSlash === -1 ? undefined : trimmed.slice(lastSlash + 1) || undefined;
+}
+
+/** Bottom chrome bar: connection status, engine + version, current schema, and database name. */
 export function StatusBar({
   status,
   engine,
   engineVersion,
   schema,
+  target,
   lastQueryMs,
   pingLatencyMs,
   lastError
 }: StatusBarProps): ReactNode {
   const engineLabel = engineVersion ?? engine;
+  const databaseName = target ? databaseNameFromTarget(target) : undefined;
   const statusTitle =
     status === "disconnected" && lastError
       ? lastError
@@ -66,19 +79,19 @@ export function StatusBar({
             <span className="hidden truncate sm:inline">{schema}</span>
           </>
         )}
-      </div>
-      <div className="hidden shrink-0 items-center gap-3 text-muted-foreground/40 sm:flex">
-        <span>UTF-8</span>
-        {lastQueryMs !== undefined && (
+        {databaseName && (
           <>
             <Separator />
-            <span className="flex items-center gap-1">
-              <Clock className="h-2.5 w-2.5" />
-              {lastQueryMs}ms
-            </span>
+            <span className="hidden truncate text-foreground/70 sm:inline">{databaseName}</span>
           </>
         )}
       </div>
+      {lastQueryMs !== undefined && (
+        <div className="hidden shrink-0 items-center gap-1 text-muted-foreground/40 sm:flex">
+          <Clock className="h-2.5 w-2.5" />
+          {lastQueryMs}ms
+        </div>
+      )}
     </footer>
   );
 }

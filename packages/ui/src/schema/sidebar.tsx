@@ -1,4 +1,4 @@
-import type { ConnectionStatus, SchemaMetadata } from "@qyre/core";
+import type { SchemaMetadata } from "@qyre/core";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
@@ -13,8 +13,6 @@ const MIN_WIDTH = 180;
 const MAX_WIDTH = 480;
 
 export interface SidebarProps {
-  target: string | null;
-  status: ConnectionStatus;
   schemas: SchemaMetadata[];
   selected?: SelectedTable;
   onSelect: (schema: string, table: string) => void;
@@ -35,8 +33,6 @@ export interface SidebarProps {
  * both driven by the same `open` state so there is one source of truth for visibility.
  */
 export function Sidebar({
-  target,
-  status,
   schemas,
   selected,
   onSelect,
@@ -99,8 +95,6 @@ export function Sidebar({
                 </div>
               ) : (
                 <SchemaTree
-                  target={target}
-                  status={status}
                   schemas={schemas}
                   selected={selected}
                   onSelect={(schema, table) => {

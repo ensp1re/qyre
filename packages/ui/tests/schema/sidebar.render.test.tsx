@@ -3,8 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../../src/schema/sidebar.js";
 
 const BASE_PROPS = {
-  target: "postgres://localhost/db",
-  status: "connected" as const,
   schemas: [],
   onSelect: vi.fn(),
   open: true,

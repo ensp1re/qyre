@@ -1,5 +1,5 @@
-import type { ConnectionStatus, SchemaMetadata } from "@qyre/core";
-import { Circle, CircleAlert, CircleCheck, FolderOpen, Table2 } from "lucide-react";
+import type { SchemaMetadata } from "@qyre/core";
+import { FolderOpen, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { cn } from "../cn.js";
@@ -10,8 +10,6 @@ export interface SelectedTable {
 }
 
 export interface SchemaTreeProps {
-  target: string | null;
-  status: ConnectionStatus;
   schemas: SchemaMetadata[];
   selected?: SelectedTable;
   onSelect: (schema: string, table: string) => void;
@@ -26,26 +24,6 @@ interface Node {
   schema?: string;
   children?: Node[];
 }
-
-const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
-  connected: "var(--c-green)",
-  disconnected: "var(--c-red)",
-  unconfigured: "rgb(var(--muted-foreground))"
-};
-
-const STATUS_LABEL: Record<ConnectionStatus, string> = {
-  connected: "Connected",
-  disconnected: "Disconnected",
-  unconfigured: "Not configured"
-};
-
-// Color alone can't convey connection status to color-blind users, so pair it with a distinct
-// shape (check/alert/plain circle) and an aria-label - not just a hover-only title.
-const STATUS_ICON: Record<ConnectionStatus, typeof Circle> = {
-  connected: CircleCheck,
-  disconnected: CircleAlert,
-  unconfigured: Circle
-};
 
 function buildSchemaNodes(schemas: SchemaMetadata[]): Node[] {
   return schemas.map((schema) => ({
@@ -209,18 +187,11 @@ function TreeRow({
  * docs/references/design-system.md's TreeNode pattern. Purely presentational: selection is owned
  * by the caller. Matching a search term force-opens its ancestor path and highlights the match.
  *
- * The connection target and status render as a compact header line rather than as a synthetic
- * root tree node - the title bar's breadcrumb already shows the full connection string, so
- * repeating it as a giant truncated tree row wasted an indentation level on every table for no
- * extra information (F087).
+ * Neither the connection target string nor a status indicator render here - both are already
+ * available (Settings' Connection section, the switch-database drawer, the footer's database
+ * name) without repeating the full connection string in this always-visible rail (F087).
  */
-export function SchemaTree({
-  target,
-  status,
-  schemas,
-  selected,
-  onSelect
-}: SchemaTreeProps): ReactNode {
+export function SchemaTree({ schemas, selected, onSelect }: SchemaTreeProps): ReactNode {
   const [query, setQuery] = useState("");
   const schemaNodes = useMemo(() => buildSchemaNodes(schemas), [schemas]);
   const matchIds = useMemo(() => {
@@ -233,22 +204,9 @@ export function SchemaTree({
     return merged;
   }, [schemaNodes, query]);
   const trimmedQuery = query.trim();
-  const StatusIcon = STATUS_ICON[status];
 
   return (
     <div data-testid="schema-tree" className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-1.5 border-b border-border px-2.5 py-2">
-        <StatusIcon
-          className="h-2.5 w-2.5 shrink-0"
-          role="img"
-          aria-label={`Connection status: ${STATUS_LABEL[status]}`}
-          style={{ color: STATUS_DOT_COLOR[status] }}
-        />
-        <span className="truncate font-mono text-[10px] text-muted-foreground/70">
-          {target ?? "not connected"}
-        </span>
-      </div>
-
       <div className="shrink-0 border-b border-border px-2 py-2">
         <div className="flex items-center gap-1.5 rounded-[3px] border border-border bg-background px-2 py-1.5">
           <svg

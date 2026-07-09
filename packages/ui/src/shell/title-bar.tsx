@@ -1,5 +1,5 @@
 import type { ConnectionStatus } from "@qyre/core";
-import { ChevronRight, Database, Menu, Moon, RefreshCw, Settings, Sun } from "lucide-react";
+import { Database, Menu, Moon, RefreshCw, Settings, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
 
@@ -68,17 +68,9 @@ export function TitleBar({
 
       <div className="flex min-w-0 items-center gap-0 truncate font-mono text-[11px]">
         {breadcrumb ? (
-          <>
-            {breadcrumb.prefix && (
-              <span className="hidden truncate text-muted-foreground/60 sm:inline">
-                {breadcrumb.prefix}
-              </span>
-            )}
-            {breadcrumb.prefix && (
-              <ChevronRight className="mx-1 hidden h-3 w-3 shrink-0 text-border sm:inline" />
-            )}
-            <span className="truncate font-medium text-foreground/80">{breadcrumb.name}</span>
-          </>
+          <span className="truncate text-muted-foreground/60">
+            {breadcrumb.prefix ?? breadcrumb.name}
+          </span>
         ) : (
           <span className="text-muted-foreground/60">not connected</span>
         )}
@@ -91,10 +83,10 @@ export function TitleBar({
         className="ml-3 flex shrink-0 items-center gap-1.5"
       >
         <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT_COLOR[status])} />
-        <span
-          data-testid="connection-summary"
-          className="font-mono text-[11px] text-muted-foreground"
-        >
+        {/* Visually redundant with the dot's color + the span's own title tooltip - kept in the
+         * accessibility tree (not display:none) rather than shown inline, since color alone
+         * shouldn't be the only signal for color-blind users. */}
+        <span data-testid="connection-summary" className="sr-only">
           {STATUS_LABEL[status]}
         </span>
       </span>

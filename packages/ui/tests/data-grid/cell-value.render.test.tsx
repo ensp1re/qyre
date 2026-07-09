@@ -49,7 +49,8 @@ describe("CellValue (component rendering, F055)", () => {
     render(<CellValue value={value} onInspect={onInspect} />);
 
     const button = screen.getByRole("button", { name: /inspect link url example.com\/docs/i });
-    expect(button).toHaveTextContent("link");
+    expect(button).toHaveTextContent("example.com/docs");
+    expect(button).not.toHaveTextContent("link");
     fireEvent.click(button);
 
     expect(onInspect).toHaveBeenCalledWith(value);

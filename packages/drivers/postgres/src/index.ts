@@ -407,9 +407,10 @@ export class PostgresAdapter implements DatabaseAdapter {
       pool.query<{
         column_name: string;
         data_type: string;
+        udt_name: string;
         is_nullable: "YES" | "NO";
       }>(
-        `SELECT column_name, data_type, is_nullable
+        `SELECT column_name, data_type, udt_name, is_nullable
            FROM information_schema.columns
           WHERE table_schema = $1 AND table_name = $2
           ORDER BY ordinal_position`,
@@ -471,7 +472,10 @@ export class PostgresAdapter implements DatabaseAdapter {
 
     const columns: ColumnMetadata[] = columnsResult.rows.map((row) => ({
       name: row.column_name,
-      dataType: row.data_type,
+      // Postgres reports "USER-DEFINED" as the generic data_type for enums, composite types, and
+      // domains - `udt_name` carries the actual type name (e.g. "mood" for a `CREATE TYPE mood AS
+      // ENUM (...)` column), which is what a Postgres user actually thinks of as the column's type.
+      dataType: row.data_type === "USER-DEFINED" ? row.udt_name : row.data_type,
       nullable: row.is_nullable === "YES",
       isPrimaryKey: primaryKeys.has(row.column_name),
       isForeignKey: foreignKeyReferences.has(row.column_name),

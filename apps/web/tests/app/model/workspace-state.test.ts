@@ -73,4 +73,15 @@ describe("workspaceReducer", () => {
     expect(next.tab).toBe("sql-editor");
     expect(next.sidebarOpen).toBe(false);
   });
+
+  it("opens and closes the settings screen", () => {
+    const initial = createInitialWorkspaceState(1200);
+    expect(initial.settingsOpen).toBe(false);
+
+    const opened = workspaceReducer(initial, { type: "settingsChanged", open: true });
+    expect(opened.settingsOpen).toBe(true);
+
+    const closed = workspaceReducer(opened, { type: "settingsChanged", open: false });
+    expect(closed.settingsOpen).toBe(false);
+  });
 });

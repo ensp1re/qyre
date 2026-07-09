@@ -1,5 +1,5 @@
-import type { ConnectionStatus, SchemaMetadata } from "@qyre/core";
-import { Circle, CircleAlert, CircleCheck, FolderOpen, Table2 } from "lucide-react";
+import type { SchemaMetadata } from "@qyre/core";
+import { FolderOpen, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { cn } from "../cn.js";
@@ -10,14 +10,12 @@ export interface SelectedTable {
 }
 
 export interface SchemaTreeProps {
-  target: string | null;
-  status: ConnectionStatus;
   schemas: SchemaMetadata[];
   selected?: SelectedTable;
   onSelect: (schema: string, table: string) => void;
 }
 
-type NodeType = "connection" | "schema" | "table";
+type NodeType = "schema" | "table";
 
 interface Node {
   id: string;
@@ -27,43 +25,18 @@ interface Node {
   children?: Node[];
 }
 
-const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
-  connected: "var(--c-green)",
-  disconnected: "var(--c-red)",
-  unconfigured: "rgb(var(--muted-foreground))"
-};
-
-const STATUS_LABEL: Record<ConnectionStatus, string> = {
-  connected: "Connected",
-  disconnected: "Disconnected",
-  unconfigured: "Not configured"
-};
-
-// Color alone can't convey connection status to color-blind users, so pair it with a distinct
-// shape (check/alert/plain circle) and an aria-label - not just a hover-only title.
-const STATUS_ICON: Record<ConnectionStatus, typeof Circle> = {
-  connected: CircleCheck,
-  disconnected: CircleAlert,
-  unconfigured: Circle
-};
-
-function buildTree(target: string | null, schemas: SchemaMetadata[]): Node {
-  return {
-    id: "connection",
-    name: target ?? "not connected",
-    type: "connection",
-    children: schemas.map((schema) => ({
-      id: `schema:${schema.name}`,
-      name: schema.name,
-      type: "schema",
-      children: schema.tables.map((table) => ({
-        id: `table:${schema.name}:${table}`,
-        name: table,
-        type: "table",
-        schema: schema.name
-      }))
+function buildSchemaNodes(schemas: SchemaMetadata[]): Node[] {
+  return schemas.map((schema) => ({
+    id: `schema:${schema.name}`,
+    name: schema.name,
+    type: "schema",
+    children: schema.tables.map((table) => ({
+      id: `table:${schema.name}:${table}`,
+      name: table,
+      type: "table",
+      schema: schema.name
     }))
-  };
+  }));
 }
 
 function collectMatchIds(node: Node, query: string, ancestors: string[] = []): Set<string> {
@@ -99,8 +72,7 @@ function TreeRow({
   query,
   matchIds,
   selected,
-  onSelect,
-  status
+  onSelect
 }: {
   node: Node;
   depth: number;
@@ -108,9 +80,10 @@ function TreeRow({
   matchIds: Set<string>;
   selected?: SelectedTable;
   onSelect: (schema: string, table: string) => void;
-  status: ConnectionStatus;
 }): ReactNode {
-  const [manualOpen, setManualOpen] = useState(depth < 2);
+  // Only the schema level (depth 0) has children, so it's the only row whose default-open state
+  // matters - tables are leaves and always render once their parent schema is expanded.
+  const [manualOpen, setManualOpen] = useState(depth === 0);
   const forceOpen = query.length > 0 && matchIds.has(node.id);
   const open = query.length > 0 ? forceOpen : manualOpen;
 
@@ -169,18 +142,6 @@ function TreeRow({
           <span className="w-2.5 shrink-0" />
         )}
 
-        {node.type === "connection" &&
-          (() => {
-            const StatusIcon = STATUS_ICON[status];
-            return (
-              <StatusIcon
-                className="h-2.5 w-2.5 shrink-0"
-                role="img"
-                aria-label={`Connection status: ${STATUS_LABEL[status]}`}
-                style={{ color: STATUS_DOT_COLOR[status] }}
-              />
-            );
-          })()}
         {node.type === "schema" && (
           <FolderOpen className="h-3 w-3 shrink-0" style={{ color: "var(--c-amber)" }} />
         )}
@@ -194,6 +155,12 @@ function TreeRow({
         >
           {highlight(node.name, query)}
         </span>
+
+        {node.type === "schema" && node.children && (
+          <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground/50">
+            {node.children.length}
+          </span>
+        )}
       </div>
 
       {hasChildren && open && (
@@ -207,7 +174,6 @@ function TreeRow({
               matchIds={matchIds}
               selected={selected}
               onSelect={onSelect}
-              status={status}
             />
           ))}
         </div>
@@ -217,23 +183,26 @@ function TreeRow({
 }
 
 /**
- * A searchable, collapsible navigation tree: connection -> schema -> table, mirroring
+ * A searchable, collapsible navigation tree: schema -> table, mirroring
  * docs/references/design-system.md's TreeNode pattern. Purely presentational: selection is owned
  * by the caller. Matching a search term force-opens its ancestor path and highlights the match.
+ *
+ * Neither the connection target string nor a status indicator render here - both are already
+ * available (Settings' Connection section, the switch-database drawer, the footer's database
+ * name) without repeating the full connection string in this always-visible rail (F087).
  */
-export function SchemaTree({
-  target,
-  status,
-  schemas,
-  selected,
-  onSelect
-}: SchemaTreeProps): ReactNode {
+export function SchemaTree({ schemas, selected, onSelect }: SchemaTreeProps): ReactNode {
   const [query, setQuery] = useState("");
-  const tree = useMemo(() => buildTree(target, schemas), [target, schemas]);
-  const matchIds = useMemo(
-    () => (query.trim().length > 1 ? collectMatchIds(tree, query.trim()) : new Set<string>()),
-    [tree, query]
-  );
+  const schemaNodes = useMemo(() => buildSchemaNodes(schemas), [schemas]);
+  const matchIds = useMemo(() => {
+    if (query.trim().length <= 1) return new Set<string>();
+    const trimmed = query.trim();
+    const merged = new Set<string>();
+    for (const node of schemaNodes) {
+      for (const id of collectMatchIds(node, trimmed)) merged.add(id);
+    }
+    return merged;
+  }, [schemaNodes, query]);
   const trimmedQuery = query.trim();
 
   return (
@@ -261,27 +230,45 @@ export function SchemaTree({
         </div>
       </div>
 
-      <nav role="tree" className="flex-1 overflow-y-auto py-1">
-        {trimmedQuery.length === 1 ? (
-          <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
-            keep typing - search needs 2+ characters
-          </div>
-        ) : trimmedQuery.length > 1 && matchIds.size === 0 ? (
-          <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
-            no results
-          </div>
-        ) : (
-          <TreeRow
-            node={tree}
-            depth={0}
-            query={trimmedQuery.length > 1 ? trimmedQuery : ""}
-            matchIds={matchIds}
-            selected={selected}
-            onSelect={onSelect}
-            status={status}
-          />
-        )}
-      </nav>
+      {(() => {
+        const hasRows =
+          schemaNodes.length > 0 &&
+          trimmedQuery.length !== 1 &&
+          !(trimmedQuery.length > 1 && matchIds.size === 0);
+
+        // `role="tree"` requires at least one `treeitem`/`group` descendant (axe's
+        // aria-required-children) - only apply it when rows actually render, otherwise these are
+        // plain status messages, not an empty tree widget.
+        return (
+          <nav role={hasRows ? "tree" : undefined} className="flex-1 overflow-y-auto py-1">
+            {schemaNodes.length === 0 ? (
+              <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+                No tables found.
+              </div>
+            ) : trimmedQuery.length === 1 ? (
+              <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+                keep typing - search needs 2+ characters
+              </div>
+            ) : trimmedQuery.length > 1 && matchIds.size === 0 ? (
+              <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+                no results
+              </div>
+            ) : (
+              schemaNodes.map((node) => (
+                <TreeRow
+                  key={node.id}
+                  node={node}
+                  depth={0}
+                  query={trimmedQuery.length > 1 ? trimmedQuery : ""}
+                  matchIds={matchIds}
+                  selected={selected}
+                  onSelect={onSelect}
+                />
+              ))
+            )}
+          </nav>
+        );
+      })()}
     </div>
   );
 }

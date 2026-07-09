@@ -35,11 +35,18 @@ function decodeUtf8Printable(bytes: readonly number[]): string | null {
   }
 }
 
+// 16 bytes/row (the traditional `xxd`/`hexdump` width) doesn't fit this drawer's ~360px content
+// width without forcing a horizontal scrollbar across the offset/hex/ASCII columns - 8 fits
+// comfortably at the drawer's font size instead.
+const HEX_DUMP_BYTES_PER_ROW = 8;
+
 function HexDump({ value }: { value: BinaryValue }): ReactNode {
   const bytes = value.data;
   const shown = bytes.slice(0, HEX_DUMP_BYTE_LIMIT);
   const rows: number[][] = [];
-  for (let i = 0; i < shown.length; i += 16) rows.push(shown.slice(i, i + 16));
+  for (let i = 0; i < shown.length; i += HEX_DUMP_BYTES_PER_ROW) {
+    rows.push(shown.slice(i, i + HEX_DUMP_BYTES_PER_ROW));
+  }
   const text = decodeUtf8Printable(bytes);
 
   return (
@@ -61,7 +68,7 @@ function HexDump({ value }: { value: BinaryValue }): ReactNode {
         {rows.map((row, rowIndex) => (
           <div key={rowIndex} className="flex gap-3">
             <span className="text-muted-foreground/40">
-              {(rowIndex * 16).toString(16).padStart(6, "0")}
+              {(rowIndex * HEX_DUMP_BYTES_PER_ROW).toString(16).padStart(6, "0")}
             </span>
             <span className="text-foreground/80">
               {row.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}
@@ -110,6 +117,7 @@ function PrimitiveValue({ value }: { value: unknown }): ReactNode {
 
 function UrlPreviewPane({ value }: { value: string }): ReactNode {
   const preview = classifyUrlValue(value);
+  const [imageFailed, setImageFailed] = useState(false);
   if (!preview) return null;
 
   return (
@@ -124,16 +132,18 @@ function UrlPreviewPane({ value }: { value: string }): ReactNode {
         <ExternalLink className="h-3 w-3 shrink-0" />
         <span className="truncate">{preview.href}</span>
       </a>
-      {preview.kind === "image" && (
+      {/* Many real image CDNs (picsum.photos, unsplash, imgix) serve images from extensionless
+       * URLs, so `classifyUrlValue`'s pathname-extension check is only a hint, not a guarantee.
+       * Always attempt the thumbnail and let onError hide it - cheap for a single inspected value,
+       * unlike doing this per-row in the table. */}
+      {!imageFailed && (
         <img
           src={preview.href}
           alt={`Image preview for ${preview.label}`}
+          onError={() => setImageFailed(true)}
           className="max-h-80 w-full rounded-[3px] border border-border bg-background object-contain"
         />
       )}
-      <p className="whitespace-pre-wrap break-all" style={{ color: "var(--c-blue)" }}>
-        {value}
-      </p>
     </div>
   );
 }

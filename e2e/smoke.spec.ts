@@ -9,8 +9,13 @@ test("@smoke the app boots and shows the connection screen", async ({ page }) =>
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Qyre" })).toBeVisible();
-  await expect(page.getByTestId("status-badge")).toBeVisible();
-  await expect(page.getByTestId("connection-summary")).toBeVisible();
+  await expect(page.getByTestId("status-badge")).toHaveAttribute(
+    "data-status",
+    /connected|disconnected|unconfigured/
+  );
+  await expect(page.getByTestId("connection-summary")).toContainText(
+    /Connected|Disconnected|No database/
+  );
 
   // F056: a baseline accessibility scan of the disconnected screen - catches broad regressions
   // (missing labels, landmark structure) on every push, not just the specific keyboard-nav fixes

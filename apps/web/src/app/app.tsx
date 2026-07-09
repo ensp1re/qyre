@@ -4,6 +4,7 @@ import {
   ErrorBoundary,
   QueryHistoryDrawer,
   RESULTS_DEFAULT_HEIGHT,
+  SettingsScreen,
   Sidebar,
   SIDEBAR_DEFAULT_WIDTH,
   Spinner,
@@ -61,9 +62,10 @@ export function App(): ReactNode {
     selectedFilePath,
     historyOpen,
     connectOpen,
-    hasAutoOpenedConnect
+    hasAutoOpenedConnect,
+    settingsOpen
   } = workspace;
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, setTheme } = useTheme();
   const [sidebarWidth, setSidebarWidth] = usePanelSize("qyre-sidebar-width", SIDEBAR_DEFAULT_WIDTH);
   const [resultsHeight, setResultsHeight] = usePanelSize(
     "qyre-results-height",
@@ -160,108 +162,123 @@ export function App(): ReactNode {
         onRefresh={refresh}
         isRefreshing={healthLoading}
         onToggleSidebar={() => dispatch({ type: "sidebarChanged", open: !sidebarOpen })}
-        onOpenSettings={() => dispatch({ type: "connectChanged", open: true })}
+        onOpenConnection={() => dispatch({ type: "connectChanged", open: true })}
+        onOpenSettings={() => dispatch({ type: "settingsChanged", open: true })}
       />
 
-      <div className="flex min-h-0 flex-1">
-        <Sidebar
-          target={health?.target ?? null}
-          status={status}
-          schemas={overview.data?.schemas ?? []}
-          selected={selected}
-          onSelect={selectTable}
-          isLoading={status === "connected" && overview.isLoading}
-          isError={overview.isError}
-          onRetry={() => overview.refetch()}
-          open={sidebarOpen}
-          onOpenChange={(open) => dispatch({ type: "sidebarChanged", open })}
-          width={sidebarWidth}
-          onWidthChange={setSidebarWidth}
+      {settingsOpen ? (
+        <SettingsScreen
+          theme={theme}
+          onThemeChange={setTheme}
+          onClose={() => dispatch({ type: "settingsChanged", open: false })}
+          connectionStatus={status}
+          connectionTarget={health?.target ?? null}
+          onOpenConnection={() => dispatch({ type: "connectChanged", open: true })}
+          queryHistoryCount={queryHistory.entries.length}
+          onClearQueryHistory={queryHistory.clear}
+          recentConnectionsCount={recentTargets.entries.length}
+          onClearRecentConnections={recentTargets.clear}
         />
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TabBar
-            active={tab}
-            onChange={(nextTab) => dispatch({ type: "tabChanged", tab: nextTab })}
-            hiddenTabs={!supportsSql ? ["sql-editor"] : undefined}
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <Sidebar
+            schemas={overview.data?.schemas ?? []}
+            selected={selected}
+            onSelect={selectTable}
+            isLoading={status === "connected" && overview.isLoading}
+            isError={overview.isError}
+            onRetry={() => overview.refetch()}
+            open={sidebarOpen}
+            onOpenChange={(open) => dispatch({ type: "sidebarChanged", open })}
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
           />
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
-            <ErrorBoundary
-              key={tab}
-              fallbackMessage="This tab hit an unexpected error rendering its content. Try switching tabs and back, or reload if it persists."
-            >
-              {status !== "connected" ? (
-                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                  {healthLoading ? (
-                    <>
-                      <Spinner /> Checking connection...
-                    </>
-                  ) : (
-                    "No database is connected yet. Launch Qyre with a Postgres, MySQL, SQLite, or MongoDB target to get started."
-                  )}
-                </p>
-              ) : tab === "sql-editor" ? (
-                <SqlEditorTab
-                  sqlDisabled={!supportsSql}
-                  sql={querySql}
-                  onSqlChange={(sql) => dispatch({ type: "queryChanged", sql })}
-                  onRun={runSql}
-                  runQuery={runQuery}
-                  onOpenHistory={() => dispatch({ type: "historyChanged", open: true })}
-                  tableNames={tableNames}
-                  resultsHeight={resultsHeight}
-                  onResultsHeightChange={setResultsHeight}
-                />
-              ) : tab === "tables" ? (
-                <TablesTab
-                  selected={selected}
-                  table={table}
-                  engine={overview.data?.engine}
-                  rows={rows}
-                  page={page}
-                  onPageChange={(update) => dispatch({ type: "pageChanged", page: update(page) })}
-                  onNavigateToForeignKey={(reference, value) =>
-                    selectTable(reference.schema ?? selected?.schema ?? "", reference.table, [
-                      { column: reference.column, op: "eq", value: String(value) }
-                    ])
-                  }
-                  sort={sort}
-                  onSortChange={(nextSort) => dispatch({ type: "sortChanged", sort: nextSort })}
-                  filters={filters}
-                  onFiltersChange={(nextFilters) =>
-                    dispatch({ type: "filtersChanged", filters: nextFilters })
-                  }
-                />
-              ) : tab === "schema" ? (
-                <SchemaTab allTables={allTables} databaseKey={health?.target ?? null} />
-              ) : tab === "files" ? (
-                <FilesTab
-                  filesOverview={filesOverview}
-                  fileContent={fileContent}
-                  selectedFilePath={selectedFilePath}
-                  onSelectFile={(path) => dispatch({ type: "fileSelected", path })}
-                  onRunInEditor={
-                    supportsSql
-                      ? (sql) => {
-                          dispatch({ type: "queryLoaded", sql });
-                        }
-                      : undefined
-                  }
-                />
-              ) : tab === "console" ? (
-                <ConsoleTab consoleEvents={consoleEvents} onClear={() => clearConsole.mutate()} />
-              ) : null}
-            </ErrorBoundary>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <TabBar
+              active={tab}
+              onChange={(nextTab) => dispatch({ type: "tabChanged", tab: nextTab })}
+              hiddenTabs={!supportsSql ? ["sql-editor"] : undefined}
+            />
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+              <ErrorBoundary
+                key={tab}
+                fallbackMessage="This tab hit an unexpected error rendering its content. Try switching tabs and back, or reload if it persists."
+              >
+                {status !== "connected" ? (
+                  <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                    {healthLoading ? (
+                      <>
+                        <Spinner /> Checking connection...
+                      </>
+                    ) : (
+                      "No database is connected yet. Launch Qyre with a Postgres, MySQL, SQLite, or MongoDB target to get started."
+                    )}
+                  </p>
+                ) : tab === "sql-editor" ? (
+                  <SqlEditorTab
+                    sqlDisabled={!supportsSql}
+                    sql={querySql}
+                    onSqlChange={(sql) => dispatch({ type: "queryChanged", sql })}
+                    onRun={runSql}
+                    runQuery={runQuery}
+                    onOpenHistory={() => dispatch({ type: "historyChanged", open: true })}
+                    tableNames={tableNames}
+                    resultsHeight={resultsHeight}
+                    onResultsHeightChange={setResultsHeight}
+                  />
+                ) : tab === "tables" ? (
+                  <TablesTab
+                    selected={selected}
+                    table={table}
+                    engine={overview.data?.engine}
+                    rows={rows}
+                    page={page}
+                    onPageChange={(update) => dispatch({ type: "pageChanged", page: update(page) })}
+                    onNavigateToForeignKey={(reference, value) =>
+                      selectTable(reference.schema ?? selected?.schema ?? "", reference.table, [
+                        { column: reference.column, op: "eq", value: String(value) }
+                      ])
+                    }
+                    sort={sort}
+                    onSortChange={(nextSort) => dispatch({ type: "sortChanged", sort: nextSort })}
+                    filters={filters}
+                    onFiltersChange={(nextFilters) =>
+                      dispatch({ type: "filtersChanged", filters: nextFilters })
+                    }
+                  />
+                ) : tab === "schema" ? (
+                  <SchemaTab allTables={allTables} databaseKey={health?.target ?? null} />
+                ) : tab === "files" ? (
+                  <FilesTab
+                    filesOverview={filesOverview}
+                    fileContent={fileContent}
+                    selectedFilePath={selectedFilePath}
+                    onSelectFile={(path) => dispatch({ type: "fileSelected", path })}
+                    onRunInEditor={
+                      supportsSql
+                        ? (sql) => {
+                            dispatch({ type: "queryLoaded", sql });
+                          }
+                        : undefined
+                    }
+                  />
+                ) : tab === "console" ? (
+                  <ConsoleTab consoleEvents={consoleEvents} onClear={() => clearConsole.mutate()} />
+                ) : null}
+              </ErrorBoundary>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <StatusBar
         status={status}
         engine={overview.data?.engine}
         engineVersion={health?.engineVersion}
         schema={selected?.schema}
+        target={health?.target ?? null}
         lastQueryMs={lastQueryMs}
         pingLatencyMs={health?.pingLatencyMs}
         lastError={health?.lastError}

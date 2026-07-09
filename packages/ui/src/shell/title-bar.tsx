@@ -1,5 +1,5 @@
 import type { ConnectionStatus } from "@qyre/core";
-import { ChevronRight, Menu, Moon, RefreshCw, Settings, Sun } from "lucide-react";
+import { Database, Menu, Moon, RefreshCw, Settings, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
 
@@ -12,14 +12,10 @@ export interface TitleBarProps {
   isRefreshing?: boolean;
   onToggleSidebar: () => void;
   /** Opens the connection-switch drawer (F064). */
+  onOpenConnection: () => void;
+  /** Opens the full-screen Settings view (F087). */
   onOpenSettings: () => void;
 }
-
-const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
-  connected: "bg-[var(--c-green)]",
-  disconnected: "bg-[var(--c-red)]",
-  unconfigured: "bg-muted-foreground"
-};
 
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
   connected: "Connected",
@@ -33,7 +29,7 @@ function splitTarget(target: string): { prefix?: string; name: string } {
   return { prefix: target.slice(0, lastSlash), name: target.slice(lastSlash + 1) };
 }
 
-/** Top chrome bar: wordmark, connection breadcrumb, status dot, and window-level actions. */
+/** Top chrome bar: wordmark, connection breadcrumb, and window-level actions. */
 export function TitleBar({
   status,
   target,
@@ -42,6 +38,7 @@ export function TitleBar({
   onRefresh,
   isRefreshing,
   onToggleSidebar,
+  onOpenConnection,
   onOpenSettings
 }: TitleBarProps): ReactNode {
   const breadcrumb = target ? splitTarget(target) : null;
@@ -65,33 +62,16 @@ export function TitleBar({
 
       <div className="flex min-w-0 items-center gap-0 truncate font-mono text-[11px]">
         {breadcrumb ? (
-          <>
-            {breadcrumb.prefix && (
-              <span className="hidden truncate text-muted-foreground/60 sm:inline">
-                {breadcrumb.prefix}
-              </span>
-            )}
-            {breadcrumb.prefix && (
-              <ChevronRight className="mx-1 hidden h-3 w-3 shrink-0 text-border sm:inline" />
-            )}
-            <span className="truncate font-medium text-foreground/80">{breadcrumb.name}</span>
-          </>
+          <span className="truncate text-muted-foreground/60">
+            {breadcrumb.prefix ?? breadcrumb.name}
+          </span>
         ) : (
           <span className="text-muted-foreground/60">not connected</span>
         )}
       </div>
 
-      <span
-        data-testid="status-badge"
-        data-status={status}
-        title={STATUS_LABEL[status]}
-        className="ml-3 flex shrink-0 items-center gap-1.5"
-      >
-        <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT_COLOR[status])} />
-        <span
-          data-testid="connection-summary"
-          className="font-mono text-[11px] text-muted-foreground"
-        >
+      <span data-testid="status-badge" data-status={status} title={STATUS_LABEL[status]}>
+        <span data-testid="connection-summary" className="sr-only">
           {STATUS_LABEL[status]}
         </span>
       </span>
@@ -117,8 +97,17 @@ export function TitleBar({
         </button>
         <button
           type="button"
-          onClick={onOpenSettings}
+          onClick={onOpenConnection}
           title="Switch database connection"
+          aria-label="Switch database connection"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <Database className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          title="Settings"
           aria-label="Settings"
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
         >

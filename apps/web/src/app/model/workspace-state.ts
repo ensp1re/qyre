@@ -19,6 +19,7 @@ export interface WorkspaceState {
   historyOpen: boolean;
   connectOpen: boolean;
   hasAutoOpenedConnect: boolean;
+  settingsOpen: boolean;
 }
 
 export type WorkspaceAction =
@@ -37,6 +38,7 @@ export type WorkspaceAction =
   | { type: "connectChanged"; open: boolean }
   | { type: "connectAutoOpened" }
   | { type: "connectionChanged" }
+  | { type: "settingsChanged"; open: boolean }
   | { type: "sqlUnavailableForConnection" };
 
 export function createInitialWorkspaceState(viewportWidth: number): WorkspaceState {
@@ -47,7 +49,8 @@ export function createInitialWorkspaceState(viewportWidth: number): WorkspaceSta
     sidebarOpen: viewportWidth >= 768,
     historyOpen: false,
     connectOpen: false,
-    hasAutoOpenedConnect: false
+    hasAutoOpenedConnect: false,
+    settingsOpen: false
   };
 }
 
@@ -86,6 +89,8 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
       return { ...state, querySql: action.sql, historyOpen: false };
     case "connectChanged":
       return { ...state, connectOpen: action.open };
+    case "settingsChanged":
+      return { ...state, settingsOpen: action.open };
     case "connectAutoOpened":
       return { ...state, connectOpen: true, hasAutoOpenedConnect: true };
     case "connectionChanged":

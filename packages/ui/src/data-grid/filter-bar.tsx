@@ -5,6 +5,8 @@ import { ListFilter, Search, X } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../cn.js";
+import { DateTimeInput, type DateTimeInputKind } from "../primitives/date-time-input.js";
+import { friendlyTypeLabel } from "../primitives/format-cell.js";
 import { TypeIcon } from "../primitives/type-icon.js";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
 
@@ -107,6 +109,11 @@ export function FilterBar({
   const operatorOrder = draftCapability?.operators ?? [];
   const isBooleanColumn = draftCapability?.valueInput === "boolean";
   const valueInputKind = draftCapability?.valueInput ?? "text";
+  // Native date/time/datetime-local pickers render their own wide placeholder text
+  // ("dd.mm.yyyy, --:--") that collides with an inline Apply button at this popover's width -
+  // stack them instead of the side-by-side layout that works fine for text/number/ObjectId.
+  const isDateValueInput =
+    valueInputKind === "date" || valueInputKind === "time" || valueInputKind === "datetime-local";
 
   useEffect(() => setHighlighted(0), [query]);
 
@@ -298,7 +305,7 @@ export function FilterBar({
             role="dialog"
             aria-label={editIndex !== null ? "Edit filter" : "Add filter"}
             onKeyDown={onPanelKeyDown}
-            className="absolute left-0 top-full z-50 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-[4px] border border-border bg-popover font-mono text-[11px] shadow-lg"
+            className="absolute left-0 top-full z-50 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-[4px] border border-border bg-popover font-mono text-[11px] shadow-lg"
           >
             {(draft.column || draft.op) && (
               <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1.5">
@@ -389,10 +396,8 @@ export function FilterBar({
                             FK
                           </span>
                         )}
-                        <span className="ml-auto flex shrink-0 items-center gap-1 text-[9px] text-muted-foreground/60">
-                          <span>{filterCapabilityForColumn(column, engine).label}</span>
-                          <span className="text-muted-foreground/30">·</span>
-                          <span>{column.dataType}</span>
+                        <span className="ml-auto shrink-0 text-[9px] text-muted-foreground/60">
+                          {friendlyTypeLabel(column.dataType)}
                         </span>
                       </button>
                     ))
@@ -459,29 +464,44 @@ export function FilterBar({
 
             {step === "value" && !isBooleanColumn && (
               <>
-                <div className="flex items-center gap-1.5 p-2">
-                  <input
-                    type={valueInputKind}
-                    value={draft.value}
-                    onChange={(event) =>
-                      setDraft((current) => ({ ...current, value: event.target.value }))
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") applyValue();
-                    }}
-                    placeholder={
-                      draftCapability?.kind === "objectId" ? "ObjectId hex..." : "Value..."
-                    }
-                    aria-label="Filter value"
-                    autoFocus
-                    inputMode={valueInputKind === "number" ? "decimal" : undefined}
-                    className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary"
-                  />
+                <div
+                  className={cn("flex gap-1.5 p-2", isDateValueInput ? "flex-col" : "items-center")}
+                >
+                  {isDateValueInput ? (
+                    <DateTimeInput
+                      kind={valueInputKind as DateTimeInputKind}
+                      value={draft.value}
+                      onChange={(value) => setDraft((current) => ({ ...current, value }))}
+                      onEnter={() => applyValue()}
+                      autoFocus
+                    />
+                  ) : (
+                    <input
+                      type={valueInputKind}
+                      value={draft.value}
+                      onChange={(event) =>
+                        setDraft((current) => ({ ...current, value: event.target.value }))
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") applyValue();
+                      }}
+                      placeholder={
+                        draftCapability?.kind === "objectId" ? "ObjectId hex..." : "Value..."
+                      }
+                      aria-label="Filter value"
+                      autoFocus
+                      inputMode={valueInputKind === "number" ? "decimal" : undefined}
+                      className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary"
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => applyValue()}
                     disabled={draft.value === ""}
-                    className="shrink-0 rounded-[3px] bg-primary px-2 py-1.5 text-primary-foreground disabled:opacity-40"
+                    className={cn(
+                      "rounded-[3px] bg-primary px-2 py-1.5 text-primary-foreground disabled:opacity-40",
+                      isDateValueInput ? "w-full" : "shrink-0"
+                    )}
                   >
                     Apply
                   </button>

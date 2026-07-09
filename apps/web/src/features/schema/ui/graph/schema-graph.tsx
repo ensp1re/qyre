@@ -18,7 +18,6 @@ import {
   layoutGraph,
   relationshipHighlightForEdge,
   relationshipHighlightForNode,
-  relationshipSummary,
   type RelationshipHighlight,
   type TableFlowNode
 } from "../../model/graph-model.js";
@@ -58,15 +57,6 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
   const edges = useMemo(() => buildGraph(tables).edges, [tables]);
   const [flowNodes, setNodes, onNodesChange] = useNodesState<TableFlowNode>([]);
   const [flowEdges, setEdges] = useEdgesState(edges);
-  const summary = useMemo(() => relationshipSummary(flowNodes, flowEdges), [flowNodes, flowEdges]);
-  const relationshipNotice = useMemo(() => {
-    if (flowNodes.length < 2) return null;
-    if (summary.edgeCount === 0) return "No declared foreign keys found; tables are separate.";
-    if (summary.componentCount > 1) {
-      return `${summary.componentCount} disconnected groups; only declared foreign keys are linked.`;
-    }
-    return null;
-  }, [flowNodes.length, summary.componentCount, summary.edgeCount]);
   const visibleNodes = useMemo(
     () =>
       flowNodes.map((node) => {
@@ -93,11 +83,16 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
           animated: isHighlighted,
           style: {
             ...edge.style,
+            // `--border` is a hairline-alpha rgba() token (see docs/references/design-system.md) -
+            // wrapping it in rgb() as the previous code did produced invalid CSS
+            // (`rgb(rgba(...))`), so the browser silently dropped the stroke declaration and edges
+            // rendered with whatever default color React Flow falls back to. Use muted-foreground
+            // at a visible-but-subdued alpha instead, consistent with the dimmed state below.
             stroke: isHighlighted
               ? "var(--c-blue)"
               : isDimmed
                 ? "rgb(var(--muted-foreground) / 0.35)"
-                : "rgb(var(--border))",
+                : "rgb(var(--muted-foreground) / 0.6)",
             strokeWidth: isHighlighted ? 2 : 1
           }
         };
@@ -183,11 +178,6 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
         >
           <RotateCcw className="h-3 w-3" /> Reset layout
         </button>
-        {relationshipNotice && (
-          <div className="absolute left-2 top-2 z-10 max-w-[280px] rounded-[4px] border border-border bg-card px-2.5 py-1.5 font-mono text-[11px] leading-4 text-muted-foreground shadow-sm">
-            {relationshipNotice}
-          </div>
-        )}
       </ReactFlow>
     </div>
   );

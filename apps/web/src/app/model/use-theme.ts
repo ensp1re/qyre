@@ -10,18 +10,28 @@ function currentTheme(): Theme {
 }
 
 /** Reads/writes the `.dark` class set pre-paint by index.html's inline script, persisting to localStorage. */
-export function useTheme(): { theme: Theme; toggleTheme: () => void } {
-  const [theme, setTheme] = useState<Theme>(currentTheme);
+export function useTheme(): {
+  theme: Theme;
+  toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
+} {
+  const [theme, setThemeState] = useState<Theme>(currentTheme);
+
+  const setTheme = useCallback((next: Theme) => {
+    document.documentElement.classList.toggle("dark", next === "dark");
+    // Kept raw because index.html reads this value before React mounts to prevent theme flash.
+    writeRawStorage(localStorage, STORAGE_KEY, next);
+    setThemeState(next);
+  }, []);
 
   const toggleTheme = useCallback(() => {
-    setTheme((current) => {
+    setThemeState((current) => {
       const next: Theme = current === "dark" ? "light" : "dark";
       document.documentElement.classList.toggle("dark", next === "dark");
-      // Kept raw because index.html reads this value before React mounts to prevent theme flash.
       writeRawStorage(localStorage, STORAGE_KEY, next);
       return next;
     });
   }, []);
 
-  return { theme, toggleTheme };
+  return { theme, toggleTheme, setTheme };
 }

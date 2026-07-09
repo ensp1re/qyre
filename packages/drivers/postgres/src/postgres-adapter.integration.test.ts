@@ -83,6 +83,26 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
+  it("reports an enum column's actual type name instead of Postgres's generic USER-DEFINED", async () => {
+    await runStatements(databaseUrl, [
+      "DROP TABLE IF EXISTS qyre_test_moods",
+      "DROP TYPE IF EXISTS mood",
+      "CREATE TYPE mood AS ENUM ('happy', 'sad')",
+      "CREATE TABLE qyre_test_moods (id serial PRIMARY KEY, current_mood mood NOT NULL)"
+    ]);
+
+    try {
+      const table = await adapter.getTable(FIXTURE.schema, "qyre_test_moods");
+      const moodColumn = table.columns.find((column) => column.name === "current_mood");
+      expect(moodColumn?.dataType).toBe("mood");
+    } finally {
+      await runStatements(databaseUrl, [
+        "DROP TABLE IF EXISTS qyre_test_moods",
+        "DROP TYPE IF EXISTS mood"
+      ]);
+    }
+  });
+
   it("returns a page of rows", async () => {
     const page = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
     expect(page.rows).toHaveLength(FIXTURE.rowCount);

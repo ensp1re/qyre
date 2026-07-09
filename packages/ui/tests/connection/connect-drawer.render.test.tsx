@@ -162,6 +162,23 @@ describe("ConnectDrawer", () => {
     expect(screen.getByLabelText("Database")).toHaveValue("app");
   });
 
+  it("clears the other fields when switching engine tabs", () => {
+    render(<ConnectDrawer {...baseProps} onConnect={vi.fn()} />);
+    fireEvent.click(screen.getByText("Use fields instead"));
+
+    fireEvent.change(screen.getByLabelText("Host"), { target: { value: "db.internal" } });
+    fireEvent.change(screen.getByLabelText("User"), { target: { value: "root" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "hunter2" } });
+    fireEvent.change(screen.getByLabelText("Database"), { target: { value: "app" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "MySQL" }));
+
+    expect(screen.getByLabelText("Host")).toHaveValue("");
+    expect(screen.getByLabelText("User")).toHaveValue("");
+    expect(screen.getByLabelText("Password")).toHaveValue("");
+    expect(screen.getByLabelText("Database")).toHaveValue("");
+  });
+
   it("leaves an ordinary paste of non-URL text to the default single-field behavior", () => {
     render(<ConnectDrawer {...baseProps} onConnect={vi.fn()} />);
     fireEvent.click(screen.getByText("Use fields instead"));

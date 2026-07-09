@@ -13,6 +13,7 @@ export * from "./data-grid/rows-table.js";
 export * from "./feedback/error-boundary.js";
 export * from "./feedback/error-state.js";
 export * from "./feedback/spinner.js";
+export * from "./primitives/date-time-input.js";
 export * from "./primitives/resize-handle.js";
 export * from "./primitives/segmented.js";
 export * from "./primitives/type-icon.js";

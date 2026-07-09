@@ -222,28 +222,45 @@ describe("FilterBar type-aware operators and values (F082)", () => {
     ]);
   });
 
-  it("uses a native date input for a DATE column's value step", () => {
-    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
+  it("uses the themed date picker (not a native input) for a DATE column's value step", () => {
+    const onFiltersChange = vi.fn();
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={onFiltersChange} />);
 
     openPopover();
     fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("col_date"));
     fireEvent.click(screen.getByRole("option", { name: /^equals/ }));
 
-    expect(screen.getByLabelText("Filter value")).toHaveAttribute("type", "date");
+    expect(screen.queryByLabelText("Filter value")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Choose date" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "1" })[0] as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(onFiltersChange).toHaveBeenCalledWith([
+      { column: "col_date", op: "eq", value: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) }
+    ]);
   });
 
-  it("uses a native time input (not the date picker) for a TIME column's value step", () => {
-    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
+  it("uses the themed hour/minute segments (not a native input) for a TIME column's value step", () => {
+    const onFiltersChange = vi.fn();
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={onFiltersChange} />);
 
     openPopover();
     fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("col_time"));
     fireEvent.click(screen.getByRole("option", { name: /^equals/ }));
 
-    expect(screen.getByLabelText("Filter value")).toHaveAttribute("type", "time");
+    expect(screen.queryByLabelText("Filter value")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "14" } });
+    fireEvent.change(screen.getByLabelText("Minute"), { target: { value: "30" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(onFiltersChange).toHaveBeenCalledWith([
+      { column: "col_time", op: "eq", value: "14:30" }
+    ]);
   });
 
-  it("uses a native datetime-local input for a TIMESTAMP column's value step", () => {
-    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
+  it("combines the date picker and time segments for a TIMESTAMP column's value step", () => {
+    const onFiltersChange = vi.fn();
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={onFiltersChange} />);
 
     openPopover();
     fireEvent.click(
@@ -251,7 +268,23 @@ describe("FilterBar type-aware operators and values (F082)", () => {
     );
     fireEvent.click(screen.getByRole("option", { name: /^equals/ }));
 
-    expect(screen.getByLabelText("Filter value")).toHaveAttribute("type", "datetime-local");
+    expect(screen.getByRole("button", { name: "Choose date" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Hour")).toBeInTheDocument();
+    expect(screen.getByLabelText("Minute")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose date" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "1" })[0] as HTMLElement);
+    fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "09" } });
+    fireEvent.change(screen.getByLabelText("Minute"), { target: { value: "05" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(onFiltersChange).toHaveBeenCalledWith([
+      {
+        column: "deleted_at",
+        op: "eq",
+        value: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T09:05$/)
+      }
+    ]);
   });
 
   it("hides MongoDB MinKey/MaxKey sentinel columns from scalar filtering", () => {

@@ -5,6 +5,7 @@ import { ListFilter, Search, X } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../cn.js";
+import { DateTimeInput, type DateTimeInputKind } from "../primitives/date-time-input.js";
 import { friendlyTypeLabel } from "../primitives/format-cell.js";
 import { TypeIcon } from "../primitives/type-icon.js";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
@@ -466,23 +467,33 @@ export function FilterBar({
                 <div
                   className={cn("flex gap-1.5 p-2", isDateValueInput ? "flex-col" : "items-center")}
                 >
-                  <input
-                    type={valueInputKind}
-                    value={draft.value}
-                    onChange={(event) =>
-                      setDraft((current) => ({ ...current, value: event.target.value }))
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") applyValue();
-                    }}
-                    placeholder={
-                      draftCapability?.kind === "objectId" ? "ObjectId hex..." : "Value..."
-                    }
-                    aria-label="Filter value"
-                    autoFocus
-                    inputMode={valueInputKind === "number" ? "decimal" : undefined}
-                    className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary"
-                  />
+                  {isDateValueInput ? (
+                    <DateTimeInput
+                      kind={valueInputKind as DateTimeInputKind}
+                      value={draft.value}
+                      onChange={(value) => setDraft((current) => ({ ...current, value }))}
+                      onEnter={() => applyValue()}
+                      autoFocus
+                    />
+                  ) : (
+                    <input
+                      type={valueInputKind}
+                      value={draft.value}
+                      onChange={(event) =>
+                        setDraft((current) => ({ ...current, value: event.target.value }))
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") applyValue();
+                      }}
+                      placeholder={
+                        draftCapability?.kind === "objectId" ? "ObjectId hex..." : "Value..."
+                      }
+                      aria-label="Filter value"
+                      autoFocus
+                      inputMode={valueInputKind === "number" ? "decimal" : undefined}
+                      className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary"
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => applyValue()}

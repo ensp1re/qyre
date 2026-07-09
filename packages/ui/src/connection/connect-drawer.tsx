@@ -293,7 +293,7 @@ export function ConnectDrawer({
               <Segmented
                 aria-label="Engine"
                 value={fields.engine}
-                onChange={(engine) => updateField("engine", engine)}
+                onChange={(engine) => setFields({ ...EMPTY_FIELDS, engine })}
                 options={(["postgres", "mysql", "mongodb"] as const).map((engine) => ({
                   value: engine,
                   label: FIELD_ENGINE_LABEL[engine]

@@ -6,8 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-09.
-- Branch: `feature/F082-type-aware-filters`, off `main` tip `2250b62` (merge of F081/PR #82).
-- 13 features `passing` (F067-F078, F081), **1 `active` (F082)**, 6 `not_started` (F083-F088).
+- Branch: `feature/F082-type-aware-filters`; F082 is merged to `main` as PR #83 / `7cacbe4`.
+- 14 live entries: 8 `passing` (F072, F074-F078, F081-F082), 0 `active`, 6 `not_started`
+  (F083-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
 
 ## Completed
 
@@ -16,6 +17,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - F081 (date/time type fidelity): merged as PR #82/`2250b62`. TIME no longer routes through the
   date-inspect popover; verbose engine type names get a short label; the header's type badge
   attaches to the column name. See `docs/FEATURES.json`'s F081 evidence.
+- F082 (type-aware filters): merged as PR #83/`7cacbe4`. Boolean columns offer only
+  eq/neq/isNull/isNotNull with a true/false picker; date/time/timestamp columns use native
+  date/time/datetime inputs; MongoDB MinKey/MaxKey values classify and coerce as BSON sentinels.
+  Local `pnpm verify:pr` passed, and GitHub CI passed both End-to-end and
+  Lint/typecheck/test/build.
 - The QA demo dataset (28-table B2B logistics/e-commerce set, 52k rows/table, plus `type_showcase`
   exercising each engine's native type system) now lives in a separate `qyre_demo` database
   (Postgres/MySQL/MongoDB) so it no longer collides with `qyre_test`, which the E2E fixtures expect
@@ -28,14 +34,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F082 (type-aware filters): boolean columns now offer only eq/neq/isNull/isNotNull with a
-  true/false value picker; date/time/timestamp columns get native `<input type="date"|"time"|
-"datetime-local">` pickers instead of free text (`dateInputKind()` in format-cell.ts). MongoDB's
-  `_id`/`null` filtering already worked server-side (verified live); `minKeyField`/`maxKeyField`
-  now get their own `dataType` (`classifyBsonValue`) and filter coercion (`coerceFilterValue`)
-  instead of collapsing into the generic "object" bucket with no way to filter them at all.
-  Verified live via Preview against Postgres/Mongo `type_showcase`. Not yet run through
-  `pnpm verify:pr` / pushed.
+- None.
 
 ## Known issues / blockers
 
@@ -48,6 +47,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Finish F082: run `pnpm verify:pr`, push, open a draft PR, wait for CI, mark passing.
-- Then pick from F083-F088 (see `docs/FEATURES.json`), branch off `main` as `feature/<ID>-<slug>`,
+- Start F083 (row selection and selected-row CSV export), branching off `main` as
+  `feature/F083-row-selection-export`.
+- Then continue through F084-F088 (see `docs/FEATURES.json`), branching off `main` as `feature/<ID>-<slug>`,
   and follow the usual `pnpm verify:pr` -> push -> draft PR -> merge -> mark-passing loop.

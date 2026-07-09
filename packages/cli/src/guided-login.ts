@@ -5,6 +5,7 @@
  * mode (same engines, same default ports) without depending on `@qyre/ui` from a Node CLI package.
  */
 import type { ConnectionTarget } from "@qyre/core";
+import chalk from "chalk";
 
 /** Engines the guided flow supports - matches connect-drawer's field-entry mode. SQLite's
  * file-path shape doesn't fit a user/password/host/port form, so it's URL/path-only there too. */
@@ -77,7 +78,9 @@ async function promptForMissingCredentials(
   target: ConnectionTarget
 ): Promise<ConnectionTarget> {
   const url = new URL(target.raw);
-  io.writeLine(`No credentials in the connection string - press enter to skip either field.`);
+  io.writeLine(
+    chalk.dim("No credentials in the connection string - press enter to skip either field.")
+  );
   const user = await io.ask("User: ");
   const password = user ? await io.askMasked("Password: ") : "";
   url.username = user;
@@ -86,9 +89,9 @@ async function promptForMissingCredentials(
 }
 
 async function promptEngine(io: GuidedLoginPrompts): Promise<GuidedEngine> {
-  io.writeLine("Pick a database engine:");
+  io.writeLine(chalk.bold("Pick a database engine:"));
   GUIDED_ENGINE_ORDER.forEach((engine, index) => {
-    io.writeLine(`  ${index + 1}) ${GUIDED_ENGINE_LABEL[engine]}`);
+    io.writeLine(`  ${chalk.hex("#4a9eff")(`${index + 1})`)} ${GUIDED_ENGINE_LABEL[engine]}`);
   });
   for (;;) {
     const answer = await io.ask(`Engine [1-${GUIDED_ENGINE_ORDER.length}]: `);
@@ -96,7 +99,9 @@ async function promptEngine(io: GuidedLoginPrompts): Promise<GuidedEngine> {
     if (index >= 0 && index < GUIDED_ENGINE_ORDER.length) {
       return GUIDED_ENGINE_ORDER[index]!;
     }
-    io.writeLine(`"${answer}" isn't a valid choice - enter a number from the list above.`);
+    io.writeLine(
+      chalk.yellow(`"${answer}" isn't a valid choice - enter a number from the list above.`)
+    );
   }
 }
 
@@ -117,7 +122,7 @@ async function promptRetry(io: GuidedLoginPrompts): Promise<boolean> {
     const answer = (await io.ask("Try again? (Y/n) ")).toLowerCase();
     if (answer === "" || answer === "y" || answer === "yes") return true;
     if (answer === "n" || answer === "no") return false;
-    io.writeLine(`"${answer}" isn't a valid choice - enter Y or N.`);
+    io.writeLine(chalk.yellow(`"${answer}" isn't a valid choice - enter Y or N.`));
   }
 }
 
@@ -135,7 +140,9 @@ async function attemptWithRetry(
       await connect(raw);
       return raw;
     } catch (error) {
-      io.writeLine(`Could not connect: ${error instanceof Error ? error.message : String(error)}`);
+      io.writeLine(
+        chalk.red(`Could not connect: ${error instanceof Error ? error.message : String(error)}`)
+      );
       if (!(await promptRetry(io))) {
         throw error;
       }

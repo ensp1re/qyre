@@ -20,6 +20,20 @@ import { createTerminalGuidedLoginIO } from "./guided-login-io.js";
 import { fillMissingCredentials, needsCredentialPrompt, runGuidedLogin } from "./guided-login.js";
 
 /**
+ * Blue → purple gradient matching docs/references/design-system.md's dark-theme primary/accent
+ * colors (`--primary`/`--c-blue` #4a9eff, `--c-purple` #c47eff) - the terminal banner, `--help`,
+ * and the guided-login prompts all read as the same product instead of an arbitrary color choice.
+ */
+const qyreGradient = gradient(["#4a9eff", "#c47eff"]);
+
+/** The gradient "QYRE" figlet wordmark, shared by the startup banner, `--help`, and the guided
+ * login flows. Colors auto-disable when stdout isn't a TTY (chalk/gradient-string's own
+ * detection), so piped/non-interactive output stays plain. */
+function renderQyreTitle(): string {
+  return qyreGradient.multiline(figlet.textSync("QYRE"));
+}
+
+/**
  * Where the built `apps/web` static assets live, relative to this file's own directory (`here` -
  * `dist` when built, `src` in dev/test). Two candidates, tried in order:
  *
@@ -69,6 +83,7 @@ export function parseArgs(argv: string[]): CliArgs {
       "skip the connection-string argument and enter connection details interactively (engine, user, password, host, port, database)",
       false
     )
+    .addHelpText("beforeAll", () => `${renderQyreTitle()}\n`)
     .addHelpText(
       "after",
       "\nNote: `npx <connection-url>` on its own (e.g. `npx postgres://...`) fails with npm's own\n" +
@@ -129,13 +144,6 @@ export function resolveVersion(here: string): string {
 }
 
 /**
- * Blue → purple gradient matching docs/references/design-system.md's dark-theme primary/accent
- * colors (`--primary`/`--c-blue` #4a9eff, `--c-purple` #c47eff) - the terminal banner and the
- * browser UI read as the same product instead of an arbitrary color choice.
- */
-const qyreGradient = gradient(["#4a9eff", "#c47eff"]);
-
-/**
  * Builds the banner printed on startup (F067; reworked into a big figlet wordmark in the same PR
  * as F073): a gradient "QYRE" title, then version/connection-status/URL/issue-and-contributing
  * links - the "proper open-source CLI" look most popular CLIs (nx, turbo, create-t3-app) use,
@@ -150,7 +158,7 @@ export function formatBanner(info: {
   target: string | null;
   url: string;
 }): string {
-  const title = qyreGradient.multiline(figlet.textSync("QYRE"));
+  const title = renderQyreTitle();
   const statusLine = info.target
     ? `${chalk.hex("#4fc46a")("●")} Connected to ${chalk.bold(info.target)}`
     : `${chalk.hex("#e09a40")("●")} No database connected yet ${chalk.dim("(run with --login for a guided terminal setup)")}`;
@@ -217,8 +225,14 @@ export function createShutdownHandler(deps: ShutdownDeps): () => Promise<void> {
   };
 }
 
-/** Parses `raw`, resolves its adapter, and connects. Reused by the direct-target path and both
- * guided-login flows so all three share the same connect-failure message. */
+/** Parses `raw`, resolves its adapter, connects, and pings it. Reused by the direct-target path
+ * and both guided-login flows so all three share the same connect-failure message.
+ *
+ * The ping matters: Postgres/MySQL's `connect()` only builds a connection pool (no real network
+ * round trip), so it resolves even against an unreachable host or port - only a later query would
+ * have failed. Mirrors `/api/connect`'s own connect()-then-ping() check (F085) so a bad target is
+ * caught here instead of surfacing later as a broken schema load in the browser, and so F088's
+ * retry-on-failure prompt actually has something to retry. */
 async function connectToRaw(
   raw: string,
   adapterFactories: AdapterFactory[]
@@ -227,6 +241,9 @@ async function connectToRaw(
   const adapter = resolveAdapter(adapterFactories, target);
   try {
     await adapter.connect();
+    if (!(await adapter.ping())) {
+      throw new Error("Connected, but the target did not respond to a ping.");
+    }
   } catch (error) {
     // Reuses the same AggregateError-unwrapping describeError() already applied to the
     // /api/health and /api/connect paths (F064) - this initial connect() had the same
@@ -234,6 +251,12 @@ async function connectToRaw(
     throw new Error(`Could not connect to ${displayTarget(target)}: ${describeError(error)}`);
   }
   return { target, adapter };
+}
+
+/** Prints the gradient "QYRE" title before either guided-login flow starts, so the prompt reads
+ * as part of the same product as the startup banner instead of a bare Q&A. */
+function printGuidedLoginIntro(): void {
+  process.stdout.write(`${renderQyreTitle()}\n${chalk.dim("Guided setup")}\n\n`);
 }
 
 /** Run the CLI. Returns the running server's URL. */
@@ -253,6 +276,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     // F088: `--login` skips the connection-string argument entirely and builds one from prompted
     // fields (engine, user, password, host, port, database), retrying on a failed connect instead
     // of exiting.
+    printGuidedLoginIntro();
     const io = createTerminalGuidedLoginIO();
     await runGuidedLogin(io, async (raw) => {
       ({ target, adapter } = await connectToRaw(raw, adapterFactories));
@@ -263,6 +287,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     // credentials interactively rather than attempted anonymously - but only when there's a
     // terminal to prompt on, so a piped/non-interactive invocation behaves exactly as before.
     if (needsCredentialPrompt(parsedTarget) && process.stdin.isTTY) {
+      printGuidedLoginIntro();
       const io = createTerminalGuidedLoginIO();
       await fillMissingCredentials(io, parsedTarget, async (raw) => {
         ({ target, adapter } = await connectToRaw(raw, adapterFactories));

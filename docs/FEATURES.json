@@ -132,19 +132,20 @@
       "id": "F086",
       "behavior": "Cell values that look like an image URL or a plain URL get an inspectable preview (thumbnail/link) instead of rendering as plain truncated text; long raw-text cells past the truncation threshold get a distinct visual treatment (e.g. a color/background cue), not the same look as a normal short string; and the Files tab's \"File browsing is disabled\" message stops implying it's disabled because of the connected database engine - it's actually gated purely by the --files-dir CLI flag, independent of engine (Postgres/MySQL/MongoDB/SQLite can all use it) - the message should say that plainly instead of reading like a generic, unexplained restriction.",
       "verification": "pnpm --filter @qyre/ui test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": "Started on feature/F086-url-cell-previews after F085 merged. Implemented strict http(s) URL classification in the shared cell renderer, image URL thumbnails, plain URL link chips, URL inspection in CellValueDrawer with external-link and image preview affordances, and a distinct bordered muted treatment for long raw text cells. Updated the Files tab disabled copy to state that file browsing is gated by --files-dir and works across database engines. Verified so far: pnpm --filter @qyre/ui test; pnpm --filter @qyre/web test; pnpm --filter @qyre/ui typecheck; pnpm --filter @qyre/web typecheck; pnpm check:quiet; QYRE_DOCKER_BIN=/Applications/Docker.app/Contents/Resources/bin/docker pnpm verify:pr.",
+      "state": "passing",
+      "commitHash": "c00289a89d900eb83f00689d7a40bd38ca5167f8",
+      "evidence": "PR #88 (https://github.com/ensp1re/qyre/pull/88) opened from feature/F086-url-cell-previews at c00289a. Implemented strict http(s) URL classification in the shared cell renderer, image URL thumbnails, plain URL link chips, URL inspection in CellValueDrawer with external-link and image preview affordances, and a distinct bordered muted treatment for long raw text cells. Updated the Files tab disabled copy to state that file browsing is gated by --files-dir and works across database engines. Verified locally: pnpm --filter @qyre/ui test; pnpm --filter @qyre/web test; pnpm --filter @qyre/ui typecheck; pnpm --filter @qyre/web typecheck; pnpm check:quiet; QYRE_DOCKER_BIN=/Applications/Docker.app/Contents/Resources/bin/docker pnpm verify:pr; pre-commit format/typecheck/lint; pre-push pnpm verify:pr. GitHub CI passed End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-09T13:25:23.000Z"
     },
     {
       "id": "F087",
       "behavior": "The Settings surface is rebuilt as a polished, scannable in-app configuration screen using the established Qyre/Fable visual language (docs/references/design-system.md) instead of its current one-off panel: sections are grouped logically, binary/numeric/list settings use the right shared-UI primitives, and persistence state (saved vs unsaved) is visually clear.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
-      "evidence": null,
+      "evidence": "Promoted after F086 passed local verification and PR #88 CI.",
       "blockedReason": null,
       "spec": null
     },

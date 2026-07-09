@@ -6,9 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-09.
-- Branch: `feature/F086-url-cell-previews`; F085 is merged to `main` as PR #87 / `78912a5`.
-- 15 live entries: 12 `passing` (F072, F074-F078, F081-F085, F089), 1 `active` (F086), 2
-  `not_started` (F087-F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
+- Branch: `feature/F086-url-cell-previews`; F086 is open as draft PR #88 from commit `c00289a`.
+- 15 live entries: 13 `passing` (F072, F074-F078, F081-F086, F089), 1 `active` (F087), 1
+  `not_started` (F088). `pnpm features:prune` removed F067-F071 and F073 from the live queue.
 
 ## Completed
 
@@ -39,6 +39,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   resets/refetches database-owned React Query caches, clears stale local table/file/query metrics
   while preserving the SQL draft, hides unsupported tabs, and moves the active tab off SQL when
   `supportsSql=false`. Local `pnpm verify:pr`, pre-push `pnpm verify:pr`, and GitHub CI passed.
+- F086 (URL cell previews): draft PR #88 from `c00289a`. Shared cell rendering now classifies
+  strict http(s) URLs, renders image URL thumbnails and plain URL link chips, opens URL values in
+  `CellValueDrawer`, gives long raw text a distinct bordered muted treatment, and clarifies the
+  Files tab disabled copy as `--files-dir`-gated rather than engine-gated. Local `pnpm verify:pr`,
+  pre-push `pnpm verify:pr`, and GitHub CI passed.
 - The QA demo dataset (28-table B2B logistics/e-commerce set, 52k rows/table, plus `type_showcase`
   exercising each engine's native type system) now lives in a separate `qyre_demo` database
   (Postgres/MySQL/MongoDB) so it no longer collides with `qyre_test`, which the E2E fixtures expect
@@ -51,13 +56,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F086 (URL cell previews): cell values that look like image URLs or plain URLs should render an
-  inspectable thumbnail/link treatment instead of plain truncated text; long raw-text cells past the
-  truncation threshold need a distinct visual cue; and the Files tab disabled message should say it
-  depends on the `--files-dir` CLI flag, not the connected database engine. Current implementation
-  adds strict http(s) URL classification, image thumbnails, URL inspection in `CellValueDrawer`,
-  a distinct long-text treatment, and updated Files tab copy. `pnpm verify:pr` is green when run
-  with `QYRE_DOCKER_BIN=/Applications/Docker.app/Contents/Resources/bin/docker`.
+- F087 (settings UI): rebuild the Settings surface as a polished, scannable in-app configuration
+  screen using the established Qyre/Fable visual language. Sections should be logically grouped,
+  binary/numeric/list settings should use the right shared UI primitives, and persistence state
+  should make saved vs. unsaved changes clear.
 
 ## Known issues / blockers
 
@@ -70,5 +72,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Review the F086 diff, commit/push `feature/F086-url-cell-previews`, open a draft PR, then wait
-  for CI.
+- Push the F086 queue-state update to PR #88, then start F087 from updated `main` after PR #88 is
+  merged.

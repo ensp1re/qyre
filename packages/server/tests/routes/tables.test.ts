@@ -1,6 +1,7 @@
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
+import { authHeaders } from "../helpers/auth.js";
 import { makeFakeAdapter } from "../support/fake-adapter.js";
 
 describe("/api/tables", () => {
@@ -21,7 +22,11 @@ describe("/api/tables", () => {
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
     };
     const app = createServer({ adapter });
-    const response = await app.inject({ method: "GET", url: "/api/tables" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/tables",
+      headers: authHeaders(app)
+    });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       tables: [
@@ -34,7 +39,11 @@ describe("/api/tables", () => {
 
   it("returns 503 when no adapter is configured", async () => {
     const app = createServer();
-    const response = await app.inject({ method: "GET", url: "/api/tables" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/tables",
+      headers: authHeaders(app)
+    });
     expect(response.statusCode).toBe(503);
     await app.close();
   });
@@ -63,7 +72,8 @@ describe("GET /api/tables/:schema/:table/rows", () => {
     const app = createServer({ adapter });
     const response = await app.inject({
       method: "GET",
-      url: "/api/tables/public/users/rows?page=abc"
+      url: "/api/tables/public/users/rows?page=abc",
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: expect.any(String) });
@@ -102,7 +112,8 @@ describe("Server-side filtering", () => {
       method: "GET",
       url: `/api/tables/public/x/rows?${filtersParam([
         { column: "name", op: "contains", value: "ada" }
-      ])}`
+      ])}`,
+      headers: authHeaders(app)
     });
 
     expect(response.statusCode).toBe(200);
@@ -132,7 +143,8 @@ describe("Server-side filtering", () => {
       method: "GET",
       url: `/api/tables/public/x/rows?${filtersParam([
         { column: "amount", op: "contains", value: "10" }
-      ])}`
+      ])}`,
+      headers: authHeaders(app)
     });
 
     expect(response.statusCode).toBe(400);
@@ -165,7 +177,8 @@ describe("Server-side filtering", () => {
       method: "GET",
       url: `/api/tables/qyre_test/type_showcase/rows?${filtersParam([
         { column: "minKeyField", op: "eq", value: "$minKey" }
-      ])}`
+      ])}`,
+      headers: authHeaders(app)
     });
 
     expect(response.statusCode).toBe(400);
@@ -218,7 +231,8 @@ describe("Server-side sort (F065)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/tables/public/x/rows?sortColumn=name&sortDirection=desc"
+      url: "/api/tables/public/x/rows?sortColumn=name&sortDirection=desc",
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(200);
     expect(receivedSort).toEqual({ column: "name", direction: "desc" });
@@ -233,7 +247,11 @@ describe("Server-side sort (F065)", () => {
     });
     const app = createServer({ adapter });
 
-    await app.inject({ method: "GET", url: "/api/tables/public/x/rows?sortColumn=name" });
+    await app.inject({
+      method: "GET",
+      url: "/api/tables/public/x/rows?sortColumn=name",
+      headers: authHeaders(app)
+    });
     expect(receivedSort).toEqual({ column: "name", direction: "asc" });
     await app.close();
   });
@@ -246,7 +264,11 @@ describe("Server-side sort (F065)", () => {
     });
     const app = createServer({ adapter });
 
-    await app.inject({ method: "GET", url: "/api/tables/public/x/rows" });
+    await app.inject({
+      method: "GET",
+      url: "/api/tables/public/x/rows",
+      headers: authHeaders(app)
+    });
     expect(receivedSort).toBeUndefined();
     await app.close();
   });
@@ -262,7 +284,8 @@ describe("Server-side sort (F065)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/tables/public/x/rows?sortColumn=does_not_exist"
+      url: "/api/tables/public/x/rows?sortColumn=does_not_exist",
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: expect.stringContaining("does_not_exist") });
@@ -292,7 +315,13 @@ describe("Whole-table CSV export (F066)", () => {
     });
     const app = createServer({ adapter });
 
-    const response = await app.inject({ method: "GET", url: "/api/tables/public/x/export.csv" });
+    // Exercised via a `?token=` query param, not an Authorization header - this route is the one
+    // apps/web triggers with a plain <a href> navigation (real browser download), which can't set
+    // headers (F122).
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/tables/public/x/export.csv?token=${app.authToken}`
+    });
     expect(response.statusCode).toBe(200);
     expect(response.headers["content-type"]).toContain("text/csv");
     expect(response.headers["content-disposition"]).toBe('attachment; filename="x.csv"');
@@ -319,7 +348,10 @@ describe("Whole-table CSV export (F066)", () => {
     });
     const app = createServer({ adapter });
 
-    const response = await app.inject({ method: "GET", url: "/api/tables/public/x/export.csv" });
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/tables/public/x/export.csv?token=${app.authToken}`
+    });
     const lines = response.payload.trim().split("\n");
     expect(lines).toEqual(["formula", "'=cmd()"]);
     await app.close();
@@ -333,9 +365,18 @@ describe("Whole-table CSV export (F066)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/tables/public/x/export.csv?sortColumn=does_not_exist"
+      url: `/api/tables/public/x/export.csv?sortColumn=does_not_exist&token=${app.authToken}`
     });
     expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects export.csv without a valid token (F122)", async () => {
+    const adapter = makeFakeAdapter();
+    const app = createServer({ adapter });
+
+    const response = await app.inject({ method: "GET", url: "/api/tables/public/x/export.csv" });
+    expect(response.statusCode).toBe(401);
     await app.close();
   });
 });

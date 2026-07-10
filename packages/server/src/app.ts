@@ -9,8 +9,10 @@ import type { ConnectionTarget, HealthResponse } from "@qyre/core";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
+import { registerAuthGuard } from "./plugins/auth-guard.js";
 import { registerErrorHandler } from "./plugins/error-handler.js";
 import { registerHostGuard } from "./plugins/host-guard.js";
+import { registerSecurityHeaders } from "./plugins/security-headers.js";
 import { registerStaticWeb } from "./plugins/static-web.js";
 import { registerConnectRoute } from "./routes/connect.js";
 import { registerConsoleRoutes } from "./routes/console.js";
@@ -19,7 +21,19 @@ import { registerHealthRoute } from "./routes/health.js";
 import { registerOverviewRoute } from "./routes/overview.js";
 import { registerQueryRoute } from "./routes/query.js";
 import { registerTablesRoutes } from "./routes/tables.js";
+import { generateAuthToken } from "./services/auth-token.js";
 import { EventLog } from "./services/event-log.js";
+
+// Ambient augmentation declared here (not a standalone .d.ts) so it's visible in every downstream
+// package's own `tsc` run too - each package/*'s tsconfig only `include`s its own src, so a
+// separate types/*.d.ts file never included via an import wouldn't merge into e.g. @qyre/qyre's
+// program even though it pulls in this file's FastifyInstance type transitively (F122).
+declare module "fastify" {
+  interface FastifyInstance {
+    /** The random per-session bearer token this instance's `/api/*` routes require (F122). */
+    authToken: string;
+  }
+}
 
 export interface CreateServerOptions {
   /** The connected (or to-be-connected) database adapter. */
@@ -59,6 +73,13 @@ export interface CreateServerOptions {
    * so switching connections works out of the box for the actual CLI.
    */
   adapterFactories?: AdapterFactory[];
+  /**
+   * The session bearer token every `/api/*` route requires (F122). Omit to let `createServer`
+   * generate a cryptographically random one - the common case, and what the real CLI does. Tests
+   * pass a known value so they can build an authorized `Authorization` header; `startServer`'s
+   * caller can read the generated token back off the returned `RunningServer.authToken`.
+   */
+  authToken?: string;
 }
 
 /**
@@ -79,6 +100,8 @@ export interface ServerContext {
 /** Build (but do not start) the Qyre HTTP server. */
 export function createServer(options: CreateServerOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false });
+  const authToken = options.authToken ?? generateAuthToken();
+  app.decorate("authToken", authToken);
   const ctx: ServerContext = {
     adapter: options.adapter,
     target: options.target,
@@ -89,6 +112,8 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   };
 
   registerHostGuard(app);
+  registerSecurityHeaders(app);
+  registerAuthGuard(app, authToken);
   registerErrorHandler(app, ctx.eventLog);
 
   registerHealthRoute(app, ctx);
@@ -99,7 +124,7 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   registerConsoleRoutes(app, ctx);
   registerFilesRoutes(app, ctx);
 
-  registerStaticWeb(app, options.webRoot);
+  registerStaticWeb(app, options.webRoot, authToken);
 
   return app;
 }
@@ -114,6 +139,10 @@ export interface RunningServer {
   url: string;
   /** The server's event log - e.g. so the caller can wire an adapter's `onConnectionEvent` into it. */
   eventLog: EventLog;
+  /** The session bearer token this instance's `/api/*` routes require (F122). The served UI
+   * already has it embedded (static-web.ts injects it into index.html); exposed here for callers
+   * that need it directly, e.g. e2e tests asserting the tokenless-request 401 path. */
+  authToken: string;
   close: () => Promise<void>;
 }
 
@@ -128,6 +157,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     app,
     url: `http://${host}:${port}`,
     eventLog,
+    authToken: app.authToken,
     close: () => app.close()
   };
 }

@@ -1,6 +1,7 @@
 import type { AdapterFactory } from "@qyre/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
+import { authHeaders } from "../helpers/auth.js";
 import { makeFakeAdapter } from "../support/fake-adapter.js";
 
 describe("Database switching (F064)", () => {
@@ -9,7 +10,8 @@ describe("Database switching (F064)", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/connect",
-      payload: { target: "postgres://user:pass@localhost:5432/db" }
+      payload: { target: "postgres://user:pass@localhost:5432/db" },
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(404);
     await app.close();
@@ -41,7 +43,8 @@ describe("Database switching (F064)", () => {
     const connectResponse = await app.inject({
       method: "POST",
       url: "/api/connect",
-      payload: { target: "postgres://user:pass@localhost:5432/new" }
+      payload: { target: "postgres://user:pass@localhost:5432/new" },
+      headers: authHeaders(app)
     });
     expect(connectResponse.statusCode).toBe(200);
     expect(connectResponse.json()).toEqual({
@@ -49,12 +52,20 @@ describe("Database switching (F064)", () => {
     });
     expect(oldDisconnected).toBe(true);
 
-    const overviewResponse = await app.inject({ method: "GET", url: "/api/overview" });
+    const overviewResponse = await app.inject({
+      method: "GET",
+      url: "/api/overview",
+      headers: authHeaders(app)
+    });
     expect(overviewResponse.json()).toMatchObject({
       schemas: [{ name: "public", tables: ["new_table"] }]
     });
 
-    const healthResponse = await app.inject({ method: "GET", url: "/api/health" });
+    const healthResponse = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: authHeaders(app)
+    });
     expect(healthResponse.json()).toMatchObject({
       database: "connected",
       target: "postgres://user:***@localhost:5432/new",
@@ -85,13 +96,18 @@ describe("Database switching (F064)", () => {
     const connectResponse = await app.inject({
       method: "POST",
       url: "/api/connect",
-      payload: { target: "postgres://user:pass@localhost:5432/unreachable" }
+      payload: { target: "postgres://user:pass@localhost:5432/unreachable" },
+      headers: authHeaders(app)
     });
     expect(connectResponse.statusCode).toBe(400);
     expect(connectResponse.json()).toMatchObject({ error: "connection refused" });
 
     // The old adapter is still the one serving requests - a failed switch never left a gap.
-    const healthResponse = await app.inject({ method: "GET", url: "/api/health" });
+    const healthResponse = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: authHeaders(app)
+    });
     expect(healthResponse.json()).toMatchObject({
       database: "connected",
       target: "postgres://user:***@localhost:5432/old"
@@ -125,7 +141,8 @@ describe("Database switching (F064)", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/connect",
-      payload: { target: "postgres://user:pass@localhost:59999/unreachable" }
+      payload: { target: "postgres://user:pass@localhost:59999/unreachable" },
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: "connect ECONNREFUSED ::1:59999" });
@@ -143,7 +160,8 @@ describe("Database switching (F064)", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/connect",
-      payload: { target: "postgres://user:pass@localhost:5432/db" }
+      payload: { target: "postgres://user:pass@localhost:5432/db" },
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: expect.any(String) });
@@ -158,7 +176,12 @@ describe("Database switching (F064)", () => {
     };
     const app = createServer({ adapterFactories: [factory] });
 
-    const response = await app.inject({ method: "POST", url: "/api/connect", payload: {} });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/connect",
+      payload: {},
+      headers: authHeaders(app)
+    });
     expect(response.statusCode).toBe(400);
     await app.close();
   });

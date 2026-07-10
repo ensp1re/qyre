@@ -3,11 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
+import { authHeaders } from "../helpers/auth.js";
 
 describe("Files tab (DF-06)", () => {
   it("reports disabled when no filesRoot is configured", async () => {
     const app = createServer();
-    const response = await app.inject({ method: "GET", url: "/api/files" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/files",
+      headers: authHeaders(app)
+    });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ enabled: false, tree: [] });
     await app.close();
@@ -17,7 +22,8 @@ describe("Files tab (DF-06)", () => {
     const app = createServer();
     const response = await app.inject({
       method: "GET",
-      url: "/api/files/content?path=schema.sql"
+      url: "/api/files/content?path=schema.sql",
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(503);
     await app.close();
@@ -33,7 +39,11 @@ describe("Files tab (DF-06)", () => {
 
   it("lists the .sql tree when filesRoot is configured", async () => {
     const app = createServer({ filesRoot: makeFilesRoot() });
-    const response = await app.inject({ method: "GET", url: "/api/files" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/files",
+      headers: authHeaders(app)
+    });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       enabled: true,
@@ -53,7 +63,8 @@ describe("Files tab (DF-06)", () => {
     const app = createServer({ filesRoot: makeFilesRoot() });
     const response = await app.inject({
       method: "GET",
-      url: "/api/files/content?path=migrations/001_init.sql"
+      url: "/api/files/content?path=migrations/001_init.sql",
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
@@ -67,7 +78,8 @@ describe("Files tab (DF-06)", () => {
     const app = createServer({ filesRoot: makeFilesRoot() });
     const response = await app.inject({
       method: "GET",
-      url: "/api/files/content?path=../../../../etc/passwd.sql"
+      url: "/api/files/content?path=../../../../etc/passwd.sql",
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(400);
     await app.close();
@@ -77,7 +89,8 @@ describe("Files tab (DF-06)", () => {
     const app = createServer({ filesRoot: makeFilesRoot() });
     const response = await app.inject({
       method: "GET",
-      url: "/api/files/content?path=missing.sql"
+      url: "/api/files/content?path=missing.sql",
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(404);
     await app.close();

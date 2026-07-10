@@ -2,11 +2,17 @@ import type { DatabaseAdapter } from "@qyre/driver-contract";
 import { ReadOnlyViolationError } from "@qyre/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
+import { authHeaders } from "../helpers/auth.js";
 
 describe("POST /api/query", () => {
   it("rejects an invalid query body with 400", async () => {
     const app = createServer();
-    const response = await app.inject({ method: "POST", url: "/api/query", payload: {} });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/query",
+      payload: {},
+      headers: authHeaders(app)
+    });
     expect(response.statusCode).toBe(400);
     await app.close();
   });
@@ -39,7 +45,8 @@ describe("POST /api/query", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/query",
-      payload: { sql: "SELECT * FROM orders_items" }
+      payload: { sql: "SELECT * FROM orders_items" },
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(500);
     expect(response.json()).toMatchObject({ error: 'relation "orders_items" does not exist' });
@@ -68,7 +75,8 @@ describe("POST /api/query", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/query",
-      payload: { sql: "DELETE FROM users" }
+      payload: { sql: "DELETE FROM users" },
+      headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: "Only read-only statements are allowed." });

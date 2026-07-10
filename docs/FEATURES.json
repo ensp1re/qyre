@@ -2,7 +2,7 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 122,
+    "F": 129,
     "DF": 10
   },
   "states": ["not_started", "active", "blocked", "passing"],
@@ -85,8 +85,18 @@
       "completedAt": "2026-07-09T11:55:45.000Z"
     },
     {
+      "id": "F122",
+      "behavior": "Local-server authentication and browser hardening, landing FIRST in plan 0006 because it protects even the read-only product and is a precondition for any mutating route: the CLI mints a cryptographically random per-session token at startup, the served UI receives it (injected into index.html or fetched via a one-time bootstrap), and every /api route rejects requests without it (401, structured error) - closing the current no-auth surface where any local process/user can call the full API and where cross-origin CSRF is blocked only implicitly by Fastify's JSON content-type requirement (pgweb/DbGate precedent for local web DB tools). Security headers land with it: CSP on the served SPA (also neutralizes DB-data-driven request exfil via F086's image URL previews), X-Content-Type-Options, X-Frame-Options. Open decision (exec plan 0006 #3): header-based token + fetch/blob downloads vs cookie - the CSV export links (plain <a href>) must keep working, so the choice must cover download URLs. E2E: UI works end-to-end with the token; a tokenless curl to every /api route 401s; docs/SECURITY.md updated. No dependency on other plan slices.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter qyre test && pnpm test:e2e",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
       "id": "F090",
-      "behavior": "Product-spec pass for the role-aware permission/capability model before any implementation: create docs/product-specs/permissions-and-capabilities.md covering the two-tier model (session-level ConnectionCapabilities extending F063's AdapterCapabilities with supportsRowMutations/supportsDdl/supportsIndexManagement/supportsDatabaseManagement/supportsTransactions plus a readOnlyReason of qyre-flag|replica|connection|grants|null, and per-table select/insert/update/delete TablePermissions attached to TableMetadata), the per-engine introspection matrix (Postgres has_table_privilege/pg_is_in_recovery/default_transaction_read_only, MySQL information_schema USER/SCHEMA/TABLE_PRIVILEGES + @@global.read_only, SQLite file+directory writability/PRAGMA query_only/mode=ro, MongoDB connectionStatus showPrivileges action sets), the advisory-introspection/authoritative-database principle with degradation to read-only on introspection failure, the API-shape decision (extend GET /api/overview vs a new endpoint - leaning extended overview), and how the UI adapts per access level. Follow the spec pattern of F063-F066. Architectural decisions are pre-settled in docs/exec-plans/active/0006-role-aware-database-ide.md; this spec turns them into a reviewable product contract with acceptance criteria.",
+      "behavior": "Product-spec pass for the role-aware permission/capability model before any implementation: create docs/product-specs/permissions-and-capabilities.md covering the two-tier model (session-level ConnectionCapabilities extending F063's AdapterCapabilities with supportsRowMutations/supportsDdl/supportsIndexManagement/supportsDatabaseManagement/supportsTransactions plus a readOnlyReason of qyre-flag|replica|connection|grants|null, and per-table select/insert/update/delete TablePermissions attached to TableMetadata), the per-engine introspection matrix (Postgres has_table_privilege/pg_is_in_recovery/default_transaction_read_only, MySQL information_schema privileges + role grants + @@global.read_only, SQLite file+directory writability/PRAGMA query_only/mode=ro, MongoDB connectionStatus showPrivileges action sets), the advisory-introspection/authoritative-database principle with degradation to read-only on introspection failure, the API-shape decision (extend GET /api/overview vs a new endpoint - leaning extended overview), and how the UI adapts per access level. Follow the spec pattern of F063-F066. Architectural decisions are pre-settled in docs/exec-plans/active/0006-role-aware-database-ide.md; this spec turns them into a reviewable product contract with acceptance criteria.",
       "verification": "pnpm check:state",
       "state": "not_started",
       "commitHash": null,
@@ -105,8 +115,28 @@
       "spec": "docs/product-specs/permissions-and-capabilities.md"
     },
     {
+      "id": "F123",
+      "behavior": "Batched schema introspection, landing BEFORE per-engine permission work multiplies the current fan-out: GET /api/tables today calls getTable per table - each >= 4 catalog queries plus a row-count estimate (with a possible exact COUNT(*) fallback) - through an unbounded Promise.all (packages/server/src/routes/tables.ts), which hammers large databases and was already tracked as tech debt. Adapters gain a batched all-tables metadata path (e.g. getAllTables(): one/few set-based catalog queries per engine - information_schema joins on Postgres/MySQL, sqlite_master + per-table pragmas with bounded concurrency on SQLite, listCollections + capped sampling on MongoDB); the route uses it; getTable stays for single-table use. Row-count estimates become part of the batched query (pg_class.reltuples, information_schema.TABLES.TABLE_ROWS) rather than per-table round trips. Conformance asserts the batched path returns the same shape as N x getTable on every engine. F092-F095 attach per-table permissions to this batched path. Depends on F091.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F124",
+      "behavior": "Tables and views become distinct kinds - a modeling gap the write stage would trip over: all three SQL drivers read information_schema.tables (or sqlite_master) with no table_type filter today, so views appear as ordinary editable 'tables'. TableMetadata (and the batched F123 path) gains kind: 'table' | 'view' | 'materialized-view' | 'collection' (Postgres pg_class.relkind/table_type incl. matviews - which information_schema misses - MySQL TABLE_TYPE, SQLite sqlite_master.type, MongoDB collection vs view from listCollections). The UI shows a subtle kind badge in the sidebar/schema views; every later mutation/DDL surface gates on kind (editing a view's rows, DROP TABLE on a view, truncating a matview are all prevented up front with the reason stated). Read-only behavior otherwise unchanged. Conformance: a fixture view per SQL engine (and a MongoDB view) reports its kind correctly everywhere. Depends on F123.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test && pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
       "id": "F092",
-      "behavior": "Postgres permission introspection per the F090 spec: getCapabilities() reports real session writability (pg_is_in_recovery(), default_transaction_read_only, role attributes from pg_roles, has_database_privilege/has_schema_privilege CREATE checks), and getTable plus the batched all-tables path attach per-table TablePermissions via has_table_privilege(current_user, ..., 'SELECT/INSERT/UPDATE/DELETE') batched per schema so no per-table round-trip storm is added. Introspection failure degrades to read-only with a logged warning, never to assumed-writable. Adds a restricted qyre_readonly Postgres user (SELECT-only grants) to the docker-compose init and @qyre/testing so integration tests cover both access levels from now on. Depends on F091.",
+      "behavior": "Postgres permission introspection per the F090 spec: getCapabilities() reports real session writability (pg_is_in_recovery(), default_transaction_read_only, role attributes from pg_roles, has_database_privilege/has_schema_privilege CREATE checks), and getTable plus the batched F123 all-tables path attach per-table TablePermissions via has_table_privilege(current_user, ..., 'SELECT/INSERT/UPDATE/DELETE') batched per schema (one set-based query, not per-table round trips; works uniformly for tables and views). Introspection failure degrades to read-only with a logged warning, never to assumed-writable. Adds a restricted qyre_readonly Postgres user (SELECT-only grants) to the docker-compose init and @qyre/testing so integration tests cover both access levels from now on. Depends on F091, F123.",
       "verification": "node scripts/with-local-env.mjs pnpm --filter @qyre/postgres test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -116,7 +146,7 @@
     },
     {
       "id": "F093",
-      "behavior": "MySQL permission introspection per the F090 spec: getCapabilities() reports session writability (@@global.read_only, @@session.transaction_read_only) and getTable/all-tables attach per-table TablePermissions by unioning information_schema.USER_PRIVILEGES, SCHEMA_PRIVILEGES, and TABLE_PRIVILEGES (a grant at any broader level implies the table-level right - the union must be tested explicitly since MySQL scatters grants across all three). Introspection failure degrades to read-only with a logged warning. Adds a restricted qyre_readonly MySQL user (SELECT-only) to the docker-compose init and @qyre/testing. Depends on F091.",
+      "behavior": "MySQL permission introspection per the F090 spec: getCapabilities() reports session writability (@@global.read_only, @@session.transaction_read_only) and getTable/the batched F123 path attach per-table TablePermissions by unioning information_schema.USER_PRIVILEGES, SCHEMA_PRIVILEGES, and TABLE_PRIVILEGES - PLUS role-granted privileges, which those three tables omit entirely: use ROLE_TABLE_GRANTS/ROLE_SCHEMA_GRANTS (MySQL 8.0.19+) for currently-active roles, falling back to grants-only introspection (degrade toward read-only, log a warning) on older servers where role visibility is unavailable. A grant at any broader level implies the table-level right; the union must be tested explicitly since MySQL scatters grants across all these levels. Adds a restricted qyre_readonly MySQL user (SELECT-only) plus a role-granted-writer fixture user to the docker-compose init and @qyre/testing. Depends on F091, F123.",
       "verification": "node scripts/with-local-env.mjs pnpm --filter @qyre/mysql test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -126,7 +156,7 @@
     },
     {
       "id": "F094",
-      "behavior": "SQLite writability introspection per the F090 spec: getCapabilities() reflects whether the session can write at all - the database file AND its directory must be writable (WAL/journal files need directory write), PRAGMA query_only must be off, and a ?mode=ro/immutable open flag forces read-only; per-table TablePermissions are uniform (SQLite has no users/grants - the whole file is writable or not) and must say so via the capabilities shape rather than faking per-table variance. Tests cover a writable file, a chmod-read-only file, a read-only directory, and a mode=ro target. Depends on F091.",
+      "behavior": "SQLite writability introspection per the F090 spec: getCapabilities() reflects whether the session can write at all - the database file AND its directory must be writable (WAL/journal files need directory write), PRAGMA query_only must be off, and a ?mode=ro/immutable open flag forces read-only; per-table TablePermissions are uniform (SQLite has no users/grants - the whole file is writable or not) and must say so via the capabilities shape rather than faking per-table variance. Tests cover a writable file, a chmod-read-only file, a read-only directory, and a mode=ro target. Depends on F091, F123.",
       "verification": "pnpm --filter @qyre/sqlite test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -136,7 +166,7 @@
     },
     {
       "id": "F095",
-      "behavior": "MongoDB permission introspection per the F090 spec: getCapabilities() and per-collection TablePermissions derive from connectionStatus{showPrivileges:true} - mapping find/insert/update/remove and createCollection/dropCollection/createIndex/dropIndex actions per db/collection resource (including anyResource and db-level wildcards); an unauthenticated local connection (no authenticatedUsers) is full-access, matching mongod's real behavior; introspection failure degrades to read-only with a logged warning. Adds a restricted fixture user with the built-in read role on the test db to the mongo init and @qyre/testing. Depends on F091.",
+      "behavior": "MongoDB permission introspection per the F090 spec: getCapabilities() and per-collection TablePermissions derive from connectionStatus{showPrivileges:true} - mapping find/insert/update/remove and createCollection/dropCollection/createIndex/dropIndex actions per db/collection resource (including anyResource and db-level wildcards); an unauthenticated local connection (no authenticatedUsers) is full-access, matching mongod's real behavior; introspection failure degrades to read-only with a logged warning. Adds a restricted fixture user with the built-in read role on the test db to the mongo init and @qyre/testing. Depends on F091, F123.",
       "verification": "node scripts/with-local-env.mjs pnpm --filter @qyre/mongodb test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -146,7 +176,7 @@
     },
     {
       "id": "F096",
-      "behavior": "Qyre-level read-only session mode as the safety cornerstone, landing BEFORE any mutating route exists: the CLI gains a --read-only flag (mentioned in --help and the F088 guided-login flow) that forces the whole session read-only regardless of database grants; the server stores the mode in ServerContext and one central guard (a single choke point every future mutating route must register under, e.g. a route-config flag checked in a shared preHandler) rejects any mutating request with a structured error; capabilities report readOnlyReason 'qyre-flag' so the UI can explain itself; POST /api/connect preserves the flag across connection switches. Depends on F091.",
+      "behavior": "Qyre-level read-only session mode as the safety cornerstone, landing BEFORE any mutating route exists: the CLI gains a --read-only flag (mentioned in --help and the F088 guided-login flow) that forces the whole session read-only regardless of database grants; the server stores the mode in ServerContext and one central guard (a single choke point every future mutating route must register under, e.g. a route-config flag checked in a shared preHandler) rejects any mutating request with a structured error; capabilities report readOnlyReason 'qyre-flag' so the UI can explain itself; POST /api/connect preserves the flag across connection switches. Depends on F091, F122.",
       "verification": "pnpm --filter qyre test && pnpm --filter @qyre/server test",
       "state": "not_started",
       "commitHash": null,
@@ -166,7 +196,7 @@
     },
     {
       "id": "F098",
-      "behavior": "Product-spec pass for row-level editing before implementation: create docs/product-specs/row-editing.md covering the structured mutation API (typed JSON insert/update/delete-by-primary-key translated to parameterized SQL or MongoDB collection ops inside each adapter - the F072 filter pattern; the browser never builds SQL), row identity rules (full primary key required, composite keys supported, MongoDB uses _id; PK-less tables stay read-only in the grid with the reason surfaced), the pending-changes buffer + generated-statement preview + batch-commit model (transactional all-or-nothing on Postgres/MySQL/SQLite, ordered best-effort with per-op error reporting on MongoDB), the commit endpoint shape (open decision in exec plan 0006), value validation/coercion per column type reusing F082/F089 capability classification, the audit-event contract, and confirmation thresholds per docs/SECURITY.md. Depends on F090.",
+      "behavior": "Product-spec pass for row-level editing before implementation: create docs/product-specs/row-editing.md covering the structured mutation API (typed JSON translated to parameterized SQL or MongoDB collection ops inside each adapter - the F072 filter pattern; the browser never builds SQL), row identity rules (full primary key required, composite keys supported, MongoDB uses _id; PK-less tables and any kind !== 'table'/'collection' (F124 views/matviews) stay read-only with the reason surfaced), and the two editing surfaces settled in exec plan 0006: SQL engines use grid editing with a pending-changes buffer + generated-statement preview + transactional batch commit; MongoDB uses whole-document Extended JSON editing (Compass model) because flat cell edits cannot express nested documents and display values are already serialized (dates as ISO strings per F081, ObjectId as hex) - the spec must fix the EJSON flavor (relaxed vs canonical) and changed-fields-update vs document-replace semantics (exec plan 0006 open decision #1, the highest-risk decision in the plan). Also: value validation/coercion per column type reusing F082/F089 capability classification, the commit endpoint shape (open decision #5), the audit-event contract, and confirmation thresholds per docs/SECURITY.md. Depends on F090, F124.",
       "verification": "pnpm check:state",
       "state": "not_started",
       "commitHash": null,
@@ -176,7 +206,7 @@
     },
     {
       "id": "F099",
-      "behavior": "Structured row insert across all four engines per docs/product-specs/row-editing.md: the adapter mutations namespace gains insertRow(schema, table, values) - parameterized INSERT on Postgres/MySQL/SQLite, insertOne on MongoDB - with value coercion per column type and the inserted row/key reported where the engine supports it. The server adds POST /api/tables/:schema/:table/rows, validating the body with Zod against the table's real introspected columns (same injection-surface pattern as F065/F072 sort/filter), gated by both the F096 central guard and the table's insert permission, and logging a structured audit event. Conformance cases cover successful insert plus rejections (read-only session, unknown column, restricted fixture user) on all four engines. Depends on F096, F098.",
+      "behavior": "Structured row insert across all four engines per docs/product-specs/row-editing.md: the adapter mutations namespace gains insertRow - SQL engines take a flat column->value map translated to a parameterized INSERT; MongoDB takes an Extended JSON document parsed server-side to real BSON (per the F098 spec's EJSON decision) passed to insertOne - with value coercion per column type and the inserted row/key reported where the engine supports it. The server adds POST /api/tables/:schema/:table/rows, validating the body with Zod against the table's real introspected columns (same injection-surface pattern as F065/F072), rejecting kind !== 'table'/'collection' targets (F124), gated by both the F096 central guard and the table's insert permission, and logging a structured audit event (EventLog + pino, per exec plan decision 8). Conformance cases cover successful insert plus rejections (read-only session, unknown column, view target, restricted fixture user) on all four engines. Depends on F096, F098.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -186,7 +216,7 @@
     },
     {
       "id": "F100",
-      "behavior": "Structured row update per docs/product-specs/row-editing.md: the mutations namespace gains updateRowByKey(schema, table, keyMatch, changes) requiring a full primary-key match (composite keys supported; MongoDB matches _id), rejecting tables without a primary key, parameterized everywhere; zero-rows-matched is reported as a distinct outcome (stale row), never as silent success. Server route (PATCH on the rows resource) gated by guard + update permission, audited, with the same column-validation pattern as F099. Conformance across all four engines including restricted-user rejection and the 0-matched outcome. Depends on F099.",
+      "behavior": "Structured row update per docs/product-specs/row-editing.md: the mutations namespace gains updateRowByKey requiring a full primary-key match (composite keys supported; MongoDB matches _id), rejecting tables without a primary key and kind !== 'table'/'collection' targets, parameterized everywhere; SQL engines take a flat changes map; MongoDB takes the F098-specced document-update payload (changed-fields or replace, per the spec decision) parsed from EJSON server-side. Zero-rows-matched is reported as a distinct outcome (stale row), never as silent success. Server route (PATCH on the rows resource) gated by guard + update permission, audited, with the same column-validation pattern as F099. Conformance across all four engines including restricted-user rejection and the 0-matched outcome. Depends on F099.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -196,7 +226,7 @@
     },
     {
       "id": "F101",
-      "behavior": "Structured row delete per docs/product-specs/row-editing.md: the mutations namespace gains deleteRowsByKey(schema, table, keyMatches[]) deleting only by an explicit list of primary-key identities (no filter-based bulk delete in this slice - that stays a deliberate non-feature until a spec revisits it), parameterized everywhere, MongoDB by _id list. Server route gated by guard + delete permission, audited with the deleted count; zero-matched keys reported distinctly. Conformance across all four engines including restricted-user rejection. Depends on F100.",
+      "behavior": "Structured row delete per docs/product-specs/row-editing.md: the mutations namespace gains deleteRowsByKey(schema, table, keyMatches[]) deleting only by an explicit list of primary-key identities (no filter-based bulk delete in this slice - that stays a deliberate non-feature until a spec revisits it), parameterized everywhere, MongoDB by _id list, kind-gated (F124). Server route gated by guard + delete permission, audited with the deleted count; zero-matched keys reported distinctly. Conformance across all four engines including restricted-user rejection. Depends on F100.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -206,7 +236,7 @@
     },
     {
       "id": "F102",
-      "behavior": "Batch commit for the pending-changes model per docs/product-specs/row-editing.md: one endpoint applies an ordered set of staged inserts/updates/deletes - wrapped in a single transaction on Postgres/MySQL/SQLite (all-or-nothing; rollback on first failure with the failing op index reported) and ordered best-effort on MongoDB (per-op results with stop-on-error semantics per the spec). Adapters gain the transactional wrapper in their mutations namespace; the server validates every op against introspected columns and permissions before starting, and audits the batch outcome. Conformance: mixed-batch success, mid-batch failure rollback on SQL engines, MongoDB partial reporting. Depends on F101.",
+      "behavior": "Batch commit for the SQL pending-changes model per docs/product-specs/row-editing.md: one endpoint applies an ordered set of staged inserts/updates/deletes wrapped in a single transaction on Postgres/MySQL/SQLite (all-or-nothing; rollback on first failure with the failing op index reported). MongoDB is deliberately NOT part of this endpoint - its document editor (F125) saves per-document, per the exec plan's decision 5. Adapters gain the transactional wrapper in their mutations namespace; the server validates every op against introspected columns/permissions/kind before starting, and audits the batch outcome. Conformance: mixed-batch success and mid-batch failure rollback on the three SQL engines; MongoDB asserts the endpoint cleanly reports not-applicable. Depends on F101.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -216,7 +246,7 @@
     },
     {
       "id": "F103",
-      "behavior": "The Rows table becomes an editable grid when - and only when - session capabilities and the table's permissions allow: double-click/Enter starts inline cell editing with type-aware editors reusing the F082/F089 filter value controls (boolean picker, native date/time/datetime inputs, number/text, explicit NULL setter, revert-cell), edits stage into a visible pending-changes buffer (dirty-cell styling) without touching the server, and editing is cleanly disabled - with the reason surfaced in UI copy - for read-only sessions, tables without a primary key, and non-editable columns per the spec (e.g. the PK itself). The buffer lives in features/table model state; commit wiring arrives in F105. Depends on F097, F098.",
+      "behavior": "The Rows table becomes an editable grid on SQL engines when - and only when - session capabilities, the table's permissions, its kind (F124: real tables only, not views), and a present primary key allow: double-click/Enter starts inline cell editing with type-aware editors reusing the F082/F089 filter value controls (boolean picker, native date/time/datetime inputs, number/text, explicit NULL setter, revert-cell), edits stage into a visible pending-changes buffer (dirty-cell styling) without touching the server, and editing is cleanly disabled - with the reason surfaced in UI copy - for read-only sessions, PK-less tables, views, and non-editable columns per the spec. MongoDB does not participate (its editing surface is F125's document editor). The buffer lives in features/table model state; commit wiring arrives in F105. Depends on F097, F098.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
       "state": "not_started",
       "commitHash": null,
@@ -226,7 +256,7 @@
     },
     {
       "id": "F104",
-      "behavior": "Permission-gated Add-row and Duplicate-row affordances per docs/product-specs/row-editing.md: a new-row editor with the same type-aware inputs as F103, nullable/default-value handling, and per-column validation before staging into the pending buffer; Duplicate pre-fills from the selected row minus auto-generated keys (serial/identity/ObjectId) per the spec. Hidden entirely for sessions/tables without insert permission. Depends on F103.",
+      "behavior": "Permission-gated Add-row and Duplicate-row affordances for the SQL editable grid per docs/product-specs/row-editing.md: a new-row editor with the same type-aware inputs as F103, nullable/default-value handling, and per-column validation before staging into the pending buffer; Duplicate pre-fills from the selected row minus auto-generated keys (serial/identity) per the spec. Hidden entirely for sessions/tables without insert permission, views, and MongoDB (F125 owns document insertion). Depends on F103.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
       "state": "not_started",
       "commitHash": null,
@@ -236,8 +266,18 @@
     },
     {
       "id": "F105",
-      "behavior": "The pending-changes workflow completes per docs/product-specs/row-editing.md: selected rows (F083 selection) can be staged for deletion when permitted; a commit bar shows staged insert/update/delete counts, previews the exact generated statements/ops per engine before applying, commits through the F102 batch endpoint with per-op error surfacing (failed op highlighted, buffer preserved on failure so work is never lost), and discards cleanly; deletes above the spec's threshold require typed confirmation. E2E: an edit-commit-verify roundtrip on one SQL engine plus MongoDB, and the F097 read-only guard stays green. Depends on F102, F104.",
+      "behavior": "The SQL pending-changes workflow completes per docs/product-specs/row-editing.md: selected rows (F083 selection) can be staged for deletion when permitted; a commit bar shows staged insert/update/delete counts, previews the exact generated parameterized statements before applying (TablePlus commit-preview model), commits through the F102 batch endpoint with per-op error surfacing (failed op highlighted, buffer preserved on failure so work is never lost), and discards cleanly; deletes above the spec's threshold require typed confirmation. E2E: an edit-commit-verify roundtrip on one SQL engine, and the F097 read-only guard stays green. Depends on F102, F104.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm test:e2e",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/row-editing.md"
+    },
+    {
+      "id": "F125",
+      "behavior": "MongoDB document editing per docs/product-specs/row-editing.md (Compass model, the F098 spec's EJSON decisions): the existing cell-value/row inspection flow gains an Edit-document mode rendering the full document as Extended JSON in an editor with validation; save performs the specced changed-fields update or document replace via the mutations namespace (server-side EJSON parse to real BSON - ObjectId/Date/Decimal128 survive the round trip; a lossy edit of a type the editor cannot represent must be rejected, not silently coerced), with a confirmation step showing the operation before it runs; insert-document and delete-document (typed confirmation) complete the surface. Permission-gated by F095's introspection, kind-gated (collections only, not Mongo views), audited. E2E: edit-save-verify a nested field and an ObjectId-preserving roundtrip against the MongoDB fixture; the F097 read-only guard stays green. Depends on F100, F101, F097.",
+      "verification": "node scripts/with-local-env.mjs pnpm --filter @qyre/mongodb test && pnpm --filter @qyre/ui test && pnpm test:e2e",
       "state": "not_started",
       "commitHash": null,
       "evidence": null,
@@ -256,7 +296,7 @@
     },
     {
       "id": "F107",
-      "behavior": "Write-capable SQL execution per an updated docs/product-specs/sql-editor.md: Postgres/MySQL/SQLite adapters gain runQuery(sql) executing any single statement without the READ ONLY transaction wrapper, returning rows or an affected-row count, honoring existing timeouts and the F050 result cap (MongoDB keeps supportsSql=false, untouched). POST /api/query keeps runReadOnlyQuery exactly as today for read-only sessions; write-capable sessions route through classifyStatement (F106) - mutation/ddl statements run directly, destructive ones are rejected unless the request carries an explicit confirmed flag (a server-enforced round-trip, never client-only). Every non-read statement logs an audit event with its classification and affected rows. Server tests + conformance cover each class, unconfirmed-destructive rejection, and read-only-session behavior unchanged. Depends on F096, F106.",
+      "behavior": "Write-capable SQL execution per an updated docs/product-specs/sql-editor.md: Postgres/MySQL/SQLite adapters gain runQuery(sql) executing any single statement without the READ ONLY transaction wrapper, returning rows or an affected-row count, honoring existing timeouts and the F050 result cap (MongoDB keeps supportsSql=false, untouched). CRITICAL: the write path must NOT apply Postgres's coerceUnknownQuotedIdentifiers rewrite (packages/drivers/postgres) - that DWIM double-quote-to-string coercion is acceptable on reads but must never silently alter a mutation's SQL; a regression test locks this in. POST /api/query keeps runReadOnlyQuery exactly as today for read-only sessions; write-capable sessions route through classifyStatement (F106) - mutation/ddl statements run directly, destructive ones are rejected unless the request carries an explicit confirmed flag (a server-enforced round-trip, never client-only). Every non-read statement logs an audit event with its classification and affected rows. Server tests + conformance cover each class, unconfirmed-destructive rejection, the coercion bypass, and read-only-session behavior unchanged. Depends on F096, F106.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -275,8 +315,28 @@
       "spec": "docs/product-specs/sql-editor.md"
     },
     {
+      "id": "F127",
+      "behavior": "Column-level SQL autocomplete: the editor's completion (packages/ui/src/query/sql-completion.ts, currently keywords + table names only from F013) gains column suggestions - after a table alias or qualified name (t., \"Table\"., schema.table.) suggest that table's columns; in general expression positions suggest columns of tables referenced in the current statement, using the already-fetched /api/tables metadata (no new server surface); properly quotes identifiers that need it per the connected engine. Read-only-safe, benefits every access level; a professional-IDE table-stakes gap found in the second-pass review. Unit tests cover alias resolution, quoting, and mixed-case identifiers. Depends on nothing in this plan (schedulable any time); placed in Phase C alongside the editor work.",
+      "verification": "pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F126",
+      "behavior": "Query cancellation and long-operation handling: a running SQL-editor statement (and the Rows-table fetch spinner) gains a working Cancel control. Server keeps a registry of in-flight operations per session; adapters implement engine-appropriate cancellation - Postgres: capture pg_backend_pid() per checkout and issue pg_cancel_backend() from a second connection; MySQL: KILL QUERY <processlist id>; MongoDB: cursor maxTimeMS already bounds reads, add best-effort killOp where permitted; SQLite: better-sqlite3 is synchronous and blocks the whole event loop, so this slice must decide (exec plan 0006 open decision #2, spike first) between moving SQLite statement execution to a worker thread (terminable, keeps /api/health responsive during a long scan) or documenting SQLite as non-cancellable with the existing timeout as the only bound. Cancelled operations report a distinct 'cancelled' outcome (not a generic error) in the UI and event log. Conformance: a deliberately slow query per engine is cancelled and the connection remains usable afterwards. Depends on F107.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
       "id": "F109",
-      "behavior": "Product-spec pass for schema editing before implementation: create docs/product-specs/schema-editing.md covering the ddl adapter namespace (table lifecycle: create/rename/truncate/drop; column ops: add/rename/drop/alter type-nullability-default; index ops: create/drop), the per-engine DDL matrix - Postgres/MySQL native ALTER; SQLite's documented table-rebuild pattern for column drop/rename/retype (and which ops are native per version), preserving data/indexes/FKs in one transaction; MongoDB mapped to collections + indexes with column ops not-applicable - plus each engine's column type catalog exposure for the table designer (open decision in exec plan 0006: static list vs introspected), typed-confirmation rules for destructive DDL (type the table name to drop/truncate, per docs/SECURITY.md), and the API shapes. Depends on F090.",
+      "behavior": "Product-spec pass for schema editing before implementation: create docs/product-specs/schema-editing.md covering the ddl adapter namespace (table lifecycle: create/rename/truncate/drop; column ops: add/rename/drop/alter type-nullability-default; index ops: create/drop), the per-engine DDL matrix - Postgres/MySQL native ALTER; SQLite native ADD/RENAME/DROP COLUMN (3.25/3.35+) where possible and the documented rebuild pattern (PRAGMA foreign_keys=OFF, create-new/copy/swap in one transaction, PRAGMA foreign_key_check after) for retype/constraint changes; MongoDB mapped to collections + indexes with column ops not-applicable - plus each engine's column type catalog exposure for the table designer (open decision in exec plan 0006: static list vs introspected), kind-gating rules (F124: DDL applies to kind 'table'/'collection' only; views/matviews are out of managed scope this plan), typed-confirmation rules for destructive DDL (type the table name to drop/truncate, per docs/SECURITY.md), and the API shapes. Depends on F090, F124.",
       "verification": "pnpm check:state",
       "state": "not_started",
       "commitHash": null,
@@ -286,7 +346,7 @@
     },
     {
       "id": "F110",
-      "behavior": "Table lifecycle per docs/product-specs/schema-editing.md: adapters gain the ddl namespace with createTable (columns with types from the engine's exposed type catalog, PK incl. composite, nullability, defaults), renameTable, truncateTable, and dropTable - MongoDB maps to create/rename/drop collection with truncate as deleteMany({}). Server routes gate on the ddl capability + F096 central guard, require the spec's typed-confirmation token for drop/truncate server-side, and audit every operation. Conformance: create-inspect-drop roundtrip on all four engines, restricted-user rejection, unconfirmed-drop rejection. Depends on F096, F109.",
+      "behavior": "Table lifecycle per docs/product-specs/schema-editing.md: adapters gain the ddl namespace with createTable (columns with types from the engine's exposed type catalog, PK incl. composite, nullability, defaults), renameTable, truncateTable, and dropTable - MongoDB maps to create/rename/drop collection with truncate as deleteMany({}). All operations are kind-gated (F124): targeting a view/matview is rejected up front with a clear error, never sent to the engine as the wrong statement. Server routes gate on the ddl capability + F096 central guard, require the spec's typed-confirmation token for drop/truncate server-side, and audit every operation. Conformance: create-inspect-drop roundtrip on all four engines, restricted-user rejection, unconfirmed-drop rejection, view-target rejection. Depends on F096, F109.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -296,7 +356,7 @@
     },
     {
       "id": "F111",
-      "behavior": "Column operations per docs/product-specs/schema-editing.md: addColumn/renameColumn/dropColumn/alterColumn (type, nullability, default) - native ALTER on Postgres/MySQL, the spec's table-rebuild pattern on SQLite (create-new, copy, swap - preserving data, indexes, and foreign keys inside one transaction), not-applicable on MongoDB (capability reported false, UI hides the surface). Server routes with typed confirmation for dropColumn, audit events, and conformance including a SQLite rebuild data-preservation case and restricted-user rejection. Depends on F110.",
+      "behavior": "Column operations per docs/product-specs/schema-editing.md: addColumn/renameColumn/dropColumn/alterColumn (type, nullability, default) - native ALTER on Postgres/MySQL; SQLite uses native ADD/RENAME/DROP COLUMN where the operation and version allow and the spec's rebuild pattern (PRAGMA foreign_keys=OFF, create-new/copy/swap in one transaction, PRAGMA foreign_key_check) for retype/constraint changes, chunking the copy so a large table doesn't block the event loop unboundedly; not-applicable on MongoDB (capability reported false, UI hides the surface). Server routes with typed confirmation for dropColumn, audit events, and conformance including a SQLite rebuild data-preservation case (data, indexes, FKs survive) and restricted-user rejection. Depends on F110.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
       "state": "not_started",
       "commitHash": null,
@@ -326,7 +386,7 @@
     },
     {
       "id": "F114",
-      "behavior": "Each table gains a Structure view alongside Rows per docs/product-specs/schema-editing.md: columns listed with add/rename/drop/alter controls (capability-gated; hidden where the adapter reports not-applicable, e.g. MongoDB columns), index management (F112), and rename/truncate/drop-table actions behind the spec's typed confirmations - every action previews its DDL/ops first and surfaces the audit outcome. Read-only sessions see the structure information with zero mutation affordances (a strict improvement to today's read-only experience). E2E covers a column-add + index-create + drop-table roundtrip on one SQL engine, and the F097 read-only guard stays green. Depends on F111, F112, F113.",
+      "behavior": "Each table gains a Structure view alongside Rows per docs/product-specs/schema-editing.md: columns listed with add/rename/drop/alter controls (capability-gated; hidden where the adapter reports not-applicable, e.g. MongoDB columns), index management (F112), and rename/truncate/drop-table actions behind the spec's typed confirmations - every action previews its DDL/ops first and surfaces the audit outcome. Views/matviews (F124) get the Structure information read-only with zero mutation affordances and their kind stated; read-only sessions likewise see structure info only (a strict improvement to today's read-only experience). E2E covers a column-add + index-create + drop-table roundtrip on one SQL engine, and the F097 read-only guard stays green. Depends on F111, F112, F113.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm test:e2e",
       "state": "not_started",
       "commitHash": null,
@@ -356,7 +416,7 @@
     },
     {
       "id": "F117",
-      "behavior": "Permission-gated CSV import into an existing table: a server endpoint streams and parses the upload, validates and coerces values per column type against introspected metadata, and inserts in bounded batches through the mutations namespace (transactional per batch, per-row error report with line numbers), backpressured so a large file cannot exhaust memory - the F066 streaming-export philosophy in reverse; the UI wizard maps CSV columns to table columns with a dry-run preview of the first rows and a clear success/failure summary. Needs a short product-spec pass (docs/product-specs/csv-import.md) before implementation, following the F063-F066 pattern. Depends on F099, F102.",
+      "behavior": "Permission-gated CSV import into an existing table: a server endpoint streams and parses the upload (with an explicit request-size/row-count cap and multipart limits so a huge or malicious file cannot exhaust memory or disk - the F066 streaming-export philosophy in reverse), validates and coerces values per column type against introspected metadata, and inserts in bounded batches through the mutations namespace (transactional per batch, per-row error report with line numbers); the UI wizard maps CSV columns to table columns with a dry-run preview of the first rows and a clear success/failure summary. Kind-gated (tables/collections only) and permission-gated. Needs a short product-spec pass (docs/product-specs/csv-import.md) before implementation, following the F063-F066 pattern. Depends on F099, F102.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web test",
       "state": "not_started",
       "commitHash": null,
@@ -366,7 +426,7 @@
     },
     {
       "id": "F118",
-      "behavior": "Row export grows JSON (streamed array of objects) and SQL-INSERT formats (SQL engines only, identifiers/literals safely escaped per engine; MongoDB exports JSON only, reported via capabilities not engine-name checks) alongside the existing CSV path, honoring current filters/sort/selection exactly as F066/F083 do. Read-only-safe, so it improves every access level including pure read-only users; update docs/product-specs/server-side-sort-export.md. No dependency on write slices - schedulable any time after F091.",
+      "behavior": "Row export grows JSON (streamed array of objects) and SQL-INSERT formats (SQL engines only, identifiers/literals safely escaped per engine; MongoDB exports Extended JSON, reported via capabilities not engine-name checks) alongside the existing CSV path, honoring current filters/sort/selection exactly as F066/F083 do. The export implementation also fixes the current O(n^2) pattern (the CSV route re-runs the query per MAX_PAGE_SIZE page via OFFSET pagination - packages/server/src/routes/tables.ts): switch to a single-pass stream per engine (pg cursor/query stream, mysql2 .stream(), better-sqlite3 .iterate(), MongoDB cursor). Read-only-safe, so it improves every access level; update docs/product-specs/server-side-sort-export.md. No dependency on write slices - schedulable any time after F091.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test",
       "state": "not_started",
       "commitHash": null,
@@ -375,8 +435,18 @@
       "spec": "docs/product-specs/server-side-sort-export.md"
     },
     {
+      "id": "F128",
+      "behavior": "EXPLAIN viewer for the SQL editor (read-only-safe, a standard IDE capability): an Explain action runs the engine-appropriate plan statement for the current query - Postgres EXPLAIN (optionally ANALYZE behind an explicit toggle with a warning that ANALYZE executes the statement, and never for non-SELECT classifications), MySQL EXPLAIN/EXPLAIN FORMAT=TREE, SQLite EXPLAIN QUERY PLAN; MongoDB not-applicable (no SQL surface) - and renders the plan in a readable dedicated panel (text/tree; no graphical layout this slice). assertReadOnly already allows the EXPLAIN keyword, so read-only sessions get this too. Unit tests for the per-engine statement construction; e2e asserts a plan renders for a fixture query on one engine. Depends on F106 (classification decides ANALYZE eligibility); read-only parts schedulable earlier if picked up independently.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
       "id": "F119",
-      "behavior": "A read-only Roles & grants viewer so users understand why affordances are hidden: Postgres shows pg_roles plus a grants summary for the current user, MySQL shows SHOW GRANTS/information_schema privileges, MongoDB shows rolesInfo/usersInfo where permitted, SQLite shows file-permission facts instead; strictly a viewer - no role management mutations anywhere in plan 0006. Surfaces through the admin namespace with a capability flag; degrades cleanly when the connected user may not read role catalogs. Depends on F092-F095.",
+      "behavior": "A read-only Roles & grants viewer so users understand why affordances are hidden: Postgres shows pg_roles plus a grants summary for the current user, MySQL shows SHOW GRANTS/information_schema privileges (including granted roles), MongoDB shows rolesInfo/usersInfo where permitted, SQLite shows file-permission facts instead; strictly a viewer - no role management mutations anywhere in plan 0006. Surfaces through the admin namespace with a capability flag; degrades cleanly when the connected user may not read role catalogs. Depends on F092-F095.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web test",
       "state": "not_started",
       "commitHash": null,
@@ -396,7 +466,7 @@
     },
     {
       "id": "F121",
-      "behavior": "Plan 0006's exit gate: a Playwright role-matrix suite runs per engine - a read-only session (restricted fixture user and --read-only flag) shows zero write affordances, keeps every pre-plan read-only workflow green, and receives clean structured rejections from every mutating API route; a writable session edits and commits a row, runs a write statement through the destructive-confirmation flow, and creates + drops a table (where the engine supports it) end-to-end. Docs consolidation lands with it: README feature matrix, ARCHITECTURE.md's adding-an-engine recipe gains the capabilities/mutations/ddl/admin steps, and docs/SECURITY.md's write rules are updated from aspirational to implemented contract. Move plan 0006 to exec-plans/completed with evidence. Depends on all prior plan slices.",
+      "behavior": "Plan 0006's exit gate: a Playwright role-matrix suite runs per engine - a read-only session (restricted fixture user and --read-only flag) shows zero write affordances, keeps every pre-plan read-only workflow green, and receives clean structured rejections from every mutating API route both with a valid session token and (401) without one (F122); a writable session edits and commits a row (SQL grid on one engine, MongoDB document editor), runs a write statement through the destructive-confirmation flow, and creates + drops a table (where the engine supports it) end-to-end. Docs consolidation lands with it: README feature matrix, ARCHITECTURE.md's adding-an-engine recipe gains the capabilities/mutations/ddl/admin steps, and docs/SECURITY.md's write rules are updated from aspirational to implemented contract. Move plan 0006 to exec-plans/completed with evidence. Depends on all prior plan slices.",
       "verification": "pnpm test:e2e:full && pnpm check:state",
       "state": "not_started",
       "commitHash": null,

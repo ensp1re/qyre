@@ -218,3 +218,11 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   introspect real values; `GET /api/overview` returns the full shape; `apps/web` gets a shared
   `useCapabilities` hook in `features/connection` for later write-UI gating. No visible UI change.
   F123 (batched introspection) is next.
+- 2026-07-10 (later still): F123 implemented (PR #98) - `DatabaseAdapter.getAllTables()` lands;
+  `GET /api/tables` calls it directly instead of `getOverview()` + `Promise.all(getTable)`.
+  Postgres/MySQL batch columns/PK/FK/indexes/row-counts into a few set-based queries (MySQL uses a
+  `UNION ALL` exact count rather than the originally-suggested `TABLE_ROWS` estimate, to keep exact
+  parity with `getTable()` and avoid staleness-driven conformance flakiness - a deliberate
+  deviation from this entry's literal text). SQLite/MongoDB have no cross-table catalog query, so
+  they move the fan-out into a bounded sequential loop inside the adapter instead. F124 (table/view
+  `kind`) is next.

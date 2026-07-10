@@ -321,6 +321,209 @@ async function fetchRowCountEstimate(
   return Number(exact.rows[0]?.count ?? 0);
 }
 
+/** `schema/table` lookup key for the per-table maps {@link fetchAllTableTargets}'s batched
+ * queries group into - a two-element array joined at call sites rather than a plain
+ * `${schema}.${table}` template, since either half can legally contain a literal `.` once quoted. */
+function tableKey(schema: string, table: string): string {
+  return JSON.stringify([schema, table]);
+}
+
+interface TableTarget {
+  schema: string;
+  table: string;
+}
+
+/** Every (schema, table) pair in the connected database, in the same order `getOverview` already
+ * lists them - the starting point {@link PostgresAdapter.getAllTables} groups every other batched
+ * query's rows against. */
+async function fetchAllTableTargets(pool: Pool): Promise<TableTarget[]> {
+  const result = await pool.query<{ table_schema: string; table_name: string }>(
+    `SELECT table_schema, table_name
+       FROM information_schema.tables
+      WHERE table_schema <> ALL($1::text[])
+      ORDER BY table_schema, table_name`,
+    [SYSTEM_SCHEMAS]
+  );
+  return result.rows.map((row) => ({ schema: row.table_schema, table: row.table_name }));
+}
+
+/** Batched equivalent of {@link PostgresAdapter.getTable}'s columns+PK+FK query pair (F123) - one
+ * round trip per query across every table instead of one pair per table. */
+async function fetchAllColumns(pool: Pool): Promise<Map<string, ColumnMetadata[]>> {
+  const [columnsResult, keysResult] = await Promise.all([
+    pool.query<{
+      table_schema: string;
+      table_name: string;
+      column_name: string;
+      data_type: string;
+      udt_name: string;
+      is_nullable: "YES" | "NO";
+    }>(
+      `SELECT table_schema, table_name, column_name, data_type, udt_name, is_nullable
+         FROM information_schema.columns
+        WHERE table_schema <> ALL($1::text[])
+        ORDER BY table_schema, table_name, ordinal_position`,
+      [SYSTEM_SCHEMAS]
+    ),
+    pool.query<{
+      table_schema: string;
+      table_name: string;
+      constraint_type: "PRIMARY KEY" | "FOREIGN KEY";
+      column_name: string;
+      referenced_schema: string | null;
+      referenced_table: string | null;
+      referenced_column: string | null;
+    }>(
+      `SELECT
+          tc.table_schema,
+          tc.table_name,
+          tc.constraint_type,
+          kcu.column_name,
+          ccu.table_schema AS referenced_schema,
+          ccu.table_name AS referenced_table,
+          ccu.column_name AS referenced_column
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.key_column_usage kcu
+           ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+         LEFT JOIN information_schema.constraint_column_usage ccu
+           ON tc.constraint_name = ccu.constraint_name
+          AND tc.constraint_type = 'FOREIGN KEY'
+        WHERE tc.constraint_type IN ('PRIMARY KEY', 'FOREIGN KEY')
+          AND tc.table_schema <> ALL($1::text[])`,
+      [SYSTEM_SCHEMAS]
+    )
+  ]);
+
+  const primaryKeysByTable = new Map<string, Set<string>>();
+  const foreignKeysByTable = new Map<
+    string,
+    Map<string, { schema?: string; table: string; column: string }>
+  >();
+  for (const row of keysResult.rows) {
+    const key = tableKey(row.table_schema, row.table_name);
+    if (row.constraint_type === "PRIMARY KEY") {
+      const primaryKeys = primaryKeysByTable.get(key) ?? new Set<string>();
+      primaryKeys.add(row.column_name);
+      primaryKeysByTable.set(key, primaryKeys);
+    } else if (row.referenced_table !== null && row.referenced_column !== null) {
+      const foreignKeys = foreignKeysByTable.get(key) ?? new Map();
+      foreignKeys.set(row.column_name, {
+        schema: row.referenced_schema ?? undefined,
+        table: row.referenced_table,
+        column: row.referenced_column
+      });
+      foreignKeysByTable.set(key, foreignKeys);
+    }
+  }
+
+  const columnsByTable = new Map<string, ColumnMetadata[]>();
+  for (const row of columnsResult.rows) {
+    const key = tableKey(row.table_schema, row.table_name);
+    const primaryKeys = primaryKeysByTable.get(key);
+    const foreignKeys = foreignKeysByTable.get(key);
+    const columns = columnsByTable.get(key) ?? [];
+    columns.push({
+      name: row.column_name,
+      dataType: row.data_type === "USER-DEFINED" ? row.udt_name : row.data_type,
+      nullable: row.is_nullable === "YES",
+      isPrimaryKey: primaryKeys?.has(row.column_name) ?? false,
+      isForeignKey: foreignKeys?.has(row.column_name) ?? false,
+      references: foreignKeys?.get(row.column_name)
+    });
+    columnsByTable.set(key, columns);
+  }
+  return columnsByTable;
+}
+
+/** Batched equivalent of {@link fetchIndexes} (F123) - one query across every table's indexes. */
+async function fetchAllIndexes(pool: Pool): Promise<Map<string, IndexMetadata[]>> {
+  const result = await pool.query<{
+    table_schema: string;
+    table_name: string;
+    index_name: string;
+    is_unique: boolean;
+    is_primary: boolean;
+    columns: string[];
+  }>(
+    `SELECT
+        n.nspname AS table_schema,
+        tc.relname AS table_name,
+        ic.relname AS index_name,
+        ix.indisunique AS is_unique,
+        ix.indisprimary AS is_primary,
+        array_agg(a.attname::text ORDER BY array_position(ix.indkey, a.attnum)) AS columns
+       FROM pg_index ix
+       JOIN pg_class ic ON ic.oid = ix.indexrelid
+       JOIN pg_class tc ON tc.oid = ix.indrelid
+       JOIN pg_namespace n ON n.oid = tc.relnamespace
+       JOIN pg_attribute a ON a.attrelid = tc.oid AND a.attnum = ANY(ix.indkey)
+      WHERE n.nspname <> ALL($1::text[])
+      GROUP BY n.nspname, tc.relname, ic.relname, ix.indisunique, ix.indisprimary
+      ORDER BY n.nspname, tc.relname, ic.relname`,
+    [SYSTEM_SCHEMAS]
+  );
+
+  const indexesByTable = new Map<string, IndexMetadata[]>();
+  for (const row of result.rows) {
+    const key = tableKey(row.table_schema, row.table_name);
+    const indexes = indexesByTable.get(key) ?? [];
+    indexes.push({
+      name: row.index_name,
+      columns: row.columns,
+      unique: row.is_unique,
+      primary: row.is_primary
+    });
+    indexesByTable.set(key, indexes);
+  }
+  return indexesByTable;
+}
+
+/** Batched equivalent of {@link fetchRowCountEstimate} (F123): one query for every table's
+ * `reltuples` estimate, then a targeted exact `COUNT(*)` only for the tables that come back -1
+ * (never `ANALYZE`d) - preserves {@link fetchRowCountEstimate}'s exact fallback semantics without
+ * reintroducing a per-table round trip for the common (already-analyzed) case. */
+async function fetchAllRowCountEstimates(
+  pool: Pool,
+  targets: TableTarget[]
+): Promise<Map<string, number | undefined>> {
+  // No relkind filter, matching fetchRowCountEstimate's per-table query exactly - a view (not yet
+  // distinguished from a table pre-F124) still needs a row estimate here to keep parity with what
+  // getTable() would report for the same name.
+  const result = await pool.query<{ table_schema: string; table_name: string; estimate: string }>(
+    `SELECT n.nspname AS table_schema, c.relname AS table_name, c.reltuples::bigint AS estimate
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname <> ALL($1::text[])`,
+    [SYSTEM_SCHEMAS]
+  );
+
+  const estimateByTable = new Map<string, number>();
+  for (const row of result.rows) {
+    estimateByTable.set(tableKey(row.table_schema, row.table_name), Number(row.estimate));
+  }
+
+  const rowCountByTable = new Map<string, number | undefined>();
+  const unanalyzed = targets.filter(
+    ({ schema, table }) => (estimateByTable.get(tableKey(schema, table)) ?? 0) < 0
+  );
+  const exactCounts = await Promise.all(
+    unanalyzed.map(({ schema, table }) => fetchRowCountEstimate(pool, schema, table))
+  );
+  const exactByTable = new Map(
+    unanalyzed.map(({ schema, table }, i) => [tableKey(schema, table), exactCounts[i]])
+  );
+
+  for (const { schema, table } of targets) {
+    const key = tableKey(schema, table);
+    rowCountByTable.set(
+      key,
+      exactByTable.has(key) ? exactByTable.get(key) : estimateByTable.get(key)
+    );
+  }
+  return rowCountByTable;
+}
+
 export class PostgresAdapter implements DatabaseAdapter {
   public readonly engine = "postgres";
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
@@ -489,6 +692,27 @@ export class PostgresAdapter implements DatabaseAdapter {
     }));
 
     return { schema, name: table, columns, indexes, rowCount };
+  }
+
+  async getAllTables(): Promise<TableMetadata[]> {
+    const pool = this.getPool();
+    const targets = await fetchAllTableTargets(pool);
+    const [columnsByTable, indexesByTable, rowCountByTable] = await Promise.all([
+      fetchAllColumns(pool),
+      fetchAllIndexes(pool),
+      fetchAllRowCountEstimates(pool, targets)
+    ]);
+
+    return targets.map(({ schema, table }) => {
+      const key = tableKey(schema, table);
+      return {
+        schema,
+        name: table,
+        columns: columnsByTable.get(key) ?? [],
+        indexes: indexesByTable.get(key) ?? [],
+        rowCount: rowCountByTable.get(key)
+      };
+    });
   }
 
   async getRows(

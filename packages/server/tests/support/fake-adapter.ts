@@ -16,6 +16,7 @@ export function makeFakeAdapter(overrides: Partial<DatabaseAdapter> = {}): Datab
       capabilities: stubReadOnlyCapabilities(true)
     }),
     getTable: async () => ({ schema: "public", name: "x", columns: [] }),
+    getAllTables: async () => [{ schema: "public", name: "x", columns: [] }],
     getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
     runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
     ...overrides

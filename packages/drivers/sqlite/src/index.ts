@@ -237,6 +237,27 @@ export class SqliteAdapter implements DatabaseAdapter {
     return { schema, name: table, columns, indexes, rowCount: count };
   }
 
+  /**
+   * SQLite has no cross-table catalog query (each pragma above is per-table by design) - F123's
+   * batching win here is moving the fan-out from the *route* (an unbounded `Promise.all` across
+   * every adapter call) into the adapter as a plain sequential loop reusing `getTable`. Bounded
+   * concurrency of 1 is also a non-issue for correctness: better-sqlite3's pragma/prepare calls are
+   * synchronous, so nothing actually runs concurrently either way.
+   */
+  async getAllTables(): Promise<TableMetadata[]> {
+    const tables = this.getDb()
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+      )
+      .all() as Array<{ name: string }>;
+
+    const result: TableMetadata[] = [];
+    for (const { name } of tables) {
+      result.push(await this.getTable(MAIN_SCHEMA, name));
+    }
+    return result;
+  }
+
   async getRows(
     schema: string,
     table: string,

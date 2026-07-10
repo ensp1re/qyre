@@ -32,6 +32,13 @@ export interface DatabaseAdapter {
   getCapabilities(): Promise<ConnectionCapabilities>;
   /** Introspect a single table's columns and metadata. */
   getTable(schema: string, table: string): Promise<TableMetadata>;
+  /** Every table's metadata across every schema, in the shape N sequential `getTable` calls would
+   * produce - but via one/few set-based catalog queries per engine where the engine supports it
+   * (Postgres/MySQL), or bounded (not fan-out) per-table introspection otherwise (SQLite/MongoDB).
+   * Backs `GET /api/tables` (F027, F123) so a large database's Schema tab doesn't fan out an
+   * unbounded `Promise.all` of per-table catalog round trips. `rowCount` may be an estimate rather
+   * than an exact count where the engine's own `getTable` already treats it as one. */
+  getAllTables(): Promise<TableMetadata[]>;
   /** Fetch a page of rows for a table, optionally sorted by one column (F065) and/or narrowed by
    * one or more AND-combined filters (F072). `sort.column`/each `filters[].column` must already be
    * validated against the table's real columns by the caller - see

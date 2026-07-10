@@ -6,10 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-10.
-- Branch: `feature/F092-postgres-permission-introspection`, based on merged PR #99 (F124).
-- Queue: 6 `passing` entries (F122, F090, F091, F123, F124, pruned to 24h retention), F092
-  `active`, plus 34 `not_started` entries (F093-F121, F125-F128) - the rest of plan 0006's
-  role-aware database IDE.
+- Branch: `feature/F092-postgres-permission-introspection`, pushed. Draft PR #100 has both CI
+  jobs green.
+- Queue: F092 is `passing`; F093-F121 and F125-F128 remain `not_started`.
   `nextIds.F` is 129.
 
 ## Completed
@@ -44,14 +43,14 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   `= 'table'` only). Row counts skip views on all 4 engines (meaningless/would re-execute the
   view). The Schema tab's `TableDetail` card shows a subtle VIEW/MATERIALIZED VIEW badge; the
   sidebar tree badge is deliberately deferred (see PR #99's description for why). PR #99.
+- F092 (Postgres permission introspection) pushed and CI green: `getCapabilities()` reads actual
+  replica/session/role/grant facts, single and batched table metadata carry advisory table
+  privileges, and failed introspection logs then safely degrades to read-only. Docker and
+  `@qyre/testing` provide the SELECT-only `qyre_readonly` fixture. PR #100.
 
 ## In progress
 
-- F092 (Postgres permission introspection) is implemented and locally verified. It reports real
-  session capabilities from replica/session-read-only/role and CREATE-grant facts; attaches
-  `has_table_privilege` permissions through both single-table and set-based all-table paths;
-  degrades failed introspection to logged read-only results; and provisions/tests the SELECT-only
-  `qyre_readonly` fixture. Pending commit, push, and draft PR/CI before moving to `passing`.
+- Nothing active.
 
 ## Known issues / blockers
 
@@ -75,6 +74,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Commit, push, and open the F092 draft PR; wait for both CI jobs before recording it as passing.
-- Then pick up F093 (MySQL permission introspection). The exec plan's "Feature order and
+- Pick up F093 (MySQL permission introspection). The exec plan's "Feature order and
   dependencies" section is authoritative: F093/F094/F095 -> F096 -> F097 before any write feature.

@@ -219,30 +219,33 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     await teardown?.();
   });
 
-  it.skipIf(!configured)("reports a well-formed capabilities object (F091, F092)", async () => {
-    const capabilities = await adapter.getCapabilities();
-    expect(capabilities.supportsSql).toBe(engine !== "mongodb");
-    if (engine === "postgres") {
-      // The conformance Postgres fixture connects as the Docker/CI superuser. F092 replaces its
-      // F091 stub with real session facts, so every Postgres capability is available here.
-      expect(capabilities).toMatchObject({
-        supportsRowMutations: true,
-        supportsDdl: true,
-        supportsIndexManagement: true,
-        supportsDatabaseManagement: true,
-        supportsTransactions: true,
-        readOnlyReason: null
-      });
-    } else {
-      // F093-F095 have not replaced their conservative F091 stubs yet.
-      expect(capabilities.supportsRowMutations).toBe(false);
-      expect(capabilities.supportsDdl).toBe(false);
-      expect(capabilities.supportsIndexManagement).toBe(false);
-      expect(capabilities.supportsDatabaseManagement).toBe(false);
-      expect(capabilities.supportsTransactions).toBe(false);
-      expect(capabilities.readOnlyReason).toBe("grants");
+  it.skipIf(!configured)(
+    "reports a well-formed capabilities object (F091, F092, F093)",
+    async () => {
+      const capabilities = await adapter.getCapabilities();
+      expect(capabilities.supportsSql).toBe(engine !== "mongodb");
+      if (engine === "postgres" || engine === "mysql") {
+        // The conformance Postgres/MySQL fixtures connect as the Docker/CI superuser/root. F092/F093
+        // replace their F091 stubs with real session facts, so every capability is available here.
+        expect(capabilities).toMatchObject({
+          supportsRowMutations: true,
+          supportsDdl: true,
+          supportsIndexManagement: true,
+          supportsDatabaseManagement: true,
+          supportsTransactions: true,
+          readOnlyReason: null
+        });
+      } else {
+        // F094/F095 have not replaced their conservative F091 stubs yet.
+        expect(capabilities.supportsRowMutations).toBe(false);
+        expect(capabilities.supportsDdl).toBe(false);
+        expect(capabilities.supportsIndexManagement).toBe(false);
+        expect(capabilities.supportsDatabaseManagement).toBe(false);
+        expect(capabilities.supportsTransactions).toBe(false);
+        expect(capabilities.readOnlyReason).toBe("grants");
+      }
     }
-  });
+  );
 
   it.skipIf(!configured)(
     "getAllTables() returns the same shape as N x getTable() (F123)",

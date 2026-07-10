@@ -1,4 +1,5 @@
 import type {
+  ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
   RowFilter,
@@ -24,6 +25,11 @@ export interface DatabaseAdapter {
   getVersion(): Promise<string>;
   /** Introspect the overall structure (schemas and tables). */
   getOverview(): Promise<DatabaseOverview>;
+  /** Session-level capabilities for the connected role - see
+   * docs/product-specs/permissions-and-capabilities.md. `getOverview()`'s `capabilities` field is
+   * this method's result, not computed separately - callers needing just the capabilities (without
+   * a full structure introspection) can call this directly. */
+  getCapabilities(): Promise<ConnectionCapabilities>;
   /** Introspect a single table's columns and metadata. */
   getTable(schema: string, table: string): Promise<TableMetadata>;
   /** Fetch a page of rows for a table, optionally sorted by one column (F065) and/or narrowed by

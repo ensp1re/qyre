@@ -1,3 +1,5 @@
+import type { TablePermissions } from "./schema.js";
+
 /** The table/column a foreign key column points at (F061 - makes FK columns clickable). */
 export interface ForeignKeyReference {
   readonly schema?: string;
@@ -32,6 +34,10 @@ export interface TableMetadata {
   readonly columns: ColumnMetadata[];
   readonly indexes?: IndexMetadata[];
   readonly rowCount?: number;
+  /** Advisory per-table permissions for the connected role - undefined until an engine's
+   * permission-introspection slice (F092-F095) populates it. See
+   * docs/product-specs/permissions-and-capabilities.md. */
+  readonly permissions?: TablePermissions;
 }
 
 /**

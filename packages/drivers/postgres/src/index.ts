@@ -6,6 +6,7 @@
  */
 import type {
   ColumnMetadata,
+  ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
   FilterOp,
@@ -21,7 +22,8 @@ import {
   capResultRows,
   escapeLikePattern,
   resolvePageRequest,
-  runInReadOnlyTransaction
+  runInReadOnlyTransaction,
+  stubReadOnlyCapabilities
 } from "@qyre/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import { Pool, types } from "pg";
@@ -393,7 +395,11 @@ export class PostgresAdapter implements DatabaseAdapter {
       tables
     }));
 
-    return { engine: "postgres", schemas, capabilities: { supportsSql: true } };
+    return { engine: "postgres", schemas, capabilities: await this.getCapabilities() };
+  }
+
+  async getCapabilities(): Promise<ConnectionCapabilities> {
+    return stubReadOnlyCapabilities(true);
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {

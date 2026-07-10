@@ -17,9 +17,39 @@ export interface AdapterCapabilities {
   readonly supportsSql: boolean;
 }
 
+/** Why every `supports*` write flag on {@link ConnectionCapabilities} is false; `null` once any
+ * flag is true. See docs/product-specs/permissions-and-capabilities.md. */
+export type ReadOnlyReason = "qyre-flag" | "replica" | "connection" | "grants" | null;
+
+/**
+ * Session-level capabilities: what the *connected role*, not just the engine, can do - extends
+ * {@link AdapterCapabilities} (`supportsSql` keeps its existing engine-level meaning) with flags
+ * that depend on the connected user's actual database grants. Advisory only: the database is
+ * always the real enforcer of every read and write. See
+ * docs/product-specs/permissions-and-capabilities.md.
+ */
+export interface ConnectionCapabilities extends AdapterCapabilities {
+  readonly supportsRowMutations: boolean;
+  readonly supportsDdl: boolean;
+  readonly supportsIndexManagement: boolean;
+  readonly supportsDatabaseManagement: boolean;
+  readonly supportsTransactions: boolean;
+  readonly readOnlyReason: ReadOnlyReason;
+}
+
+/** Per-table permissions the connected role has on one table - advisory, attached to
+ * `TableMetadata.permissions` by each engine's introspection. See
+ * docs/product-specs/permissions-and-capabilities.md. */
+export interface TablePermissions {
+  readonly select: boolean;
+  readonly insert: boolean;
+  readonly update: boolean;
+  readonly delete: boolean;
+}
+
 /** Top-level overview of a database's structure. */
 export interface DatabaseOverview {
   readonly engine: DatabaseEngine;
   readonly schemas: SchemaMetadata[];
-  readonly capabilities: AdapterCapabilities;
+  readonly capabilities: ConnectionCapabilities;
 }

@@ -5,6 +5,7 @@
  */
 import type {
   ColumnMetadata,
+  ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
   RowFilter,
@@ -13,7 +14,7 @@ import type {
   SchemaMetadata,
   TableMetadata
 } from "@qyre/core";
-import { escapeRegExp, resolvePageRequest } from "@qyre/driver-contract";
+import { escapeRegExp, resolvePageRequest, stubReadOnlyCapabilities } from "@qyre/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import {
   Binary,
@@ -325,7 +326,13 @@ export class MongodbAdapter implements DatabaseAdapter {
     // adapter at all - see docs/product-specs/connect-and-inspect-mongodb.md) - apps/web uses this
     // flag instead of an engine === "mongodb" string check to disable the SQL Editor tab and the
     // Files tab's "Run in editor" action.
-    return { engine: "mongodb", schemas, capabilities: { supportsSql: false } };
+    return { engine: "mongodb", schemas, capabilities: await this.getCapabilities() };
+  }
+
+  async getCapabilities(): Promise<ConnectionCapabilities> {
+    // MongoDB has no DDL concept - once F095 introspects real permissions, supportsDdl stays
+    // structurally false here regardless of grants, unlike the SQL engines' supportsDdl.
+    return stubReadOnlyCapabilities(false);
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {

@@ -4,6 +4,7 @@
  * Concrete engines (e.g. the Postgres driver) implement {@link DatabaseAdapter}. This package must
  * not depend on any concrete database driver. See ARCHITECTURE.md and docs/CODE_ORGANIZATION.md.
  */
+export * from "./capabilities.js";
 export * from "./contract.js";
 export * from "./errors.js";
 export * from "./resolve.js";

@@ -7,6 +7,7 @@
 import { resolve } from "node:path";
 import type {
   ColumnMetadata,
+  ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
   FilterOp,
@@ -21,7 +22,8 @@ import {
   assertReadOnly,
   capResultRows,
   escapeLikePattern,
-  resolvePageRequest
+  resolvePageRequest,
+  stubReadOnlyCapabilities
 } from "@qyre/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import Database from "better-sqlite3";
@@ -192,7 +194,11 @@ export class SqliteAdapter implements DatabaseAdapter {
       { name: MAIN_SCHEMA, tables: tables.map((row) => row.name) }
     ];
 
-    return { engine: "sqlite", schemas, capabilities: { supportsSql: true } };
+    return { engine: "sqlite", schemas, capabilities: await this.getCapabilities() };
+  }
+
+  async getCapabilities(): Promise<ConnectionCapabilities> {
+    return stubReadOnlyCapabilities(true);
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {

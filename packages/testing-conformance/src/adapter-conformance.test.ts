@@ -197,6 +197,20 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     await teardown?.();
   });
 
+  it.skipIf(!configured)("reports a well-formed capabilities object (F091)", async () => {
+    const capabilities = await adapter.getCapabilities();
+    expect(capabilities.supportsSql).toBe(engine !== "mongodb");
+    // F091 hardcodes every write flag to false with readOnlyReason "grants" until each engine's
+    // own permission-introspection slice (F092-F095) replaces this stub with a real, grants-driven
+    // value - see docs/product-specs/permissions-and-capabilities.md.
+    expect(capabilities.supportsRowMutations).toBe(false);
+    expect(capabilities.supportsDdl).toBe(false);
+    expect(capabilities.supportsIndexManagement).toBe(false);
+    expect(capabilities.supportsDatabaseManagement).toBe(false);
+    expect(capabilities.supportsTransactions).toBe(false);
+    expect(capabilities.readOnlyReason).toBe("grants");
+  });
+
   it.skipIf(!configured)(
     "clamps an oversized pageSize but only returns the rows that actually exist",
     async () => {

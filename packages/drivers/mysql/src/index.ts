@@ -7,6 +7,7 @@
  */
 import type {
   ColumnMetadata,
+  ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
   FilterOp,
@@ -22,7 +23,8 @@ import {
   capResultRows,
   escapeLikePattern,
   resolvePageRequest,
-  runInReadOnlyTransaction
+  runInReadOnlyTransaction,
+  stubReadOnlyCapabilities
 } from "@qyre/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import mysql from "mysql2/promise";
@@ -224,7 +226,11 @@ export class MysqlAdapter implements DatabaseAdapter {
       tables
     }));
 
-    return { engine: "mysql", schemas, capabilities: { supportsSql: true } };
+    return { engine: "mysql", schemas, capabilities: await this.getCapabilities() };
+  }
+
+  async getCapabilities(): Promise<ConnectionCapabilities> {
+    return stubReadOnlyCapabilities(true);
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {

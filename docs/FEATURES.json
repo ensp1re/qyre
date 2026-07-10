@@ -2,99 +2,11 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 90,
+    "F": 122,
     "DF": 10
   },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
-    {
-      "id": "F072",
-      "behavior": "`GET /api/tables/:schema/:table/rows` gains server-side filter parameters (column validated against the table's real columns, operator from a fixed whitelist, value always parameter-bound), each of the 4 adapters' `getRows` translates them into a real `WHERE`/`.find()` query, and the Rows table gets a structured filter bar (column/operator/value, no raw SQL needed so it works on MongoDB too). Clicking a primary-key value applies a filter on the current table; clicking a foreign-key value navigates to the referenced table pre-filtered to that row - both verified on all 4 engines, including MongoDB's `_id`, via new `@qyre/testing-conformance` cases. Needs a product-spec pass (filter grammar, API shape) before implementation, following the pattern used for F063-F066.",
-      "verification": "pnpm test",
-      "state": "passing",
-      "commitHash": "43d3b53",
-      "evidence": "PR #73 (https://github.com/ensp1re/qyre/pull/73), merged as 6295ff8. Server-side row filtering across all 4 engines plus a redesigned filter UX. @qyre/core: RowFilter/FilterOp types + JSON-encoded filters query param on rowsQuerySchema (value required except isNull/isNotNull). @qyre/server: resolveRowFilters/resolveRowQuery validate each filter column against the table's real introspected columns (same injection-surface pattern as F065 sort), sharing one getTable call for sort+filter; wired into /rows and /export.csv. All 4 adapters translate filters natively: Postgres/MySQL/SQLite parameterized WHERE (ILIKE/LIKE ... ESCAPE for contains, values always bound); MongoDB $and .find() document coercing each value to the column's real BSON type via F068 inferColumns. New shared escapeLikePattern/escapeRegExp helpers (packages/drivers/contract/src/filter-escape.ts). New per-engine conformance cases (eq/neq, same-column AND, contains, isNull/isNotNull). UI: new FilterBar component (packages/ui/src/components/filter-bar.tsx) - a Linear/Supabase-style anchored popover with a progressive column->operator->value flow (searchable type-to-filter column list with type icons + PK/FK badges, per-column-kind operator ordering, breadcrumb re-pick), applied filters as editable segmented chips joined by and separators, per-chip remove, clear-all; focus-trapped dialog, listbox/option roles, full arrow/Enter/Escape keyboard operation. classifyColumnKind exported from type-icon.tsx so operator ordering reuses the type-icon classification. RowsTable keeps PK-cell click-to-filter; onNavigateToForeignKey also passes the clicked value so FK clicks pre-filter the referenced table. apps/web threads filters state through use-rows/tables-tab/App and the CSV export URL. Tests: new filter-bar.render.test.tsx (9 tests), updated rows-table tests; @qyre/ui green (98 tests). Verified live via SQLite fixture through the browser (popover flow, per-kind operator order, AND semantics, edit-in-place, clear-all, PK click, 400s on bad column/op, filtered CSV export, no console errors) and confirmed passing on the full live-DB pnpm check before merge.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/rows-table-filtering.md",
-      "completedAt": "2026-07-08T13:54:08.000Z"
-    },
-    {
-      "id": "F074",
-      "behavior": "The Schema tab gains an interactive graph/ERD view - pannable, zoomable, draggable table nodes connected by foreign-key relationship edges (SQL engines only; MongoDB renders as unconnected nodes) - replacing or supplementing the current static card grid. Needs a product-spec pass first (canvas library choice, auto-layout, position persistence), following the pattern used for F063-F066.",
-      "verification": "pnpm test:e2e:full",
-      "state": "passing",
-      "commitHash": "d053db5",
-      "evidence": "PR #74 (https://github.com/ensp1re/qyre/pull/74), merged as 28362de. CI run 28950817048 (both Lint/typecheck/test/build and End-to-end jobs) succeeded on main after merge, confirming the live-DB pnpm test:e2e:full gate this sandbox could not run locally. Interactive schema graph (ERD) for the Schema tab, built on @xyflow/react (React Flow) + @dagrejs/dagre for auto-layout - a user-directed library choice over a hand-rolled canvas. apps/web/src/components/schema-graph/: graph-model.ts (pure buildGraph() derives one node per table and one edge per foreign key from the existing ColumnMetadata.references - no server change needed; node ids schema-qualified; unresolvable refs skipped rather than drawn dangling; MongoDB/no-FK databases render as unconnected nodes; layoutGraph() is the dagre top-to-bottom layout adapter), table-node.tsx (custom React Flow node reusing TableDetail/TypeIcon visuals with a per-FK-column source handle so edges visibly leave from the key), use-graph-positions.ts (node positions persisted in localStorage keyed per database), schema-graph.tsx (the ReactFlowProvider canvas - zoom controls, minimap, dot background, Reset-layout, fit-view; persists via onNodeDragStop rather than onNodesChange dragging===false, a real bug caught live where the latter also captured mount-time position noise and made Reset re-save stale positions). schema-tab.tsx gained a Graph/Grid toggle (use-schema-view.ts, persisted, Graph default) keeping the existing SchemaGrid card view as the keyboard-accessible alternate; App.tsx passes the connection target as the per-database layout key. Spec: docs/product-specs/schema-graph.md. Tests: graph-model.test.ts (6 tests - edge derivation, dangling-skip, schema-qualified ids, Mongo unconnected nodes, dagre positions); e2e/connect-and-inspect.spec.ts updated to assert the graph by default then toggle to Grid for the card-view assertions. Manually verified live via a 6-table SQLite fixture with real FKs (users/organizations/posts/comments/tags/post_tags): 6 nodes auto-laid-out, all 7 FK edges drawn, pan/zoom/minimap/drag, Graph/Grid toggle + persistence, a real drag persists per-database, Reset clears + re-fits, no console errors.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/schema-graph.md",
-      "completedAt": "2026-07-08T14:31:18.000Z"
-    },
-    {
-      "id": "F075",
-      "behavior": "The agent harness uses compact generated context, a 24-hour live feature queue, tracked and validated project skills, cohesion-based source/test organization guidance, and a Docker-aware local-to-PR verification workflow so coding agents spend fewer tokens without skipping delivery gates.",
-      "verification": "pnpm verify:pr",
-      "state": "passing",
-      "commitHash": "7a9786f",
-      "evidence": "Draft PR #76 (https://github.com/ensp1re/qyre/pull/76), implementation commit 128c4d7 with CI fixes through 7a9786f. Local pnpm verify:pr passed against Docker Desktop: Postgres/MySQL/MongoDB healthy, 34 package check tasks passed, smoke E2E 4/4, full E2E 11 passed/5 intentionally engine-inapplicable skips across all four engines. MongoDB now has a Playwright project covering connected browse, schema/collection display, nested-document inspection, and disabled SQL Editor; SQL-only specs skip it explicitly. The gate also exposed a corrupt generated SQLite fixture previously accepted as an environment issue; ensureSqliteFile now quick-checks and recreates only invalid generated fixtures, covered by @qyre/testing regression test. All three tracked skills passed skill-creator quick_validate.py. GitHub Actions run 28956172263 passed both Lint/typecheck/test/build and End-to-end jobs with PostgreSQL, MySQL, SQLite, and MongoDB coverage.",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-08T15:54:06.000Z"
-    },
-    {
-      "id": "F076",
-      "behavior": "The web application uses an enforced shared-to-features-to-app architecture with api/model/ui feature segments, mirrored tests, explicit server/client/persisted state ownership, and credential-safe browser persistence.",
-      "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/web typecheck && pnpm test:e2e",
-      "state": "passing",
-      "commitHash": "88cbe284ad4892207f2ae15c34afdcc8849f80c7",
-      "evidence": "Research compared the referenced Vite boilerplate with Bulletproof React, Feature-Sliced Design, React state guidance, TanStack Query, Redux Toolkit, and Zustand. Qyre now uses shared -> features -> app with api/model/ui feature segments and mechanically enforced dependency direction. TanStack Query owns server state; local React state owns component state; a tested reducer owns coordinated workspace transitions; a typed versioned adapter owns persistence. Raw credential-bearing recent targets are session-only and legacy stored secrets are purged. Web tests increased from 6 to 15 across mirrored app, feature, and shared paths. Local pnpm verify:pr passed: 34 package tasks, 5 smoke E2E passed/3 engine-duplicate skips, and 11 full E2E passed/5 engine-inapplicable skips across PostgreSQL, MySQL, SQLite, and MongoDB. Root test/check commands now load optional .env values without overriding CI/shell values; pnpm test passed with shell test URLs unset and all three Compose databases healthy. PR #77 merged as 88cbe28, CI confirmed on main (E2E and lint/typecheck/test/build both pass).",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-08T16:41:31.000Z"
-    },
-    {
-      "id": "F077",
-      "behavior": "The UI package is reorganized into cohesive component families selected from actual ownership rather than a prescribed folder list; tests move to a mirrored packages/ui/tests tree and the public package API remains compatible.",
-      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/ui build",
-      "state": "passing",
-      "commitHash": "eb1fd5ac59d55b8774be8dc819d6396dca7fa5eb",
-      "evidence": "The flat packages/ui/src/components/ directory is reorganized into seven cohesive families by actual ownership: data-grid (rows-table, cell-value, cell-value-drawer, filter-bar, date-detail-popover), schema (sidebar, schema-tree, schema-grid, table-detail), query (query-runner, query-history-drawer, console-log, sql-completion), connection (connect-drawer, files-browser), shell (title-bar, tab-bar, status-bar), feedback (spinner, error-state, error-boundary), and primitives (resize-handle, type-icon, format-cell, use-focus-trap - dependency-free concerns consumed across multiple families). Tests moved to a mirrored packages/ui/tests/<family> tree, including a tests/support/test-setup.ts. The public index.tsx barrel re-exports the identical named export set from their new paths, so apps/web (which only ever imports the @qyre/ui barrel, never a deep path) needed no changes. pnpm --filter @qyre/ui test (15 files, 98 tests), typecheck, and build all pass; pnpm --filter @qyre/web typecheck still passes unchanged against the rebuilt package. PR #78 merged as 36fc66e, CI confirmed on main.",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-08T22:04:01.000Z"
-    },
-    {
-      "id": "F078",
-      "behavior": "The Fastify server is split into an app builder, resource route plugins, services, and infrastructure plugins; tests move to mirrored routes/services/integration folders under packages/server/tests with no HTTP contract change.",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/server typecheck && pnpm --filter @qyre/server build",
-      "state": "passing",
-      "commitHash": "d2e2edc1acabce9d7b4772a306e31377b8587737",
-      "evidence": "The flat packages/server/src/index.ts (545 lines, all routes/plugins/helpers inline) is split by Fastify's plugin-encapsulation contract: app.ts builds the Fastify instance, constructs a shared mutable ServerContext (adapter/target/eventLog/lastKnownStatus/lastError passed by reference so POST /api/connect's F064 swap is visible to every other route on its next request), and registers plugins/routes; routes/{health,connect,overview,tables,query,console,files}.ts each own one HTTP resource; plugins/{host-guard,error-handler,static-web}.ts hold the DNS-rebinding Host guard (F025), the global error handler (F017), and webRoot static serving (F044); services/{event-log,csv,files,row-query,connection-display,require-adapter}.ts hold reusable non-HTTP behavior. index.ts re-exports only the public API (createServer, startServer, EventLog, displayTarget, describeError) - unchanged surface, so packages/cli needed no changes. The former single 934-line src/index.test.ts is split into tests/{routes,plugins,services}/<name>.test.ts plus tests/support/fake-adapter.ts, mirroring the source tree; all 67 tests still pass (previously 67 in one file). pnpm --filter @qyre/server test/typecheck/build all pass; pnpm --filter @qyre/qyre (cli) and @qyre/web typecheck and their test suites still pass unchanged against the rebuilt package. Local pnpm verify:pr passed: format/lint/typecheck/test/build across all packages, 5 smoke E2E, and 11 full E2E across Postgres/MySQL/SQLite/MongoDB. PR #79 merged as d2e2edc, CI confirmed on main (End-to-end and Lint/typecheck/test/build both pass).",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-08T22:48:37.000Z"
-    },
-    {
-      "id": "F081",
-      "behavior": "Column type metadata and cell rendering preserve each engine's real date/time semantics instead of collapsing everything into a date: a TIME column (e.g. type_showcase.col_time, a value like \"08:27:20\") must never be routed through the date parser (currently throws `Could not parse \"08:27:20\" as a date`), and a TIMESTAMP/TIMESTAMPTZ value must render and inspect as a timestamp rather than being silently truncated to date-only in the Rows table. A raw engine type name shown to the user (e.g. Postgres's `timestamp without time zone`) gets a clear, non-alarming label instead of leaking the literal internal type string verbatim. The Rows table header also visually attaches each column's type badge to its name (currently disconnected, making it hard to tell which type belongs to which column). Verify against every relevant column of the type_showcase table across Postgres/MySQL/SQLite, confirmed live via Preview.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "2250b622de77cae237c3e4a99364511ea42f0e3a",
-      "evidence": "isClickableDateType() split from isDateType() so a bare TIME value (no date component) never reaches new Date(...) via the click-to-inspect popover, while TypeIcon/classifyColumnKind still treat TIME as date-ish for icon/kind purposes. friendlyTypeLabel() maps verbose engine-reported names (Postgres's \"timestamp without time zone\") to short labels (timestamp, timestamp (tz), time, date) in the Rows table header. The header's type badge (icon + label + PK/FK) now renders inside each column's own <th>, stacked under the column name, instead of a separate horizontally-scrolled bar that could drift out of alignment. Grid-cell text and the DATE/TIMESTAMP/TIMESTAMPTZ popover were already correct (raw value, not truncated) - verified live via Preview against Postgres's type_showcase and left unchanged. MySQL/SQLite type-string handling covered by unit tests; MongoDB dates arrive pre-serialized as ISO strings, unaffected. pnpm --filter @qyre/ui test and pnpm verify:pr (checks, build, smoke E2E, full E2E across all 4 engines) both passed locally. PR #82 merged as 2250b62, CI confirmed on main.",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-09T10:24:21.000Z"
-    },
-    {
-      "id": "F082",
-      "behavior": "The Rows table's filter bar becomes genuinely type-aware instead of offering one generic operator list for every column: boolean columns offer only true/false (no contains/starts-with/etc.), date and timestamp columns get real before/after/range date pickers instead of a raw text value, time columns use a time picker rather than a date parser, and MongoDB filters can target BSON-only values - ObjectId, null, and edge sentinels such as $minKey/$maxKey - without requiring hand-written raw query syntax. Verify against type_showcase's boolean/date/time columns on the 3 SQL engines and the BSON edge-value columns on MongoDB.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "7cacbe4389245af8a559cedb82170c922889eba9",
-      "evidence": "FilterBar: OP_ORDER_BY_KIND.boolean now offers only eq/neq/isNull/isNotNull (was every operator, just reordered); the value step renders a true/false picker for boolean columns and a native <input type=\"date\"|\"time\"|\"datetime-local\"> for date-ish columns (dateInputKind() in format-cell.ts, mirroring F081's isClickableDateType split so TIME gets its own picker instead of being lumped with DATE/TIMESTAMP). MongoDB: _id (ObjectId) and null filtering already worked server-side via existing coerceFilterValue/isNull handling - verified live, no code change needed. minKeyField/maxKeyField previously collapsed into the generic \"object\" dataType with no filter coercion at all; classifyBsonValue now reports them as their own dataType and coerceFilterValue resolves a typed \"$minKey\"/\"$maxKey\" token to the real BSON sentinel instance. Verified live via Preview: Postgres type_showcase (boolean picker, date/time/timestamp/timestamptz pickers all render the correct native input and apply correctly), MongoDB type_showcase (_id eq by plain hex matched 1/~52,000 rows; minKeyField eq \"$minKey\" and nullField isNull each matched the full page - all rows have those sentinel/null values by seed design). pnpm --filter @qyre/ui test (14 filter-bar tests, 8 format-cell tests) and pnpm --filter @qyre/mongodb test (25 unit + 13 integration, including new classifyBsonValue/coerceFilterValue coverage) both pass. pnpm verify:pr (checks, build, smoke E2E, full E2E across all 4 engines) passed locally. PR #83 (https://github.com/ensp1re/qyre/pull/83) merged as 7cacbe4; CI confirmed on main (End-to-end and Lint/typecheck/test/build both pass).",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-09T11:13:12.000Z"
-    },
     {
       "id": "F083",
       "behavior": "Row selection in the Rows table supports real bulk workflows: the \"<n> selected\" indicator gains a clear-selection (x) icon button, a select-all-on-current-page control sits in the header row above the first data row, rows can be selected by pressing and dragging the mouse rather than only one click at a time, and the CSV/download export honors the current selection - exporting only selected rows when any are selected, the full result set when none are.",
@@ -171,6 +83,326 @@
       "blockedReason": null,
       "spec": "docs/product-specs/rows-table-filtering.md",
       "completedAt": "2026-07-09T11:55:45.000Z"
+    },
+    {
+      "id": "F090",
+      "behavior": "Product-spec pass for the role-aware permission/capability model before any implementation: create docs/product-specs/permissions-and-capabilities.md covering the two-tier model (session-level ConnectionCapabilities extending F063's AdapterCapabilities with supportsRowMutations/supportsDdl/supportsIndexManagement/supportsDatabaseManagement/supportsTransactions plus a readOnlyReason of qyre-flag|replica|connection|grants|null, and per-table select/insert/update/delete TablePermissions attached to TableMetadata), the per-engine introspection matrix (Postgres has_table_privilege/pg_is_in_recovery/default_transaction_read_only, MySQL information_schema USER/SCHEMA/TABLE_PRIVILEGES + @@global.read_only, SQLite file+directory writability/PRAGMA query_only/mode=ro, MongoDB connectionStatus showPrivileges action sets), the advisory-introspection/authoritative-database principle with degradation to read-only on introspection failure, the API-shape decision (extend GET /api/overview vs a new endpoint - leaning extended overview), and how the UI adapts per access level. Follow the spec pattern of F063-F066. Architectural decisions are pre-settled in docs/exec-plans/active/0006-role-aware-database-ide.md; this spec turns them into a reviewable product contract with acceptance criteria.",
+      "verification": "pnpm check:state",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/permissions-and-capabilities.md"
+    },
+    {
+      "id": "F091",
+      "behavior": "Capability plumbing with no real introspection yet: @qyre/core gains the ConnectionCapabilities and TablePermissions types per docs/product-specs/permissions-and-capabilities.md (F090); DatabaseAdapter (packages/drivers/contract) gains a required getCapabilities(): Promise<ConnectionCapabilities>; all four adapters return their static engine truths (supportsSql as today, MongoDB column-DDL not-applicable, etc.) with the write/session tier hardcoded to read-only until F092-F095 land; the server exposes capabilities on the agreed API surface and re-reports them after POST /api/connect swaps the adapter (F064/F085); apps/web gains one shared capabilities hook in features/connection that all later write-UI gating consumes. A @qyre/testing-conformance case asserts every registered engine reports a well-formed capabilities object. No visible UI change. Depends on F090.",
+      "verification": "pnpm --filter @qyre/core test && pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/permissions-and-capabilities.md"
+    },
+    {
+      "id": "F092",
+      "behavior": "Postgres permission introspection per the F090 spec: getCapabilities() reports real session writability (pg_is_in_recovery(), default_transaction_read_only, role attributes from pg_roles, has_database_privilege/has_schema_privilege CREATE checks), and getTable plus the batched all-tables path attach per-table TablePermissions via has_table_privilege(current_user, ..., 'SELECT/INSERT/UPDATE/DELETE') batched per schema so no per-table round-trip storm is added. Introspection failure degrades to read-only with a logged warning, never to assumed-writable. Adds a restricted qyre_readonly Postgres user (SELECT-only grants) to the docker-compose init and @qyre/testing so integration tests cover both access levels from now on. Depends on F091.",
+      "verification": "node scripts/with-local-env.mjs pnpm --filter @qyre/postgres test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/permissions-and-capabilities.md"
+    },
+    {
+      "id": "F093",
+      "behavior": "MySQL permission introspection per the F090 spec: getCapabilities() reports session writability (@@global.read_only, @@session.transaction_read_only) and getTable/all-tables attach per-table TablePermissions by unioning information_schema.USER_PRIVILEGES, SCHEMA_PRIVILEGES, and TABLE_PRIVILEGES (a grant at any broader level implies the table-level right - the union must be tested explicitly since MySQL scatters grants across all three). Introspection failure degrades to read-only with a logged warning. Adds a restricted qyre_readonly MySQL user (SELECT-only) to the docker-compose init and @qyre/testing. Depends on F091.",
+      "verification": "node scripts/with-local-env.mjs pnpm --filter @qyre/mysql test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/permissions-and-capabilities.md"
+    },
+    {
+      "id": "F094",
+      "behavior": "SQLite writability introspection per the F090 spec: getCapabilities() reflects whether the session can write at all - the database file AND its directory must be writable (WAL/journal files need directory write), PRAGMA query_only must be off, and a ?mode=ro/immutable open flag forces read-only; per-table TablePermissions are uniform (SQLite has no users/grants - the whole file is writable or not) and must say so via the capabilities shape rather than faking per-table variance. Tests cover a writable file, a chmod-read-only file, a read-only directory, and a mode=ro target. Depends on F091.",
+      "verification": "pnpm --filter @qyre/sqlite test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/permissions-and-capabilities.md"
+    },
+    {
+      "id": "F095",
+      "behavior": "MongoDB permission introspection per the F090 spec: getCapabilities() and per-collection TablePermissions derive from connectionStatus{showPrivileges:true} - mapping find/insert/update/remove and createCollection/dropCollection/createIndex/dropIndex actions per db/collection resource (including anyResource and db-level wildcards); an unauthenticated local connection (no authenticatedUsers) is full-access, matching mongod's real behavior; introspection failure degrades to read-only with a logged warning. Adds a restricted fixture user with the built-in read role on the test db to the mongo init and @qyre/testing. Depends on F091.",
+      "verification": "node scripts/with-local-env.mjs pnpm --filter @qyre/mongodb test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/permissions-and-capabilities.md"
+    },
+    {
+      "id": "F096",
+      "behavior": "Qyre-level read-only session mode as the safety cornerstone, landing BEFORE any mutating route exists: the CLI gains a --read-only flag (mentioned in --help and the F088 guided-login flow) that forces the whole session read-only regardless of database grants; the server stores the mode in ServerContext and one central guard (a single choke point every future mutating route must register under, e.g. a route-config flag checked in a shared preHandler) rejects any mutating request with a structured error; capabilities report readOnlyReason 'qyre-flag' so the UI can explain itself; POST /api/connect preserves the flag across connection switches. Depends on F091.",
+      "verification": "pnpm --filter qyre test && pnpm --filter @qyre/server test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/permissions-and-capabilities.md"
+    },
+    {
+      "id": "F097",
+      "behavior": "Permission-aware UI shell: apps/web consumes the F091 capabilities hook - the status/title bar shows the session access level (read-only vs read-write badge) with a tooltip explaining why (Qyre --read-only flag, replica, read-only connection, grants), and capability-gating helpers land in features/connection for every later write surface to reuse. A new Playwright e2e asserts a read-only session (restricted fixture user and --read-only flag) renders zero write affordances - this is the standing regression guard every later write slice must keep green. Today's read-only visual experience is otherwise unchanged. Depends on F092-F096.",
+      "verification": "pnpm --filter @qyre/web test && pnpm test:e2e",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/permissions-and-capabilities.md"
+    },
+    {
+      "id": "F098",
+      "behavior": "Product-spec pass for row-level editing before implementation: create docs/product-specs/row-editing.md covering the structured mutation API (typed JSON insert/update/delete-by-primary-key translated to parameterized SQL or MongoDB collection ops inside each adapter - the F072 filter pattern; the browser never builds SQL), row identity rules (full primary key required, composite keys supported, MongoDB uses _id; PK-less tables stay read-only in the grid with the reason surfaced), the pending-changes buffer + generated-statement preview + batch-commit model (transactional all-or-nothing on Postgres/MySQL/SQLite, ordered best-effort with per-op error reporting on MongoDB), the commit endpoint shape (open decision in exec plan 0006), value validation/coercion per column type reusing F082/F089 capability classification, the audit-event contract, and confirmation thresholds per docs/SECURITY.md. Depends on F090.",
+      "verification": "pnpm check:state",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/row-editing.md"
+    },
+    {
+      "id": "F099",
+      "behavior": "Structured row insert across all four engines per docs/product-specs/row-editing.md: the adapter mutations namespace gains insertRow(schema, table, values) - parameterized INSERT on Postgres/MySQL/SQLite, insertOne on MongoDB - with value coercion per column type and the inserted row/key reported where the engine supports it. The server adds POST /api/tables/:schema/:table/rows, validating the body with Zod against the table's real introspected columns (same injection-surface pattern as F065/F072 sort/filter), gated by both the F096 central guard and the table's insert permission, and logging a structured audit event. Conformance cases cover successful insert plus rejections (read-only session, unknown column, restricted fixture user) on all four engines. Depends on F096, F098.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/row-editing.md"
+    },
+    {
+      "id": "F100",
+      "behavior": "Structured row update per docs/product-specs/row-editing.md: the mutations namespace gains updateRowByKey(schema, table, keyMatch, changes) requiring a full primary-key match (composite keys supported; MongoDB matches _id), rejecting tables without a primary key, parameterized everywhere; zero-rows-matched is reported as a distinct outcome (stale row), never as silent success. Server route (PATCH on the rows resource) gated by guard + update permission, audited, with the same column-validation pattern as F099. Conformance across all four engines including restricted-user rejection and the 0-matched outcome. Depends on F099.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/row-editing.md"
+    },
+    {
+      "id": "F101",
+      "behavior": "Structured row delete per docs/product-specs/row-editing.md: the mutations namespace gains deleteRowsByKey(schema, table, keyMatches[]) deleting only by an explicit list of primary-key identities (no filter-based bulk delete in this slice - that stays a deliberate non-feature until a spec revisits it), parameterized everywhere, MongoDB by _id list. Server route gated by guard + delete permission, audited with the deleted count; zero-matched keys reported distinctly. Conformance across all four engines including restricted-user rejection. Depends on F100.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/row-editing.md"
+    },
+    {
+      "id": "F102",
+      "behavior": "Batch commit for the pending-changes model per docs/product-specs/row-editing.md: one endpoint applies an ordered set of staged inserts/updates/deletes - wrapped in a single transaction on Postgres/MySQL/SQLite (all-or-nothing; rollback on first failure with the failing op index reported) and ordered best-effort on MongoDB (per-op results with stop-on-error semantics per the spec). Adapters gain the transactional wrapper in their mutations namespace; the server validates every op against introspected columns and permissions before starting, and audits the batch outcome. Conformance: mixed-batch success, mid-batch failure rollback on SQL engines, MongoDB partial reporting. Depends on F101.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/row-editing.md"
+    },
+    {
+      "id": "F103",
+      "behavior": "The Rows table becomes an editable grid when - and only when - session capabilities and the table's permissions allow: double-click/Enter starts inline cell editing with type-aware editors reusing the F082/F089 filter value controls (boolean picker, native date/time/datetime inputs, number/text, explicit NULL setter, revert-cell), edits stage into a visible pending-changes buffer (dirty-cell styling) without touching the server, and editing is cleanly disabled - with the reason surfaced in UI copy - for read-only sessions, tables without a primary key, and non-editable columns per the spec (e.g. the PK itself). The buffer lives in features/table model state; commit wiring arrives in F105. Depends on F097, F098.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/row-editing.md"
+    },
+    {
+      "id": "F104",
+      "behavior": "Permission-gated Add-row and Duplicate-row affordances per docs/product-specs/row-editing.md: a new-row editor with the same type-aware inputs as F103, nullable/default-value handling, and per-column validation before staging into the pending buffer; Duplicate pre-fills from the selected row minus auto-generated keys (serial/identity/ObjectId) per the spec. Hidden entirely for sessions/tables without insert permission. Depends on F103.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/row-editing.md"
+    },
+    {
+      "id": "F105",
+      "behavior": "The pending-changes workflow completes per docs/product-specs/row-editing.md: selected rows (F083 selection) can be staged for deletion when permitted; a commit bar shows staged insert/update/delete counts, previews the exact generated statements/ops per engine before applying, commits through the F102 batch endpoint with per-op error surfacing (failed op highlighted, buffer preserved on failure so work is never lost), and discards cleanly; deletes above the spec's threshold require typed confirmation. E2E: an edit-commit-verify roundtrip on one SQL engine plus MongoDB, and the F097 read-only guard stays green. Depends on F102, F104.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm test:e2e",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/row-editing.md"
+    },
+    {
+      "id": "F106",
+      "behavior": "packages/drivers/contract gains classifyStatement(sql) labeling a single SQL statement as read | mutation | ddl | destructive (DROP/TRUNCATE always destructive; UPDATE/DELETE without a WHERE clause destructive; writable CTEs classify as their write action), extracted by generalizing assertReadOnly's existing comment/literal-stripping scanner so read-only behavior stays bit-for-bit unchanged - assertReadOnly is reimplemented on top of the classifier and its existing tests pass untouched. Pure text heuristic, defense-in-depth only; the authoritative gate remains engine-level enforcement. Unit tests cover the classification matrix including comment/literal/CTE edge cases. No server or UI change. Depends on F090.",
+      "verification": "pnpm --filter @qyre/driver-contract test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F107",
+      "behavior": "Write-capable SQL execution per an updated docs/product-specs/sql-editor.md: Postgres/MySQL/SQLite adapters gain runQuery(sql) executing any single statement without the READ ONLY transaction wrapper, returning rows or an affected-row count, honoring existing timeouts and the F050 result cap (MongoDB keeps supportsSql=false, untouched). POST /api/query keeps runReadOnlyQuery exactly as today for read-only sessions; write-capable sessions route through classifyStatement (F106) - mutation/ddl statements run directly, destructive ones are rejected unless the request carries an explicit confirmed flag (a server-enforced round-trip, never client-only). Every non-read statement logs an audit event with its classification and affected rows. Server tests + conformance cover each class, unconfirmed-destructive rejection, and read-only-session behavior unchanged. Depends on F096, F106.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F108",
+      "behavior": "The SQL editor becomes write-capable when the session allows, per docs/product-specs/sql-editor.md: the results panel renders affected-row counts for non-SELECT statements; destructive statements open a confirmation dialog showing the classification and the exact statement before resubmitting with the confirmed flag (matching F107's server contract); UPDATE/DELETE without WHERE gets a persistent warning; query history records each statement's classification; and read-only sessions keep today's editor exactly, with a write attempt showing the friendly readOnlyReason instead of a raw rejection. Depends on F097, F107.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm test:e2e",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/sql-editor.md"
+    },
+    {
+      "id": "F109",
+      "behavior": "Product-spec pass for schema editing before implementation: create docs/product-specs/schema-editing.md covering the ddl adapter namespace (table lifecycle: create/rename/truncate/drop; column ops: add/rename/drop/alter type-nullability-default; index ops: create/drop), the per-engine DDL matrix - Postgres/MySQL native ALTER; SQLite's documented table-rebuild pattern for column drop/rename/retype (and which ops are native per version), preserving data/indexes/FKs in one transaction; MongoDB mapped to collections + indexes with column ops not-applicable - plus each engine's column type catalog exposure for the table designer (open decision in exec plan 0006: static list vs introspected), typed-confirmation rules for destructive DDL (type the table name to drop/truncate, per docs/SECURITY.md), and the API shapes. Depends on F090.",
+      "verification": "pnpm check:state",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/schema-editing.md"
+    },
+    {
+      "id": "F110",
+      "behavior": "Table lifecycle per docs/product-specs/schema-editing.md: adapters gain the ddl namespace with createTable (columns with types from the engine's exposed type catalog, PK incl. composite, nullability, defaults), renameTable, truncateTable, and dropTable - MongoDB maps to create/rename/drop collection with truncate as deleteMany({}). Server routes gate on the ddl capability + F096 central guard, require the spec's typed-confirmation token for drop/truncate server-side, and audit every operation. Conformance: create-inspect-drop roundtrip on all four engines, restricted-user rejection, unconfirmed-drop rejection. Depends on F096, F109.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/schema-editing.md"
+    },
+    {
+      "id": "F111",
+      "behavior": "Column operations per docs/product-specs/schema-editing.md: addColumn/renameColumn/dropColumn/alterColumn (type, nullability, default) - native ALTER on Postgres/MySQL, the spec's table-rebuild pattern on SQLite (create-new, copy, swap - preserving data, indexes, and foreign keys inside one transaction), not-applicable on MongoDB (capability reported false, UI hides the surface). Server routes with typed confirmation for dropColumn, audit events, and conformance including a SQLite rebuild data-preservation case and restricted-user rejection. Depends on F110.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/schema-editing.md"
+    },
+    {
+      "id": "F112",
+      "behavior": "Index management per docs/product-specs/schema-editing.md: createIndex (columns, unique flag) and dropIndex in the ddl namespace across all four engines (MongoDB native createIndex/dropIndex), building on the existing IndexMetadata listing from getTable; server routes gated + audited; conformance: create-list-drop roundtrip on every engine, unique-index constraint behavior, restricted-user rejection. Depends on F110.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/schema-editing.md"
+    },
+    {
+      "id": "F113",
+      "behavior": "Permission-gated New-table flow per docs/product-specs/schema-editing.md: a table designer in the sidebar/Schema surface for name + columns (type picked from the engine's type catalog exposed by F110, nullability, default, PK incl. composite), a preview of the exact DDL/ops before creation, per-engine validation, and engine errors mapped to clear messages; the MongoDB variant degrades to a new-collection dialog (name only). Hidden without ddl capability. Depends on F110.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/schema-editing.md"
+    },
+    {
+      "id": "F114",
+      "behavior": "Each table gains a Structure view alongside Rows per docs/product-specs/schema-editing.md: columns listed with add/rename/drop/alter controls (capability-gated; hidden where the adapter reports not-applicable, e.g. MongoDB columns), index management (F112), and rename/truncate/drop-table actions behind the spec's typed confirmations - every action previews its DDL/ops first and surfaces the audit outcome. Read-only sessions see the structure information with zero mutation affordances (a strict improvement to today's read-only experience). E2E covers a column-add + index-create + drop-table roundtrip on one SQL engine, and the F097 read-only guard stays green. Depends on F111, F112, F113.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm test:e2e",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/schema-editing.md"
+    },
+    {
+      "id": "F115",
+      "behavior": "Database/schema lifecycle where the engine supports it: adapters gain the admin namespace with listDatabases (Postgres/MySQL/MongoDB; SQLite not-applicable - one file is one database and must report that cleanly), createDatabase/dropDatabase, and Postgres schema create/drop; capabilities report supportsDatabaseManagement from the real F092-F095 introspection. Server routes gated + audited; drop requires the typed-confirmation token server-side. Conformance: list/create/drop roundtrip on the three applicable engines, restricted-user rejection, SQLite clean not-applicable. Needs a short spec section added to docs/product-specs/permissions-and-capabilities.md or schema-editing.md (decide during implementation, following F109's patterns). Depends on F096, F110.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F116",
+      "behavior": "Database-level management UI: the connection/database switcher (F064/F085 flow) lists databases on the current server with switch-in-place, permission-gated create-database (name plus minimal engine-appropriate options), and drop-database behind typed confirmation; Postgres schema create/drop appears in the sidebar. Read-only or ungranted sessions see the list only, with the affordances hidden and the reason available. Depends on F115.",
+      "verification": "pnpm --filter @qyre/web test && pnpm test:e2e",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F117",
+      "behavior": "Permission-gated CSV import into an existing table: a server endpoint streams and parses the upload, validates and coerces values per column type against introspected metadata, and inserts in bounded batches through the mutations namespace (transactional per batch, per-row error report with line numbers), backpressured so a large file cannot exhaust memory - the F066 streaming-export philosophy in reverse; the UI wizard maps CSV columns to table columns with a dry-run preview of the first rows and a clear success/failure summary. Needs a short product-spec pass (docs/product-specs/csv-import.md) before implementation, following the F063-F066 pattern. Depends on F099, F102.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/csv-import.md"
+    },
+    {
+      "id": "F118",
+      "behavior": "Row export grows JSON (streamed array of objects) and SQL-INSERT formats (SQL engines only, identifiers/literals safely escaped per engine; MongoDB exports JSON only, reported via capabilities not engine-name checks) alongside the existing CSV path, honoring current filters/sort/selection exactly as F066/F083 do. Read-only-safe, so it improves every access level including pure read-only users; update docs/product-specs/server-side-sort-export.md. No dependency on write slices - schedulable any time after F091.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/product-specs/server-side-sort-export.md"
+    },
+    {
+      "id": "F119",
+      "behavior": "A read-only Roles & grants viewer so users understand why affordances are hidden: Postgres shows pg_roles plus a grants summary for the current user, MySQL shows SHOW GRANTS/information_schema privileges, MongoDB shows rolesInfo/usersInfo where permitted, SQLite shows file-permission facts instead; strictly a viewer - no role management mutations anywhere in plan 0006. Surfaces through the admin namespace with a capability flag; degrades cleanly when the connected user may not read role catalogs. Depends on F092-F095.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F120",
+      "behavior": "Permission-denied hardening across every mutating path: engine permission errors map to structured, friendly responses (which operation, which object, the likely missing grant) instead of raw engine text; a denial triggers a capabilities/permissions refetch so UI affordances converge with reality when grants change mid-session (the advisory-introspection principle in exec plan 0006); the event log records each denial. Conformance covers a denied insert/update/ddl per engine using the restricted fixtures with grants revoked mid-session where the engine allows. Depends on the write surfaces it protects - schedule after F117.",
+      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
+    },
+    {
+      "id": "F121",
+      "behavior": "Plan 0006's exit gate: a Playwright role-matrix suite runs per engine - a read-only session (restricted fixture user and --read-only flag) shows zero write affordances, keeps every pre-plan read-only workflow green, and receives clean structured rejections from every mutating API route; a writable session edits and commits a row, runs a write statement through the destructive-confirmation flow, and creates + drops a table (where the engine supports it) end-to-end. Docs consolidation lands with it: README feature matrix, ARCHITECTURE.md's adding-an-engine recipe gains the capabilities/mutations/ddl/admin steps, and docs/SECURITY.md's write rules are updated from aspirational to implemented contract. Move plan 0006 to exec-plans/completed with evidence. Depends on all prior plan slices.",
+      "verification": "pnpm test:e2e:full && pnpm check:state",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": null
     }
   ]
 }

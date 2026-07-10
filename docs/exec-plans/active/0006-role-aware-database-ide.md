@@ -250,3 +250,16 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   (SELECT-only) and `qyre_role_writer` (write access only via an active default role - the case the
   original approach would have missed) fixtures added. F094 (SQLite) and F095 (MongoDB) remain,
   parallelizable with each other; F096 is next after both land.
+- 2026-07-10 (later still): F094 implemented (PR #104) - SQLite `getCapabilities()`/per-table
+  `TablePermissions` land, gated on file/directory OS-writability, `PRAGMA query_only`, and the
+  connection's own open mode. Deviates from this entry's literal text the same way F093 did:
+  `adapter.ts`'s `connect()` previously force-opened every SQLite connection read-only as Qyre's own
+  policy, independent of real file permissions - under that policy the whole feature would have been
+  a no-op (permanently read-only regardless of what getCapabilities() computed). `connect()` now
+  opens normally (falling back to an explicit read-only open only if that throws outright), making
+  the open-mode signal real; `runReadOnlyQuery`'s authoritative backstop moved from the connection's
+  open mode to toggling `PRAGMA query_only` around each query, matching how Postgres/MySQL already
+  enforce read-only at query time rather than connection-open time. `readOnlyReason` for a
+  non-writable SQLite session is now `"connection"`, replacing the F091 stub's `"grants"` (SQLite has
+  no grants concept). F095 (MongoDB) is the last of the three parallelizable permission-introspection
+  slices; F096 is next after it lands.

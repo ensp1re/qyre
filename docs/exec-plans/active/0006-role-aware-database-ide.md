@@ -212,3 +212,9 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   `TablePermissions`'s exact shape, the per-engine introspection matrix, and the advisory/
   authoritative principle. Resolved open decision #4: `ConnectionCapabilities` rides
   `GET /api/overview`, not a new endpoint. Spec-only slice; F091 implements the types next.
+- 2026-07-10 (later still): F091 implemented (PR #96) - `ConnectionCapabilities`/`TablePermissions`
+  land in `@qyre/core`; `DatabaseAdapter.getCapabilities()` lands in the contract, stubbed
+  read-only on all four adapters via a shared `stubReadOnlyCapabilities` helper until F092-F095
+  introspect real values; `GET /api/overview` returns the full shape; `apps/web` gets a shared
+  `useCapabilities` hook in `features/connection` for later write-UI gating. No visible UI change.
+  F123 (batched introspection) is next.

@@ -15,6 +15,7 @@ import type {
   RowPage,
   RowSort,
   SchemaMetadata,
+  TableKind,
   TableMetadata
 } from "@qyre/core";
 import {
@@ -289,36 +290,49 @@ async function fetchIndexes(pool: Pool, schema: string, table: string): Promise<
   }));
 }
 
-/** Approximate row count from Postgres's planner statistics (fast; avoids a full table scan). */
-async function fetchRowCountEstimate(
+/** Approximate row count from Postgres's planner statistics (fast; avoids a full table scan), plus
+ * the relation's kind (F124) - both come off the same `pg_class` row, so one query answers both
+ * instead of two. */
+async function fetchRowCountAndKind(
   pool: Pool,
   schema: string,
   table: string
-): Promise<number | undefined> {
-  const result = await pool.query<{ estimate: string | null }>(
-    `SELECT reltuples::bigint AS estimate
+): Promise<{ rowCount: number | undefined; kind: TableKind }> {
+  const result = await pool.query<{ estimate: string | null; relkind: string | null }>(
+    `SELECT reltuples::bigint AS estimate, relkind
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = $1 AND c.relname = $2`,
     [schema, table]
   );
 
-  const estimate = result.rows[0]?.estimate;
-  if (estimate == null) {
-    return undefined;
+  const row = result.rows[0];
+  const kind = mapRelkindToTableKind(row?.relkind ?? "r");
+  // A view's reltuples is always 0 (no storage of its own) regardless of how many rows it
+  // actually returns - reporting that as a row count would be misleading, and running COUNT(*) to
+  // get a real number could silently re-execute an arbitrarily expensive underlying query. A
+  // materialized view has real physical storage (refreshed like a table) and keeps the normal
+  // estimate-with-fallback treatment below.
+  if (kind === "view") {
+    return { rowCount: undefined, kind };
   }
 
-  // reltuples is -1 for a table that has never been ANALYZEd (common right after creation).
+  const estimate = row?.estimate;
+  if (estimate == null) {
+    return { rowCount: undefined, kind };
+  }
+
+  // reltuples is -1 for a relation that has never been ANALYZEd (common right after creation).
   // Fall back to an exact count rather than surface a nonsensical negative number.
   const parsed = Number(estimate);
   if (parsed >= 0) {
-    return parsed;
+    return { rowCount: parsed, kind };
   }
 
   const exact = await pool.query<{ count: string }>(
     `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
   );
-  return Number(exact.rows[0]?.count ?? 0);
+  return { rowCount: Number(exact.rows[0]?.count ?? 0), kind };
 }
 
 /** `schema/table` lookup key for the per-table maps {@link fetchAllTableTargets}'s batched
@@ -331,20 +345,37 @@ function tableKey(schema: string, table: string): string {
 interface TableTarget {
   schema: string;
   table: string;
+  kind: TableKind;
 }
 
-/** Every (schema, table) pair in the connected database, in the same order `getOverview` already
- * lists them - the starting point {@link PostgresAdapter.getAllTables} groups every other batched
- * query's rows against. */
+/** Maps a `pg_class.relkind` code to Qyre's engine-agnostic `TableKind` (F124). Ordinary ('r'),
+ * partitioned ('p'), and foreign ('f') tables all collapse to "table" - the write stage gates on
+ * the table/view distinction, not on these storage-mechanism differences. */
+function mapRelkindToTableKind(relkind: string): TableKind {
+  if (relkind === "v") return "view";
+  if (relkind === "m") return "materialized-view";
+  return "table";
+}
+
+/** Every (schema, table, kind) triple in the connected database, in the same order `getOverview`
+ * already lists them - the starting point {@link PostgresAdapter.getAllTables} groups every other
+ * batched query's rows against. Reads `pg_class` directly rather than `information_schema.tables`
+ * (F124) - information_schema has no concept of materialized views at all, so they'd otherwise
+ * never appear here, not merely report the wrong kind. */
 async function fetchAllTableTargets(pool: Pool): Promise<TableTarget[]> {
-  const result = await pool.query<{ table_schema: string; table_name: string }>(
-    `SELECT table_schema, table_name
-       FROM information_schema.tables
-      WHERE table_schema <> ALL($1::text[])
-      ORDER BY table_schema, table_name`,
+  const result = await pool.query<{ table_schema: string; table_name: string; relkind: string }>(
+    `SELECT n.nspname AS table_schema, c.relname AS table_name, c.relkind AS relkind
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname <> ALL($1::text[]) AND c.relkind IN ('r', 'p', 'f', 'v', 'm')
+      ORDER BY n.nspname, c.relname`,
     [SYSTEM_SCHEMAS]
   );
-  return result.rows.map((row) => ({ schema: row.table_schema, table: row.table_name }));
+  return result.rows.map((row) => ({
+    schema: row.table_schema,
+    table: row.table_name,
+    kind: mapRelkindToTableKind(row.relkind)
+  }));
 }
 
 /** Batched equivalent of {@link PostgresAdapter.getTable}'s columns+PK+FK query pair (F123) - one
@@ -479,22 +510,22 @@ async function fetchAllIndexes(pool: Pool): Promise<Map<string, IndexMetadata[]>
   return indexesByTable;
 }
 
-/** Batched equivalent of {@link fetchRowCountEstimate} (F123): one query for every table's
- * `reltuples` estimate, then a targeted exact `COUNT(*)` only for the tables that come back -1
- * (never `ANALYZE`d) - preserves {@link fetchRowCountEstimate}'s exact fallback semantics without
- * reintroducing a per-table round trip for the common (already-analyzed) case. */
+/** Batched equivalent of {@link fetchRowCountAndKind} (F123): one query for every non-view
+ * table's `reltuples` estimate, then a targeted exact `COUNT(*)` only for the tables that come
+ * back -1 (never `ANALYZE`d) - preserves that function's exact fallback semantics without
+ * reintroducing a per-table round trip for the common (already-analyzed) case. Views are skipped
+ * entirely (F124): their `reltuples` is always 0 regardless of actual row count, and computing a
+ * real count would mean re-executing an arbitrary underlying query per view. */
 async function fetchAllRowCountEstimates(
   pool: Pool,
   targets: TableTarget[]
 ): Promise<Map<string, number | undefined>> {
-  // No relkind filter, matching fetchRowCountEstimate's per-table query exactly - a view (not yet
-  // distinguished from a table pre-F124) still needs a row estimate here to keep parity with what
-  // getTable() would report for the same name.
+  const countable = targets.filter((target) => target.kind !== "view");
   const result = await pool.query<{ table_schema: string; table_name: string; estimate: string }>(
     `SELECT n.nspname AS table_schema, c.relname AS table_name, c.reltuples::bigint AS estimate
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname <> ALL($1::text[])`,
+      WHERE n.nspname <> ALL($1::text[]) AND c.relkind <> 'v'`,
     [SYSTEM_SCHEMAS]
   );
 
@@ -504,17 +535,23 @@ async function fetchAllRowCountEstimates(
   }
 
   const rowCountByTable = new Map<string, number | undefined>();
-  const unanalyzed = targets.filter(
+  const unanalyzed = countable.filter(
     ({ schema, table }) => (estimateByTable.get(tableKey(schema, table)) ?? 0) < 0
   );
   const exactCounts = await Promise.all(
-    unanalyzed.map(({ schema, table }) => fetchRowCountEstimate(pool, schema, table))
+    unanalyzed.map(({ schema, table }) =>
+      pool
+        .query<{ count: string }>(
+          `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
+        )
+        .then((countResult) => Number(countResult.rows[0]?.count ?? 0))
+    )
   );
   const exactByTable = new Map(
     unanalyzed.map(({ schema, table }, i) => [tableKey(schema, table), exactCounts[i]])
   );
 
-  for (const { schema, table } of targets) {
+  for (const { schema, table } of countable) {
     const key = tableKey(schema, table);
     rowCountByTable.set(
       key,
@@ -578,19 +615,15 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async getOverview(): Promise<DatabaseOverview> {
-    const result = await this.getPool().query<{ table_schema: string; table_name: string }>(
-      `SELECT table_schema, table_name
-         FROM information_schema.tables
-        WHERE table_schema <> ALL($1::text[])
-        ORDER BY table_schema, table_name`,
-      [SYSTEM_SCHEMAS]
-    );
-
+    // Sourced from pg_class (via fetchAllTableTargets), not information_schema.tables (F124) -
+    // information_schema has no concept of materialized views at all, so they were invisible here
+    // entirely until this switch, not merely mistagged.
+    const targets = await fetchAllTableTargets(this.getPool());
     const bySchema = new Map<string, string[]>();
-    for (const row of result.rows) {
-      const tables = bySchema.get(row.table_schema) ?? [];
-      tables.push(row.table_name);
-      bySchema.set(row.table_schema, tables);
+    for (const { schema, table } of targets) {
+      const tables = bySchema.get(schema) ?? [];
+      tables.push(table);
+      bySchema.set(schema, tables);
     }
 
     const schemas: SchemaMetadata[] = [...bySchema.entries()].map(([name, tables]) => ({
@@ -612,7 +645,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     // FK query the same two catalog tables and differ only by constraint_type, so they're combined
     // into one query here; every remaining query is independent of the others, so all 4 now run in
     // parallel via Promise.all instead of a chain of awaits.
-    const [columnsResult, keysResult, indexes, rowCount] = await Promise.all([
+    const [columnsResult, keysResult, indexes, rowCountAndKind] = await Promise.all([
       pool.query<{
         column_name: string;
         data_type: string;
@@ -653,7 +686,7 @@ export class PostgresAdapter implements DatabaseAdapter {
         [schema, table]
       ),
       fetchIndexes(pool, schema, table),
-      fetchRowCountEstimate(pool, schema, table)
+      fetchRowCountAndKind(pool, schema, table)
     ]);
 
     const primaryKeys = new Set(
@@ -691,7 +724,14 @@ export class PostgresAdapter implements DatabaseAdapter {
       references: foreignKeyReferences.get(row.column_name)
     }));
 
-    return { schema, name: table, columns, indexes, rowCount };
+    return {
+      schema,
+      name: table,
+      kind: rowCountAndKind.kind,
+      columns,
+      indexes,
+      rowCount: rowCountAndKind.rowCount
+    };
   }
 
   async getAllTables(): Promise<TableMetadata[]> {
@@ -703,11 +743,12 @@ export class PostgresAdapter implements DatabaseAdapter {
       fetchAllRowCountEstimates(pool, targets)
     ]);
 
-    return targets.map(({ schema, table }) => {
+    return targets.map(({ schema, table, kind }) => {
       const key = tableKey(schema, table);
       return {
         schema,
         name: table,
+        kind,
         columns: columnsByTable.get(key) ?? [],
         indexes: indexesByTable.get(key) ?? [],
         rowCount: rowCountByTable.get(key)

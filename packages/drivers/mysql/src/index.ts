@@ -16,6 +16,7 @@ import type {
   RowPage,
   RowSort,
   SchemaMetadata,
+  TableKind,
   TableMetadata
 } from "@qyre/core";
 import {
@@ -135,23 +136,33 @@ function tableKey(schema: string, table: string): string {
 interface TableTarget {
   schema: string;
   table: string;
+  kind: TableKind;
 }
 
-/** Every (schema, table) pair in the connected database, in the same order `getOverview` already
- * lists them - the starting point {@link MysqlAdapter.getAllTables} groups every other batched
- * query's rows against (F123). */
+/** Maps `information_schema.tables.table_type` to Qyre's engine-agnostic `TableKind` (F124).
+ * MySQL has no materialized-view concept, so only "table"/"view" ever occur here. */
+function mapTableTypeToTableKind(tableType: string): TableKind {
+  return tableType === "VIEW" ? "view" : "table";
+}
+
+/** Every (schema, table, kind) triple in the connected database, in the same order `getOverview`
+ * already lists them - the starting point {@link MysqlAdapter.getAllTables} groups every other
+ * batched query's rows against (F123). */
 async function fetchAllTableTargets(pool: mysql.Pool): Promise<TableTarget[]> {
   const [rows] = await pool.query<mysql.RowDataPacket[]>(
-    `SELECT table_schema AS table_schema, table_name AS table_name
+    `SELECT table_schema AS table_schema, table_name AS table_name, table_type AS table_type
        FROM information_schema.tables
       WHERE table_schema NOT IN (?, ?, ?, ?)
       ORDER BY table_schema, table_name`,
     SYSTEM_SCHEMAS
   );
-  return (rows as Array<{ table_schema: string; table_name: string }>).map((row) => ({
-    schema: row.table_schema,
-    table: row.table_name
-  }));
+  return (rows as Array<{ table_schema: string; table_name: string; table_type: string }>).map(
+    (row) => ({
+      schema: row.table_schema,
+      table: row.table_name,
+      kind: mapTableTypeToTableKind(row.table_type)
+    })
+  );
 }
 
 /** Batched equivalent of {@link MysqlAdapter.getTable}'s columns+PK+FK query trio (F123) - one
@@ -287,12 +298,14 @@ async function fetchAllIndexes(pool: mysql.Pool): Promise<Map<string, IndexMetad
 }
 
 /** Batched row counts via one `UNION ALL` query (F123) - exact `COUNT(*)` per table, same as
- * {@link MysqlAdapter.getTable}, consolidated into a single round trip instead of N. */
+ * {@link MysqlAdapter.getTable}, consolidated into a single round trip instead of N. Views are
+ * skipped (F124): a view's `COUNT(*)` would silently re-execute its own underlying query. */
 async function fetchAllRowCounts(
   pool: mysql.Pool,
-  targets: TableTarget[]
+  allTargets: TableTarget[]
 ): Promise<Map<string, number>> {
   const rowCountByTable = new Map<string, number>();
+  const targets = allTargets.filter((target) => target.kind !== "view");
   if (targets.length === 0) return rowCountByTable;
 
   const unionSql = targets
@@ -389,19 +402,12 @@ export class MysqlAdapter implements DatabaseAdapter {
   }
 
   async getOverview(): Promise<DatabaseOverview> {
-    const [rows] = await this.getPool().query<mysql.RowDataPacket[]>(
-      `SELECT table_schema AS table_schema, table_name AS table_name
-         FROM information_schema.tables
-        WHERE table_schema NOT IN (?, ?, ?, ?)
-        ORDER BY table_schema, table_name`,
-      SYSTEM_SCHEMAS
-    );
-
+    const targets = await fetchAllTableTargets(this.getPool());
     const bySchema = new Map<string, string[]>();
-    for (const row of rows as Array<{ table_schema: string; table_name: string }>) {
-      const tables = bySchema.get(row.table_schema) ?? [];
-      tables.push(row.table_name);
-      bySchema.set(row.table_schema, tables);
+    for (const { schema, table } of targets) {
+      const tables = bySchema.get(schema) ?? [];
+      tables.push(table);
+      bySchema.set(schema, tables);
     }
 
     const schemas: SchemaMetadata[] = [...bySchema.entries()].map(([name, tables]) => ({
@@ -478,15 +484,30 @@ export class MysqlAdapter implements DatabaseAdapter {
       references: foreignKeyReferences.get(row.column_name)
     }));
 
-    const [indexes, [countResult]] = await Promise.all([
-      fetchIndexes(pool, schema, table),
-      pool.query<mysql.RowDataPacket[]>(
-        `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
-      )
-    ]);
-    const rowCount = (countResult[0] as { count: number }).count;
+    const [tableTypeResult] = await pool.query<mysql.RowDataPacket[]>(
+      `SELECT table_type AS table_type
+         FROM information_schema.tables
+        WHERE table_schema = ? AND table_name = ?`,
+      [schema, table]
+    );
+    const kind = mapTableTypeToTableKind(
+      (tableTypeResult[0] as { table_type: string } | undefined)?.table_type ?? "BASE TABLE"
+    );
 
-    return { schema, name: table, columns, indexes, rowCount };
+    // A view has no COUNT(*) worth reporting alongside a table's - it would silently re-execute
+    // the view's own (potentially expensive) underlying query just to produce a number (F124).
+    const [indexes, rowCount] = await Promise.all([
+      fetchIndexes(pool, schema, table),
+      kind === "view"
+        ? Promise.resolve(undefined)
+        : pool
+            .query<mysql.RowDataPacket[]>(
+              `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
+            )
+            .then(([rows]) => (rows[0] as { count: number }).count)
+    ]);
+
+    return { schema, name: table, kind, columns, indexes, rowCount };
   }
 
   async getAllTables(): Promise<TableMetadata[]> {
@@ -498,11 +519,12 @@ export class MysqlAdapter implements DatabaseAdapter {
       fetchAllRowCounts(pool, targets)
     ]);
 
-    return targets.map(({ schema, table }) => {
+    return targets.map(({ schema, table, kind }) => {
       const key = tableKey(schema, table);
       return {
         schema,
         name: table,
+        kind,
         columns: columnsByTable.get(key) ?? [],
         indexes: indexesByTable.get(key) ?? [],
         rowCount: rowCountByTable.get(key)

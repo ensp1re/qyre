@@ -19,10 +19,10 @@ describe("/api/tables", () => {
         schemas: [{ name: "public", tables: ["a", "b"] }],
         capabilities: stubReadOnlyCapabilities(true)
       }),
-      getTable: async (schema, table) => ({ schema, name: table, columns: [] }),
+      getTable: async (schema, table) => ({ schema, name: table, kind: "table", columns: [] }),
       getAllTables: async () => [
-        { schema: "public", name: "a", columns: [] },
-        { schema: "public", name: "b", columns: [] }
+        { schema: "public", name: "a", kind: "table", columns: [] },
+        { schema: "public", name: "b", kind: "table", columns: [] }
       ],
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
@@ -36,8 +36,8 @@ describe("/api/tables", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       tables: [
-        { schema: "public", name: "a", columns: [] },
-        { schema: "public", name: "b", columns: [] }
+        { schema: "public", name: "a", kind: "table", columns: [] },
+        { schema: "public", name: "b", kind: "table", columns: [] }
       ]
     });
     await app.close();

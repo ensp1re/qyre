@@ -226,3 +226,12 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   deviation from this entry's literal text). SQLite/MongoDB have no cross-table catalog query, so
   they move the fan-out into a bounded sequential loop inside the adapter instead. F124 (table/view
   `kind`) is next.
+- 2026-07-10 (later still): F124 implemented (PR #99) - `TableMetadata.kind` lands. Found and fixed
+  two real visibility gaps beyond the plan's "views appear as tables" framing: Postgres
+  materialized views were entirely invisible (not merely mistagged) since
+  `information_schema.tables` has no matview concept - now sourced from `pg_class` directly; SQLite
+  views were entirely excluded from every listing (`type = 'table'` only) - now included. Sidebar
+  badge deliberately deferred (Schema tab's `TableDetail` already had the data with zero plumbing;
+  the sidebar's `SchemaMetadata.tables` is bare strings and would need a much larger type change
+  across all 4 adapters plus every test asserting on that shape). F092-F095 (per-engine permission
+  introspection, parallelizable) are next.

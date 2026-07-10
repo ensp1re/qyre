@@ -16,6 +16,7 @@ import type {
   RowPage,
   RowSort,
   SchemaMetadata,
+  TableKind,
   TableMetadata
 } from "@qyre/core";
 import {
@@ -131,6 +132,17 @@ function normalizeRow(row: Record<string, unknown>): Record<string, unknown> {
   return normalized;
 }
 
+/** The name+kind ('table'|'view') of every non-system relation in `sqlite_master` (F124) - views
+ * were previously excluded entirely (`type = 'table'` only), not merely mistagged. */
+function fetchAllTableTargets(db: Database.Database): Array<{ name: string; kind: TableKind }> {
+  const rows = db
+    .prepare(
+      "SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    )
+    .all() as Array<{ name: string; type: "table" | "view" }>;
+  return rows.map((row) => ({ name: row.name, kind: row.type }));
+}
+
 /** Fetch index metadata for a table via SQLite's pragmas. */
 function fetchIndexes(db: Database.Database, table: string): IndexMetadata[] {
   const indexList = db.pragma(`index_list(${quoteIdent(table)})`) as IndexListRow[];
@@ -184,14 +196,10 @@ export class SqliteAdapter implements DatabaseAdapter {
   }
 
   async getOverview(): Promise<DatabaseOverview> {
-    const tables = this.getDb()
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-      )
-      .all() as Array<{ name: string }>;
+    const targets = fetchAllTableTargets(this.getDb());
 
     const schemas: SchemaMetadata[] = [
-      { name: MAIN_SCHEMA, tables: tables.map((row) => row.name) }
+      { name: MAIN_SCHEMA, tables: targets.map((target) => target.name) }
     ];
 
     return { engine: "sqlite", schemas, capabilities: await this.getCapabilities() };
@@ -230,11 +238,22 @@ export class SqliteAdapter implements DatabaseAdapter {
 
     const indexes = fetchIndexes(db, table);
 
-    const { count } = db.prepare(`SELECT COUNT(*) AS count FROM ${quoteIdent(table)}`).get() as {
-      count: number;
-    };
+    const typeRow = db.prepare("SELECT type FROM sqlite_master WHERE name = ?").get(table) as
+      { type: string } | undefined;
+    const kind: TableKind = typeRow?.type === "view" ? "view" : "table";
 
-    return { schema, name: table, columns, indexes, rowCount: count };
+    // A view's COUNT(*) would silently re-execute its own underlying query just to produce a
+    // number (F124) - matches the Postgres/MySQL adapters' choice to skip row counts for views.
+    const rowCount =
+      kind === "view"
+        ? undefined
+        : (
+            db.prepare(`SELECT COUNT(*) AS count FROM ${quoteIdent(table)}`).get() as {
+              count: number;
+            }
+          ).count;
+
+    return { schema, name: table, kind, columns, indexes, rowCount };
   }
 
   /**
@@ -245,14 +264,10 @@ export class SqliteAdapter implements DatabaseAdapter {
    * synchronous, so nothing actually runs concurrently either way.
    */
   async getAllTables(): Promise<TableMetadata[]> {
-    const tables = this.getDb()
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-      )
-      .all() as Array<{ name: string }>;
+    const targets = fetchAllTableTargets(this.getDb());
 
     const result: TableMetadata[] = [];
-    for (const { name } of tables) {
+    for (const { name } of targets) {
       result.push(await this.getTable(MAIN_SCHEMA, name));
     }
     return result;

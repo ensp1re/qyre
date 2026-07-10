@@ -6,32 +6,25 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-10.
-- Branch: `main`, clean. PR #90 (F088) is merged; v0.3.0 released via PR #91.
-- Queue: 7 `passing` entries (F083-F089, pruned to 24h retention) plus 39 `not_started`
-  entries (F090-F128) - the full plan for evolving the read-only MVP into a role-aware,
-  write-capable database IDE. `nextIds.F` is 129.
+- Branch: `feature/F122-server-auth-token`, pushed. PR #94 (F122) is open with CI green, not yet
+  merged.
+- Queue: 1 `passing` entry (F122, pruned to 24h retention) plus 39 `not_started` entries
+  (F090-F121, F123-F128) - the rest of plan 0006's role-aware database IDE. `nextIds.F` is 129.
 
 ## Completed
 
 - All read-only MVP work through F089 is merged and passing; see product specs and Git/PR history.
-- Planning session (2026-07-10): full-codebase analysis produced
-  `docs/exec-plans/active/0006-role-aware-database-ide.md` (two-tier advisory capability model,
-  adapter namespaces `mutations`/`ddl`/`admin`, structured row mutations, pending-changes batch
-  commit, statement classification for SQL writes, `--read-only` central guard, per-engine
-  introspection matrix), queued as F090-F121.
-- Second-pass adversarial review (same day, code audit + market research) revised the plan: added
-  F122 (session-token auth + CSP - the no-auth local server was the biggest missed risk), F123
-  (batched introspection), F124 (table/view kinds), F125 (MongoDB EJSON document editor - flat
-  cell edits were the wrong model for Mongo), F126 (query cancellation; better-sqlite3 blocks the
-  event loop), F127 (column autocomplete), F128 (EXPLAIN viewer); hardened F093 (MySQL role
-  grants), F107 (bypass Postgres identifier coercion on writes), F109/F110/F114 (kind-gated DDL),
-  F117 (upload caps), F118 (single-pass streaming export), F121 (token assertions). See the exec
-  plan's "Second-pass revisions" section.
+- Exec plan 0006 (`docs/exec-plans/active/0006-role-aware-database-ide.md`) queued the full
+  read-only-to-write-capable-IDE plan as F090-F128 (see plan's own progress log for planning
+  history).
+- F122 (session-token auth + security headers) implemented and merged into CI: every `/api/*`
+  route requires a per-session bearer token (`Authorization: Bearer`, or `?token=` for the CSV
+  export's plain `<a href>` download); `static-web.ts` injects the token into the served
+  `index.html`; a CSP/nosniff/X-Frame-Options land on every response. PR #94.
 
 ## In progress
 
-- Nothing active. The next slice is F122 (server auth token + security headers). Read the exec
-  plan 0006 before starting any F090+ slice - it carries the settled decisions and open questions.
+- Nothing active. Waiting on PR #94 (F122) to merge to `main`.
 
 ## Known issues / blockers
 
@@ -46,8 +39,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Merge PR #92 (`chore/plan-0006-role-aware-ide`) - the planning branch with exec plan 0006 and
-  the F090-F128 queue.
-- Then pick up F122 (server auth token + headers), and proceed in the queue's array order
-  (Phase A: F122 -> F090 -> F091 -> F123 -> F124 -> F092-F095 -> F096 -> F097 before any write
-  feature). The exec plan's "Feature order and dependencies" section is the authoritative order.
+- Merge PR #94 (`feature/F122-server-auth-token`).
+- Then pick up F090 (permission/capability spec), and proceed in the queue's array order
+  (Phase A: F090 -> F091 -> F123 -> F124 -> F092-F095 -> F096 -> F097 before any write feature).
+  The exec plan's "Feature order and dependencies" section is the authoritative order.

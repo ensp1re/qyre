@@ -203,3 +203,7 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
 - 2026-07-10 (later): Second-pass adversarial review revised the plan: added F122-F128, rewrote
   Phase B's MongoDB model, reordered Phase A to lead with security hardening. No implementation
   started.
+- 2026-07-10 (later still): F122 implemented (PR #94) - session-token auth on every `/api/*`
+  route, CSP/nosniff/X-Frame-Options on every response. Token transport (open decision #3) resolved
+  as Authorization header for `fetchJson` plus a `?token=` query param for the CSV export's plain
+  `<a href>` download. First Phase A slice done; F090 is next.

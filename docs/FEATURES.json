@@ -8,61 +8,6 @@
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
     {
-      "id": "F083",
-      "behavior": "Row selection in the Rows table supports real bulk workflows: the \"<n> selected\" indicator gains a clear-selection (x) icon button, a select-all-on-current-page control sits in the header row above the first data row, rows can be selected by pressing and dragging the mouse rather than only one click at a time, and the CSV/download export honors the current selection - exporting only selected rows when any are selected, the full result set when none are.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "3bfde82a7dc850cc38888256bc596e2bf8be099c",
-      "evidence": "PR #85 (https://github.com/ensp1re/qyre/pull/85), merged as 3bfde82. Implemented page-local row selection controls in RowsTable: header select-all-current-page checkbox, clear-selection icon button, pointer drag select/deselect across visible rows, and export button routing that downloads selected loaded rows as CSV when any are selected or falls back to the existing server-side full filtered export when none are selected. TablesTab owns the Blob download for selected-row CSVs. Verified locally with pnpm --filter @qyre/ui test, pnpm --filter @qyre/ui typecheck, pnpm --filter @qyre/web typecheck, pnpm verify:pr, and pre-push pnpm verify:pr. GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-09T12:10:19.000Z"
-    },
-    {
-      "id": "F084",
-      "behavior": "The Schema tab's graph view reflects and lets you explore real relationships: MySQL foreign keys are introspected and drawn as edges (currently missing), disconnected node clusters get a visible explanation instead of silently looking broken, clicking a table or edge highlights the full relationship chain it belongs to, and MongoDB - which has no real foreign keys - stops rendering `_id` as though it were a relationship (currently clicking it navigates to a non-existent table showing no rows).",
-      "verification": "pnpm --filter @qyre/web test && pnpm --filter @qyre/mysql test",
-      "state": "passing",
-      "commitHash": "c2160d8e68b76c1e7b690e7edfbac43440c0e95e",
-      "evidence": "PR #86 (https://github.com/ensp1re/qyre/pull/86) merged as c2160d8. Implemented graph relationship-chain highlighting, disconnected-cluster/no-FK notices, and stable MySQL fixture FK coverage via qyre_demo_orders -> qyre_demo_users. MongoDB graph coverage confirms `_id` remains a primary-key column, not a relationship edge. Verified locally: pnpm --filter @qyre/web test; node scripts/with-local-env.mjs pnpm --filter @qyre/mysql test; pnpm --filter @qyre/web typecheck; pnpm --filter @qyre/mysql typecheck; pnpm --filter @qyre/testing typecheck; pnpm check:quiet; pnpm verify:pr; pre-push pnpm verify:pr.",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-09T12:33:41.000Z"
-    },
-    {
-      "id": "F085",
-      "behavior": "Switching the active database connection from the UI (POST /api/connect, F064) keeps every dependent view in sync: the sidebar/schema tree currently keeps showing the previous connection's tables/schemas until a manual reload and must refresh to the new target automatically, and MongoDB connections hide the SQL Editor tab entirely instead of rendering it as a disabled/greyed-out panel, since MongoDB has no SQL surface to disable.",
-      "verification": "pnpm --filter @qyre/web test && pnpm test:e2e",
-      "state": "passing",
-      "commitHash": "78912a54719156f066a72fd4519c03fafd4e6ac7",
-      "evidence": "PR #87 (https://github.com/ensp1re/qyre/pull/87) merged as 78912a5. Implemented explicit database-owned React Query cache reset/refetch after successful POST /api/connect, local workspace reset for stale selected table/file/query metrics while preserving the SQL draft, hidden unsupported shell tabs, and automatic move off SQL when the connected adapter reports supportsSql=false. Added isolated E2E coverage for switching from Postgres to MongoDB without reload: a Postgres-only table disappears from the sidebar, the MongoDB fixture appears, and SQL Editor is absent. Verified locally: pnpm --filter @qyre/web test; pnpm --filter @qyre/ui test; pnpm --filter @qyre/web typecheck; pnpm --filter @qyre/ui typecheck; node scripts/with-local-env.mjs pnpm exec playwright test e2e/connect-and-inspect.spec.ts --grep \"switching to MongoDB\" --project postgres; pnpm test:e2e; pnpm check:quiet; pnpm verify:pr; pre-push pnpm verify:pr. GitHub CI passed End-to-end and Lint/typecheck/test/build.",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-09T13:01:33.000Z"
-    },
-    {
-      "id": "F086",
-      "behavior": "Cell values that look like an image URL or a plain URL get an inspectable preview (thumbnail/link) instead of rendering as plain truncated text; long raw-text cells past the truncation threshold get a distinct visual treatment (e.g. a color/background cue), not the same look as a normal short string; and the Files tab's \"File browsing is disabled\" message stops implying it's disabled because of the connected database engine - it's actually gated purely by the --files-dir CLI flag, independent of engine (Postgres/MySQL/MongoDB/SQLite can all use it) - the message should say that plainly instead of reading like a generic, unexplained restriction.",
-      "verification": "pnpm --filter @qyre/ui test",
-      "state": "passing",
-      "commitHash": "c00289a89d900eb83f00689d7a40bd38ca5167f8",
-      "evidence": "PR #88 (https://github.com/ensp1re/qyre/pull/88) opened from feature/F086-url-cell-previews at c00289a. Implemented strict http(s) URL classification in the shared cell renderer, image URL thumbnails, plain URL link chips, URL inspection in CellValueDrawer with external-link and image preview affordances, and a distinct bordered muted treatment for long raw text cells. Updated the Files tab disabled copy to state that file browsing is gated by --files-dir and works across database engines. Verified locally: pnpm --filter @qyre/ui test; pnpm --filter @qyre/web test; pnpm --filter @qyre/ui typecheck; pnpm --filter @qyre/web typecheck; pnpm check:quiet; QYRE_DOCKER_BIN=/Applications/Docker.app/Contents/Resources/bin/docker pnpm verify:pr; pre-commit format/typecheck/lint; pre-push pnpm verify:pr. GitHub CI passed End-to-end and Lint/typecheck/test/build.",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-09T13:25:23.000Z"
-    },
-    {
-      "id": "F087",
-      "behavior": "The Settings surface is rebuilt as a polished, scannable in-app configuration screen using the established Qyre/Fable visual language (docs/references/design-system.md) instead of its current one-off panel: sections are grouped logically, binary/numeric/list settings use the right shared-UI primitives, and persistence state (saved vs unsaved) is visually clear.",
-      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "060f6c78bb890c3a1608103c2fa58f9de2a3a391",
-      "evidence": "PR #89 (https://github.com/ensp1re/qyre/pull/89), merged as 060f6c7. Replaced the title-bar gear's one-off connection drawer with a full-screen SettingsScreen grouping Connection, Appearance, Layout, and Data & history sections; edits stage into a draft applied together on Save, with Discard restoring the baseline and the header showing unsaved-vs-saved state. Numeric fields clamp to bounds with a reset-to-default control; the gear opens Settings while a separate Database button keeps the connection switcher. Verified with pnpm --filter @qyre/ui test (130 passed), pnpm --filter @qyre/web test (21 passed), and pnpm verify:pr (checks, build, smoke + full E2E across PostgreSQL/MySQL/SQLite/MongoDB). GitHub CI passed.",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-09T13:40:00.000Z"
-    },
-    {
       "id": "F088",
       "behavior": "`npx <connection-url>` (e.g. `npx mongodb://localhost:27017/qyre_test` or `npx postgres://...`) fails with npm's own EUNSUPPORTEDPROTOCOL error because npx parses the argument as a package spec before qyre ever runs. The CLI gains an interactive guided-login flow for users who hit this or simply run `npx qyre` with no target: pick an engine, then enter user, a masked password (echoed as ****), host, port, and database; on a failed connection attempt, show the real error and offer retry (Y) or quit (N) rather than exiting. Startup help/output also explains the npx protocol:// pitfall directly and points at the correct `npx qyre <connection-url>` shape or this new interactive prompt.",
       "verification": "pnpm --filter qyre test",
@@ -74,25 +19,15 @@
       "completedAt": "2026-07-09T23:52:00.000Z"
     },
     {
-      "id": "F089",
-      "behavior": "The Rows table filtering and table chrome are reviewed and rebuilt as a coherent cross-engine experience: operators and value inputs are derived from meaningful per-engine column capabilities rather than generic type strings, MongoDB BSON sentinels such as MinKey/MaxKey are not exposed as normal user-selectable filter types, invalid type/operator combinations are rejected consistently server-side, and the filter/table UI has clearer layout, hierarchy, spacing, and copy across PostgreSQL, MySQL, SQLite, MongoDB, and any registered engine.",
-      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/server test && pnpm --filter @qyre/testing-conformance test",
-      "state": "passing",
-      "commitHash": "4f8ffe6289c8491cb4ff891bb0b928fd069486dd",
-      "evidence": "PR #84 (https://github.com/ensp1re/qyre/pull/84), merged as 4f8ffe6. Implemented a shared browser-safe @qyre/core/filter-capabilities subpath that classifies engine-reported column metadata into meaningful filter capabilities and operator/value-input sets. The UI now receives the connected engine and uses that shared matrix to hide unsupported scalar fields, show only relevant operators, use boolean/date/time/datetime/number/ObjectId-appropriate value controls, and clarify filter/export copy. The server uses the same capability matrix to reject invalid direct API filter combinations before adapters run. MongoDB MinKey/MaxKey remain normalized for display but now collapse to structured object metadata instead of user-facing minKey/maxKey data types, and sentinel tokens are no longer coerced from scalar filter input. Updated rows-table-filtering.md to document capability-based validation and BSON sentinel behavior. Verified locally with pnpm --filter @qyre/core test, pnpm --filter @qyre/server test, pnpm --filter @qyre/ui test, node scripts/with-local-env.mjs pnpm --filter @qyre/mongodb test, node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test, pnpm check:quiet, and pnpm verify:pr (checks, build, smoke E2E, full E2E across PostgreSQL/MySQL/SQLite/MongoDB) all passing. GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/rows-table-filtering.md",
-      "completedAt": "2026-07-09T11:55:45.000Z"
-    },
-    {
       "id": "F122",
       "behavior": "Local-server authentication and browser hardening, landing FIRST in plan 0006 because it protects even the read-only product and is a precondition for any mutating route: the CLI mints a cryptographically random per-session token at startup, the served UI receives it (injected into index.html or fetched via a one-time bootstrap), and every /api route rejects requests without it (401, structured error) - closing the current no-auth surface where any local process/user can call the full API and where cross-origin CSRF is blocked only implicitly by Fastify's JSON content-type requirement (pgweb/DbGate precedent for local web DB tools). Security headers land with it: CSP on the served SPA (also neutralizes DB-data-driven request exfil via F086's image URL previews), X-Content-Type-Options, X-Frame-Options. Open decision (exec plan 0006 #3): header-based token + fetch/blob downloads vs cookie - the CSV export links (plain <a href>) must keep working, so the choice must cover download URLs. E2E: UI works end-to-end with the token; a tokenless curl to every /api route 401s; docs/SECURITY.md updated. No dependency on other plan slices.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter qyre test && pnpm test:e2e",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "339010d85e1b0555ad9cb548bb47d30c60aabf08",
+      "evidence": "PR #94 (https://github.com/ensp1re/qyre/pull/94), pushed as 339010d. Added @qyre/server/src/services/auth-token.ts (crypto.randomBytes token, constant-time compare) and two new plugins: auth-guard.ts (rejects any /api/* request without a valid token - Authorization: Bearer header, or a ?token= query param for the CSV export's plain <a href> download, which can't set headers) and security-headers.ts (CSP with connect-src/script-src/default-src locked to 'self' but img-src open to http/https for the F086 previews, plus X-Content-Type-Options: nosniff and X-Frame-Options: DENY). createServer generates a random token per instance (or accepts one via options for tests) and decorates it onto the FastifyInstance; static-web.ts now serves index.html dynamically (explicit / and /index.html routes plus the SPA-fallback notFoundHandler) with the token injected as window.__QYRE_TOKEN__, replacing @fastify/static's raw index-file serving. apps/web's fetchJson attaches the token as an Authorization header (read via a new shared/api/auth-token.ts); exportRowsUrl appends it as a query param for the real-navigation CSV download. Resolved a cross-package typecheck gap along the way: a standalone types/fastify.d.ts augmentation file wasn't visible when @qyre/qyre's own tsc run pulled in server/src/app.ts transitively (each package's tsconfig only includes its own src) - moved the `declare module \"fastify\"` block inline into app.ts, which is always part of every consumer's compiled unit. Updated all ~59 existing app.inject call sites across 8 test files to send an auth header via a new tests/helpers/auth.ts; added auth-guard.test.ts, security-headers.test.ts, token-injection cases in static-web.test.ts, and e2e/auth-token.spec.ts (tokenless/invalid-token 401s, real browser UI still works end-to-end - all 4 engine projects). docs/SECURITY.md updated. Verified: pnpm --filter @qyre/server test (83 passed), pnpm --filter qyre test / pnpm --filter @qyre/qyre test (44 passed), pnpm test:e2e, pnpm check:quiet, pnpm verify:pr (full local gate incl. @full E2E against live Postgres/MySQL/SQLite/MongoDB). GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-10T16:52:22.000Z"
     },
     {
       "id": "F090",

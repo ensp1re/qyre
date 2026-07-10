@@ -1,5 +1,8 @@
+import { getAuthToken } from "./auth-token.js";
+
 /**
- * Shared fetch wrapper for every `api/*.ts` fetcher (F017).
+ * Shared fetch wrapper for every `api/*.ts` fetcher (F017). Attaches the session bearer token
+ * every `/api/*` route now requires (F122).
  *
  * Distinguishes the two ways a request can fail:
  * - The request never reached a server at all (`fetch()` itself rejects - server not running,
@@ -11,9 +14,13 @@
  *   status-code message only if the body is missing or malformed.
  */
 export async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const headers = new Headers(init?.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
   let response: Response;
   try {
-    response = await fetch(input, init);
+    response = await fetch(input, { ...init, headers });
   } catch {
     throw new Error("Could not reach the Qyre server. Is it still running?");
   }

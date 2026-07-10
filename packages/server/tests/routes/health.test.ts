@@ -1,11 +1,16 @@
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
+import { authHeaders } from "../helpers/auth.js";
 
 describe("GET /api/health", () => {
   it("responds with status ok and unconfigured database", async () => {
     const app = createServer();
-    const response = await app.inject({ method: "GET", url: "/api/health" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: authHeaders(app)
+    });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
       status: "ok",
@@ -34,7 +39,11 @@ describe("GET /api/health", () => {
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
     };
     const app = createServer({ adapter });
-    const response = await app.inject({ method: "GET", url: "/api/health" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: authHeaders(app)
+    });
     const body = response.json();
     expect(body.database).toBe("connected");
     expect(typeof body.pingLatencyMs).toBe("number");
@@ -65,14 +74,22 @@ describe("GET /api/health", () => {
     };
     const app = createServer({ adapter });
 
-    const failedResponse = await app.inject({ method: "GET", url: "/api/health" });
+    const failedResponse = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: authHeaders(app)
+    });
     expect(failedResponse.json()).toMatchObject({
       database: "disconnected",
       lastError: "Connection terminated unexpectedly"
     });
 
     shouldFail = false;
-    const recoveredResponse = await app.inject({ method: "GET", url: "/api/health" });
+    const recoveredResponse = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: authHeaders(app)
+    });
     expect(recoveredResponse.json()).toMatchObject({ database: "connected", lastError: null });
     await app.close();
   });
@@ -94,7 +111,11 @@ describe("GET /api/health", () => {
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
     };
     const app = createServer({ adapter });
-    const response = await app.inject({ method: "GET", url: "/api/health" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: authHeaders(app)
+    });
     expect(response.json()).toMatchObject({
       database: "connected",
       engineVersion: "PostgreSQL 16.4"
@@ -119,7 +140,11 @@ describe("GET /api/health", () => {
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
     };
     const app = createServer({ adapter });
-    const response = await app.inject({ method: "GET", url: "/api/health" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: authHeaders(app)
+    });
     expect(response.json()).toMatchObject({ database: "disconnected", engineVersion: null });
     await app.close();
   });

@@ -2,6 +2,7 @@ import type { DatabaseAdapter } from "@qyre/driver-contract";
 import { ReadOnlyViolationError } from "@qyre/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer, EventLog } from "../../src/index.js";
+import { authHeaders } from "../helpers/auth.js";
 
 describe("/api/console", () => {
   it("reads console events through a shared EventLog instance passed in (F028)", async () => {
@@ -12,7 +13,11 @@ describe("/api/console", () => {
     const app = createServer({ eventLog });
     eventLog.log("error", "Postgres pool error (connection dropped): test");
 
-    const response = await app.inject({ method: "GET", url: "/api/console" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/console",
+      headers: authHeaders(app)
+    });
     expect(response.json()).toMatchObject({
       events: [
         expect.objectContaining({ level: "error", message: expect.stringContaining("test") })
@@ -23,7 +28,11 @@ describe("/api/console", () => {
 
   it("starts with an empty event log", async () => {
     const app = createServer();
-    const response = await app.inject({ method: "GET", url: "/api/console" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/console",
+      headers: authHeaders(app)
+    });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ events: [] });
     await app.close();
@@ -51,9 +60,18 @@ describe("/api/console", () => {
       })
     };
     const app = createServer({ adapter });
-    await app.inject({ method: "POST", url: "/api/query", payload: { sql: "SELECT 1" } });
+    await app.inject({
+      method: "POST",
+      url: "/api/query",
+      payload: { sql: "SELECT 1" },
+      headers: authHeaders(app)
+    });
 
-    const response = await app.inject({ method: "GET", url: "/api/console" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/console",
+      headers: authHeaders(app)
+    });
     const { events } = response.json();
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ level: "info" });
@@ -80,9 +98,18 @@ describe("/api/console", () => {
       }
     };
     const app = createServer({ adapter });
-    await app.inject({ method: "POST", url: "/api/query", payload: { sql: "DELETE FROM t" } });
+    await app.inject({
+      method: "POST",
+      url: "/api/query",
+      payload: { sql: "DELETE FROM t" },
+      headers: authHeaders(app)
+    });
 
-    const response = await app.inject({ method: "GET", url: "/api/console" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/console",
+      headers: authHeaders(app)
+    });
     const { events } = response.json();
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ level: "warn" });
@@ -107,13 +134,16 @@ describe("/api/console", () => {
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
     };
     const app = createServer({ adapter });
+    const headers = authHeaders(app);
 
-    await app.inject({ method: "GET", url: "/api/health" });
-    expect((await app.inject({ method: "GET", url: "/api/console" })).json().events).toEqual([]);
+    await app.inject({ method: "GET", url: "/api/health", headers });
+    expect(
+      (await app.inject({ method: "GET", url: "/api/console", headers })).json().events
+    ).toEqual([]);
 
     connected = false;
-    await app.inject({ method: "GET", url: "/api/health" });
-    const { events } = (await app.inject({ method: "GET", url: "/api/console" })).json();
+    await app.inject({ method: "GET", url: "/api/health", headers });
+    const { events } = (await app.inject({ method: "GET", url: "/api/console", headers })).json();
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ level: "warn", message: "Database connection lost." });
     await app.close();
@@ -136,13 +166,19 @@ describe("/api/console", () => {
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
     };
     const app = createServer({ adapter });
-    await app.inject({ method: "POST", url: "/api/query", payload: { sql: "SELECT 1" } });
+    const headers = authHeaders(app);
+    await app.inject({
+      method: "POST",
+      url: "/api/query",
+      payload: { sql: "SELECT 1" },
+      headers
+    });
 
-    const clearResponse = await app.inject({ method: "DELETE", url: "/api/console" });
+    const clearResponse = await app.inject({ method: "DELETE", url: "/api/console", headers });
     expect(clearResponse.statusCode).toBe(200);
     expect(clearResponse.json()).toEqual({ events: [] });
 
-    const response = await app.inject({ method: "GET", url: "/api/console" });
+    const response = await app.inject({ method: "GET", url: "/api/console", headers });
     expect(response.json()).toEqual({ events: [] });
     await app.close();
   });

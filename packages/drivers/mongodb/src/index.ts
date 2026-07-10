@@ -365,6 +365,24 @@ export class MongodbAdapter implements DatabaseAdapter {
     return { schema, name: table, columns, indexes: [], rowCount };
   }
 
+  /**
+   * MongoDB has no cross-collection catalog query - each collection's field-sample aggregation
+   * (F068) is inherently per-collection. F123's batching win here is the same as SQLite's: move
+   * the fan-out from the *route* (an unbounded `Promise.all` across every adapter call) into the
+   * adapter as a bounded sequential loop, reusing `getTable`'s per-collection sampling and
+   * `getOverview`'s database/collection listing rather than re-querying `listDatabases`.
+   */
+  async getAllTables(): Promise<TableMetadata[]> {
+    const overview = await this.getOverview();
+    const result: TableMetadata[] = [];
+    for (const schema of overview.schemas) {
+      for (const table of schema.tables) {
+        result.push(await this.getTable(schema.name, table));
+      }
+    }
+    return result;
+  }
+
   async getRows(
     schema: string,
     table: string,

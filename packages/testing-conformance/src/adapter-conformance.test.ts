@@ -212,6 +212,21 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
   });
 
   it.skipIf(!configured)(
+    "getAllTables() returns the same shape as N x getTable() (F123)",
+    async () => {
+      const batched = await adapter.getAllTables();
+      const populated = batched.find(
+        (table) => table.schema === fixture.schema && table.name === fixture.populatedTable
+      );
+      const empty = batched.find(
+        (table) => table.schema === fixture.schema && table.name === fixture.emptyTable
+      );
+      expect(populated).toEqual(await adapter.getTable(fixture.schema, fixture.populatedTable));
+      expect(empty).toEqual(await adapter.getTable(fixture.schema, fixture.emptyTable));
+    }
+  );
+
+  it.skipIf(!configured)(
     "clamps an oversized pageSize but only returns the rows that actually exist",
     async () => {
       const page = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10_000);

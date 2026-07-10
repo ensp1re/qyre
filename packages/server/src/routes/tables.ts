@@ -19,17 +19,11 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
   // Backs the Schema tab (F027): previously the browser fanned useAllTables out into one HTTP
   // request per table (plus several catalog queries within each), which could mean hundreds of
   // concurrent requests on a large database. Fetching every table's metadata server-side in one
-  // request keeps the per-table catalog queries (unchanged, tracked separately as tech debt) off
-  // the browser's connection pool and out of per-table network round trips.
+  // request keeps that fan-out off the browser's connection pool; getAllTables() (F123) keeps it
+  // off the database too, replacing the adapter-side per-table fan-out this route used to drive
+  // (an unbounded Promise.all(getTable) per table) with each engine's own batched introspection.
   app.get("/api/tables", async (): Promise<AllTablesResponse> => {
-    const db = requireAdapter(ctx.adapter);
-    const overview = await db.getOverview();
-    const targets = overview.schemas.flatMap((schema) =>
-      schema.tables.map((table) => ({ schema: schema.name, table }))
-    );
-    const tables = await Promise.all(
-      targets.map(({ schema, table }) => db.getTable(schema, table))
-    );
+    const tables = await requireAdapter(ctx.adapter).getAllTables();
     return { tables };
   });
 

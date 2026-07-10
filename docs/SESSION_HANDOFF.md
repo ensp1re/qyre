@@ -6,10 +6,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-10.
-- Branch: `feature/F091-capability-plumbing`, pushed. PR #96 (F091) is open with CI green, not yet
-  merged. F122's PR #94 and F090's PR #95 are both merged to `main`.
-- Queue: 3 `passing` entries (F122, F090, F091, pruned to 24h retention) plus 37 `not_started`
-  entries (F092-F121, F123-F128) - the rest of plan 0006's role-aware database IDE. `nextIds.F` is 129.
+- Branch: `feature/F123-batched-introspection`, pushed. PR #98 (F123) is open with CI green, not
+  yet merged. F122's PR #94, F090's PR #95, and F091's PR #96 are all merged to `main`.
+- Queue: 4 `passing` entries (F122, F090, F091, F123, pruned to 24h retention) plus 36
+  `not_started` entries (F092-F121, F124-F128) - the rest of plan 0006's role-aware database IDE.
+  `nextIds.F` is 129.
 
 ## Completed
 
@@ -24,16 +25,21 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   `docs/product-specs/permissions-and-capabilities.md` fixes the two-tier
   `ConnectionCapabilities`/`TablePermissions` data contract, the per-engine introspection matrix,
   and the advisory-introspection/authoritative-database principle. Spec-only, no code. PR #95.
-- F091 (capability plumbing) implemented and CI green: `@qyre/core` gains
+- F091 (capability plumbing) merged to `main`: `@qyre/core` gains
   `ConnectionCapabilities`/`TablePermissions`; `DatabaseAdapter` gains a required
   `getCapabilities()`, stubbed read-only (`stubReadOnlyCapabilities`) on all four adapters until
   F092-F095 land real introspection; `GET /api/overview` returns the full shape; `apps/web` gains
   `features/connection/model/use-capabilities.ts` for later write-UI gating (no visible UI change
   yet). PR #96.
+- F123 (batched schema introspection) implemented and CI green: `DatabaseAdapter` gains
+  `getAllTables()` - the same shape N `getTable()` calls would produce, but via one/few
+  set-based catalog queries per engine (Postgres/MySQL) or a bounded sequential loop reusing
+  `getTable()` (SQLite/MongoDB, neither has a cross-table catalog query). `GET /api/tables` now
+  calls it directly instead of `getOverview()` + an unbounded `Promise.all(getTable)`. PR #98.
 
 ## In progress
 
-- Nothing active. Waiting on PR #96 (F091) to merge to `main`.
+- Nothing active. Waiting on PR #98 (F123) to merge to `main`.
 
 ## Known issues / blockers
 
@@ -53,9 +59,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Merge PR #96 (`feature/F091-capability-plumbing`).
-- Then pick up F123 (batched introspection: `GET /api/tables` currently fans out `getTable` per
-  table), and proceed in the queue's array order (Phase A: F123 -> F124 -> F092-F095 -> F096 ->
-  F097 before any write feature). The exec plan's "Feature order and dependencies" section is the
-  authoritative order; F090/F091 are the settled contract and plumbing F092-F095 introspect real
-  values into.
+- Merge PR #98 (`feature/F123-batched-introspection`).
+- Then pick up F124 (table/view `kind` field - all three SQL drivers currently read
+  `information_schema.tables` with no `table_type` filter, so views appear as editable "tables"),
+  and proceed in the queue's array order (Phase A: F124 -> F092-F095 -> F096 -> F097 before any
+  write feature). The exec plan's "Feature order and dependencies" section is the authoritative
+  order; F090/F091/F123 are the settled contract and batched-introspection foundation F092-F095
+  attach real per-table permissions onto next.

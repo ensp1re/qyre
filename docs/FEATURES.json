@@ -77,7 +77,7 @@
       "id": "F092",
       "behavior": "Postgres permission introspection per the F090 spec: getCapabilities() reports real session writability (pg_is_in_recovery(), default_transaction_read_only, role attributes from pg_roles, has_database_privilege/has_schema_privilege CREATE checks), and getTable plus the batched F123 all-tables path attach per-table TablePermissions via has_table_privilege(current_user, ..., 'SELECT/INSERT/UPDATE/DELETE') batched per schema (one set-based query, not per-table round trips; works uniformly for tables and views). Introspection failure degrades to read-only with a logged warning, never to assumed-writable. Adds a restricted qyre_readonly Postgres user (SELECT-only grants) to the docker-compose init and @qyre/testing so integration tests cover both access levels from now on. Depends on F091, F123.",
       "verification": "node scripts/with-local-env.mjs pnpm --filter @qyre/postgres test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

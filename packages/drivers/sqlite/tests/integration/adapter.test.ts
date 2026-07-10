@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { SqliteAdapter } from "./index.js";
+import { SqliteAdapter } from "../../src/index.js";
 
 describe("SqliteAdapter integration", () => {
   let adapter: SqliteAdapter;

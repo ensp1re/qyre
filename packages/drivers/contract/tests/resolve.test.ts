@@ -1,8 +1,8 @@
 import type { ConnectionTarget } from "@qyre/core";
 import { describe, expect, it } from "vitest";
-import type { AdapterFactory, DatabaseAdapter } from "./contract.js";
-import { UnsupportedEngineError } from "./errors.js";
-import { resolveAdapter } from "./resolve.js";
+import type { AdapterFactory, DatabaseAdapter } from "../src/contract.js";
+import { UnsupportedEngineError } from "../src/errors.js";
+import { resolveAdapter } from "../src/resolve.js";
 
 const fakeAdapter = { engine: "postgres" } as DatabaseAdapter;
 

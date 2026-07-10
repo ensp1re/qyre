@@ -13,7 +13,7 @@ import {
 } from "@qyre/testing";
 import mysql from "mysql2/promise";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { MysqlAdapter } from "./index.js";
+import { MysqlAdapter } from "../../src/index.js";
 
 describe("MysqlAdapter integration", () => {
   let adapter: MysqlAdapter;

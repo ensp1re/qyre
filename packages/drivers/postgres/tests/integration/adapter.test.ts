@@ -14,7 +14,7 @@ import {
 } from "@qyre/testing";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { PostgresAdapter } from "./index.js";
+import { PostgresAdapter } from "../../src/index.js";
 
 describe("PostgresAdapter integration", () => {
   let adapter: PostgresAdapter;

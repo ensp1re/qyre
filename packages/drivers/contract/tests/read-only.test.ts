@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertReadOnly, ReadOnlyViolationError } from "./read-only.js";
+import { assertReadOnly, ReadOnlyViolationError } from "../src/read-only.js";
 
 describe("assertReadOnly", () => {
   it("allows SELECT", () => {

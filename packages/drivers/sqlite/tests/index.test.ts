@@ -1,6 +1,6 @@
 import type { ConnectionTarget } from "@qyre/core";
 import { describe, expect, it } from "vitest";
-import { sqliteAdapterFactory } from "./index.js";
+import { sqliteAdapterFactory } from "../src/index.js";
 
 describe("sqliteAdapterFactory", () => {
   it("supports sqlite targets", () => {

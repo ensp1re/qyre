@@ -41,6 +41,8 @@ interface ConformanceFixture {
   populatedRowCount: number;
   /** A table/collection with zero rows. */
   emptyTable: string;
+  /** A read-only view (a MongoDB view for that engine) over `populatedTable` (F124). */
+  viewTable: string;
 }
 
 interface EngineCase {
@@ -57,6 +59,7 @@ interface EngineCase {
 const suffix = randomUUID().replace(/-/g, "").slice(0, 8);
 const populatedTable = `qyre_conformance_${suffix}`;
 const emptyTable = `qyre_conformance_empty_${suffix}`;
+const viewTable = `qyre_conformance_view_${suffix}`;
 
 const cases: EngineCase[] = [
   {
@@ -75,10 +78,12 @@ const cases: EngineCase[] = [
         `INSERT INTO ${populatedTable} (n, label) VALUES (1, 'apple'), (2, 'banana'), (3, NULL)`
       );
       await pool.query(`CREATE TABLE ${emptyTable} (id serial PRIMARY KEY, n int, label text)`);
+      await pool.query(`CREATE VIEW ${viewTable} AS SELECT * FROM ${populatedTable}`);
       return {
         raw,
-        fixture: { schema: "public", populatedTable, populatedRowCount: 3, emptyTable },
+        fixture: { schema: "public", populatedTable, populatedRowCount: 3, emptyTable, viewTable },
         teardown: async () => {
+          await pool.query(`DROP VIEW IF EXISTS ${viewTable}`);
           await pool.query(`DROP TABLE IF EXISTS ${populatedTable}`);
           await pool.query(`DROP TABLE IF EXISTS ${emptyTable}`);
           await pool.end();
@@ -105,10 +110,18 @@ const cases: EngineCase[] = [
       await pool.query(
         `CREATE TABLE ${emptyTable} (id INT AUTO_INCREMENT PRIMARY KEY, n INT, label VARCHAR(50))`
       );
+      await pool.query(`CREATE VIEW ${viewTable} AS SELECT * FROM ${populatedTable}`);
       return {
         raw,
-        fixture: { schema: databaseName, populatedTable, populatedRowCount: 3, emptyTable },
+        fixture: {
+          schema: databaseName,
+          populatedTable,
+          populatedRowCount: 3,
+          emptyTable,
+          viewTable
+        },
         teardown: async () => {
+          await pool.query(`DROP VIEW IF EXISTS ${viewTable}`);
           await pool.query(`DROP TABLE IF EXISTS ${populatedTable}`);
           await pool.query(`DROP TABLE IF EXISTS ${emptyTable}`);
           await pool.end();
@@ -130,10 +143,11 @@ const cases: EngineCase[] = [
         `INSERT INTO ${populatedTable} (n, label) VALUES (1, 'apple'), (2, 'banana'), (3, NULL)`
       );
       db.exec(`CREATE TABLE ${emptyTable} (id INTEGER PRIMARY KEY, n INTEGER, label TEXT)`);
+      db.exec(`CREATE VIEW ${viewTable} AS SELECT * FROM ${populatedTable}`);
       db.close();
       return {
         raw: dbPath,
-        fixture: { schema: "main", populatedTable, populatedRowCount: 3, emptyTable },
+        fixture: { schema: "main", populatedTable, populatedRowCount: 3, emptyTable, viewTable },
         teardown: async () => {}
       };
     }
@@ -156,10 +170,18 @@ const cases: EngineCase[] = [
         { n: 3, label: null }
       ]);
       await db.createCollection(emptyTable);
+      await db.createCollection(viewTable, { viewOn: populatedTable, pipeline: [] });
       return {
         raw,
-        fixture: { schema: databaseName, populatedTable, populatedRowCount: 3, emptyTable },
+        fixture: {
+          schema: databaseName,
+          populatedTable,
+          populatedRowCount: 3,
+          emptyTable,
+          viewTable
+        },
         teardown: async () => {
+          await db.collection(viewTable).drop();
           await db.collection(populatedTable).drop();
           await db.collection(emptyTable).drop();
           await client.close();
@@ -223,6 +245,25 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       );
       expect(populated).toEqual(await adapter.getTable(fixture.schema, fixture.populatedTable));
       expect(empty).toEqual(await adapter.getTable(fixture.schema, fixture.emptyTable));
+    }
+  );
+
+  it.skipIf(!configured)(
+    "reports kind correctly for a table/collection vs. a view (F124)",
+    async () => {
+      const baseKind = engine === "mongodb" ? "collection" : "table";
+      const populated = await adapter.getTable(fixture.schema, fixture.populatedTable);
+      expect(populated.kind).toBe(baseKind);
+
+      const view = await adapter.getTable(fixture.schema, fixture.viewTable);
+      expect(view.kind).toBe("view");
+
+      // Same via the batched path (F123 parity holds for kind too).
+      const batched = await adapter.getAllTables();
+      const batchedView = batched.find(
+        (table) => table.schema === fixture.schema && table.name === fixture.viewTable
+      );
+      expect(batchedView?.kind).toBe("view");
     }
   );
 

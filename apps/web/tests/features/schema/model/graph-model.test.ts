@@ -25,6 +25,7 @@ function col(
 const users: TableMetadata = {
   schema: "public",
   name: "users",
+  kind: "table",
   columns: [col("id", { isPrimaryKey: true })],
   indexes: [],
   rowCount: 2
@@ -33,6 +34,7 @@ const users: TableMetadata = {
 const posts: TableMetadata = {
   schema: "public",
   name: "posts",
+  kind: "table",
   columns: [
     col("id", { isPrimaryKey: true }),
     col("author_id", {
@@ -78,8 +80,20 @@ describe("buildGraph (F074)", () => {
 
   it("renders MongoDB-style tables (no references) as unconnected nodes", () => {
     const collections: TableMetadata[] = [
-      { schema: "app", name: "users", columns: [col("_id", { isPrimaryKey: true })], indexes: [] },
-      { schema: "app", name: "orders", columns: [col("_id", { isPrimaryKey: true })], indexes: [] }
+      {
+        schema: "app",
+        name: "users",
+        kind: "collection",
+        columns: [col("_id", { isPrimaryKey: true })],
+        indexes: []
+      },
+      {
+        schema: "app",
+        name: "orders",
+        kind: "collection",
+        columns: [col("_id", { isPrimaryKey: true })],
+        indexes: []
+      }
     ];
     const { nodes, edges } = buildGraph(collections);
     expect(nodes).toHaveLength(2);
@@ -96,6 +110,7 @@ describe("buildGraph (F074)", () => {
     const mysqlOrders: TableMetadata = {
       schema: "qyre_test",
       name: "qyre_demo_orders",
+      kind: "table",
       columns: [
         col("id", { isPrimaryKey: true }),
         col("user_id", {
@@ -127,6 +142,7 @@ describe("relationship highlighting (F084)", () => {
   const comments: TableMetadata = {
     schema: "public",
     name: "comments",
+    kind: "table",
     columns: [
       col("id", { isPrimaryKey: true }),
       col("post_id", {
@@ -141,6 +157,7 @@ describe("relationship highlighting (F084)", () => {
   const auditLog: TableMetadata = {
     schema: "public",
     name: "audit_log",
+    kind: "table",
     columns: [col("id", { isPrimaryKey: true })],
     indexes: [],
     rowCount: 1

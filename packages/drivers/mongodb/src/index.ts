@@ -12,6 +12,7 @@ import type {
   RowPage,
   RowSort,
   SchemaMetadata,
+  TableKind,
   TableMetadata
 } from "@qyre/core";
 import { escapeRegExp, resolvePageRequest, stubReadOnlyCapabilities } from "@qyre/driver-contract";
@@ -336,11 +337,18 @@ export class MongodbAdapter implements DatabaseAdapter {
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {
-    const collection = this.getClient().db(schema).collection(table);
+    const db = this.getClient().db(schema);
+    const collection = db.collection(table);
+
+    // listCollections with a name filter, not the whole-database listing getOverview already did
+    // - a targeted lookup for the one collection/view this call cares about (F124).
+    const [info] = await db.listCollections({ name: table }, { nameOnly: true }).toArray();
+    const kind: TableKind = info?.type === "view" ? "view" : "collection";
 
     // Best-effort field list and per-field type from a sample, not a full scan - a schemaless
     // collection has no authoritative column list (see the spec's "Concepts that don't map 1:1
-    // from SQL engines").
+    // from SQL engines"). Sampling works against a view the same way it does a real collection -
+    // MongoDB re-runs the view's defining pipeline transparently.
     const sample = await collection
       .aggregate([{ $sample: { size: FIELD_SAMPLE_SIZE } }], { maxTimeMS: this.statementTimeoutMs })
       .toArray();
@@ -360,9 +368,11 @@ export class MongodbAdapter implements DatabaseAdapter {
       ...inferColumns(sample).filter((column) => column.name !== "_id")
     ];
 
-    const rowCount = await collection.estimatedDocumentCount();
+    // estimatedDocumentCount() reads collection-level storage stats a view has none of (F124) - a
+    // view's row count, if wanted, would mean actually running its pipeline to count the output.
+    const rowCount = kind === "view" ? undefined : await collection.estimatedDocumentCount();
 
-    return { schema, name: table, columns, indexes: [], rowCount };
+    return { schema, name: table, kind, columns, indexes: [], rowCount };
   }
 
   /**

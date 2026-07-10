@@ -27,10 +27,17 @@ export interface IndexMetadata {
   readonly primary: boolean;
 }
 
+/** What kind of relation a `TableMetadata` describes (F124) - editing and DDL gate on
+ * `kind === "table"`/`"collection"`; a view/materialized view renders read-only with a badge,
+ * since writing through either is either unsupported or semantically wrong (a view has no rows of
+ * its own to update; a materialized view is refreshed, not edited row-by-row). */
+export type TableKind = "table" | "view" | "materialized-view" | "collection";
+
 /** Metadata for a single table. */
 export interface TableMetadata {
   readonly schema: string;
   readonly name: string;
+  readonly kind: TableKind;
   readonly columns: ColumnMetadata[];
   readonly indexes?: IndexMetadata[];
   readonly rowCount?: number;

@@ -1,4 +1,4 @@
-import type { TableMetadata } from "@qyre/core";
+import type { TableKind, TableMetadata } from "@qyre/core";
 import { Link, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { TypeIcon } from "../primitives/type-icon.js";
@@ -6,6 +6,14 @@ import { TypeIcon } from "../primitives/type-icon.js";
 export interface TableDetailProps {
   table: TableMetadata;
 }
+
+// "table" and "collection" are each their engine's unremarkable default (F124) - a badge only
+// flags the exceptional, read-only-in-the-future cases, matching the spec's "subtle" ask rather
+// than labeling every single card with its (usually obvious) kind.
+const KIND_BADGE_LABEL: Partial<Record<TableKind, string>> = {
+  view: "VIEW",
+  "materialized-view": "MATERIALIZED VIEW"
+};
 
 /**
  * Columns, primary key, indexes, and approximate row count for a single table. Also reused as
@@ -20,6 +28,14 @@ export function TableDetail({ table }: TableDetailProps): ReactNode {
       <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
         <Table2 className="h-3 w-3 shrink-0" style={{ color: "var(--c-blue)" }} />
         <span className="font-mono text-[12px] font-medium text-foreground">{table.name}</span>
+        {KIND_BADGE_LABEL[table.kind] && (
+          <span
+            data-testid="table-kind-badge"
+            className="rounded-[2px] border border-border px-1 text-[8px] tracking-wide text-muted-foreground"
+          >
+            {KIND_BADGE_LABEL[table.kind]}
+          </span>
+        )}
         {table.rowCount !== undefined && (
           <span className="ml-auto font-mono text-[10px] text-muted-foreground">
             ~{table.rowCount.toLocaleString()} row{table.rowCount === 1 ? "" : "s"}

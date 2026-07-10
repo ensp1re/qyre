@@ -235,3 +235,18 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   the sidebar's `SchemaMetadata.tables` is bare strings and would need a much larger type change
   across all 4 adapters plus every test asserting on that shape). F092-F095 (per-engine permission
   introspection, parallelizable) are next.
+- 2026-07-10 (later still): F092 implemented (PR #100) - Postgres `getCapabilities()`/per-table
+  `TablePermissions` land via `pg_is_in_recovery()`/`default_transaction_read_only`/role
+  attributes/`has_table_privilege`, batched per schema. Introspection failure degrades to read-only,
+  logged. `qyre_readonly` SELECT-only fixture added. An unplanned refactor (F129, driver
+  modularization - each adapter's monolithic `index.ts` split into focused modules) landed outside
+  this plan's queue (PR #101/#102) between F092 and F093.
+- 2026-07-10 (later still): F093 implemented (PR #103) - MySQL `getCapabilities()`/per-table
+  `TablePermissions` land, but via a different mechanism than this entry's literal text specified:
+  live testing against MySQL 8.4.10 found `information_schema.ROLE_SCHEMA_GRANTS` doesn't exist and
+  `ROLE_TABLE_GRANTS` misses schema-wide (`db.*`) role grants entirely, so introspection instead
+  parses the session's own `SHOW GRANTS` output, which MySQL resolves into the merged effective
+  grant set (direct, schema-wide, and role-derived) with no version gate needed. `qyre_readonly`
+  (SELECT-only) and `qyre_role_writer` (write access only via an active default role - the case the
+  original approach would have missed) fixtures added. F094 (SQLite) and F095 (MongoDB) remain,
+  parallelizable with each other; F096 is next after both land.

@@ -207,3 +207,8 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   route, CSP/nosniff/X-Frame-Options on every response. Token transport (open decision #3) resolved
   as Authorization header for `fetchJson` plus a `?token=` query param for the CSV export's plain
   `<a href>` download. First Phase A slice done; F090 is next.
+- 2026-07-10 (later still): F090 implemented (PR #95) -
+  `docs/product-specs/permissions-and-capabilities.md` fixes `ConnectionCapabilities`/
+  `TablePermissions`'s exact shape, the per-engine introspection matrix, and the advisory/
+  authoritative principle. Resolved open decision #4: `ConnectionCapabilities` rides
+  `GET /api/overview`, not a new endpoint. Spec-only slice; F091 implements the types next.

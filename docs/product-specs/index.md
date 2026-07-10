@@ -63,6 +63,11 @@ single engine's behavior, not the whole product.
 - [`schema-graph.md`](schema-graph.md) - the Schema tab gains an interactive ERD (React Flow +
   dagre): tables as draggable pan/zoom nodes, foreign keys as connecting edges, layout persisted
   per database, with a Graph/Grid toggle keeping the existing card view. Tracked as F074.
+- [`permissions-and-capabilities.md`](permissions-and-capabilities.md) - the two-tier
+  `ConnectionCapabilities`/`TablePermissions` model that lets Qyre evolve from read-only into a
+  role-aware IDE (plan 0006): what each tier means, the per-engine introspection each one reads,
+  the advisory-introspection/authoritative-database principle, and the settled API shape. A
+  spec-only slice - F091 onward implement it. Tracked as F090.
 
 ## Rules
 

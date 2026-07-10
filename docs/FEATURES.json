@@ -33,11 +33,12 @@
       "id": "F090",
       "behavior": "Product-spec pass for the role-aware permission/capability model before any implementation: create docs/product-specs/permissions-and-capabilities.md covering the two-tier model (session-level ConnectionCapabilities extending F063's AdapterCapabilities with supportsRowMutations/supportsDdl/supportsIndexManagement/supportsDatabaseManagement/supportsTransactions plus a readOnlyReason of qyre-flag|replica|connection|grants|null, and per-table select/insert/update/delete TablePermissions attached to TableMetadata), the per-engine introspection matrix (Postgres has_table_privilege/pg_is_in_recovery/default_transaction_read_only, MySQL information_schema privileges + role grants + @@global.read_only, SQLite file+directory writability/PRAGMA query_only/mode=ro, MongoDB connectionStatus showPrivileges action sets), the advisory-introspection/authoritative-database principle with degradation to read-only on introspection failure, the API-shape decision (extend GET /api/overview vs a new endpoint - leaning extended overview), and how the UI adapts per access level. Follow the spec pattern of F063-F066. Architectural decisions are pre-settled in docs/exec-plans/active/0006-role-aware-database-ide.md; this spec turns them into a reviewable product contract with acceptance criteria.",
       "verification": "pnpm check:state",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "32affa0b4a619b9904d70607ec8925a79805ebd1",
+      "evidence": "PR #95 (https://github.com/ensp1re/qyre/pull/95), pushed as 32affa0. Added docs/product-specs/permissions-and-capabilities.md: the two-tier ConnectionCapabilities (session-level, extends F063's AdapterCapabilities with supportsRowMutations/supportsDdl/supportsIndexManagement/supportsDatabaseManagement/supportsTransactions/readOnlyReason) / TablePermissions (per-table select/insert/update/delete, optional on TableMetadata) data contract, the per-engine introspection matrix (which native mechanism each of Postgres/MySQL/SQLite/MongoDB reads for each tier, plus each engine's restricted test fixture), and the advisory-introspection/authoritative-database principle (database always the real enforcer; introspection failure degrades to read-only never assumed-writable; --read-only always wins). Resolved exec plan 0006's open decision #4: ConnectionCapabilities travels inside the existing GET /api/overview response, not a new endpoint. Registered in docs/product-specs/index.md. Spec-only slice, no code changes - acceptance criteria reflect that (F091 implements the types). Verified: pnpm check:state, pnpm check:quiet, pnpm verify:pr (full local gate incl. @full E2E against live Postgres/MySQL/SQLite/MongoDB, unaffected by this docs-only change). GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": "docs/product-specs/permissions-and-capabilities.md"
+      "spec": "docs/product-specs/permissions-and-capabilities.md",
+      "completedAt": "2026-07-10T17:10:38.000Z"
     },
     {
       "id": "F091",

@@ -10,14 +10,10 @@ import type {
   SchemaMetadata,
   TableMetadata
 } from "@qyre/core";
-import {
-  assertReadOnly,
-  capResultRows,
-  resolvePageRequest,
-  stubReadOnlyCapabilities
-} from "@qyre/driver-contract";
+import { assertReadOnly, capResultRows, resolvePageRequest } from "@qyre/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import Database from "better-sqlite3";
+import { computeCapabilities, tablePermissionsFromCapabilities } from "./capabilities.js";
 import { fetchAllTableTargets, introspectTable, MAIN_SCHEMA } from "./introspection.js";
 import { normalizeRow } from "./row-values.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
@@ -25,6 +21,7 @@ import { buildFilterClause, quoteIdent } from "./sql.js";
 export class SqliteAdapter implements DatabaseAdapter {
   public readonly engine = "sqlite";
   private db: Database.Database | undefined;
+  private resolvedPath: string | undefined;
 
   constructor(private readonly target: ConnectionTarget) {}
 
@@ -36,11 +33,16 @@ export class SqliteAdapter implements DatabaseAdapter {
   }
 
   async connect(): Promise<void> {
-    // The whole connection is opened read-only - the authoritative backstop, equivalent to
-    // @qyre/postgres's READ ONLY transaction (see runReadOnlyQuery below and the product spec).
-    // SQLite itself refuses any write through this handle, regardless of what assertReadOnly's
-    // string scan misses.
-    this.db = new Database(resolve(this.target.raw), { readonly: true, fileMustExist: true });
+    this.resolvedPath = resolve(this.target.raw);
+    try {
+      this.db = new Database(this.resolvedPath, { fileMustExist: true });
+    } catch {
+      // A normal open can fail outright in rare OS-permission edge cases (e.g. the file itself is
+      // unreadable) - fall back to an explicit read-only open so Qyre can still inspect the
+      // database instead of refusing to connect at all. getCapabilities() (F094) determines real
+      // writability independently, so a connection degraded here never gets reported as writable.
+      this.db = new Database(this.resolvedPath, { readonly: true, fileMustExist: true });
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -71,28 +73,30 @@ export class SqliteAdapter implements DatabaseAdapter {
   }
 
   async getCapabilities(): Promise<ConnectionCapabilities> {
-    return stubReadOnlyCapabilities(true);
+    const resolvedPath = this.resolvedPath ?? resolve(this.target.raw);
+    return computeCapabilities(resolvedPath, this.getDb());
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {
-    return introspectTable(this.getDb(), schema, table);
+    const permissions = tablePermissionsFromCapabilities(await this.getCapabilities());
+    return { ...introspectTable(this.getDb(), schema, table), permissions };
   }
 
   /**
    * SQLite has no cross-table catalog query (each pragma above is per-table by design) - F123's
    * batching win here is moving the fan-out from the *route* (an unbounded `Promise.all` across
-   * every adapter call) into the adapter as a plain sequential loop reusing `getTable`. Bounded
-   * concurrency of 1 is also a non-issue for correctness: better-sqlite3's pragma/prepare calls are
-   * synchronous, so nothing actually runs concurrently either way.
+   * every adapter call) into the adapter as a plain sequential loop over `introspectTable`.
+   * Permissions (F094) are computed once and shared across every table, not recomputed per table -
+   * they are uniform for the whole file, unlike Postgres/MySQL's per-table grant queries.
    */
   async getAllTables(): Promise<TableMetadata[]> {
     const targets = fetchAllTableTargets(this.getDb());
+    const permissions = tablePermissionsFromCapabilities(await this.getCapabilities());
 
-    const result: TableMetadata[] = [];
-    for (const { name } of targets) {
-      result.push(await this.getTable(MAIN_SCHEMA, name));
-    }
-    return result;
+    return targets.map(({ name }) => ({
+      ...introspectTable(this.getDb(), MAIN_SCHEMA, name),
+      permissions
+    }));
   }
 
   async getRows(
@@ -128,18 +132,25 @@ export class SqliteAdapter implements DatabaseAdapter {
   async runReadOnlyQuery(sql: string): Promise<RowPage> {
     assertReadOnly(sql);
 
-    // assertReadOnly is a heuristic string check; the read-only connection opened in connect() is
-    // the authoritative guarantee - SQLite refuses any write through this handle regardless of
-    // what the string check missed (see connect()'s comment).
-    const stmt = this.getDb().prepare(capResultRows(sql)).safeIntegers(true);
-    const rows = (stmt.all() as Array<Record<string, unknown>>).map(normalizeRow);
+    // assertReadOnly is a heuristic string check; SQLite's own `query_only` pragma is the
+    // authoritative guarantee, refusing any write regardless of what the string check missed -
+    // toggled only around this one query (never left on) since F094 stopped connect() forcing
+    // every connection permanently read-only, so the open mode alone no longer guarantees this.
+    const db = this.getDb();
+    db.pragma("query_only = 1");
+    try {
+      const stmt = db.prepare(capResultRows(sql)).safeIntegers(true);
+      const rows = (stmt.all() as Array<Record<string, unknown>>).map(normalizeRow);
 
-    return {
-      columns: stmt.columns().map((column) => column.name),
-      rows,
-      page: 0,
-      pageSize: rows.length
-    };
+      return {
+        columns: stmt.columns().map((column) => column.name),
+        rows,
+        page: 0,
+        pageSize: rows.length
+      };
+    } finally {
+      db.pragma("query_only = 0");
+    }
   }
 }
 

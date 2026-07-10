@@ -220,7 +220,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
   });
 
   it.skipIf(!configured)(
-    "reports a well-formed capabilities object (F091, F092, F093)",
+    "reports a well-formed capabilities object (F091, F092, F093, F094)",
     async () => {
       const capabilities = await adapter.getCapabilities();
       expect(capabilities.supportsSql).toBe(engine !== "mongodb");
@@ -235,8 +235,21 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
           supportsTransactions: true,
           readOnlyReason: null
         });
+      } else if (engine === "sqlite") {
+        // The conformance SQLite fixture is a normal writable tempdir file, so F094's real
+        // introspection reports full writability too - except supportsDatabaseManagement, which
+        // SQLite has no concept of (the file itself is "the database"; unlike Postgres/MySQL's
+        // CREATE DATABASE, there's no separate database-creation privilege to check).
+        expect(capabilities).toMatchObject({
+          supportsRowMutations: true,
+          supportsDdl: true,
+          supportsIndexManagement: true,
+          supportsDatabaseManagement: false,
+          supportsTransactions: true,
+          readOnlyReason: null
+        });
       } else {
-        // F094/F095 have not replaced their conservative F091 stubs yet.
+        // F095 has not replaced Mongo's conservative F091 stub yet.
         expect(capabilities.supportsRowMutations).toBe(false);
         expect(capabilities.supportsDdl).toBe(false);
         expect(capabilities.supportsIndexManagement).toBe(false);

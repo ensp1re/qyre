@@ -5,7 +5,7 @@
  * just a local file, created fresh per test run. This is a real, product-relevant difference worth
  * proving, not just asserting: no QYRE_TEST_DATABASE_URL, no Postgres container, no CI service.
  */
-import { mkdtempSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -139,17 +139,90 @@ describe("SqliteAdapter integration", () => {
     expect(after.rows).toHaveLength(3);
   });
 
-  it("the underlying connection is opened read-only - the authoritative backstop, not just assertReadOnly's string scan", () => {
+  it("SQLite's own query_only pragma refuses a write, independent of assertReadOnly (F094)", () => {
     // Unlike Postgres, SQLite has no writable-CTE or stored-procedure equivalent that could hide a
     // write behind a leading SELECT/WITH keyword - assertReadOnly's strict allowlist (only SELECT,
     // WITH, EXPLAIN, SHOW, TABLE, VALUES may lead a statement) already has no known bypass here. So
-    // this test proves the real safety property directly: the connection itself - the same one
-    // SqliteAdapter#connect() opens - refuses to write, independent of any SQL text scanning at all.
-    const directHandle = new Database(dbPath, { readonly: true, fileMustExist: true });
+    // this test proves the real safety property directly, bypassing assertReadOnly entirely: since
+    // F094 stopped connect() forcing every connection permanently read-only, runReadOnlyQuery's
+    // actual backstop is now toggling `PRAGMA query_only` around the query (see adapter.ts), not the
+    // connection's open mode - reproduce that toggle on a fresh, writable-opened handle directly.
+    const directHandle = new Database(dbPath, { fileMustExist: true });
     try {
+      directHandle.pragma("query_only = 1");
       expect(() => directHandle.exec("DELETE FROM qyre_demo_users")).toThrow(/readonly database/);
     } finally {
       directHandle.close();
+    }
+  });
+
+  it("reports full writability and permissions for a normal writable fixture (F094)", async () => {
+    await expect(adapter.getCapabilities()).resolves.toEqual({
+      supportsSql: true,
+      supportsRowMutations: true,
+      supportsDdl: true,
+      supportsIndexManagement: true,
+      supportsDatabaseManagement: false,
+      supportsTransactions: true,
+      readOnlyReason: null
+    });
+
+    await expect(adapter.getTable("main", "qyre_demo_users")).resolves.toMatchObject({
+      permissions: { select: true, insert: true, update: true, delete: true }
+    });
+
+    const tables = await adapter.getAllTables();
+    expect(tables.find((table) => table.name === "qyre_demo_users")?.permissions).toEqual({
+      select: true,
+      insert: true,
+      update: true,
+      delete: true
+    });
+  });
+
+  it("reports read-only capabilities and permissions for a chmod-read-only file copy (F094)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "qyre-sqlite-readonly-"));
+    const readOnlyPath = join(dir, "readonly.db");
+    copyFileSync(dbPath, readOnlyPath);
+    chmodSync(readOnlyPath, 0o444);
+
+    const readOnlyAdapter = new SqliteAdapter({ engine: "sqlite", raw: readOnlyPath });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(readOnlyAdapter.getCapabilities()).resolves.toEqual({
+        supportsSql: true,
+        supportsRowMutations: false,
+        supportsDdl: false,
+        supportsIndexManagement: false,
+        supportsDatabaseManagement: false,
+        supportsTransactions: false,
+        readOnlyReason: "connection"
+      });
+      await expect(readOnlyAdapter.getTable("main", "qyre_demo_users")).resolves.toMatchObject({
+        permissions: { select: true, insert: false, update: false, delete: false }
+      });
+    } finally {
+      await readOnlyAdapter.disconnect();
+      chmodSync(readOnlyPath, 0o644);
+    }
+  });
+
+  it("reports read-only capabilities for a file inside a read-only directory (F094)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "qyre-sqlite-rodir-"));
+    const nestedPath = join(dir, "nested.db");
+    copyFileSync(dbPath, nestedPath);
+    chmodSync(dir, 0o555);
+
+    const roDirAdapter = new SqliteAdapter({ engine: "sqlite", raw: nestedPath });
+    try {
+      await roDirAdapter.connect();
+      await expect(roDirAdapter.getCapabilities()).resolves.toMatchObject({
+        supportsRowMutations: false,
+        readOnlyReason: "connection"
+      });
+    } finally {
+      await roDirAdapter.disconnect();
+      chmodSync(dir, 0o755);
     }
   });
 });

@@ -6,8 +6,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-10.
-- Branch: `feature/F129-driver-modularization`, stacked on the pushed F092 head so PR #100 remains
-  isolated.
+- Branch: `feature/F129-driver-modularization`, pushed. Draft PR #101 has both CI jobs green.
 - Queue: F092 is `passing`; F093-F121 and F125-F128 remain `not_started`.
   `nextIds.F` is 129.
 
@@ -50,11 +49,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- Cross-driver structural refactor: Postgres, MySQL, SQLite, and MongoDB now have thin public
-  entrypoints plus responsibility-focused adapter/introspection/query/value modules; all five
-  packages under `packages/drivers` use local `tests/` trees. Runtime behavior and public exports
-  are unchanged. Targeted driver tests, builds, cross-engine conformance, and `pnpm check:quiet`
-  pass; pending full PR verification, commit, push, and draft PR.
+- Nothing active. The cross-driver modularization is implemented and verified in draft PR #101.
 
 ## Known issues / blockers
 
@@ -78,6 +73,6 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Finish delivery of the driver modularization branch, then pick up F093 (MySQL permission
-  introspection). The exec plan's "Feature order and dependencies" section is authoritative:
-  F093/F094/F095 -> F096 -> F097 before any write feature.
+- Merge draft PR #101, then pick up F093 (MySQL permission introspection). The exec plan's
+  "Feature order and dependencies" section is authoritative: F093/F094/F095 -> F096 -> F097
+  before any write feature.

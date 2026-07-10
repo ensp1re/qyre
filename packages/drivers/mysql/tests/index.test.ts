@@ -1,6 +1,6 @@
 import type { ConnectionTarget } from "@qyre/core";
 import { describe, expect, it, vi } from "vitest";
-import { MysqlAdapter, mysqlAdapterFactory } from "./index.js";
+import { MysqlAdapter, mysqlAdapterFactory } from "../src/index.js";
 
 describe("mysqlAdapterFactory", () => {
   it("supports mysql targets", () => {

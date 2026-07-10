@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ConnectionTarget } from "@qyre/core";
@@ -21,7 +21,7 @@ import {
   inferColumns,
   mongodbAdapterFactory,
   normalizeBsonValue
-} from "./index.js";
+} from "../src/index.js";
 
 describe("normalizeBsonValue", () => {
   it("preserves a Timestamp's {t, i} semantics instead of misreading it as a signed Long (F045)", () => {
@@ -202,7 +202,11 @@ const WRITE_METHODS = [
 describe("read-only enforcement", () => {
   it("the adapter's source contains no Mongo write API calls", () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    const source = readFileSync(join(here, "index.ts"), "utf-8");
+    const sourceDirectory = join(here, "../src");
+    const source = readdirSync(sourceDirectory)
+      .filter((name) => name.endsWith(".ts"))
+      .map((name) => readFileSync(join(sourceDirectory, name), "utf-8"))
+      .join("\n");
     for (const method of WRITE_METHODS) {
       expect(source, `source must not call ${method}`).not.toContain(method);
     }

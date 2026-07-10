@@ -30,8 +30,7 @@ screen.
 - Each engine translates a validated sort to its native mechanism:
   - **Postgres/MySQL/SQLite**: `ORDER BY <quoted-column> ASC|DESC` appended to the existing
     `SELECT ... LIMIT ... OFFSET ...`, using each adapter's existing identifier-quoting convention
-    (already used for table/column names elsewhere in each adapter - see `quoteIdent` in
-    `packages/drivers/sqlite/src/index.ts` and its Postgres/MySQL equivalents).
+    (owned by each SQL driver's `src/sql.ts`).
   - **MongoDB**: `.sort({ [column]: direction === "asc" ? 1 : -1 })` on the `getRows` cursor.
 - `RowsTable`'s header-click handler stops sorting the loaded array locally and instead calls a new
   `onSortChange` prop (same shape as the existing `onPageChange`), which `apps/web` uses to update

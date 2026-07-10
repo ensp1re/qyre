@@ -1,6 +1,6 @@
 import type { ConnectionTarget } from "@qyre/core";
 import { describe, expect, it } from "vitest";
-import { coerceUnknownQuotedIdentifiers, postgresAdapterFactory } from "./index.js";
+import { coerceUnknownQuotedIdentifiers, postgresAdapterFactory } from "../src/index.js";
 
 describe("postgresAdapterFactory", () => {
   it("supports postgres targets", () => {

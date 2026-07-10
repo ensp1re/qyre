@@ -8,7 +8,7 @@
 import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@qyre/testing";
 import { Binary, Long, MongoClient, ObjectId } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { MongodbAdapter } from "./index.js";
+import { MongodbAdapter } from "../../src/index.js";
 
 describe("MongodbAdapter integration", () => {
   let adapter: MongodbAdapter;

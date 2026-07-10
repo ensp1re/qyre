@@ -6,7 +6,8 @@ import type {
   RowFilter,
   RowPage,
   RowSort,
-  TableMetadata
+  TableMetadata,
+  TablePermissions
 } from "@qyre/core";
 import {
   assertReadOnly,
@@ -17,7 +18,14 @@ import {
 } from "@qyre/driver-contract";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import mysql from "mysql2/promise";
+import { tableKey } from "./catalog.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
+import {
+  fetchAllTablePermissions,
+  fetchConnectionCapabilities,
+  fetchTablePermissions,
+  READ_ONLY_TABLE_PERMISSIONS
+} from "./permissions.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
@@ -87,16 +95,58 @@ export class MysqlAdapter implements DatabaseAdapter {
     };
   }
 
+  private reportPermissionIntrospectionFailure(error: unknown): void {
+    const detail = error instanceof Error ? error.message : "unknown error";
+    const message = `MySQL permission introspection failed; reporting read-only permissions: ${detail}`;
+    if (this.onConnectionEvent) this.onConnectionEvent("warn", message);
+    else console.warn(message);
+  }
+
+  private async getTablePermissions(schema: string, table: string): Promise<TablePermissions> {
+    try {
+      return await fetchTablePermissions(this.getPool(), schema, table);
+    } catch (error) {
+      this.reportPermissionIntrospectionFailure(error);
+      return READ_ONLY_TABLE_PERMISSIONS;
+    }
+  }
+
+  private async getAllTablePermissions(): Promise<Map<string, TablePermissions>> {
+    try {
+      return await fetchAllTablePermissions(this.getPool());
+    } catch (error) {
+      this.reportPermissionIntrospectionFailure(error);
+      return new Map();
+    }
+  }
+
   async getCapabilities(): Promise<ConnectionCapabilities> {
-    return stubReadOnlyCapabilities(true);
+    try {
+      return await fetchConnectionCapabilities(this.getPool());
+    } catch (error) {
+      this.reportPermissionIntrospectionFailure(error);
+      return stubReadOnlyCapabilities(true);
+    }
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {
-    return introspectTable(this.getPool(), schema, table);
+    const [metadata, permissions] = await Promise.all([
+      introspectTable(this.getPool(), schema, table),
+      this.getTablePermissions(schema, table)
+    ]);
+    return { ...metadata, permissions };
   }
 
   async getAllTables(): Promise<TableMetadata[]> {
-    return introspectAllTables(this.getPool());
+    const [tables, permissionsByTable] = await Promise.all([
+      introspectAllTables(this.getPool()),
+      this.getAllTablePermissions()
+    ]);
+    return tables.map((table) => ({
+      ...table,
+      permissions:
+        permissionsByTable.get(tableKey(table.schema, table.name)) ?? READ_ONLY_TABLE_PERMISSIONS
+    }));
   }
 
   async getRows(

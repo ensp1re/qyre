@@ -6,8 +6,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-10.
-- Branch: `feature/F129-driver-modularization`, pushed. Draft PR #101 has both CI jobs green.
-- Queue: F092 is `passing`; F093-F121 and F125-F128 remain `not_started`.
+- Branch: `feature/F093-mysql-permission-introspection`, pushed. PR #103 has both CI jobs green.
+- Queue: F092/F093 are `passing`; F094-F121 and F125-F128 remain `not_started`.
   `nextIds.F` is 129.
 
 ## Completed
@@ -42,14 +42,25 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   `= 'table'` only). Row counts skip views on all 4 engines (meaningless/would re-execute the
   view). The Schema tab's `TableDetail` card shows a subtle VIEW/MATERIALIZED VIEW badge; the
   sidebar tree badge is deliberately deferred (see PR #99's description for why). PR #99.
-- F092 (Postgres permission introspection) pushed and CI green: `getCapabilities()` reads actual
+- F092 (Postgres permission introspection) merged to `main`: `getCapabilities()` reads actual
   replica/session/role/grant facts, single and batched table metadata carry advisory table
   privileges, and failed introspection logs then safely degrades to read-only. Docker and
   `@qyre/testing` provide the SELECT-only `qyre_readonly` fixture. PR #100.
+- F129 (driver modularization, unplanned refactor outside the F090-F128 queue) merged to `main`:
+  each adapter's monolithic `index.ts` split into focused modules (e.g. MySQL's own
+  `catalog.ts`/`introspection.ts`). PR #101/#102.
+- F093 (MySQL permission introspection) pushed and CI green: `getCapabilities()` and per-table
+  `TablePermissions` are derived by parsing the session's own `SHOW GRANTS` output rather than the
+  plan's originally-specified `ROLE_TABLE_GRANTS`/`ROLE_SCHEMA_GRANTS` views - live testing against
+  MySQL 8.4.10 showed `ROLE_SCHEMA_GRANTS` doesn't exist and `ROLE_TABLE_GRANTS` misses schema-wide
+  (`db.*`) role grants entirely, while `SHOW GRANTS` resolves active default roles correctly with no
+  version gate needed. Added `qyre_readonly` (SELECT-only) and `qyre_role_writer` (write access only
+  via an active default role) fixtures. See `packages/drivers/mysql/src/permissions.ts`'s top
+  comment for the full reasoning. PR #103.
 
 ## In progress
 
-- Nothing active. The cross-driver modularization is implemented and verified in draft PR #101.
+- Nothing active.
 
 ## Known issues / blockers
 
@@ -68,11 +79,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   retrying at the start of a session doing UI work rather than assuming it's unavailable.
 - `.local/preview-server-mysql.mjs` still points at a stale pre-rename port/db
   (`localhost:3307`/`humb_test`, wrong env var names).
-- Restricted-user database fixtures for MySQL and MongoDB do not exist yet; they land with
-  F093/F095.
+- Restricted-user database fixtures for MongoDB do not exist yet; they land with F095.
 
 ## Next steps
 
-- Merge draft PR #101, then pick up F093 (MySQL permission introspection). The exec plan's
-  "Feature order and dependencies" section is authoritative: F093/F094/F095 -> F096 -> F097
-  before any write feature.
+- Merge PR #103, then pick up F094 (SQLite writability introspection) or F095 (MongoDB permission
+  introspection) - both depend only on F091/F123, not on each other. The exec plan's "Feature order
+  and dependencies" section is authoritative: F093/F094/F095 -> F096 -> F097 before any write
+  feature.

@@ -6,13 +6,8 @@ import type {
   TableMetadata
 } from "@qyre/core";
 import type mysql from "mysql2/promise";
+import { SYSTEM_SCHEMAS, tableKey } from "./catalog.js";
 import { quoteIdent } from "./sql.js";
-
-const SYSTEM_SCHEMAS = ["information_schema", "mysql", "performance_schema", "sys"];
-
-function tableKey(schema: string, table: string): string {
-  return JSON.stringify([schema, table]);
-}
 
 interface TableTarget {
   schema: string;

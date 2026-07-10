@@ -8,6 +8,8 @@
 import {
   FIXTURE,
   MYSQL_RELATIONSHIP_FIXTURE,
+  requireReadOnlyTestMysqlUrl,
+  requireRoleWriterTestMysqlUrl,
   requireTestMysqlUrl,
   setupMysqlFixture
 } from "@qyre/testing";
@@ -41,6 +43,78 @@ describe("MysqlAdapter integration", () => {
     const schema = overview.schemas.find((candidate) => candidate.name === databaseName);
     expect(schema?.tables).toContain(FIXTURE.table);
     expect(schema?.tables).toContain(MYSQL_RELATIONSHIP_FIXTURE.table);
+  });
+
+  it("reports writable-session capabilities and table permissions for the fixture owner (F093)", async () => {
+    await expect(adapter.getCapabilities()).resolves.toEqual({
+      supportsSql: true,
+      supportsRowMutations: true,
+      supportsDdl: true,
+      supportsIndexManagement: true,
+      supportsDatabaseManagement: true,
+      supportsTransactions: true,
+      readOnlyReason: null
+    });
+
+    await expect(adapter.getTable(databaseName, FIXTURE.table)).resolves.toMatchObject({
+      permissions: { select: true, insert: true, update: true, delete: true }
+    });
+  });
+
+  it("reports a SELECT-only fixture user as read-only (F093)", async () => {
+    const readOnlyAdapter = new MysqlAdapter({
+      engine: "mysql",
+      raw: requireReadOnlyTestMysqlUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(readOnlyAdapter.getCapabilities()).resolves.toEqual({
+        supportsSql: true,
+        supportsRowMutations: false,
+        supportsDdl: false,
+        supportsIndexManagement: false,
+        supportsDatabaseManagement: false,
+        supportsTransactions: false,
+        readOnlyReason: "grants"
+      });
+      await expect(readOnlyAdapter.getTable(databaseName, FIXTURE.table)).resolves.toMatchObject({
+        permissions: { select: true, insert: false, update: false, delete: false }
+      });
+
+      const tables = await readOnlyAdapter.getAllTables();
+      expect(tables.find((table) => table.name === FIXTURE.table)?.permissions).toEqual({
+        select: true,
+        insert: false,
+        update: false,
+        delete: false
+      });
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
+  it("reports write permissions granted only through an active default role (F093 regression)", async () => {
+    // qyre_role_writer has SELECT granted directly, but INSERT/UPDATE/DELETE only through an
+    // active default role (packages/testing's setupMysqlFixture) - plain
+    // information_schema.TABLE_PRIVILEGES/SCHEMA_PRIVILEGES (and even ROLE_TABLE_GRANTS, which
+    // only sees exact-table role grants) would report this user as read-only. This is the bug
+    // F093 exists to fix.
+    const roleWriterAdapter = new MysqlAdapter({
+      engine: "mysql",
+      raw: requireRoleWriterTestMysqlUrl(databaseUrl)
+    });
+    try {
+      await roleWriterAdapter.connect();
+      await expect(roleWriterAdapter.getCapabilities()).resolves.toMatchObject({
+        supportsRowMutations: true,
+        readOnlyReason: null
+      });
+      await expect(roleWriterAdapter.getTable(databaseName, FIXTURE.table)).resolves.toMatchObject({
+        permissions: { select: true, insert: true, update: true, delete: true }
+      });
+    } finally {
+      await roleWriterAdapter.disconnect();
+    }
   });
 
   it("introspects columns, the primary key, indexes, and an exact row count", async () => {

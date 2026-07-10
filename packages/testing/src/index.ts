@@ -22,6 +22,14 @@ export const TEST_SQLITE_ENV = "QYRE_TEST_SQLITE_PATH";
 /** Environment variable that holds the MySQL URL used by integration and end-to-end tests. */
 export const TEST_MYSQL_ENV = "QYRE_TEST_MYSQL_URL";
 
+/** Optional override for the restricted MySQL fixture user (F093). */
+export const TEST_READONLY_MYSQL_ENV = "QYRE_TEST_READONLY_MYSQL_URL";
+
+/** Optional override for the MySQL fixture user whose write grants come only from an active
+ * default role, not a direct grant (F093) - proves role-derived privileges are actually visible,
+ * not just directly-granted ones. */
+export const TEST_ROLE_WRITER_MYSQL_ENV = "QYRE_TEST_ROLE_WRITER_MYSQL_URL";
+
 /** Environment variable that holds the MongoDB URL used by integration tests. */
 export const TEST_MONGO_ENV = "QYRE_TEST_MONGO_URL";
 
@@ -90,6 +98,29 @@ export function requireTestMysqlUrl(): string {
     );
   }
   return url;
+}
+
+/** Return the restricted MySQL fixture user's URL (F093). Defaults to the configured MySQL
+ * target so Docker Compose and CI need only configure the normal admin fixture URL. */
+export function requireReadOnlyTestMysqlUrl(primaryConnectionString: string): string {
+  const configured = process.env[TEST_READONLY_MYSQL_ENV]?.trim();
+  if (configured) return configured;
+
+  const url = new URL(primaryConnectionString);
+  url.username = "qyre_readonly";
+  url.password = "qyre_readonly";
+  return url.toString();
+}
+
+/** Return the role-only-writer MySQL fixture user's URL (F093). */
+export function requireRoleWriterTestMysqlUrl(primaryConnectionString: string): string {
+  const configured = process.env[TEST_ROLE_WRITER_MYSQL_ENV]?.trim();
+  if (configured) return configured;
+
+  const url = new URL(primaryConnectionString);
+  url.username = "qyre_role_writer";
+  url.password = "qyre_role_writer";
+  return url.toString();
 }
 
 /**
@@ -280,6 +311,16 @@ export function setupSqliteFixture(path: string): void {
 /** Arbitrary fixed name for setupMysqlFixture's named lock - scoped to this one fixture, not shared. */
 const MYSQL_FIXTURE_LOCK_NAME = "qyre_fixture_lock";
 
+const MYSQL_READONLY_USER = "qyre_readonly";
+const MYSQL_WRITER_ROLE = "qyre_writer_role";
+const MYSQL_ROLE_WRITER_USER = "qyre_role_writer";
+
+function quoteMysqlDatabaseIdentifier(connectionString: string): string {
+  const database = new URL(connectionString).pathname.slice(1);
+  if (!database) throw new Error("MySQL fixture URL must include a database name.");
+  return `\`${decodeURIComponent(database).replace(/`/g, "``")}\``;
+}
+
 /**
  * Create the same fixture table/rows as {@link setupFixture}'s Postgres version, in MySQL.
  * Idempotent and safe under concurrent Playwright workers, matching setupFixture's Postgres
@@ -292,6 +333,34 @@ export async function setupMysqlFixture(connectionString: string): Promise<void>
   try {
     await connection.query("SELECT GET_LOCK(?, 10)", [MYSQL_FIXTURE_LOCK_NAME]);
     try {
+      const databaseIdent = quoteMysqlDatabaseIdentifier(connectionString);
+
+      // Restricted fixtures for permission introspection tests (F093). qyre_role_writer's write
+      // grants come only from an active default role, never a direct grant on the user itself -
+      // the exact case plain information_schema.TABLE_PRIVILEGES/SCHEMA_PRIVILEGES (and even
+      // ROLE_TABLE_GRANTS, which only sees exact-table role grants) would miss entirely. See
+      // packages/drivers/mysql/src/permissions.ts's top comment for why introspection reads
+      // SHOW GRANTS instead of those views.
+      await connection.query(
+        `CREATE USER IF NOT EXISTS '${MYSQL_READONLY_USER}'@'%' IDENTIFIED BY '${MYSQL_READONLY_USER}'`
+      );
+      await connection.query(`GRANT SELECT ON ${databaseIdent}.* TO '${MYSQL_READONLY_USER}'@'%'`);
+
+      await connection.query(`CREATE ROLE IF NOT EXISTS '${MYSQL_WRITER_ROLE}'`);
+      await connection.query(
+        `GRANT INSERT, UPDATE, DELETE ON ${databaseIdent}.* TO '${MYSQL_WRITER_ROLE}'`
+      );
+      await connection.query(
+        `CREATE USER IF NOT EXISTS '${MYSQL_ROLE_WRITER_USER}'@'%' IDENTIFIED BY '${MYSQL_ROLE_WRITER_USER}'`
+      );
+      await connection.query(
+        `GRANT SELECT ON ${databaseIdent}.* TO '${MYSQL_ROLE_WRITER_USER}'@'%'`
+      );
+      await connection.query(`GRANT '${MYSQL_WRITER_ROLE}' TO '${MYSQL_ROLE_WRITER_USER}'@'%'`);
+      await connection.query(
+        `SET DEFAULT ROLE '${MYSQL_WRITER_ROLE}' TO '${MYSQL_ROLE_WRITER_USER}'@'%'`
+      );
+
       await connection.query(`DROP TABLE IF EXISTS ${MYSQL_RELATIONSHIP_FIXTURE.table}`);
       await connection.query(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
       await connection.query(`CREATE TABLE ${FIXTURE.table} (

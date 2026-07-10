@@ -1,4 +1,5 @@
 import type { DatabaseAdapter } from "@qyre/driver-contract";
+import { stubReadOnlyCapabilities } from "@qyre/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
 import { authHeaders } from "../helpers/auth.js";
@@ -29,6 +30,7 @@ describe("GET /api/health", () => {
       disconnect: async () => {},
       ping: async () => true,
       getVersion: async () => "PostgreSQL 16.4",
+      getCapabilities: async () => stubReadOnlyCapabilities(true),
       getOverview: async () => ({
         engine: "postgres",
         schemas: [],
@@ -63,6 +65,7 @@ describe("GET /api/health", () => {
         return true;
       },
       getVersion: async () => "PostgreSQL 16.4",
+      getCapabilities: async () => stubReadOnlyCapabilities(true),
       getOverview: async () => ({
         engine: "postgres",
         schemas: [],
@@ -101,6 +104,7 @@ describe("GET /api/health", () => {
       disconnect: async () => {},
       ping: async () => true,
       getVersion: async () => "PostgreSQL 16.4",
+      getCapabilities: async () => stubReadOnlyCapabilities(true),
       getOverview: async () => ({
         engine: "postgres",
         schemas: [],
@@ -130,6 +134,7 @@ describe("GET /api/health", () => {
       disconnect: async () => {},
       ping: async () => false,
       getVersion: async () => "PostgreSQL 16.4",
+      getCapabilities: async () => stubReadOnlyCapabilities(true),
       getOverview: async () => ({
         engine: "postgres",
         schemas: [],

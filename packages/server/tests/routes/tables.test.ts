@@ -1,4 +1,5 @@
 import type { DatabaseAdapter } from "@qyre/driver-contract";
+import { stubReadOnlyCapabilities } from "@qyre/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
 import { authHeaders } from "../helpers/auth.js";
@@ -12,6 +13,7 @@ describe("/api/tables", () => {
       disconnect: async () => {},
       ping: async () => true,
       getVersion: async () => "PostgreSQL 16.0",
+      getCapabilities: async () => stubReadOnlyCapabilities(true),
       getOverview: async () => ({
         engine: "postgres",
         schemas: [{ name: "public", tables: ["a", "b"] }],
@@ -60,6 +62,7 @@ describe("GET /api/tables/:schema/:table/rows", () => {
       disconnect: async () => {},
       ping: async () => true,
       getVersion: async () => "PostgreSQL 16.0",
+      getCapabilities: async () => stubReadOnlyCapabilities(true),
       getOverview: async () => ({
         engine: "postgres",
         schemas: [],

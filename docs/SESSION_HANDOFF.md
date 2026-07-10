@@ -6,10 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-10.
-- Branch: `feature/F124-table-view-kind`, pushed. PR #99 (F124) is open with CI green, not yet
-  merged. F122's PR #94, F090's PR #95, F091's PR #96, and F123's PR #98 are all merged to `main`.
-- Queue: 5 `passing` entries (F122, F090, F091, F123, F124, pruned to 24h retention) plus 35
-  `not_started` entries (F092-F121, F125-F128) - the rest of plan 0006's role-aware database IDE.
+- Branch: `feature/F092-postgres-permission-introspection`, pushed. Draft PR #100 has both CI
+  jobs green.
+- Queue: F092 is `passing`; F093-F121 and F125-F128 remain `not_started`.
   `nextIds.F` is 129.
 
 ## Completed
@@ -44,10 +43,14 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   `= 'table'` only). Row counts skip views on all 4 engines (meaningless/would re-execute the
   view). The Schema tab's `TableDetail` card shows a subtle VIEW/MATERIALIZED VIEW badge; the
   sidebar tree badge is deliberately deferred (see PR #99's description for why). PR #99.
+- F092 (Postgres permission introspection) pushed and CI green: `getCapabilities()` reads actual
+  replica/session/role/grant facts, single and batched table metadata carry advisory table
+  privileges, and failed introspection logs then safely degrades to read-only. Docker and
+  `@qyre/testing` provide the SELECT-only `qyre_readonly` fixture. PR #100.
 
 ## In progress
 
-- Nothing active. Waiting on PR #99 (F124) to merge to `main`.
+- Nothing active.
 
 ## Known issues / blockers
 
@@ -66,14 +69,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   retrying at the start of a session doing UI work rather than assuming it's unavailable.
 - `.local/preview-server-mysql.mjs` still points at a stale pre-rename port/db
   (`localhost:3307`/`humb_test`, wrong env var names).
-- Restricted-user database fixtures (read-only Postgres/MySQL/Mongo users) do not exist yet; they
-  land with F092/F093/F095.
+- Restricted-user database fixtures for MySQL and MongoDB do not exist yet; they land with
+  F093/F095.
 
 ## Next steps
 
-- Merge PR #99 (`feature/F124-table-view-kind`).
-- Then pick up F092 (Postgres permission introspection - the first of the parallelizable
-  F092-F095 engine slices), and proceed in the queue's array order (Phase A:
-  F092/F093/F094/F095 -> F096 -> F097 before any write feature). The exec plan's "Feature order
-  and dependencies" section is the authoritative order; F090/F091/F123/F124 are the settled
-  contract and introspection foundation F092-F095 attach real per-table permissions onto.
+- Pick up F093 (MySQL permission introspection). The exec plan's "Feature order and
+  dependencies" section is authoritative: F093/F094/F095 -> F096 -> F097 before any write feature.

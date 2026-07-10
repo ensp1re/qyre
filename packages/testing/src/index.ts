@@ -13,6 +13,9 @@ import { Pool } from "pg";
 /** Environment variable that holds the Postgres URL used by integration and end-to-end tests. */
 export const TEST_DB_ENV = "QYRE_TEST_DATABASE_URL";
 
+/** Optional override for the restricted Postgres fixture user (F092). */
+export const TEST_READONLY_DB_ENV = "QYRE_TEST_READONLY_DATABASE_URL";
+
 /** Environment variable that holds the SQLite fixture file path used by end-to-end tests. */
 export const TEST_SQLITE_ENV = "QYRE_TEST_SQLITE_PATH";
 
@@ -43,6 +46,18 @@ export function requireTestDatabaseUrl(): string {
     );
   }
   return url;
+}
+
+/** Return the restricted fixture user's URL. It defaults to the configured Postgres target so
+ * Docker Compose and CI need only configure the normal admin fixture URL. */
+export function requireReadOnlyTestDatabaseUrl(primaryConnectionString: string): string {
+  const configured = process.env[TEST_READONLY_DB_ENV]?.trim();
+  if (configured) return configured;
+
+  const url = new URL(primaryConnectionString);
+  url.username = "qyre_readonly";
+  url.password = "qyre_readonly";
+  return url.toString();
 }
 
 /**
@@ -102,6 +117,8 @@ export const FIXTURE = {
   rowCount: 3
 } as const;
 
+const READONLY_POSTGRES_ROLE = "qyre_readonly";
+
 /** Child fixture table used where relationship introspection needs a stable FK. */
 export const MYSQL_RELATIONSHIP_FIXTURE = {
   table: "qyre_demo_orders",
@@ -127,6 +144,25 @@ export async function setupFixture(connectionString: string): Promise<void> {
   try {
     await client.query("SELECT pg_advisory_lock($1)", [FIXTURE_LOCK_KEY]);
     try {
+      // The role is part of Docker Compose's init fixture too, but creating it here keeps the
+      // same restricted-user contract available in CI service containers and custom local stacks.
+      await client.query(`DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${READONLY_POSTGRES_ROLE}') THEN
+            CREATE ROLE ${READONLY_POSTGRES_ROLE} LOGIN PASSWORD '${READONLY_POSTGRES_ROLE}';
+          END IF;
+        END
+      $$`);
+      await client.query(
+        `GRANT CONNECT ON DATABASE ${quoteDatabaseIdentifier(connectionString)} TO ${READONLY_POSTGRES_ROLE}`
+      );
+      await client.query(`GRANT USAGE ON SCHEMA public TO ${READONLY_POSTGRES_ROLE}`);
+      await client.query(
+        `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${READONLY_POSTGRES_ROLE}`
+      );
+      await client.query(
+        `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ${READONLY_POSTGRES_ROLE}`
+      );
       await client.query(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
       // `profile` is jsonb, nullable, only populated for one row - exercises F016's expandable
       // cell viewer (nested three levels deep: object -> object -> array) without needing a
@@ -149,6 +185,12 @@ export async function setupFixture(connectionString: string): Promise<void> {
     client.release();
     await pool.end();
   }
+}
+
+function quoteDatabaseIdentifier(connectionString: string): string {
+  const database = new URL(connectionString).pathname.slice(1);
+  if (!database) throw new Error("Postgres fixture URL must include a database name.");
+  return `"${decodeURIComponent(database).replace(/"/g, '""')}"`;
 }
 
 /**

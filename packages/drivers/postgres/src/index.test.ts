@@ -13,6 +13,38 @@ describe("postgresAdapterFactory", () => {
     const adapter = postgresAdapterFactory.create(target);
     expect(adapter.engine).toBe("postgres");
   });
+
+  it("degrades a failed capability query to read-only and logs a warning (F092)", async () => {
+    const adapter = postgresAdapterFactory.create({
+      engine: "postgres",
+      raw: "postgres://localhost/db"
+    });
+    const events: Array<{ level: string; message: string }> = [];
+    adapter.onConnectionEvent = (level, message) => events.push({ level, message });
+    // The adapter deliberately treats missing catalog access like a read-only role. A minimal
+    // pool stub isolates that fallback without needing a real database failure.
+    (adapter as unknown as { pool: { query: () => Promise<never> } }).pool = {
+      query: async () => {
+        throw new Error("pg_roles is unavailable");
+      }
+    };
+
+    await expect(adapter.getCapabilities()).resolves.toEqual({
+      supportsSql: true,
+      supportsRowMutations: false,
+      supportsDdl: false,
+      supportsIndexManagement: false,
+      supportsDatabaseManagement: false,
+      supportsTransactions: false,
+      readOnlyReason: "grants"
+    });
+    expect(events).toEqual([
+      {
+        level: "warn",
+        message: expect.stringContaining("Postgres permission introspection failed")
+      }
+    ]);
+  });
 });
 
 describe("coerceUnknownQuotedIdentifiers", () => {

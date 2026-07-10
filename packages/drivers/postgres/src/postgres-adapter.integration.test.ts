@@ -5,7 +5,13 @@
  * verification: a missing env var fails these tests with an actionable message instead of passing
  * trivially.
  */
-import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@qyre/testing";
+import {
+  FIXTURE,
+  requireReadOnlyTestDatabaseUrl,
+  requireTestDatabaseUrl,
+  runStatements,
+  setupFixture
+} from "@qyre/testing";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PostgresAdapter } from "./index.js";
@@ -33,6 +39,54 @@ describe("PostgresAdapter integration", () => {
     const overview = await adapter.getOverview();
     const schema = overview.schemas.find((candidate) => candidate.name === FIXTURE.schema);
     expect(schema?.tables).toContain(FIXTURE.table);
+  });
+
+  it("reports writable-session capabilities and table permissions for the fixture owner (F092)", async () => {
+    await expect(adapter.getCapabilities()).resolves.toEqual({
+      supportsSql: true,
+      supportsRowMutations: true,
+      supportsDdl: true,
+      supportsIndexManagement: true,
+      supportsDatabaseManagement: true,
+      supportsTransactions: true,
+      readOnlyReason: null
+    });
+
+    await expect(adapter.getTable(FIXTURE.schema, FIXTURE.table)).resolves.toMatchObject({
+      permissions: { select: true, insert: true, update: true, delete: true }
+    });
+  });
+
+  it("reports a SELECT-only fixture role as read-only (F092)", async () => {
+    const readOnlyAdapter = new PostgresAdapter({
+      engine: "postgres",
+      raw: requireReadOnlyTestDatabaseUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(readOnlyAdapter.getCapabilities()).resolves.toEqual({
+        supportsSql: true,
+        supportsRowMutations: false,
+        supportsDdl: false,
+        supportsIndexManagement: false,
+        supportsDatabaseManagement: false,
+        supportsTransactions: false,
+        readOnlyReason: "grants"
+      });
+      await expect(readOnlyAdapter.getTable(FIXTURE.schema, FIXTURE.table)).resolves.toMatchObject({
+        permissions: { select: true, insert: false, update: false, delete: false }
+      });
+
+      const tables = await readOnlyAdapter.getAllTables();
+      expect(tables.find((table) => table.name === FIXTURE.table)?.permissions).toEqual({
+        select: true,
+        insert: false,
+        update: false,
+        delete: false
+      });
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
   });
 
   it("introspects columns, the primary key, indexes, and an approximate row count", async () => {

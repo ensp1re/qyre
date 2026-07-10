@@ -16,7 +16,8 @@ import type {
   RowSort,
   SchemaMetadata,
   TableKind,
-  TableMetadata
+  TableMetadata,
+  TablePermissions
 } from "@qyre/core";
 import {
   assertReadOnly,
@@ -348,6 +349,130 @@ interface TableTarget {
   kind: TableKind;
 }
 
+const READ_ONLY_TABLE_PERMISSIONS: TablePermissions = {
+  select: false,
+  insert: false,
+  update: false,
+  delete: false
+};
+
+interface TablePermissionRow {
+  table_schema: string;
+  table_name: string;
+  select: boolean;
+  insert: boolean;
+  update: boolean;
+  delete: boolean;
+}
+
+function toTablePermissions(
+  row: Omit<TablePermissionRow, "table_schema" | "table_name">
+): TablePermissions {
+  return {
+    select: row.select,
+    insert: row.insert,
+    update: row.update,
+    delete: row.delete
+  };
+}
+
+/** Fetches a relation's advisory privileges by its catalog OID, so quoted identifiers and views
+ * need no special handling. */
+async function fetchTablePermissions(
+  pool: Pool,
+  schema: string,
+  table: string
+): Promise<TablePermissions> {
+  const result = await pool.query<Omit<TablePermissionRow, "table_schema" | "table_name">>(
+    `SELECT
+        has_table_privilege(current_user, c.oid, 'SELECT') AS select,
+        has_table_privilege(current_user, c.oid, 'INSERT') AS insert,
+        has_table_privilege(current_user, c.oid, 'UPDATE') AS update,
+        has_table_privilege(current_user, c.oid, 'DELETE') AS delete
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = $1 AND c.relname = $2
+        AND c.relkind IN ('r', 'p', 'f', 'v', 'm')`,
+    [schema, table]
+  );
+  const row = result.rows[0];
+  return row ? toTablePermissions(row) : READ_ONLY_TABLE_PERMISSIONS;
+}
+
+/** One set-based permission query for every introspectable relation. This deliberately shares
+ * {@link fetchAllTableTargets}' relation kinds so tables and views receive identical treatment. */
+async function fetchAllTablePermissions(pool: Pool): Promise<Map<string, TablePermissions>> {
+  const result = await pool.query<TablePermissionRow>(
+    `SELECT
+        n.nspname AS table_schema,
+        c.relname AS table_name,
+        has_table_privilege(current_user, c.oid, 'SELECT') AS select,
+        has_table_privilege(current_user, c.oid, 'INSERT') AS insert,
+        has_table_privilege(current_user, c.oid, 'UPDATE') AS update,
+        has_table_privilege(current_user, c.oid, 'DELETE') AS delete
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname <> ALL($1::text[]) AND c.relkind IN ('r', 'p', 'f', 'v', 'm')`,
+    [SYSTEM_SCHEMAS]
+  );
+  return new Map(
+    result.rows.map((row) => [tableKey(row.table_schema, row.table_name), toTablePermissions(row)])
+  );
+}
+
+interface PostgresPermissionFacts {
+  is_replica: boolean;
+  is_connection_read_only: boolean;
+  is_superuser: boolean;
+  can_create_database: boolean;
+  can_create_in_schema: boolean;
+  can_mutate_rows: boolean;
+  owns_a_table: boolean;
+}
+
+/** Session facts that distinguish a writable Postgres role from a role which can only inspect. */
+async function fetchPermissionFacts(pool: Pool): Promise<PostgresPermissionFacts> {
+  const result = await pool.query<PostgresPermissionFacts>(
+    `SELECT
+        pg_is_in_recovery() AS is_replica,
+        current_setting('default_transaction_read_only')::boolean AS is_connection_read_only,
+        r.rolsuper AS is_superuser,
+        r.rolcreatedb OR has_database_privilege(current_user, current_database(), 'CREATE')
+          AS can_create_database,
+        EXISTS (
+          SELECT 1
+            FROM pg_namespace n
+           WHERE n.nspname <> ALL($1::text[])
+             AND has_schema_privilege(current_user, n.oid, 'CREATE')
+        ) AS can_create_in_schema,
+        EXISTS (
+          SELECT 1
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname <> ALL($1::text[])
+             AND c.relkind IN ('r', 'p', 'f', 'v', 'm')
+             AND (
+               has_table_privilege(current_user, c.oid, 'INSERT')
+               OR has_table_privilege(current_user, c.oid, 'UPDATE')
+               OR has_table_privilege(current_user, c.oid, 'DELETE')
+             )
+        ) AS can_mutate_rows,
+        EXISTS (
+          SELECT 1
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname <> ALL($1::text[]) AND c.relowner = r.oid
+             AND c.relkind IN ('r', 'p', 'f', 'v', 'm')
+        ) AS owns_a_table
+       FROM pg_roles r
+      WHERE r.rolname = current_user`,
+    [SYSTEM_SCHEMAS]
+  );
+  const facts = result.rows[0];
+  if (!facts) throw new Error("Current Postgres role was not found in pg_roles.");
+  return facts;
+}
+
 /** Maps a `pg_class.relkind` code to Qyre's engine-agnostic `TableKind` (F124). Ordinary ('r'),
  * partitioned ('p'), and foreign ('f') tables all collapse to "table" - the write stage gates on
  * the table/view distinction, not on these storage-mechanism differences. */
@@ -614,6 +739,34 @@ export class PostgresAdapter implements DatabaseAdapter {
     return match ? `${match[1]} ${match[2]}` : raw;
   }
 
+  private reportPermissionIntrospectionFailure(error: unknown): void {
+    const detail = error instanceof Error ? error.message : "unknown error";
+    const message = `Postgres permission introspection failed; reporting read-only permissions: ${detail}`;
+    if (this.onConnectionEvent) {
+      this.onConnectionEvent("warn", message);
+    } else {
+      console.warn(message);
+    }
+  }
+
+  private async getTablePermissions(schema: string, table: string): Promise<TablePermissions> {
+    try {
+      return await fetchTablePermissions(this.getPool(), schema, table);
+    } catch (error) {
+      this.reportPermissionIntrospectionFailure(error);
+      return READ_ONLY_TABLE_PERMISSIONS;
+    }
+  }
+
+  private async getAllTablePermissions(): Promise<Map<string, TablePermissions>> {
+    try {
+      return await fetchAllTablePermissions(this.getPool());
+    } catch (error) {
+      this.reportPermissionIntrospectionFailure(error);
+      return new Map();
+    }
+  }
+
   async getOverview(): Promise<DatabaseOverview> {
     // Sourced from pg_class (via fetchAllTableTargets), not information_schema.tables (F124) -
     // information_schema has no concept of materialized views at all, so they were invisible here
@@ -635,7 +788,63 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async getCapabilities(): Promise<ConnectionCapabilities> {
-    return stubReadOnlyCapabilities(true);
+    try {
+      const facts = await fetchPermissionFacts(this.getPool());
+      const sessionWritable = !facts.is_replica && !facts.is_connection_read_only;
+      // A role that can create a schema/table can also mutate that table; a role without CREATE
+      // still has row-mutation capability when it holds at least one write privilege directly.
+      const supportsRowMutations =
+        sessionWritable &&
+        (facts.can_create_database || facts.can_create_in_schema || facts.can_mutate_rows);
+      const supportsDdl =
+        sessionWritable && (facts.can_create_database || facts.can_create_in_schema);
+      // CREATE lets the role own a newly-created table and therefore its indexes. Existing-table
+      // index changes require ownership (or superuser), which pg_class exposes directly.
+      const supportsIndexManagement =
+        sessionWritable &&
+        (facts.is_superuser ||
+          facts.can_create_database ||
+          facts.can_create_in_schema ||
+          facts.owns_a_table);
+      const supportsDatabaseManagement =
+        sessionWritable && (facts.is_superuser || facts.can_create_database);
+      // A read-only role can technically BEGIN/COMMIT a read-only transaction, but this flag
+      // gates Qyre's future write transaction flows. Keep the all-false read-only contract unless
+      // the role can actually make at least one durable change.
+      const supportsTransactions =
+        sessionWritable &&
+        (facts.can_create_database ||
+          facts.can_create_in_schema ||
+          facts.can_mutate_rows ||
+          facts.is_superuser);
+      const hasWriteCapability =
+        supportsRowMutations ||
+        supportsDdl ||
+        supportsIndexManagement ||
+        supportsDatabaseManagement ||
+        supportsTransactions;
+
+      return {
+        supportsSql: true,
+        supportsRowMutations,
+        supportsDdl,
+        supportsIndexManagement,
+        supportsDatabaseManagement,
+        supportsTransactions,
+        readOnlyReason: hasWriteCapability
+          ? null
+          : facts.is_replica
+            ? "replica"
+            : facts.is_connection_read_only
+              ? "connection"
+              : "grants"
+      };
+    } catch (error) {
+      // Capability data is advisory, so a catalog failure must remove write affordances rather
+      // than optimistically expose them. The underlying database remains the real enforcer.
+      this.reportPermissionIntrospectionFailure(error);
+      return stubReadOnlyCapabilities(true);
+    }
   }
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {
@@ -645,7 +854,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     // FK query the same two catalog tables and differ only by constraint_type, so they're combined
     // into one query here; every remaining query is independent of the others, so all 4 now run in
     // parallel via Promise.all instead of a chain of awaits.
-    const [columnsResult, keysResult, indexes, rowCountAndKind] = await Promise.all([
+    const [columnsResult, keysResult, indexes, rowCountAndKind, permissions] = await Promise.all([
       pool.query<{
         column_name: string;
         data_type: string;
@@ -686,7 +895,8 @@ export class PostgresAdapter implements DatabaseAdapter {
         [schema, table]
       ),
       fetchIndexes(pool, schema, table),
-      fetchRowCountAndKind(pool, schema, table)
+      fetchRowCountAndKind(pool, schema, table),
+      this.getTablePermissions(schema, table)
     ]);
 
     const primaryKeys = new Set(
@@ -730,18 +940,22 @@ export class PostgresAdapter implements DatabaseAdapter {
       kind: rowCountAndKind.kind,
       columns,
       indexes,
-      rowCount: rowCountAndKind.rowCount
+      rowCount: rowCountAndKind.rowCount,
+      permissions
     };
   }
 
   async getAllTables(): Promise<TableMetadata[]> {
     const pool = this.getPool();
     const targets = await fetchAllTableTargets(pool);
-    const [columnsByTable, indexesByTable, rowCountByTable] = await Promise.all([
-      fetchAllColumns(pool),
-      fetchAllIndexes(pool),
-      fetchAllRowCountEstimates(pool, targets)
-    ]);
+    const [columnsByTable, indexesByTable, rowCountByTable, permissionsByTable] = await Promise.all(
+      [
+        fetchAllColumns(pool),
+        fetchAllIndexes(pool),
+        fetchAllRowCountEstimates(pool, targets),
+        this.getAllTablePermissions()
+      ]
+    );
 
     return targets.map(({ schema, table, kind }) => {
       const key = tableKey(schema, table);
@@ -751,7 +965,8 @@ export class PostgresAdapter implements DatabaseAdapter {
         kind,
         columns: columnsByTable.get(key) ?? [],
         indexes: indexesByTable.get(key) ?? [],
-        rowCount: rowCountByTable.get(key)
+        rowCount: rowCountByTable.get(key),
+        permissions: permissionsByTable.get(key) ?? READ_ONLY_TABLE_PERMISSIONS
       };
     });
   }

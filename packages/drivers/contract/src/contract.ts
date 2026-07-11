@@ -2,6 +2,7 @@ import type {
   ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
+  InsertRowResult,
   RowFilter,
   RowPage,
   RowSort,
@@ -10,6 +11,22 @@ import type {
 
 /** Severity of an adapter's asynchronous connection event - see {@link DatabaseAdapter.onConnectionEvent}. */
 export type ConnectionEventLevel = "warn" | "error";
+
+/**
+ * Structured row-mutation operations (F099-F101), per docs/product-specs/row-editing.md. Each
+ * member is independently optional - not the namespace's own presence/absence - so
+ * F099/F100/F101 can each land one method across all four engines without forcing an all-or-
+ * nothing implementation. `values`/`changes` are already validated/coerced against the table's
+ * real columns by the caller before an adapter method is ever invoked - see
+ * packages/server/src/services/row-mutation-validation.ts.
+ */
+export interface RowMutationApi {
+  insertRow?(
+    schema: string,
+    table: string,
+    values: Record<string, unknown>
+  ): Promise<InsertRowResult>;
+}
 
 /** A live, engine-specific connection to a single database. */
 export interface DatabaseAdapter {
@@ -53,6 +70,10 @@ export interface DatabaseAdapter {
   ): Promise<RowPage>;
   /** Execute a read-only (SELECT-style) query. Implementations must reject mutations. */
   runReadOnlyQuery(sql: string): Promise<RowPage>;
+  /** Structured row-mutation operations (F099-F101) - absent means the engine has no write
+   * mechanism at all; present-but-grants-insufficient is a normal per-call rejection, not a
+   * missing namespace. See {@link RowMutationApi}. */
+  mutations?: RowMutationApi;
   /**
    * Optional hook for adapters whose underlying client emits connection events asynchronously,
    * outside of any single request - e.g. Postgres/MySQL's pool "error" event when an idle

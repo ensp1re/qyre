@@ -158,6 +158,41 @@ describe("MysqlAdapter integration", () => {
     expect(page.columns).toEqual(expect.arrayContaining(["id", "name", "email"]));
   });
 
+  it("inserts a row, reports it back via the auto-increment column, and it's visible via getRows (F099)", async () => {
+    const result = await adapter.mutations.insertRow?.(databaseName, FIXTURE.table, {
+      name: "Insert Test",
+      email: "insert-test@example.com"
+    });
+    expect(result?.row).toMatchObject({ name: "Insert Test", email: "insert-test@example.com" });
+
+    try {
+      const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+      expect(page.rows.some((row) => row.email === "insert-test@example.com")).toBe(true);
+    } finally {
+      const pool = mysql.createPool(databaseUrl);
+      await pool.query(`DELETE FROM ${FIXTURE.table} WHERE email = 'insert-test@example.com'`);
+      await pool.end();
+    }
+  });
+
+  it("rejects an insert as a SELECT-only fixture user (F099)", async () => {
+    const readOnlyAdapter = new MysqlAdapter({
+      engine: "mysql",
+      raw: requireReadOnlyTestMysqlUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.mutations.insertRow?.(databaseName, FIXTURE.table, {
+          name: "Should Fail",
+          email: "should-fail@example.com"
+        })
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery(`SELECT * FROM ${FIXTURE.table}`);
     expect(result.rows).toHaveLength(FIXTURE.rowCount);

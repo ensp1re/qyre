@@ -10,11 +10,12 @@ import type {
   TablePermissions
 } from "@qyre/core";
 import { resolvePageRequest, stubReadOnlyCapabilities } from "@qyre/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
+import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driver-contract";
 import { MongoClient } from "mongodb";
 import { normalizeDocument } from "./bson-values.js";
 import { buildMongoFilter } from "./filters.js";
 import { introspectCollection, introspectSchemas } from "./introspection.js";
+import { insertRow } from "./mutations.js";
 import type { ConnectionStatusResult } from "./permissions.js";
 import {
   fetchConnectionCapabilities,
@@ -34,6 +35,9 @@ function resolveStatementTimeoutMs(): number {
 export class MongodbAdapter implements DatabaseAdapter {
   public readonly engine = "mongodb";
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
+  public readonly mutations: RowMutationApi = {
+    insertRow: (schema, table, values) => insertRow(this.getClient(), schema, table, values)
+  };
   private client: MongoClient | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;
 

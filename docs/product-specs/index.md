@@ -68,6 +68,12 @@ single engine's behavior, not the whole product.
   role-aware IDE (plan 0006): what each tier means, the per-engine introspection each one reads,
   the advisory-introspection/authoritative-database principle, and the settled API shape. A
   spec-only slice - F091 onward implement it. Tracked as F090.
+- [`row-editing.md`](row-editing.md) - the mutation API shape (`RowMutationApi`), row identity/
+  editability rules, value validation reusing F082/F089's column-kind classification, the SQL
+  pending-changes-buffer + single batch-commit model, MongoDB's whole-document relaxed-Extended-JSON
+  editor with replace-not-diff save semantics, the audit-event contract, and confirmation
+  thresholds - plan 0006 Phase B's foundation. A spec-only slice - F099 onward implement it. Tracked
+  as F098.
 
 ## Rules
 

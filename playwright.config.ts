@@ -53,6 +53,10 @@ export default defineConfig({
     {
       name: "mongodb",
       use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:4179" }
+    },
+    {
+      name: "readonly",
+      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:4181" }
     }
   ],
   webServer: [
@@ -96,6 +100,20 @@ export default defineConfig({
       env: {
         QYRE_E2E_PORT: "4179",
         QYRE_E2E_ENGINE: "mongodb"
+      }
+    },
+    {
+      // F096/F097: connects to the same fully-writable Postgres fixture as the "postgres" project
+      // above, but with --read-only forced - proving the flag overrides real grants rather than
+      // merely reflecting an already-restricted fixture user.
+      command: "pnpm exec tsx e2e/server.ts",
+      url: "http://localhost:4181",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        QYRE_E2E_PORT: "4181",
+        QYRE_E2E_ENGINE: "postgres",
+        QYRE_E2E_READ_ONLY: "1"
       }
     }
   ]

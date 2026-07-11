@@ -1,4 +1,4 @@
-import type { ConnectionStatus, DatabaseEngine } from "@qyre/core";
+import type { ConnectionCapabilities, ConnectionStatus, DatabaseEngine } from "@qyre/core";
 import { Clock } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -15,6 +15,53 @@ export interface StatusBarProps {
   pingLatencyMs?: number | null;
   /** The most recent ping failure's error message, shown as a tooltip while disconnected (F042). */
   lastError?: string | null;
+  /** Session-level write capabilities (F091) - renders the read-only/read-write access badge
+   * (F097). Omitted while disconnected/loading, same as every other connection-dependent field. */
+  capabilities?: ConnectionCapabilities;
+}
+
+/** Mirrors docs/product-specs/permissions-and-capabilities.md's example badge copy exactly for
+ * "qyre-flag"/"replica"/"grants"; "connection" has no example there, phrased consistently. */
+const READ_ONLY_REASON_LABEL: Record<
+  Exclude<ConnectionCapabilities["readOnlyReason"], null>,
+  string
+> = {
+  "qyre-flag": "Read-only: qyre --read-only flag",
+  replica: "Read-only: replica connection",
+  connection: "Read-only: the connection itself is read-only",
+  grants: "Read-only: your database role has no write grants"
+};
+
+/** True once the session can perform at least one kind of write - the same "any supports* flag
+ * true" test the product spec uses to decide whether any write affordance may render at all. */
+function isWritable(capabilities: ConnectionCapabilities): boolean {
+  return (
+    capabilities.supportsRowMutations ||
+    capabilities.supportsDdl ||
+    capabilities.supportsIndexManagement ||
+    capabilities.supportsDatabaseManagement
+  );
+}
+
+/** Read-only/read-write access badge (F097) - a visible, always-explained indicator of the
+ * session's write capability, independent of the underlying connection status dot. */
+function AccessBadge({ capabilities }: { capabilities?: ConnectionCapabilities }): ReactNode {
+  if (!capabilities) return null;
+  const writable = isWritable(capabilities);
+  const title = writable
+    ? "This session can modify data"
+    : ((capabilities.readOnlyReason && READ_ONLY_REASON_LABEL[capabilities.readOnlyReason]) ??
+      "Read-only");
+  return (
+    <span
+      data-testid="access-badge"
+      data-access={writable ? "read-write" : "read-only"}
+      title={title}
+      style={{ color: writable ? "var(--c-green)" : "var(--c-red)" }}
+    >
+      {writable ? "read-write" : "read-only"}
+    </span>
+  );
 }
 
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
@@ -50,7 +97,8 @@ export function StatusBar({
   target,
   lastQueryMs,
   pingLatencyMs,
-  lastError
+  lastError,
+  capabilities
 }: StatusBarProps): ReactNode {
   const engineLabel = engineVersion ?? engine;
   const databaseName = target ? databaseNameFromTarget(target) : undefined;
@@ -83,6 +131,12 @@ export function StatusBar({
           <>
             <Separator />
             <span className="hidden truncate text-foreground/70 sm:inline">{databaseName}</span>
+          </>
+        )}
+        {capabilities && (
+          <>
+            <Separator />
+            <AccessBadge capabilities={capabilities} />
           </>
         )}
       </div>

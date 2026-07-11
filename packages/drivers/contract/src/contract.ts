@@ -1,9 +1,11 @@
 import type {
+  CommitMutationsResult,
   ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
   DeleteRowsResult,
   InsertRowResult,
+  MutationOp,
   RowFilter,
   RowPage,
   RowSort,
@@ -39,6 +41,9 @@ export interface RowMutationApi {
     table: string,
     keys: Array<Record<string, unknown>>
   ): Promise<DeleteRowsResult>;
+  /** SQL engines only (F102) - runs every staged op in one native transaction, all-or-nothing.
+   * Absent on MongoDB; the route responds 400 explaining batch commit doesn't apply there. */
+  commitBatch?(ops: MutationOp[]): Promise<CommitMutationsResult>;
 }
 
 /** A live, engine-specific connection to a single database. */

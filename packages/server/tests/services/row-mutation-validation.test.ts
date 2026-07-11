@@ -2,11 +2,13 @@ import type { TableMetadata } from "@qyre/core";
 import { describe, expect, it } from "vitest";
 import {
   assertMutable,
+  resolveBatchOp,
   resolveInsertValues,
   resolveKey,
   resolveKeys,
   resolveUpdateChanges
 } from "../../src/services/row-mutation-validation.js";
+import { makeFakeAdapter } from "../support/fake-adapter.js";
 
 const SQL_TABLE: TableMetadata = {
   schema: "public",
@@ -271,5 +273,95 @@ describe("resolveKeys (F101)", () => {
         "mongodb"
       )
     ).toEqual([{ _id: "507f1f77bcf86cd799439011" }, { _id: "507f1f77bcf86cd799439012" }]);
+  });
+});
+
+describe("resolveBatchOp (F102)", () => {
+  it("resolves and coerces an insert op", async () => {
+    const adapter = makeFakeAdapter({ getTable: async () => SQL_TABLE });
+    const resolved = await resolveBatchOp(adapter, {
+      type: "insert",
+      schema: "public",
+      table: "users",
+      values: { id: 1, name: "Ada" }
+    });
+    expect(resolved).toEqual({
+      type: "insert",
+      schema: "public",
+      table: "users",
+      values: { id: 1, name: "Ada" }
+    });
+  });
+
+  it("resolves and coerces an update op", async () => {
+    const adapter = makeFakeAdapter({ getTable: async () => SQL_TABLE });
+    const resolved = await resolveBatchOp(adapter, {
+      type: "update",
+      schema: "public",
+      table: "users",
+      key: { id: 1 },
+      changes: { name: "Grace" }
+    });
+    expect(resolved).toEqual({
+      type: "update",
+      schema: "public",
+      table: "users",
+      key: { id: 1 },
+      changes: { name: "Grace" }
+    });
+  });
+
+  it("resolves and coerces a delete op", async () => {
+    const adapter = makeFakeAdapter({ getTable: async () => SQL_TABLE });
+    const resolved = await resolveBatchOp(adapter, {
+      type: "delete",
+      schema: "public",
+      table: "users",
+      keys: [{ id: 1 }, { id: 2 }]
+    });
+    expect(resolved).toEqual({
+      type: "delete",
+      schema: "public",
+      table: "users",
+      keys: [{ id: 1 }, { id: 2 }]
+    });
+  });
+
+  it("rejects an op against a view with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({ ...SQL_TABLE, kind: "view" })
+    });
+    await expect(
+      resolveBatchOp(adapter, { type: "insert", schema: "public", table: "v", values: {} })
+    ).rejects.toThrow(expect.objectContaining({ statusCode: 400 }));
+  });
+
+  it("rejects an op lacking the specific permission with 403", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        ...SQL_TABLE,
+        permissions: { select: true, insert: false, update: false, delete: false }
+      })
+    });
+    await expect(
+      resolveBatchOp(adapter, {
+        type: "insert",
+        schema: "public",
+        table: "users",
+        values: { name: "Ada" }
+      })
+    ).rejects.toThrow(expect.objectContaining({ statusCode: 403 }));
+  });
+
+  it("rejects an op with an unknown column with 400", async () => {
+    const adapter = makeFakeAdapter({ getTable: async () => SQL_TABLE });
+    await expect(
+      resolveBatchOp(adapter, {
+        type: "insert",
+        schema: "public",
+        table: "users",
+        values: { nope: 1 }
+      })
+    ).rejects.toThrow(expect.objectContaining({ statusCode: 400 }));
   });
 });

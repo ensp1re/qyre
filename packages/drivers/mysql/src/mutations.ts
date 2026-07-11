@@ -1,12 +1,22 @@
-import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/core";
+import type {
+  CommitMutationsResult,
+  DeleteRowsResult,
+  InsertRowResult,
+  MutationOp,
+  UpdateRowResult
+} from "@qyre/core";
 import type mysql from "mysql2/promise";
 import { quoteIdent } from "./sql.js";
+
+/** Either the pool (single-op routes) or a transaction-scoped connection (F102's batch commit) -
+ * both expose the same `.query()` signature mysql2 needs here. */
+type Queryable = mysql.Pool | mysql.PoolConnection;
 
 /** The auto-increment column, if any - live-verified: MySQL exposes it via
  * `information_schema.COLUMNS.EXTRA`, and re-fetching by it is the only generic way to recover the
  * inserted row without a `RETURNING`-equivalent clause. */
 async function fetchAutoIncrementColumn(
-  pool: mysql.Pool,
+  pool: Queryable,
   schema: string,
   table: string
 ): Promise<string | undefined> {
@@ -30,7 +40,7 @@ async function fetchAutoIncrementColumn(
  * truly cannot" allowance.
  */
 export async function insertRow(
-  pool: mysql.Pool,
+  pool: Queryable,
   schema: string,
   table: string,
   values: Record<string, unknown>
@@ -68,7 +78,7 @@ export async function insertRow(
  * setting a column to its current value still reports `matched: 1`, not a false stale/conflict.
  */
 export async function updateRowByKey(
-  pool: mysql.Pool,
+  pool: Queryable,
   schema: string,
   table: string,
   key: Record<string, unknown>,
@@ -95,7 +105,7 @@ export async function updateRowByKey(
  * the small, explicit key lists this spec covers.
  */
 export async function deleteRowsByKey(
-  pool: mysql.Pool,
+  pool: Queryable,
   schema: string,
   table: string,
   keys: Array<Record<string, unknown>>
@@ -112,4 +122,49 @@ export async function deleteRowsByKey(
     deleted += result.affectedRows;
   }
   return { deleted };
+}
+
+/**
+ * Runs every staged op in one native transaction (F102), all-or-nothing, on a single checked-out
+ * connection (a real transaction needs one session, unlike the pool's per-call connection reuse).
+ * A stale update (`matched: 0`) or delete (`deleted < keys.length`) rolls back and reports that
+ * op's index, same treatment a native constraint-violation error gets in the `catch` below.
+ */
+export async function commitBatch(
+  pool: mysql.Pool,
+  ops: MutationOp[]
+): Promise<CommitMutationsResult> {
+  const connection = await pool.getConnection();
+  const results: Array<InsertRowResult | UpdateRowResult | DeleteRowsResult> = [];
+  try {
+    await connection.beginTransaction();
+    for (const [index, op] of ops.entries()) {
+      if (op.type === "insert") {
+        results.push(await insertRow(connection, op.schema, op.table, op.values));
+        continue;
+      }
+      if (op.type === "update") {
+        const result = await updateRowByKey(connection, op.schema, op.table, op.key, op.changes);
+        if (result.matched === 0) {
+          await connection.rollback();
+          return { committed: false, failedIndex: index };
+        }
+        results.push(result);
+        continue;
+      }
+      const result = await deleteRowsByKey(connection, op.schema, op.table, op.keys);
+      if (result.deleted < op.keys.length) {
+        await connection.rollback();
+        return { committed: false, failedIndex: index };
+      }
+      results.push(result);
+    }
+    await connection.commit();
+    return { committed: true, results };
+  } catch {
+    await connection.rollback().catch(() => {});
+    return { committed: false, failedIndex: results.length };
+  } finally {
+    connection.release();
+  }
 }

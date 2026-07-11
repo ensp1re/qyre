@@ -1,4 +1,10 @@
-import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/core";
+import type {
+  CommitMutationsResult,
+  DeleteRowsResult,
+  InsertRowResult,
+  MutationOp,
+  UpdateRowResult
+} from "@qyre/core";
 import type Database from "better-sqlite3";
 import { normalizeRow } from "./row-values.js";
 import { quoteIdent } from "./sql.js";
@@ -85,4 +91,51 @@ export function deleteRowsByKey(
     deleted += result.changes;
   }
   return { deleted };
+}
+
+/**
+ * Runs every staged op in one native transaction (F102), all-or-nothing - `db.transaction()`
+ * (better-sqlite3's synchronous BEGIN/COMMIT/ROLLBACK wrapper) rolls back and re-throws on any
+ * exception from the wrapped function, which this relies on for both native errors (a constraint
+ * violation) and the explicit staleness check below. `results.length` at the moment of a throw
+ * always equals the failing op's index, since a result is only pushed after that op succeeds -
+ * true whether the throw came from a caught staleness case (`failedIndex` set explicitly) or an
+ * uncaught native error (falls back to `results.length`, which is identical in that case too).
+ * `op.schema` is accepted for shape-parity with the other SQL engines but unused - SQLite has only
+ * one schema ("main"), matching every other per-op wiring in adapter.ts.
+ */
+export function commitBatch(db: Database.Database, ops: MutationOp[]): CommitMutationsResult {
+  let failedIndex: number | undefined;
+  const results: Array<InsertRowResult | UpdateRowResult | DeleteRowsResult> = [];
+
+  const runAll = db.transaction((operations: MutationOp[]) => {
+    for (const [index, op] of operations.entries()) {
+      if (op.type === "insert") {
+        results.push(insertRow(db, op.table, op.values));
+        continue;
+      }
+      if (op.type === "update") {
+        const result = updateRowByKey(db, op.table, op.key, op.changes);
+        if (result.matched === 0) {
+          failedIndex = index;
+          throw new Error("Row no longer matches (stale).");
+        }
+        results.push(result);
+        continue;
+      }
+      const result = deleteRowsByKey(db, op.table, op.keys);
+      if (result.deleted < op.keys.length) {
+        failedIndex = index;
+        throw new Error("Some rows no longer match (stale).");
+      }
+      results.push(result);
+    }
+  });
+
+  try {
+    runAll(ops);
+    return { committed: true, results };
+  } catch {
+    return { committed: false, failedIndex: failedIndex ?? results.length };
+  }
 }

@@ -530,4 +530,120 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(result).toEqual({ deleted: 0 });
     }
   );
+
+  it.skipIf(!configured || engine === "mongodb")(
+    "commitBatch commits a mixed insert/update/delete batch atomically (F102)",
+    async () => {
+      const inserted = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "label", op: "eq", value: "inserted" }]
+      );
+      const updateTarget = inserted.rows[0];
+      const nullLabel = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "label", op: "isNull" }]
+      );
+      const deleteTarget = nullLabel.rows[0];
+
+      const result = await adapter.mutations?.commitBatch?.([
+        {
+          type: "insert",
+          schema: fixture.schema,
+          table: fixture.populatedTable,
+          values: { n: 100, label: "batch-inserted" }
+        },
+        {
+          type: "update",
+          schema: fixture.schema,
+          table: fixture.populatedTable,
+          key: { id: updateTarget?.id },
+          changes: { label: "batch-updated" }
+        },
+        {
+          type: "delete",
+          schema: fixture.schema,
+          table: fixture.populatedTable,
+          keys: [{ id: deleteTarget?.id }]
+        }
+      ]);
+      expect(result?.committed).toBe(true);
+
+      const afterInsert = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "label", op: "eq", value: "batch-inserted" }]
+      );
+      expect(afterInsert.rows).toHaveLength(1);
+
+      const afterUpdate = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "label", op: "eq", value: "batch-updated" }]
+      );
+      expect(afterUpdate.rows).toHaveLength(1);
+
+      const afterDelete = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "label", op: "isNull" }]
+      );
+      expect(afterDelete.rows).toHaveLength(0);
+    }
+  );
+
+  it.skipIf(!configured || engine === "mongodb")(
+    "commitBatch rolls back the whole batch on a mid-batch failure, including earlier ops (F102)",
+    async () => {
+      const result = await adapter.mutations?.commitBatch?.([
+        {
+          type: "insert",
+          schema: fixture.schema,
+          table: fixture.populatedTable,
+          values: { n: 101, label: "should-roll-back" }
+        },
+        {
+          type: "update",
+          schema: fixture.schema,
+          table: fixture.populatedTable,
+          key: { id: -1 },
+          changes: { label: "nobody" }
+        }
+      ]);
+      expect(result).toEqual({ committed: false, failedIndex: 1 });
+
+      const after = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "label", op: "eq", value: "should-roll-back" }]
+      );
+      expect(after.rows).toHaveLength(0);
+    }
+  );
+
+  it.skipIf(!configured || engine !== "mongodb")(
+    "commitBatch is not offered on MongoDB - batch commit doesn't apply there (F102)",
+    () => {
+      expect(adapter.mutations?.commitBatch).toBeUndefined();
+    }
+  );
 });

@@ -1,6 +1,16 @@
-import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/core";
-import type { Pool } from "pg";
+import type {
+  CommitMutationsResult,
+  DeleteRowsResult,
+  InsertRowResult,
+  MutationOp,
+  UpdateRowResult
+} from "@qyre/core";
+import type { Pool, PoolClient } from "pg";
 import { quoteIdent } from "./sql.js";
+
+/** Either the pool (single-op routes) or a transaction-scoped client (F102's batch commit) - both
+ * expose the same `.query()` signature `pg` needs here. */
+type Queryable = Pool | PoolClient;
 
 /**
  * `values` is already validated/coerced against the table's real columns by the caller
@@ -9,7 +19,7 @@ import { quoteIdent } from "./sql.js";
  * values) without a second round trip, per docs/product-specs/row-editing.md.
  */
 export async function insertRow(
-  pool: Pool,
+  pool: Queryable,
   schema: string,
   table: string,
   values: Record<string, unknown>
@@ -34,7 +44,7 @@ export async function insertRow(
  * from `rowCount`: a composite key still identifies at most one row, so 0 vs 1 is the whole story.
  */
 export async function updateRowByKey(
-  pool: Pool,
+  pool: Queryable,
   schema: string,
   table: string,
   key: Record<string, unknown>,
@@ -65,7 +75,7 @@ export async function updateRowByKey(
  * covers (no filter-based bulk delete), and avoids composite-key IN-clause complexity entirely.
  */
 export async function deleteRowsByKey(
-  pool: Pool,
+  pool: Queryable,
   schema: string,
   table: string,
   keys: Array<Record<string, unknown>>
@@ -84,4 +94,46 @@ export async function deleteRowsByKey(
     deleted += result.rowCount ?? 0;
   }
   return { deleted };
+}
+
+/**
+ * Runs every staged op in one native transaction (F102), all-or-nothing, on a single checked-out
+ * client (a real `BEGIN`/`COMMIT`/`ROLLBACK` needs one session, unlike `pool.query`'s per-call
+ * pooling). A stale update (`matched: 0`) or delete (`deleted < keys.length`) rolls back and reports
+ * that op's index, same treatment a native constraint-violation error gets in the `catch` below.
+ */
+export async function commitBatch(pool: Pool, ops: MutationOp[]): Promise<CommitMutationsResult> {
+  const client = await pool.connect();
+  const results: Array<InsertRowResult | UpdateRowResult | DeleteRowsResult> = [];
+  try {
+    await client.query("BEGIN");
+    for (const [index, op] of ops.entries()) {
+      if (op.type === "insert") {
+        results.push(await insertRow(client, op.schema, op.table, op.values));
+        continue;
+      }
+      if (op.type === "update") {
+        const result = await updateRowByKey(client, op.schema, op.table, op.key, op.changes);
+        if (result.matched === 0) {
+          await client.query("ROLLBACK");
+          return { committed: false, failedIndex: index };
+        }
+        results.push(result);
+        continue;
+      }
+      const result = await deleteRowsByKey(client, op.schema, op.table, op.keys);
+      if (result.deleted < op.keys.length) {
+        await client.query("ROLLBACK");
+        return { committed: false, failedIndex: index };
+      }
+      results.push(result);
+    }
+    await client.query("COMMIT");
+    return { committed: true, results };
+  } catch {
+    await client.query("ROLLBACK").catch(() => {});
+    return { committed: false, failedIndex: results.length };
+  } finally {
+    client.release();
+  }
 }

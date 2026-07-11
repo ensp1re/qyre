@@ -1,5 +1,6 @@
 import { Readable } from "node:stream";
 import {
+  deleteRowsRequestSchema,
   insertRowRequestSchema,
   MAX_PAGE_SIZE,
   rowsQuerySchema,
@@ -14,6 +15,7 @@ import {
   assertMutable,
   resolveInsertValues,
   resolveKey,
+  resolveKeys,
   resolveUpdateChanges
 } from "../services/row-mutation-validation.js";
 import { resolveRowQuery } from "../services/row-query.js";
@@ -146,6 +148,69 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
           outcome: "success"
         },
         "row update succeeded"
+      );
+
+      return result;
+    }
+  );
+
+  // F101: structured row delete by an explicit list of primary-key matches - no filter-based bulk
+  // delete (see docs/product-specs/row-editing.md). `deleted` less than the requested key count is
+  // reported as 409, same "stale row" treatment F100's update gets, never a silent 200.
+  app.delete<{ Params: { schema: string; table: string }; Body: unknown }>(
+    "/api/tables/:schema/:table/rows",
+    { config: { mutating: true } },
+    async (request, reply) => {
+      const parsedBody = deleteRowsRequestSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({ error: "Request body must include keys." });
+      }
+      const { schema, table } = request.params;
+      const db = requireAdapter(ctx.adapter);
+      const tableMetadata = await db.getTable(schema, table);
+      assertMutable(tableMetadata, "delete");
+      if (!db.mutations?.deleteRowsByKey) {
+        return reply.status(400).send({ error: "This engine does not support deleting rows." });
+      }
+
+      const keys = resolveKeys(tableMetadata, parsedBody.data.keys, db.engine);
+
+      const startedAt = performance.now();
+      const result = await db.mutations.deleteRowsByKey(schema, table, keys);
+      const durationMs = Math.round(performance.now() - startedAt);
+
+      if (result.deleted < keys.length) {
+        ctx.eventLog.log(
+          "warn",
+          `Delete rejected: only ${result.deleted}/${keys.length} row(s) in ${schema}.${table} still matched (stale).`
+        );
+        request.log.warn(
+          {
+            operation: "delete",
+            schema,
+            table,
+            rowCount: result.deleted,
+            durationMs,
+            outcome: "conflict"
+          },
+          "row delete conflict"
+        );
+        return reply
+          .status(409)
+          .send({ error: "Some of these rows were already changed or removed." });
+      }
+
+      ctx.eventLog.log("info", `Deleted ${result.deleted} row(s) from ${schema}.${table}.`);
+      request.log.info(
+        {
+          operation: "delete",
+          schema,
+          table,
+          rowCount: result.deleted,
+          durationMs,
+          outcome: "success"
+        },
+        "row delete succeeded"
       );
 
       return result;

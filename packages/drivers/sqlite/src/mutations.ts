@@ -1,4 +1,4 @@
-import type { InsertRowResult, UpdateRowResult } from "@qyre/core";
+import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/core";
 import type Database from "better-sqlite3";
 import { normalizeRow } from "./row-values.js";
 import { quoteIdent } from "./sql.js";
@@ -61,4 +61,28 @@ export function updateRowByKey(
       ...keyColumns.map((column) => key[column])
     );
   return { matched: result.changes };
+}
+
+/**
+ * Each key is already validated/coerced (full primary-key match enforced) by the caller - see
+ * row-mutation-validation.ts. One parameterized DELETE per key, summed into `deleted` - same
+ * reasoning as the other SQL adapters: simpler and just as correct as a compound-WHERE statement
+ * for the small, explicit key lists this spec covers.
+ */
+export function deleteRowsByKey(
+  db: Database.Database,
+  table: string,
+  keys: Array<Record<string, unknown>>
+): DeleteRowsResult {
+  const target = quoteIdent(table);
+  let deleted = 0;
+  for (const key of keys) {
+    const keyColumns = Object.keys(key);
+    const whereClause = keyColumns.map((column) => `${quoteIdent(column)} = ?`).join(" AND ");
+    const result = db
+      .prepare(`DELETE FROM ${target} WHERE ${whereClause}`)
+      .run(...keyColumns.map((column) => key[column]));
+    deleted += result.changes;
+  }
+  return { deleted };
 }

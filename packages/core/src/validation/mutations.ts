@@ -24,3 +24,13 @@ export const updateRowRequestSchema = z.object({
   document: z.record(z.string(), z.unknown()).optional()
 });
 export type UpdateRowRequest = z.infer<typeof updateRowRequestSchema>;
+
+/**
+ * Request body for `DELETE /api/tables/:schema/:table/rows` (F101) - an explicit list of full
+ * primary-key matches to delete, per docs/product-specs/row-editing.md. No filter-based bulk delete
+ * here - only rows the caller has already loaded and can name by key.
+ */
+export const deleteRowsRequestSchema = z.object({
+  keys: z.array(z.record(z.string(), z.unknown()))
+});
+export type DeleteRowsRequest = z.infer<typeof deleteRowsRequestSchema>;

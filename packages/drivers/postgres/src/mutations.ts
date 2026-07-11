@@ -1,4 +1,4 @@
-import type { InsertRowResult, UpdateRowResult } from "@qyre/core";
+import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/core";
 import type { Pool } from "pg";
 import { quoteIdent } from "./sql.js";
 
@@ -56,4 +56,32 @@ export async function updateRowByKey(
   ];
   const result = await pool.query(query, values);
   return { matched: result.rowCount ?? 0 };
+}
+
+/**
+ * Each key is already validated/coerced (full primary-key match enforced) by the caller - see
+ * row-mutation-validation.ts. One parameterized DELETE per key, summed into `deleted`: simpler and
+ * just as correct as a single compound-WHERE statement for the small, explicit key lists this spec
+ * covers (no filter-based bulk delete), and avoids composite-key IN-clause complexity entirely.
+ */
+export async function deleteRowsByKey(
+  pool: Pool,
+  schema: string,
+  table: string,
+  keys: Array<Record<string, unknown>>
+): Promise<DeleteRowsResult> {
+  const target = `${quoteIdent(schema)}.${quoteIdent(table)}`;
+  let deleted = 0;
+  for (const key of keys) {
+    const keyColumns = Object.keys(key);
+    const whereClause = keyColumns
+      .map((column, index) => `${quoteIdent(column)} = $${index + 1}`)
+      .join(" AND ");
+    const result = await pool.query(
+      `DELETE FROM ${target} WHERE ${whereClause}`,
+      keyColumns.map((column) => key[column])
+    );
+    deleted += result.rowCount ?? 0;
+  }
+  return { deleted };
 }

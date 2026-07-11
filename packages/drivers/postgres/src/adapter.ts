@@ -21,7 +21,7 @@ import type { Pool } from "pg";
 import { tableKey } from "./catalog.js";
 import { createPostgresPool } from "./connection.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
-import { insertRow, updateRowByKey } from "./mutations.js";
+import { deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
 import {
   fetchAllTablePermissions,
   fetchConnectionCapabilities,
@@ -37,7 +37,8 @@ export class PostgresAdapter implements DatabaseAdapter {
   public readonly mutations: RowMutationApi = {
     insertRow: (schema, table, values) => insertRow(this.getPool(), schema, table, values),
     updateRowByKey: (schema, table, key, changes) =>
-      updateRowByKey(this.getPool(), schema, table, key, changes)
+      updateRowByKey(this.getPool(), schema, table, key, changes),
+    deleteRowsByKey: (schema, table, keys) => deleteRowsByKey(this.getPool(), schema, table, keys)
   };
   private pool: Pool | undefined;
 

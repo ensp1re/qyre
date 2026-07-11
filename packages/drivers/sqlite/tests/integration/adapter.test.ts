@@ -232,6 +232,67 @@ describe("SqliteAdapter integration", () => {
     }
   });
 
+  it("deletes rows by primary key and reports deleted: 2 (F101)", async () => {
+    const seed = new Database(dbPath);
+    seed.exec(
+      `INSERT INTO qyre_demo_users (name, email) VALUES
+         ('Delete Test 1', 'delete-test-1@example.com'),
+         ('Delete Test 2', 'delete-test-2@example.com')`
+    );
+    seed.close();
+
+    const before = await adapter.getRows("main", "qyre_demo_users", 0, 10);
+    const rows = before.rows.filter((row) => String(row.email).startsWith("delete-test-"));
+    expect(rows).toHaveLength(2);
+
+    const result = await adapter.mutations.deleteRowsByKey?.(
+      "main",
+      "qyre_demo_users",
+      rows.map((row) => ({ id: row.id }))
+    );
+    expect(result).toEqual({ deleted: 2 });
+
+    const after = await adapter.getRows("main", "qyre_demo_users", 0, 10);
+    expect(after.rows.some((row) => String(row.email).startsWith("delete-test-"))).toBe(false);
+  });
+
+  it("reports a lower deleted count when some keys no longer match any row (F101)", async () => {
+    const seed = new Database(dbPath);
+    seed.exec(
+      "INSERT INTO qyre_demo_users (name, email) VALUES ('Delete Test', 'delete-test-partial@example.com')"
+    );
+    seed.close();
+
+    const before = await adapter.getRows("main", "qyre_demo_users", 0, 10);
+    const row = before.rows.find(
+      (candidate) => candidate.email === "delete-test-partial@example.com"
+    );
+
+    const result = await adapter.mutations.deleteRowsByKey?.("main", "qyre_demo_users", [
+      { id: row?.id },
+      { id: -1 }
+    ]);
+    expect(result).toEqual({ deleted: 1 });
+  });
+
+  it("rejects a delete against a chmod-read-only file copy (F101)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "qyre-sqlite-readonly-delete-"));
+    const readOnlyPath = join(dir, "readonly.db");
+    copyFileSync(dbPath, readOnlyPath);
+    chmodSync(readOnlyPath, 0o444);
+
+    const readOnlyAdapter = new SqliteAdapter({ engine: "sqlite", raw: readOnlyPath });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.mutations.deleteRowsByKey?.("main", "qyre_demo_users", [{ id: 1 }])
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+      chmodSync(readOnlyPath, 0o644);
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery("SELECT * FROM qyre_demo_users");
     expect(result.rows).toHaveLength(3);

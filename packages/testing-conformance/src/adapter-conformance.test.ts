@@ -484,4 +484,50 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(result).toEqual({ matched: 0 });
     }
   );
+
+  it.skipIf(!configured)(
+    "deleteRowsByKey deletes a row by primary key, no longer visible via getRows (F101)",
+    async () => {
+      const before = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "label", op: "eq", value: "banana" }]
+      );
+      const row = before.rows[0];
+      const key = engine === "mongodb" ? { _id: String(row?._id) } : { id: row?.id };
+
+      const result = await adapter.mutations?.deleteRowsByKey?.(
+        fixture.schema,
+        fixture.populatedTable,
+        [key]
+      );
+      expect(result).toEqual({ deleted: 1 });
+
+      const after = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "label", op: "eq", value: "banana" }]
+      );
+      expect(after.rows).toHaveLength(0);
+    }
+  );
+
+  it.skipIf(!configured)(
+    "deleteRowsByKey reports a lower deleted count when a key doesn't match any row (F101)",
+    async () => {
+      const key = engine === "mongodb" ? { _id: "507f1f77bcf86cd799439011" } : { id: -1 };
+      const result = await adapter.mutations?.deleteRowsByKey?.(
+        fixture.schema,
+        fixture.populatedTable,
+        [key]
+      );
+      expect(result).toEqual({ deleted: 0 });
+    }
+  );
 });

@@ -14,6 +14,7 @@ import {
 } from "@qyre/ui";
 import type { ReactNode } from "react";
 import { useEffect, useReducer } from "react";
+import { useCapabilities } from "../features/connection/model/use-capabilities.js";
 import { useConnect } from "../features/connection/model/use-connect.js";
 import { useHealth } from "../features/connection/model/use-health.js";
 import { useRecentTargets } from "../features/connection/model/use-recent-targets.js";
@@ -86,6 +87,10 @@ export function App(): ReactNode {
   }, [healthLoading, status, hasAutoOpenedConnect]);
 
   const overview = useOverview({ enabled: status === "connected" });
+  // F097: shares the same ["overview"] query cache as `overview` above (no extra request) - the
+  // canonical entry point every write-affordance gates on, per
+  // docs/product-specs/permissions-and-capabilities.md.
+  const capabilities = useCapabilities({ enabled: status === "connected" });
   // F063: some engines (MongoDB today) have no read-only SQL query runner - no SQL dialect for a
   // read-only backstop to run inside (see docs/product-specs/connect-and-inspect-mongodb.md's "Why
   // this engine is scoped differently"). Read from the adapter's declared capabilities instead of
@@ -282,6 +287,7 @@ export function App(): ReactNode {
         lastQueryMs={lastQueryMs}
         pingLatencyMs={health?.pingLatencyMs}
         lastError={health?.lastError}
+        capabilities={capabilities.data}
       />
 
       <QueryHistoryDrawer

@@ -94,7 +94,12 @@ async function main(): Promise<void> {
       sqliteAdapterFactory,
       mysqlAdapterFactory,
       mongodbAdapterFactory
-    ]
+    ],
+    // F096/F097: QYRE_E2E_READ_ONLY drives a dedicated instance (see playwright.config.ts's
+    // "readonly" project) that connects to an otherwise-fully-writable fixture with --read-only
+    // forced, so the regression guard proves the flag overrides real grants rather than merely
+    // reflecting an already-restricted fixture user.
+    readOnly: process.env.QYRE_E2E_READ_ONLY === "1"
   });
   process.stdout.write(`Qyre E2E server listening at ${server.url}\n`);
 }

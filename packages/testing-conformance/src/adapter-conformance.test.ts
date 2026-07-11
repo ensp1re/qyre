@@ -436,4 +436,52 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       ).rejects.toThrow();
     }
   );
+
+  it.skipIf(!configured)(
+    "updateRowByKey updates a row by primary key, visible via getRows (F100)",
+    async () => {
+      const before = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "label", op: "eq", value: "apple" }]
+      );
+      const row = before.rows[0];
+      const key = engine === "mongodb" ? { _id: String(row?._id) } : { id: row?.id };
+
+      const result = await adapter.mutations?.updateRowByKey?.(
+        fixture.schema,
+        fixture.populatedTable,
+        key,
+        engine === "mongodb" ? { n: 1, label: "apricot" } : { label: "apricot" }
+      );
+      expect(result).toEqual({ matched: 1 });
+
+      const after = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "label", op: "eq", value: "apricot" }]
+      );
+      expect(after.rows).toHaveLength(1);
+    }
+  );
+
+  it.skipIf(!configured)(
+    "updateRowByKey reports matched: 0 for a key that doesn't match any row (F100)",
+    async () => {
+      const key = engine === "mongodb" ? { _id: "507f1f77bcf86cd799439011" } : { id: -1 };
+      const result = await adapter.mutations?.updateRowByKey?.(
+        fixture.schema,
+        fixture.populatedTable,
+        key,
+        engine === "mongodb" ? { n: 1, label: "nobody" } : { label: "nobody" }
+      );
+      expect(result).toEqual({ matched: 0 });
+    }
+  );
 });

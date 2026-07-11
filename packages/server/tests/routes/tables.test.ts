@@ -452,6 +452,253 @@ describe("POST /api/tables/:schema/:table/rows (F099)", () => {
   });
 });
 
+describe("PATCH /api/tables/:schema/:table/rows (F100)", () => {
+  const updatableColumns = [
+    { name: "id", dataType: "int4", nullable: false, isPrimaryKey: true, isForeignKey: false },
+    { name: "name", dataType: "varchar", nullable: false, isPrimaryKey: false, isForeignKey: false }
+  ];
+
+  it("updates a row and returns 200 with matched: 1, and logs an audit event", async () => {
+    let received: unknown;
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: updatableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: {
+        updateRowByKey: async (_schema, _table, key, changes) => {
+          received = { key, changes };
+          return { matched: 1 };
+        }
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { key: { id: 1 }, changes: { name: "Grace" } }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ matched: 1 });
+    expect(received).toEqual({ key: { id: 1 }, changes: { name: "Grace" } });
+    await app.close();
+  });
+
+  it("reports a 0-matched update as 409, not a silent success", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: updatableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: { updateRowByKey: async () => ({ matched: 0 }) }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { key: { id: 1 }, changes: { name: "Grace" } }
+    });
+    expect(response.statusCode).toBe(409);
+    await app.close();
+  });
+
+  it("rejects an update into a view with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "v",
+        kind: "view",
+        columns: updatableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      })
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/public/v/rows",
+      headers: authHeaders(app),
+      payload: { key: { id: 1 }, changes: { name: "Grace" } }
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects an update when the table lacks update permission with 403", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: updatableColumns,
+        permissions: { select: true, insert: true, update: false, delete: true }
+      })
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { key: { id: 1 }, changes: { name: "Grace" } }
+    });
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it("rejects a key missing a primary-key column with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: updatableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: { updateRowByKey: async () => ({ matched: 1 }) }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { key: {}, changes: { name: "Grace" } }
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects changes that include the primary-key column with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: updatableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: { updateRowByKey: async () => ({ matched: 1 }) }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { key: { id: 1 }, changes: { id: 2 } }
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects a body missing both changes and document with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: updatableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: { updateRowByKey: async () => ({ matched: 1 }) }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { key: { id: 1 } }
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("uses the document field (not changes) for a MongoDB update", async () => {
+    let received: unknown;
+    const adapter = makeFakeAdapter({
+      engine: "mongodb",
+      getTable: async () => ({
+        schema: "test",
+        name: "users",
+        kind: "collection",
+        columns: [
+          {
+            name: "_id",
+            dataType: "objectId",
+            nullable: false,
+            isPrimaryKey: true,
+            isForeignKey: false
+          },
+          {
+            name: "name",
+            dataType: "string",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ],
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: {
+        updateRowByKey: async (_schema, _table, key, changes) => {
+          received = { key, changes };
+          return { matched: 1 };
+        }
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/test/users/rows",
+      headers: authHeaders(app),
+      payload: { key: { _id: "507f1f77bcf86cd799439011" }, document: { name: "Grace" } }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(received).toEqual({
+      key: { _id: "507f1f77bcf86cd799439011" },
+      changes: { name: "Grace" }
+    });
+    await app.close();
+  });
+
+  it("rejects the update with 403 in a --read-only session, even with update permission (F096)", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: updatableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      })
+    });
+    const app = createServer({ adapter, readOnly: true });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { key: { id: 1 }, changes: { name: "Grace" } }
+    });
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+});
+
 describe("Whole-table CSV export (F066)", () => {
   it("streams a header line plus every row across multiple batches", async () => {
     let callCount = 0;

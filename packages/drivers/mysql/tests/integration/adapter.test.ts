@@ -193,6 +193,68 @@ describe("MysqlAdapter integration", () => {
     }
   });
 
+  it("updates a row by primary key and reports matched: 1, even when the value is unchanged (F100)", async () => {
+    const seedPool = mysql.createPool(databaseUrl);
+    await seedPool.query(
+      `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('Update Test', 'update-test@example.com')`
+    );
+    try {
+      const before = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+      const row = before.rows.find((candidate) => candidate.email === "update-test@example.com");
+      const noop = await adapter.mutations.updateRowByKey?.(
+        databaseName,
+        FIXTURE.table,
+        { id: row?.id },
+        { name: "Update Test" }
+      );
+      expect(noop).toEqual({ matched: 1 });
+
+      const result = await adapter.mutations.updateRowByKey?.(
+        databaseName,
+        FIXTURE.table,
+        { id: row?.id },
+        { name: "Updated" }
+      );
+      expect(result).toEqual({ matched: 1 });
+
+      const after = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+      expect(after.rows.find((candidate) => candidate.id === row?.id)?.name).toBe("Updated");
+    } finally {
+      await seedPool.query(`DELETE FROM ${FIXTURE.table} WHERE email = 'update-test@example.com'`);
+      await seedPool.end();
+    }
+  });
+
+  it("reports matched: 0 for a key that no longer matches any row (F100)", async () => {
+    const result = await adapter.mutations.updateRowByKey?.(
+      databaseName,
+      FIXTURE.table,
+      { id: -1 },
+      { name: "Nobody" }
+    );
+    expect(result).toEqual({ matched: 0 });
+  });
+
+  it("rejects an update as a SELECT-only fixture user (F100)", async () => {
+    const readOnlyAdapter = new MysqlAdapter({
+      engine: "mysql",
+      raw: requireReadOnlyTestMysqlUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.mutations.updateRowByKey?.(
+          databaseName,
+          FIXTURE.table,
+          { id: 1 },
+          { name: "Should Fail" }
+        )
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery(`SELECT * FROM ${FIXTURE.table}`);
     expect(result.rows).toHaveLength(FIXTURE.rowCount);

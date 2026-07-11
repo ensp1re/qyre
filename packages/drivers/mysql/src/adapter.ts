@@ -20,7 +20,7 @@ import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driv
 import mysql from "mysql2/promise";
 import { tableKey } from "./catalog.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
-import { insertRow } from "./mutations.js";
+import { insertRow, updateRowByKey } from "./mutations.js";
 import {
   fetchAllTablePermissions,
   fetchConnectionCapabilities,
@@ -40,7 +40,9 @@ export class MysqlAdapter implements DatabaseAdapter {
   public readonly engine = "mysql";
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
   public readonly mutations: RowMutationApi = {
-    insertRow: (schema, table, values) => insertRow(this.getPool(), schema, table, values)
+    insertRow: (schema, table, values) => insertRow(this.getPool(), schema, table, values),
+    updateRowByKey: (schema, table, key, changes) =>
+      updateRowByKey(this.getPool(), schema, table, key, changes)
   };
   private pool: mysql.Pool | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;

@@ -6,7 +6,8 @@ import type {
   RowFilter,
   RowPage,
   RowSort,
-  TableMetadata
+  TableMetadata,
+  UpdateRowResult
 } from "@qyre/core";
 
 /** Severity of an adapter's asynchronous connection event - see {@link DatabaseAdapter.onConnectionEvent}. */
@@ -26,6 +27,12 @@ export interface RowMutationApi {
     table: string,
     values: Record<string, unknown>
   ): Promise<InsertRowResult>;
+  updateRowByKey?(
+    schema: string,
+    table: string,
+    key: Record<string, unknown>,
+    changes: Record<string, unknown>
+  ): Promise<UpdateRowResult>;
 }
 
 /** A live, engine-specific connection to a single database. */

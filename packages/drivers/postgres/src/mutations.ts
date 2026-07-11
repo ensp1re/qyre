@@ -1,4 +1,4 @@
-import type { InsertRowResult } from "@qyre/core";
+import type { InsertRowResult, UpdateRowResult } from "@qyre/core";
 import type { Pool } from "pg";
 import { quoteIdent } from "./sql.js";
 
@@ -26,4 +26,34 @@ export async function insertRow(
     columns.map((column) => values[column])
   );
   return { row: result.rows[0] as Record<string, unknown> | undefined };
+}
+
+/**
+ * `key`/`changes` are already validated/coerced (full primary-key match enforced, PK columns
+ * excluded from `changes`) by the caller - see row-mutation-validation.ts. `matched` comes straight
+ * from `rowCount`: a composite key still identifies at most one row, so 0 vs 1 is the whole story.
+ */
+export async function updateRowByKey(
+  pool: Pool,
+  schema: string,
+  table: string,
+  key: Record<string, unknown>,
+  changes: Record<string, unknown>
+): Promise<UpdateRowResult> {
+  const changeColumns = Object.keys(changes);
+  const keyColumns = Object.keys(key);
+  const target = `${quoteIdent(schema)}.${quoteIdent(table)}`;
+  const setClause = changeColumns
+    .map((column, index) => `${quoteIdent(column)} = $${index + 1}`)
+    .join(", ");
+  const whereClause = keyColumns
+    .map((column, index) => `${quoteIdent(column)} = $${changeColumns.length + index + 1}`)
+    .join(" AND ");
+  const query = `UPDATE ${target} SET ${setClause} WHERE ${whereClause}`;
+  const values = [
+    ...changeColumns.map((column) => changes[column]),
+    ...keyColumns.map((column) => key[column])
+  ];
+  const result = await pool.query(query, values);
+  return { matched: result.rowCount ?? 0 };
 }

@@ -15,7 +15,7 @@ import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driv
 import Database from "better-sqlite3";
 import { computeCapabilities, tablePermissionsFromCapabilities } from "./capabilities.js";
 import { fetchAllTableTargets, introspectTable, MAIN_SCHEMA } from "./introspection.js";
-import { insertRow } from "./mutations.js";
+import { insertRow, updateRowByKey } from "./mutations.js";
 import { normalizeRow } from "./row-values.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
@@ -25,7 +25,9 @@ export class SqliteAdapter implements DatabaseAdapter {
     // async, not a plain arrow returning Promise.resolve(...) - insertRow() throws synchronously
     // on a readonly database, and only an async function body converts that into a rejection
     // instead of an uncaught throw at the call site (better-sqlite3 has no async API to await).
-    insertRow: async (_schema, table, values) => insertRow(this.getDb(), table, values)
+    insertRow: async (_schema, table, values) => insertRow(this.getDb(), table, values),
+    updateRowByKey: async (_schema, table, key, changes) =>
+      updateRowByKey(this.getDb(), table, key, changes)
   };
   private db: Database.Database | undefined;
   private resolvedPath: string | undefined;

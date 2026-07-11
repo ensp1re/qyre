@@ -75,12 +75,37 @@ function coerceRowValue(
 }
 
 /**
- * Validates/coerces an insert request body against the table's real introspected columns before
- * an adapter is ever called - the actual injection surface, since a column name is a raw
- * identifier a driver can't parameter-bind (same reasoning as `resolveRowSort`/filter-column
- * validation). MongoDB is deliberately exempt: its columns are sampled/best-effort, not an
- * authoritative catalog, and its document is EJSON-deserialized inside the adapter itself instead -
- * Qyre doesn't invent document-shape constraints it doesn't enforce, per the spec.
+ * Validates/coerces a column -> value map against the table's real introspected columns before an
+ * adapter is ever called - the actual injection surface, since a column name is a raw identifier a
+ * driver can't parameter-bind (same reasoning as `resolveRowSort`/filter-column validation).
+ * `rejectPrimaryKey` is set for update's `changes` map only (F100): a primary-key column is always
+ * suppliable on insert, but per docs/product-specs/row-editing.md is "never editable when updating
+ * an existing row" - changing a row's identity mid-edit isn't a supported operation here.
+ */
+function resolveColumnValues(
+  tableMetadata: TableMetadata,
+  body: Record<string, unknown>,
+  engine: DatabaseAdapter["engine"],
+  rejectPrimaryKey: boolean
+): Record<string, unknown> {
+  const resolved: Record<string, unknown> = {};
+  for (const [columnName, rawValue] of Object.entries(body)) {
+    const column = tableMetadata.columns.find((candidate) => candidate.name === columnName);
+    if (!column) throw badRequest(`Unknown column "${columnName}".`);
+    if (rejectPrimaryKey && column.isPrimaryKey) {
+      throw badRequest(`Column "${columnName}" is part of the primary key and cannot be changed.`);
+    }
+    const kind = classifyFilterColumnKind(column.dataType, engine);
+    resolved[columnName] = coerceRowValue(kind, rawValue, column.nullable, columnName);
+  }
+  return resolved;
+}
+
+/**
+ * Validates/coerces an insert request body against the table's real introspected columns.
+ * MongoDB is deliberately exempt: its columns are sampled/best-effort, not an authoritative
+ * catalog, and its document is EJSON-deserialized inside the adapter itself instead - Qyre doesn't
+ * invent document-shape constraints it doesn't enforce, per the spec.
  */
 export function resolveInsertValues(
   tableMetadata: TableMetadata,
@@ -88,13 +113,58 @@ export function resolveInsertValues(
   engine: DatabaseAdapter["engine"]
 ): Record<string, unknown> {
   if (engine === "mongodb") return body;
+  return resolveColumnValues(tableMetadata, body, engine, false);
+}
+
+/**
+ * Validates/coerces an update request's `changes` map (F100): primary-key columns are rejected
+ * (never editable via update, per docs/product-specs/row-editing.md), and an empty map is rejected
+ * too - there is nothing to update. MongoDB is exempt for the same reason `resolveInsertValues` is:
+ * its whole-document replacement is EJSON-deserialized inside the adapter, not validated per field.
+ */
+export function resolveUpdateChanges(
+  tableMetadata: TableMetadata,
+  body: Record<string, unknown>,
+  engine: DatabaseAdapter["engine"]
+): Record<string, unknown> {
+  if (engine === "mongodb") return body;
+  if (Object.keys(body).length === 0) {
+    throw badRequest("changes must include at least one column.");
+  }
+  return resolveColumnValues(tableMetadata, body, engine, true);
+}
+
+/**
+ * Validates/coerces an update/delete request's row-identity `key`, per docs/product-specs/
+ * row-editing.md: the full primary key must be supplied as a set (a composite key is matched
+ * exactly, never a subset), and a table with no primary key at all is rejected outright - there is
+ * no reliable way to target one specific row without one. MongoDB's key is always exactly `{_id}`,
+ * matching its single-field primary key (F068).
+ */
+export function resolveKey(
+  tableMetadata: TableMetadata,
+  key: Record<string, unknown>,
+  engine: DatabaseAdapter["engine"]
+): Record<string, unknown> {
+  const primaryKeyColumns = tableMetadata.columns.filter((column) => column.isPrimaryKey);
+  if (primaryKeyColumns.length === 0) {
+    throw badRequest("This table has no primary key; a specific row cannot be targeted.");
+  }
+
+  const primaryKeyNames = new Set(primaryKeyColumns.map((column) => column.name));
+  for (const providedName of Object.keys(key)) {
+    if (!primaryKeyNames.has(providedName)) {
+      throw badRequest(`"${providedName}" is not part of the primary key.`);
+    }
+  }
 
   const resolved: Record<string, unknown> = {};
-  for (const [columnName, rawValue] of Object.entries(body)) {
-    const column = tableMetadata.columns.find((candidate) => candidate.name === columnName);
-    if (!column) throw badRequest(`Unknown column "${columnName}".`);
+  for (const column of primaryKeyColumns) {
+    if (!(column.name in key)) {
+      throw badRequest(`Primary key column "${column.name}" is required.`);
+    }
     const kind = classifyFilterColumnKind(column.dataType, engine);
-    resolved[columnName] = coerceRowValue(kind, rawValue, column.nullable, columnName);
+    resolved[column.name] = coerceRowValue(kind, key[column.name], column.nullable, column.name);
   }
   return resolved;
 }

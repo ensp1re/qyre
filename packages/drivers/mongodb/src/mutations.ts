@@ -1,6 +1,7 @@
-import type { InsertRowResult } from "@qyre/core";
+import type { InsertRowResult, UpdateRowResult } from "@qyre/core";
 import { EJSON } from "bson";
 import type { MongoClient } from "mongodb";
+import { ObjectId } from "mongodb";
 import { normalizeDocument } from "./bson-values.js";
 
 /**
@@ -21,4 +22,31 @@ export async function insertRow(
   const deserialized = EJSON.deserialize(document, { relaxed: true }) as Record<string, unknown>;
   const result = await client.db(schema).collection(table).insertOne(deserialized);
   return { row: normalizeDocument({ ...deserialized, _id: result.insertedId }) };
+}
+
+/**
+ * Whole-document replace keyed on `_id` (the "Compass model", not a changed-fields `$set`), per
+ * docs/product-specs/row-editing.md. `key._id` is already validated as a syntactically valid 24-hex
+ * ObjectId string by the caller; `changes` is the full replacement document as relaxed EJSON,
+ * deserialized the same way `insertRow` does. `_id` itself is stripped from the replacement body
+ * (immutable on a document replace - matches SQL's "a primary-key column is never editable when
+ * updating an existing row" rule) even if present in the submitted text. `matched` is 0 when no
+ * document with that `_id` exists (the caller reports this as the same "stale row" conflict SQL's
+ * 0-rowcount update gets), 1 when a document was found and replaced.
+ */
+export async function updateRowByKey(
+  client: MongoClient,
+  schema: string,
+  table: string,
+  key: Record<string, unknown>,
+  changes: Record<string, unknown>
+): Promise<UpdateRowResult> {
+  const id = new ObjectId(key._id as string);
+  const deserialized = EJSON.deserialize(changes, { relaxed: true }) as Record<string, unknown>;
+  const { _id: _omitted, ...replacement } = deserialized;
+  const result = await client
+    .db(schema)
+    .collection(table)
+    .findOneAndReplace({ _id: id }, replacement);
+  return { matched: result ? 1 : 0 };
 }

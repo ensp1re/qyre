@@ -1,6 +1,11 @@
 import type { TableMetadata } from "@qyre/core";
 import { describe, expect, it } from "vitest";
-import { assertMutable, resolveInsertValues } from "../../src/services/row-mutation-validation.js";
+import {
+  assertMutable,
+  resolveInsertValues,
+  resolveKey,
+  resolveUpdateChanges
+} from "../../src/services/row-mutation-validation.js";
 
 const SQL_TABLE: TableMetadata = {
   schema: "public",
@@ -25,6 +30,34 @@ const SQL_TABLE: TableMetadata = {
       isForeignKey: false
     },
     { name: "tags", dataType: "jsonb", nullable: true, isPrimaryKey: false, isForeignKey: false }
+  ],
+  permissions: { select: true, insert: true, update: true, delete: true }
+};
+
+const COMPOSITE_KEY_TABLE: TableMetadata = {
+  schema: "public",
+  name: "memberships",
+  kind: "table",
+  columns: [
+    { name: "org_id", dataType: "int4", nullable: false, isPrimaryKey: true, isForeignKey: false },
+    { name: "user_id", dataType: "int4", nullable: false, isPrimaryKey: true, isForeignKey: false },
+    { name: "role", dataType: "text", nullable: false, isPrimaryKey: false, isForeignKey: false }
+  ],
+  permissions: { select: true, insert: true, update: true, delete: true }
+};
+
+const NO_PK_TABLE: TableMetadata = {
+  ...SQL_TABLE,
+  columns: SQL_TABLE.columns.map((column) => ({ ...column, isPrimaryKey: false }))
+};
+
+const MONGO_TABLE: TableMetadata = {
+  schema: "test",
+  name: "users",
+  kind: "collection",
+  columns: [
+    { name: "_id", dataType: "objectId", nullable: false, isPrimaryKey: true, isForeignKey: false },
+    { name: "name", dataType: "string", nullable: false, isPrimaryKey: false, isForeignKey: false }
   ],
   permissions: { select: true, insert: true, update: true, delete: true }
 };
@@ -131,5 +164,80 @@ describe("resolveInsertValues (F099)", () => {
   it("skips per-column validation entirely for MongoDB - passes the body through as-is", () => {
     const body = { anyField: "anything", nested: { a: 1 } };
     expect(resolveInsertValues(SQL_TABLE, body, "mongodb")).toBe(body);
+  });
+});
+
+describe("resolveUpdateChanges (F100)", () => {
+  it("passes typed non-PK values through unchanged", () => {
+    expect(resolveUpdateChanges(SQL_TABLE, { name: "Grace", active: false }, "postgres")).toEqual({
+      name: "Grace",
+      active: false
+    });
+  });
+
+  it("rejects a primary-key column - never editable via update", () => {
+    expect(() => resolveUpdateChanges(SQL_TABLE, { id: 2 }, "postgres")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
+  });
+
+  it("rejects an empty changes map - nothing to update", () => {
+    expect(() => resolveUpdateChanges(SQL_TABLE, {}, "postgres")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
+  });
+
+  it("rejects an unknown column", () => {
+    expect(() => resolveUpdateChanges(SQL_TABLE, { nope: 1 }, "postgres")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
+  });
+
+  it("skips per-column validation entirely for MongoDB - passes the body through as-is", () => {
+    const body = { name: "Grace" };
+    expect(resolveUpdateChanges(MONGO_TABLE, body, "mongodb")).toBe(body);
+  });
+});
+
+describe("resolveKey (F100)", () => {
+  it("resolves and coerces a single-column primary key", () => {
+    expect(resolveKey(SQL_TABLE, { id: 1 }, "postgres")).toEqual({ id: 1 });
+  });
+
+  it("resolves a composite primary key matched as a full set", () => {
+    expect(resolveKey(COMPOSITE_KEY_TABLE, { org_id: 1, user_id: 2 }, "postgres")).toEqual({
+      org_id: 1,
+      user_id: 2
+    });
+  });
+
+  it("rejects a composite key missing one of its columns", () => {
+    expect(() => resolveKey(COMPOSITE_KEY_TABLE, { org_id: 1 }, "postgres")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
+  });
+
+  it("rejects a key naming a column that is not part of the primary key", () => {
+    expect(() => resolveKey(SQL_TABLE, { id: 1, name: "Ada" }, "postgres")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
+  });
+
+  it("rejects a table with no primary key at all", () => {
+    expect(() => resolveKey(NO_PK_TABLE, { id: 1 }, "postgres")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
+  });
+
+  it("resolves MongoDB's single-field _id key via the same generic column logic", () => {
+    expect(resolveKey(MONGO_TABLE, { _id: "507f1f77bcf86cd799439011" }, "mongodb")).toEqual({
+      _id: "507f1f77bcf86cd799439011"
+    });
+  });
+
+  it("rejects a malformed MongoDB _id (not a 24-hex-char ObjectId string)", () => {
+    expect(() => resolveKey(MONGO_TABLE, { _id: "not-an-object-id" }, "mongodb")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
   });
 });

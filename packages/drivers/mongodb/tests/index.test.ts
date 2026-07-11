@@ -230,14 +230,17 @@ describe("read-only enforcement", () => {
     }
   });
 
-  it("mutations.ts only calls the write methods row-editing has actually shipped so far (F099: insertOne)", () => {
+  it("mutations.ts only calls the write methods row-editing has actually shipped so far (F099: insertOne, F100: findOneAndReplace)", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const source = readFileSync(join(here, "../src/mutations.ts"), "utf-8");
-    expect(source).toContain("insertOne(");
-    // Every other write method stays absent until its own feature slice (F100 update, F101
-    // delete, ...) deliberately adds it - the same "fails loudly on an unplanned write call"
-    // guarantee the rest of the adapter gets, scoped to what hasn't shipped yet.
-    for (const method of WRITE_METHODS.filter((candidate) => candidate !== "insertOne")) {
+    const shipped = ["insertOne", "findOneAndReplace"];
+    for (const method of shipped) {
+      expect(source, `mutations.ts must call ${method}`).toContain(`${method}(`);
+    }
+    // Every other write method stays absent until its own feature slice (F101 delete, ...)
+    // deliberately adds it - the same "fails loudly on an unplanned write call" guarantee the
+    // rest of the adapter gets, scoped to what hasn't shipped yet.
+    for (const method of WRITE_METHODS.filter((candidate) => !shipped.includes(candidate))) {
       const callPattern = method.endsWith("(") ? method : `${method}(`;
       expect(source, `mutations.ts must not yet call ${method}`).not.toContain(callPattern);
     }

@@ -224,6 +224,41 @@ describe("MongodbAdapter integration", () => {
     }
   });
 
+  it("replaces a whole document by _id, deserializing relaxed EJSON, and reports matched: 1 (F100)", async () => {
+    const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+    const ada = page.rows.find((row) => row.name === "Ada Lovelace");
+    const id = String(ada?._id);
+
+    const result = await adapter.mutations.updateRowByKey?.(
+      databaseName,
+      FIXTURE.table,
+      { _id: id },
+      {
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+        joinedAt: { $date: "2024-01-01T00:00:00.000Z" }
+      }
+    );
+    expect(result).toEqual({ matched: 1 });
+
+    const after = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+    const updated = after.rows.find((row) => String(row._id) === id);
+    expect(updated?.joinedAt).toBeInstanceOf(Date);
+    // Whole-document replace, not a changed-fields $set: a field absent from the replacement
+    // document (here, `profile`) must be gone afterward, not merely left untouched.
+    expect(updated?.profile).toBeUndefined();
+  });
+
+  it("reports matched: 0 for an _id that doesn't match any document (F100)", async () => {
+    const result = await adapter.mutations.updateRowByKey?.(
+      databaseName,
+      FIXTURE.table,
+      { _id: "507f1f77bcf86cd799439011" },
+      { name: "Nobody" }
+    );
+    expect(result).toEqual({ matched: 0 });
+  });
+
   it("rejects the query runner - MongoDB has no query language for it (see the spec)", async () => {
     await expect(adapter.runReadOnlyQuery("SELECT 1")).rejects.toThrow(
       /does not support the SQL query runner/

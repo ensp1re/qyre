@@ -21,3 +21,39 @@ export interface DeleteRowsResult {
    * full list succeeded. */
   readonly deleted: number;
 }
+
+/**
+ * One staged operation in a batch commit (F102), shaped identically to the arguments
+ * `insertRow`/`updateRowByKey`/`deleteRowsByKey` already take - the batch endpoint runs the same
+ * primitives inside one transaction rather than introducing a parallel op format. `schema`/`table`
+ * are per-op (not hoisted to the request) since a connection-wide commit isn't scoped to one table,
+ * per docs/product-specs/row-editing.md.
+ */
+export type MutationOp =
+  | {
+      readonly type: "insert";
+      readonly schema: string;
+      readonly table: string;
+      readonly values: Record<string, unknown>;
+    }
+  | {
+      readonly type: "update";
+      readonly schema: string;
+      readonly table: string;
+      readonly key: Record<string, unknown>;
+      readonly changes: Record<string, unknown>;
+    }
+  | {
+      readonly type: "delete";
+      readonly schema: string;
+      readonly table: string;
+      readonly keys: Array<Record<string, unknown>>;
+    };
+
+/** Result of a SQL batch commit (F102). See docs/product-specs/row-editing.md. */
+export type CommitMutationsResult =
+  | {
+      readonly committed: true;
+      readonly results: Array<InsertRowResult | UpdateRowResult | DeleteRowsResult>;
+    }
+  | { readonly committed: false; readonly failedIndex: number };

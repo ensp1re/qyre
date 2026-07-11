@@ -20,7 +20,7 @@ import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driv
 import mysql from "mysql2/promise";
 import { tableKey } from "./catalog.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
-import { deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
+import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
 import {
   fetchAllTablePermissions,
   fetchConnectionCapabilities,
@@ -43,7 +43,8 @@ export class MysqlAdapter implements DatabaseAdapter {
     insertRow: (schema, table, values) => insertRow(this.getPool(), schema, table, values),
     updateRowByKey: (schema, table, key, changes) =>
       updateRowByKey(this.getPool(), schema, table, key, changes),
-    deleteRowsByKey: (schema, table, keys) => deleteRowsByKey(this.getPool(), schema, table, keys)
+    deleteRowsByKey: (schema, table, keys) => deleteRowsByKey(this.getPool(), schema, table, keys),
+    commitBatch: (ops) => commitBatch(this.getPool(), ops)
   };
   private pool: mysql.Pool | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;

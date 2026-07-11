@@ -1,4 +1,4 @@
-import type { TableMetadata } from "@qyre/core";
+import type { MutationOp, TableMetadata } from "@qyre/core";
 import { classifyFilterColumnKind, type FilterColumnKind } from "@qyre/core/filter-capabilities";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 
@@ -184,4 +184,27 @@ export function resolveKeys(
     throw badRequest("keys must include at least one entry.");
   }
   return keys.map((key) => resolveKey(tableMetadata, key, engine));
+}
+
+/**
+ * Validates/coerces one staged batch-commit operation (F102) exactly the way its own per-op route
+ * already does - `assertMutable` plus the matching `resolve*` helper - so every op in a
+ * `POST /api/mutations/commit` batch is checked against its *own* table's real columns/permissions
+ * before the transaction starts, per docs/product-specs/row-editing.md's "validation failure on any
+ * operation aborts the whole commit before any write happens."
+ */
+export async function resolveBatchOp(db: DatabaseAdapter, op: MutationOp): Promise<MutationOp> {
+  const tableMetadata = await db.getTable(op.schema, op.table);
+  assertMutable(tableMetadata, op.type);
+  if (op.type === "insert") {
+    return { ...op, values: resolveInsertValues(tableMetadata, op.values, db.engine) };
+  }
+  if (op.type === "update") {
+    return {
+      ...op,
+      key: resolveKey(tableMetadata, op.key, db.engine),
+      changes: resolveUpdateChanges(tableMetadata, op.changes, db.engine)
+    };
+  }
+  return { ...op, keys: resolveKeys(tableMetadata, op.keys, db.engine) };
 }

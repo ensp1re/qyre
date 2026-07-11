@@ -304,6 +304,77 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
+  it("commits a mixed insert/update/delete batch atomically in one transaction (F102)", async () => {
+    await runStatements(databaseUrl, [
+      `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('Batch Update', 'batch-update@example.com'), ('Batch Delete', 'batch-delete@example.com')`
+    ]);
+    const before = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
+    const updateTarget = before.rows.find((row) => row.email === "batch-update@example.com");
+    const deleteTarget = before.rows.find((row) => row.email === "batch-delete@example.com");
+
+    try {
+      const result = await adapter.mutations.commitBatch?.([
+        {
+          type: "insert",
+          schema: FIXTURE.schema,
+          table: FIXTURE.table,
+          values: { name: "Batch Insert", email: "batch-insert@example.com" }
+        },
+        {
+          type: "update",
+          schema: FIXTURE.schema,
+          table: FIXTURE.table,
+          key: { id: updateTarget?.id },
+          changes: { name: "Batch Updated" }
+        },
+        {
+          type: "delete",
+          schema: FIXTURE.schema,
+          table: FIXTURE.table,
+          keys: [{ id: deleteTarget?.id }]
+        }
+      ]);
+      expect(result?.committed).toBe(true);
+
+      const after = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
+      expect(after.rows.some((row) => row.email === "batch-insert@example.com")).toBe(true);
+      expect(after.rows.find((row) => row.id === updateTarget?.id)?.name).toBe("Batch Updated");
+      expect(after.rows.some((row) => row.email === "batch-delete@example.com")).toBe(false);
+    } finally {
+      await runStatements(databaseUrl, [
+        `DELETE FROM ${FIXTURE.table} WHERE email IN ('batch-insert@example.com', 'batch-update@example.com', 'batch-delete@example.com')`
+      ]);
+    }
+  });
+
+  it("rolls back the whole batch on a mid-batch stale update, including the earlier insert (F102)", async () => {
+    try {
+      const result = await adapter.mutations.commitBatch?.([
+        {
+          type: "insert",
+          schema: FIXTURE.schema,
+          table: FIXTURE.table,
+          values: { name: "Should Roll Back", email: "batch-rollback@example.com" }
+        },
+        {
+          type: "update",
+          schema: FIXTURE.schema,
+          table: FIXTURE.table,
+          key: { id: -1 },
+          changes: { name: "Nobody" }
+        }
+      ]);
+      expect(result).toEqual({ committed: false, failedIndex: 1 });
+
+      const after = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
+      expect(after.rows.some((row) => row.email === "batch-rollback@example.com")).toBe(false);
+    } finally {
+      await runStatements(databaseUrl, [
+        `DELETE FROM ${FIXTURE.table} WHERE email = 'batch-rollback@example.com'`
+      ]);
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery(`SELECT * FROM ${FIXTURE.table}`);
     expect(result.rows).toHaveLength(FIXTURE.rowCount);

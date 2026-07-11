@@ -293,6 +293,81 @@ describe("SqliteAdapter integration", () => {
     }
   });
 
+  it("commits a mixed insert/update/delete batch atomically in one transaction (F102)", async () => {
+    const seed = new Database(dbPath);
+    seed.exec(
+      `INSERT INTO qyre_demo_users (name, email) VALUES ('Batch Update', 'batch-update@example.com'), ('Batch Delete', 'batch-delete@example.com')`
+    );
+    seed.close();
+    const before = await adapter.getRows("main", "qyre_demo_users", 0, 10);
+    const updateTarget = before.rows.find((row) => row.email === "batch-update@example.com");
+    const deleteTarget = before.rows.find((row) => row.email === "batch-delete@example.com");
+
+    try {
+      const result = await adapter.mutations.commitBatch?.([
+        {
+          type: "insert",
+          schema: "main",
+          table: "qyre_demo_users",
+          values: { name: "Batch Insert", email: "batch-insert@example.com" }
+        },
+        {
+          type: "update",
+          schema: "main",
+          table: "qyre_demo_users",
+          key: { id: updateTarget?.id },
+          changes: { name: "Batch Updated" }
+        },
+        {
+          type: "delete",
+          schema: "main",
+          table: "qyre_demo_users",
+          keys: [{ id: deleteTarget?.id }]
+        }
+      ]);
+      expect(result?.committed).toBe(true);
+
+      const after = await adapter.getRows("main", "qyre_demo_users", 0, 10);
+      expect(after.rows.some((row) => row.email === "batch-insert@example.com")).toBe(true);
+      expect(after.rows.find((row) => row.id === updateTarget?.id)?.name).toBe("Batch Updated");
+      expect(after.rows.some((row) => row.email === "batch-delete@example.com")).toBe(false);
+    } finally {
+      const cleanup = new Database(dbPath);
+      cleanup.exec(
+        `DELETE FROM qyre_demo_users WHERE email IN ('batch-insert@example.com', 'batch-update@example.com', 'batch-delete@example.com')`
+      );
+      cleanup.close();
+    }
+  });
+
+  it("rolls back the whole batch on a mid-batch stale update, including the earlier insert (F102)", async () => {
+    try {
+      const result = await adapter.mutations.commitBatch?.([
+        {
+          type: "insert",
+          schema: "main",
+          table: "qyre_demo_users",
+          values: { name: "Should Roll Back", email: "batch-rollback@example.com" }
+        },
+        {
+          type: "update",
+          schema: "main",
+          table: "qyre_demo_users",
+          key: { id: -1 },
+          changes: { name: "Nobody" }
+        }
+      ]);
+      expect(result).toEqual({ committed: false, failedIndex: 1 });
+
+      const after = await adapter.getRows("main", "qyre_demo_users", 0, 10);
+      expect(after.rows.some((row) => row.email === "batch-rollback@example.com")).toBe(false);
+    } finally {
+      const cleanup = new Database(dbPath);
+      cleanup.exec("DELETE FROM qyre_demo_users WHERE email = 'batch-rollback@example.com'");
+      cleanup.close();
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery("SELECT * FROM qyre_demo_users");
     expect(result.rows).toHaveLength(3);

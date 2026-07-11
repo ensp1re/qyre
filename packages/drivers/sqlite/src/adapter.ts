@@ -15,7 +15,7 @@ import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driv
 import Database from "better-sqlite3";
 import { computeCapabilities, tablePermissionsFromCapabilities } from "./capabilities.js";
 import { fetchAllTableTargets, introspectTable, MAIN_SCHEMA } from "./introspection.js";
-import { deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
+import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
 import { normalizeRow } from "./row-values.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
@@ -28,7 +28,8 @@ export class SqliteAdapter implements DatabaseAdapter {
     insertRow: async (_schema, table, values) => insertRow(this.getDb(), table, values),
     updateRowByKey: async (_schema, table, key, changes) =>
       updateRowByKey(this.getDb(), table, key, changes),
-    deleteRowsByKey: async (_schema, table, keys) => deleteRowsByKey(this.getDb(), table, keys)
+    deleteRowsByKey: async (_schema, table, keys) => deleteRowsByKey(this.getDb(), table, keys),
+    commitBatch: async (ops) => commitBatch(this.getDb(), ops)
   };
   private db: Database.Database | undefined;
   private resolvedPath: string | undefined;

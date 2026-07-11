@@ -34,3 +34,34 @@ export const deleteRowsRequestSchema = z.object({
   keys: z.array(z.record(z.string(), z.unknown()))
 });
 export type DeleteRowsRequest = z.infer<typeof deleteRowsRequestSchema>;
+
+/**
+ * Request body for `POST /api/mutations/commit` (F102) - an ordered array of staged operations,
+ * each shaped like the arguments its own per-op route already validates (`insertRowRequestSchema`'s
+ * flat map, `updateRowRequestSchema`'s `key`/`changes`, `deleteRowsRequestSchema`'s `keys`), plus
+ * the `schema`/`table` a connection-wide batch needs per-op instead of in the URL. A discriminated
+ * union on `type` so each variant only carries the fields its operation actually uses.
+ */
+export const mutationOpSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("insert"),
+    schema: z.string(),
+    table: z.string(),
+    values: z.record(z.string(), z.unknown())
+  }),
+  z.object({
+    type: z.literal("update"),
+    schema: z.string(),
+    table: z.string(),
+    key: z.record(z.string(), z.unknown()),
+    changes: z.record(z.string(), z.unknown())
+  }),
+  z.object({
+    type: z.literal("delete"),
+    schema: z.string(),
+    table: z.string(),
+    keys: z.array(z.record(z.string(), z.unknown()))
+  })
+]);
+export const commitMutationsRequestSchema = z.object({ ops: z.array(mutationOpSchema) });
+export type CommitMutationsRequest = z.infer<typeof commitMutationsRequestSchema>;

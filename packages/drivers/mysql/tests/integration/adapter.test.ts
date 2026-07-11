@@ -313,6 +313,81 @@ describe("MysqlAdapter integration", () => {
     }
   });
 
+  it("commits a mixed insert/update/delete batch atomically in one transaction (F102)", async () => {
+    const seedPool = mysql.createPool(databaseUrl);
+    await seedPool.query(
+      `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('Batch Update', 'batch-update@example.com'), ('Batch Delete', 'batch-delete@example.com')`
+    );
+    const before = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+    const updateTarget = before.rows.find((row) => row.email === "batch-update@example.com");
+    const deleteTarget = before.rows.find((row) => row.email === "batch-delete@example.com");
+
+    try {
+      const result = await adapter.mutations.commitBatch?.([
+        {
+          type: "insert",
+          schema: databaseName,
+          table: FIXTURE.table,
+          values: { name: "Batch Insert", email: "batch-insert@example.com" }
+        },
+        {
+          type: "update",
+          schema: databaseName,
+          table: FIXTURE.table,
+          key: { id: updateTarget?.id },
+          changes: { name: "Batch Updated" }
+        },
+        {
+          type: "delete",
+          schema: databaseName,
+          table: FIXTURE.table,
+          keys: [{ id: deleteTarget?.id }]
+        }
+      ]);
+      expect(result?.committed).toBe(true);
+
+      const after = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+      expect(after.rows.some((row) => row.email === "batch-insert@example.com")).toBe(true);
+      expect(after.rows.find((row) => row.id === updateTarget?.id)?.name).toBe("Batch Updated");
+      expect(after.rows.some((row) => row.email === "batch-delete@example.com")).toBe(false);
+    } finally {
+      await seedPool.query(
+        `DELETE FROM ${FIXTURE.table} WHERE email IN ('batch-insert@example.com', 'batch-update@example.com', 'batch-delete@example.com')`
+      );
+      await seedPool.end();
+    }
+  });
+
+  it("rolls back the whole batch on a mid-batch stale update, including the earlier insert (F102)", async () => {
+    const seedPool = mysql.createPool(databaseUrl);
+    try {
+      const result = await adapter.mutations.commitBatch?.([
+        {
+          type: "insert",
+          schema: databaseName,
+          table: FIXTURE.table,
+          values: { name: "Should Roll Back", email: "batch-rollback@example.com" }
+        },
+        {
+          type: "update",
+          schema: databaseName,
+          table: FIXTURE.table,
+          key: { id: -1 },
+          changes: { name: "Nobody" }
+        }
+      ]);
+      expect(result).toEqual({ committed: false, failedIndex: 1 });
+
+      const after = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+      expect(after.rows.some((row) => row.email === "batch-rollback@example.com")).toBe(false);
+    } finally {
+      await seedPool.query(
+        `DELETE FROM ${FIXTURE.table} WHERE email = 'batch-rollback@example.com'`
+      );
+      await seedPool.end();
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery(`SELECT * FROM ${FIXTURE.table}`);
     expect(result.rows).toHaveLength(FIXTURE.rowCount);

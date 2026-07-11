@@ -127,6 +127,44 @@ describe("SqliteAdapter integration", () => {
     expect(page.columns).toEqual(["id", "name", "email"]);
   });
 
+  it("inserts a row via the implicit rowid, reports it back, and it's visible via getRows (F099)", async () => {
+    const result = await adapter.mutations.insertRow?.("main", "qyre_demo_users", {
+      name: "Insert Test",
+      email: "insert-test@example.com"
+    });
+    expect(result?.row).toMatchObject({ name: "Insert Test", email: "insert-test@example.com" });
+
+    try {
+      const page = await adapter.getRows("main", "qyre_demo_users", 0, 10);
+      expect(page.rows.some((row) => row.email === "insert-test@example.com")).toBe(true);
+    } finally {
+      const cleanup = new Database(dbPath);
+      cleanup.exec("DELETE FROM qyre_demo_users WHERE email = 'insert-test@example.com'");
+      cleanup.close();
+    }
+  });
+
+  it("rejects an insert against a chmod-read-only file copy (F099)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "qyre-sqlite-readonly-insert-"));
+    const readOnlyPath = join(dir, "readonly.db");
+    copyFileSync(dbPath, readOnlyPath);
+    chmodSync(readOnlyPath, 0o444);
+
+    const readOnlyAdapter = new SqliteAdapter({ engine: "sqlite", raw: readOnlyPath });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.mutations.insertRow?.("main", "qyre_demo_users", {
+          name: "Should Fail",
+          email: "should-fail@example.com"
+        })
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+      chmodSync(readOnlyPath, 0o644);
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery("SELECT * FROM qyre_demo_users");
     expect(result.rows).toHaveLength(3);

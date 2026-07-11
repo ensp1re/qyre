@@ -72,21 +72,25 @@ capabilities.md`) **and** the table's own `TablePermissions.insert`/`update`/`de
 - `DatabaseAdapter` (`packages/drivers/contract`) gains an optional namespace, per exec plan
   decision 3 (`mutations?: RowMutationApi`) - absent means the engine has no write mechanism at all
   (none do today; every engine implements it once its own F099-F101 slice lands), present-but-grants-
-  insufficient is a normal per-call rejection, not a missing namespace.
+  insufficient is a normal per-call rejection, not a missing namespace. Each member of
+  `RowMutationApi` is itself optional (not the namespace's own presence/absence) - F099/F100/F101
+  each land one method across all four engines, so `updateRowByKey`/`deleteRowsByKey` are simply
+  `undefined` on every adapter until their own slice populates them, without forcing an all-or-
+  nothing implementation in one giant slice.
   ```ts
   export interface RowMutationApi {
-    insertRow(
+    insertRow?(
       schema: string,
       table: string,
       values: Record<string, unknown>
     ): Promise<InsertRowResult>;
-    updateRowByKey(
+    updateRowByKey?(
       schema: string,
       table: string,
       key: Record<string, unknown>,
       changes: Record<string, unknown>
     ): Promise<UpdateRowResult>;
-    deleteRowsByKey(
+    deleteRowsByKey?(
       schema: string,
       table: string,
       keys: Array<Record<string, unknown>>

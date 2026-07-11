@@ -1,10 +1,11 @@
 import { Readable } from "node:stream";
-import { MAX_PAGE_SIZE, rowsQuerySchema } from "@qyre/core";
+import { insertRowRequestSchema, MAX_PAGE_SIZE, rowsQuerySchema } from "@qyre/core";
 import type { AllTablesResponse } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../app.js";
 import { csvLine } from "../services/csv.js";
 import { requireAdapter } from "../services/require-adapter.js";
+import { assertMutable, resolveInsertValues } from "../services/row-mutation-validation.js";
 import { resolveRowQuery } from "../services/row-query.js";
 
 export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): void {
@@ -41,6 +42,41 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
       const db = requireAdapter(ctx.adapter);
       const resolved = await resolveRowQuery(db, schema, table, sortColumn, sortDirection, filters);
       return db.getRows(schema, table, page, pageSize, resolved.sort, resolved.filters);
+    }
+  );
+
+  // F099: structured row insert. Gated by the F096 central read-only guard (`config: { mutating:
+  // true }`) and the table's own insert permission (assertMutable) - defense in depth on top of
+  // the database's own real enforcement, per docs/product-specs/permissions-and-capabilities.md.
+  app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
+    "/api/tables/:schema/:table/rows",
+    { config: { mutating: true } },
+    async (request, reply) => {
+      const parsedBody = insertRowRequestSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({ error: "Request body must be a JSON object." });
+      }
+      const { schema, table } = request.params;
+      const db = requireAdapter(ctx.adapter);
+      const tableMetadata = await db.getTable(schema, table);
+      assertMutable(tableMetadata, "insert");
+      if (!db.mutations?.insertRow) {
+        return reply.status(400).send({ error: "This engine does not support inserting rows." });
+      }
+
+      const values = resolveInsertValues(tableMetadata, parsedBody.data, db.engine);
+      const startedAt = performance.now();
+      const result = await db.mutations.insertRow(schema, table, values);
+      const durationMs = Math.round(performance.now() - startedAt);
+
+      ctx.eventLog.log("info", `Inserted 1 row into ${schema}.${table}.`);
+      request.log.info(
+        { operation: "insert", schema, table, rowCount: 1, durationMs, outcome: "success" },
+        "row insert succeeded"
+      );
+
+      reply.status(201);
+      return result;
     }
   );
 

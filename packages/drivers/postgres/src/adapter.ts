@@ -16,11 +16,12 @@ import {
   runInReadOnlyTransaction,
   stubReadOnlyCapabilities
 } from "@qyre/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
+import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driver-contract";
 import type { Pool } from "pg";
 import { tableKey } from "./catalog.js";
 import { createPostgresPool } from "./connection.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
+import { insertRow } from "./mutations.js";
 import {
   fetchAllTablePermissions,
   fetchConnectionCapabilities,
@@ -33,6 +34,9 @@ import { buildFilterClause, quoteIdent } from "./sql.js";
 export class PostgresAdapter implements DatabaseAdapter {
   public readonly engine = "postgres";
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
+  public readonly mutations: RowMutationApi = {
+    insertRow: (schema, table, values) => insertRow(this.getPool(), schema, table, values)
+  };
   private pool: Pool | undefined;
 
   constructor(private readonly target: ConnectionTarget) {}

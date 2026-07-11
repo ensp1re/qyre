@@ -173,6 +173,57 @@ describe("MongodbAdapter integration", () => {
     });
   });
 
+  it("inserts a document, deserializing relaxed Extended JSON wrapper fields to real BSON (F099)", async () => {
+    const result = await adapter.mutations.insertRow?.(databaseName, FIXTURE.table, {
+      name: "Insert Test",
+      email: "insert-test@example.com",
+      joinedAt: { $date: "2024-01-01T00:00:00.000Z" }
+    });
+    expect(result?.row).toMatchObject({ name: "Insert Test", email: "insert-test@example.com" });
+    expect(result?.row?._id).toBeDefined();
+
+    const client = new MongoClient(mongoUrl);
+    try {
+      await client.connect();
+      const inserted = await client
+        .db(databaseName)
+        .collection(FIXTURE.table)
+        .findOne({ email: "insert-test@example.com" });
+      expect(inserted?.joinedAt).toBeInstanceOf(Date);
+    } finally {
+      await client
+        .db(databaseName)
+        .collection(FIXTURE.table)
+        .deleteOne({ email: "insert-test@example.com" });
+      await client.close();
+    }
+  });
+
+  it("rejects an insert into a view - MongoDB refuses writes to view namespaces natively (F099)", async () => {
+    const client = new MongoClient(mongoUrl);
+    const viewName = "qyre_test_insert_view";
+    try {
+      await client.connect();
+      const db = client.db(databaseName);
+      await db
+        .collection(viewName)
+        .drop()
+        .catch(() => {});
+      await db.createCollection(viewName, { viewOn: FIXTURE.table, pipeline: [] });
+
+      await expect(
+        adapter.mutations.insertRow?.(databaseName, viewName, { name: "Should Fail" })
+      ).rejects.toThrow();
+    } finally {
+      await client
+        .db(databaseName)
+        .collection(viewName)
+        .drop()
+        .catch(() => {});
+      await client.close();
+    }
+  });
+
   it("rejects the query runner - MongoDB has no query language for it (see the spec)", async () => {
     await expect(adapter.runReadOnlyQuery("SELECT 1")).rejects.toThrow(
       /does not support the SQL query runner/

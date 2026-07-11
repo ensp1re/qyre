@@ -300,6 +300,158 @@ describe("Server-side sort (F065)", () => {
   });
 });
 
+describe("POST /api/tables/:schema/:table/rows (F099)", () => {
+  const insertableColumns = [
+    { name: "id", dataType: "int4", nullable: false, isPrimaryKey: true, isForeignKey: false },
+    { name: "name", dataType: "varchar", nullable: false, isPrimaryKey: false, isForeignKey: false }
+  ];
+
+  it("inserts a row and returns 201 with the inserted row, and logs an audit event", async () => {
+    let receivedValues: unknown;
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: insertableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: {
+        insertRow: async (_schema, _table, values) => {
+          receivedValues = values;
+          return { row: { id: 1, name: "Ada" } };
+        }
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { name: "Ada" }
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({ row: { id: 1, name: "Ada" } });
+    expect(receivedValues).toEqual({ name: "Ada" });
+    await app.close();
+  });
+
+  it("rejects an insert into a view with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "v",
+        kind: "view",
+        columns: insertableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      })
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/v/rows",
+      headers: authHeaders(app),
+      payload: { name: "Ada" }
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects an insert when the table lacks insert permission with 403", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: insertableColumns,
+        permissions: { select: true, insert: false, update: false, delete: false }
+      })
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { name: "Ada" }
+    });
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it("rejects an unknown column with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: insertableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: { insertRow: async () => ({ row: {} }) }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { nope: "x" }
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: expect.stringContaining("nope") });
+    await app.close();
+  });
+
+  it("rejects a non-object request body with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: insertableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: { insertRow: async () => ({ row: {} }) }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/users/rows",
+      headers: { ...authHeaders(app), "content-type": "application/json" },
+      payload: JSON.stringify("not an object")
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects the insert with 403 in a --read-only session, even with insert permission (F096)", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: insertableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      })
+    });
+    const app = createServer({ adapter, readOnly: true });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { name: "Ada" }
+    });
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+});
+
 describe("Whole-table CSV export (F066)", () => {
   it("streams a header line plus every row across multiple batches", async () => {
     let callCount = 0;

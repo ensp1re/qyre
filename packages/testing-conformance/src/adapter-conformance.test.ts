@@ -405,4 +405,35 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     );
     expect(notNullPage.rows).toHaveLength(2);
   });
+
+  // Declared last in the block deliberately: it permanently adds a row to fixture.populatedTable,
+  // which every row-count-sensitive assertion above (clamping, sorting, filtering) depends on
+  // staying at exactly fixture.populatedRowCount - the fixture is dropped in afterAll right after,
+  // so there's nothing to clean up here.
+  it.skipIf(!configured)(
+    "insertRow inserts a row that becomes visible via getRows (F099)",
+    async () => {
+      const result = await adapter.mutations?.insertRow?.(fixture.schema, fixture.populatedTable, {
+        n: 99,
+        label: "inserted"
+      });
+      expect(result?.row).toMatchObject({ n: 99, label: "inserted" });
+
+      const page = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10, undefined, [
+        { column: "label", op: "eq", value: "inserted" }
+      ]);
+      expect(page.rows).toHaveLength(1);
+    }
+  );
+
+  it.skipIf(!configured || engine === "mongodb")(
+    "insertRow rejects a nonexistent column identifier instead of silently dropping it (F099)",
+    async () => {
+      await expect(
+        adapter.mutations?.insertRow?.(fixture.schema, fixture.populatedTable, {
+          this_column_does_not_exist: 1
+        })
+      ).rejects.toThrow();
+    }
+  );
 });

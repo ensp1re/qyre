@@ -173,10 +173,11 @@ describe("mongodbAdapterFactory", () => {
 });
 
 // MongoDB has no server-enforced read-only mode to fall back on (see this spec's "Read-only
-// enforcement" section) - the guarantee for this basic-browse pass is instead that the adapter's
-// own code path never calls a Mongo write API. This is the "lint-style check" that spec
-// explicitly calls for: fails loudly if a future change adds a write call, rather than relying
-// solely on code review to catch it.
+// enforcement" section) - the guarantee is instead that a Mongo write API is only ever called from
+// mutations.ts (F099's one deliberate, gated write path - see "read-only enforcement" below), never
+// anywhere else in the adapter. This is the "lint-style check" that spec explicitly calls for:
+// fails loudly if a future change adds an unplanned write call, rather than relying solely on code
+// review to catch it.
 const WRITE_METHODS = [
   "insertOne",
   "insertMany",
@@ -200,17 +201,19 @@ const WRITE_METHODS = [
 ];
 
 describe("read-only enforcement", () => {
-  it("the adapter's source contains no Mongo write API calls", () => {
+  it("no write API calls exist outside the dedicated mutations module", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const sourceDirectory = join(here, "../src");
     const source = readdirSync(sourceDirectory)
       // permissions.ts (F095) legitimately contains MongoDB's own privilege *action-name*
       // vocabulary as string literals (e.g. "createCollection", "createIndex" in an actions array
       // read from connectionStatus{showPrivileges:true}) - the same words as real write methods,
-      // but never called as one; it only ever reads via client.db().command(...). Excluded here so
-      // this scan keeps catching an actual accidental write call elsewhere without a permanent
-      // false positive on that vocabulary.
-      .filter((name) => name.endsWith(".ts") && name !== "permissions.ts")
+      // but never called as one; it only ever reads via client.db().command(...). mutations.ts
+      // (F099) is the one deliberate, gated write path - see the next test. Both excluded here so
+      // this scan keeps catching an actual *accidental* write call elsewhere.
+      .filter(
+        (name) => name.endsWith(".ts") && name !== "permissions.ts" && name !== "mutations.ts"
+      )
       .map((name) => readFileSync(join(sourceDirectory, name), "utf-8"))
       .join("\n");
     for (const method of WRITE_METHODS) {
@@ -224,6 +227,19 @@ describe("read-only enforcement", () => {
     for (const method of WRITE_METHODS) {
       const callPattern = method.endsWith("(") ? method : `${method}(`;
       expect(source, `permissions.ts must not call ${method}`).not.toContain(callPattern);
+    }
+  });
+
+  it("mutations.ts only calls the write methods row-editing has actually shipped so far (F099: insertOne)", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(join(here, "../src/mutations.ts"), "utf-8");
+    expect(source).toContain("insertOne(");
+    // Every other write method stays absent until its own feature slice (F100 update, F101
+    // delete, ...) deliberately adds it - the same "fails loudly on an unplanned write call"
+    // guarantee the rest of the adapter gets, scoped to what hasn't shipped yet.
+    for (const method of WRITE_METHODS.filter((candidate) => candidate !== "insertOne")) {
+      const callPattern = method.endsWith("(") ? method : `${method}(`;
+      expect(source, `mutations.ts must not yet call ${method}`).not.toContain(callPattern);
     }
   });
 });

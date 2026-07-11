@@ -11,15 +11,22 @@ import type {
   TableMetadata
 } from "@qyre/core";
 import { assertReadOnly, capResultRows, resolvePageRequest } from "@qyre/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
+import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driver-contract";
 import Database from "better-sqlite3";
 import { computeCapabilities, tablePermissionsFromCapabilities } from "./capabilities.js";
 import { fetchAllTableTargets, introspectTable, MAIN_SCHEMA } from "./introspection.js";
+import { insertRow } from "./mutations.js";
 import { normalizeRow } from "./row-values.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
 export class SqliteAdapter implements DatabaseAdapter {
   public readonly engine = "sqlite";
+  public readonly mutations: RowMutationApi = {
+    // async, not a plain arrow returning Promise.resolve(...) - insertRow() throws synchronously
+    // on a readonly database, and only an async function body converts that into a rejection
+    // instead of an uncaught throw at the call site (better-sqlite3 has no async API to await).
+    insertRow: async (_schema, table, values) => insertRow(this.getDb(), table, values)
+  };
   private db: Database.Database | undefined;
   private resolvedPath: string | undefined;
 

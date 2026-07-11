@@ -16,10 +16,11 @@ import {
   runInReadOnlyTransaction,
   stubReadOnlyCapabilities
 } from "@qyre/driver-contract";
-import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
+import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driver-contract";
 import mysql from "mysql2/promise";
 import { tableKey } from "./catalog.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
+import { insertRow } from "./mutations.js";
 import {
   fetchAllTablePermissions,
   fetchConnectionCapabilities,
@@ -38,6 +39,9 @@ function resolveStatementTimeoutMs(): number {
 export class MysqlAdapter implements DatabaseAdapter {
   public readonly engine = "mysql";
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
+  public readonly mutations: RowMutationApi = {
+    insertRow: (schema, table, values) => insertRow(this.getPool(), schema, table, values)
+  };
   private pool: mysql.Pool | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;
 

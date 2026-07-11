@@ -163,6 +163,41 @@ describe("PostgresAdapter integration", () => {
     expect(page.columns).toEqual(expect.arrayContaining(["id", "name", "email"]));
   });
 
+  it("inserts a row and returns it, then the row is visible via getRows (F099)", async () => {
+    const result = await adapter.mutations.insertRow?.(FIXTURE.schema, FIXTURE.table, {
+      name: "Insert Test",
+      email: "insert-test@example.com"
+    });
+    expect(result?.row).toMatchObject({ name: "Insert Test", email: "insert-test@example.com" });
+
+    try {
+      const page = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
+      expect(page.rows.some((row) => row.email === "insert-test@example.com")).toBe(true);
+    } finally {
+      await runStatements(databaseUrl, [
+        `DELETE FROM ${FIXTURE.table} WHERE email = 'insert-test@example.com'`
+      ]);
+    }
+  });
+
+  it("rejects an insert as a SELECT-only fixture role (F099)", async () => {
+    const readOnlyAdapter = new PostgresAdapter({
+      engine: "postgres",
+      raw: requireReadOnlyTestDatabaseUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.mutations.insertRow?.(FIXTURE.schema, FIXTURE.table, {
+          name: "Should Fail",
+          email: "should-fail@example.com"
+        })
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery(`SELECT * FROM ${FIXTURE.table}`);
     expect(result.rows).toHaveLength(FIXTURE.rowCount);

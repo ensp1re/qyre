@@ -13,3 +13,11 @@ export interface UpdateRowResult {
    * no-op success. */
   readonly matched: number;
 }
+
+/** Result of a structured row delete by an explicit key list (F101). See docs/product-specs/row-editing.md. */
+export interface DeleteRowsResult {
+  /** May be less than the requested key count if some keys no longer match (stale) - the caller
+   * reports exactly how many of the requested keys actually deleted something, never assuming the
+   * full list succeeded. */
+  readonly deleted: number;
+}

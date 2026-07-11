@@ -255,6 +255,64 @@ describe("MysqlAdapter integration", () => {
     }
   });
 
+  it("deletes rows by primary key and reports deleted: 2 (F101)", async () => {
+    const seedPool = mysql.createPool(databaseUrl);
+    await seedPool.query(
+      `INSERT INTO ${FIXTURE.table} (name, email) VALUES
+         ('Delete Test 1', 'delete-test-1@example.com'),
+         ('Delete Test 2', 'delete-test-2@example.com')`
+    );
+    await seedPool.end();
+
+    const before = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+    const rows = before.rows.filter((row) => String(row.email).startsWith("delete-test-"));
+    expect(rows).toHaveLength(2);
+
+    const result = await adapter.mutations.deleteRowsByKey?.(
+      databaseName,
+      FIXTURE.table,
+      rows.map((row) => ({ id: row.id }))
+    );
+    expect(result).toEqual({ deleted: 2 });
+
+    const after = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+    expect(after.rows.some((row) => String(row.email).startsWith("delete-test-"))).toBe(false);
+  });
+
+  it("reports a lower deleted count when some keys no longer match any row (F101)", async () => {
+    const seedPool = mysql.createPool(databaseUrl);
+    await seedPool.query(
+      `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('Delete Test', 'delete-test-partial@example.com')`
+    );
+    await seedPool.end();
+
+    const before = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+    const row = before.rows.find(
+      (candidate) => candidate.email === "delete-test-partial@example.com"
+    );
+
+    const result = await adapter.mutations.deleteRowsByKey?.(databaseName, FIXTURE.table, [
+      { id: row?.id },
+      { id: -1 }
+    ]);
+    expect(result).toEqual({ deleted: 1 });
+  });
+
+  it("rejects a delete as a SELECT-only fixture user (F101)", async () => {
+    const readOnlyAdapter = new MysqlAdapter({
+      engine: "mysql",
+      raw: requireReadOnlyTestMysqlUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.mutations.deleteRowsByKey?.(databaseName, FIXTURE.table, [{ id: 1 }])
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery(`SELECT * FROM ${FIXTURE.table}`);
     expect(result.rows).toHaveLength(FIXTURE.rowCount);

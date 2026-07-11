@@ -1,4 +1,4 @@
-import type { InsertRowResult, UpdateRowResult } from "@qyre/core";
+import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/core";
 import { EJSON } from "bson";
 import type { MongoClient } from "mongodb";
 import { ObjectId } from "mongodb";
@@ -49,4 +49,25 @@ export async function updateRowByKey(
     .collection(table)
     .findOneAndReplace({ _id: id }, replacement);
   return { matched: result ? 1 : 0 };
+}
+
+/**
+ * Deletes by an explicit `_id` list, per docs/product-specs/row-editing.md - no filter-based bulk
+ * delete. Each `key._id` is already validated as a syntactically valid 24-hex ObjectId string by
+ * the caller. One `deleteMany({ _id: { $in: [...] } })` call: `deletedCount` may be less than the
+ * requested key count if some ids no longer match (already deleted/never existed) - reported as-is,
+ * the same "stale" treatment SQL's per-key delete count gets.
+ */
+export async function deleteRowsByKey(
+  client: MongoClient,
+  schema: string,
+  table: string,
+  keys: Array<Record<string, unknown>>
+): Promise<DeleteRowsResult> {
+  const ids = keys.map((key) => new ObjectId(key._id as string));
+  const result = await client
+    .db(schema)
+    .collection(table)
+    .deleteMany({ _id: { $in: ids } });
+  return { deleted: result.deletedCount };
 }

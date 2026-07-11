@@ -699,6 +699,180 @@ describe("PATCH /api/tables/:schema/:table/rows (F100)", () => {
   });
 });
 
+describe("DELETE /api/tables/:schema/:table/rows (F101)", () => {
+  const deletableColumns = [
+    { name: "id", dataType: "int4", nullable: false, isPrimaryKey: true, isForeignKey: false },
+    { name: "name", dataType: "varchar", nullable: false, isPrimaryKey: false, isForeignKey: false }
+  ];
+
+  it("deletes rows and returns 200 with deleted: 2, and logs an audit event", async () => {
+    let receivedKeys: unknown;
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: deletableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: {
+        deleteRowsByKey: async (_schema, _table, keys) => {
+          receivedKeys = keys;
+          return { deleted: 2 };
+        }
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { keys: [{ id: 1 }, { id: 2 }] }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ deleted: 2 });
+    expect(receivedKeys).toEqual([{ id: 1 }, { id: 2 }]);
+    await app.close();
+  });
+
+  it("reports a partial delete (fewer deleted than requested) as 409, not a silent success", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: deletableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: { deleteRowsByKey: async () => ({ deleted: 1 }) }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { keys: [{ id: 1 }, { id: 2 }] }
+    });
+    expect(response.statusCode).toBe(409);
+    await app.close();
+  });
+
+  it("rejects a delete from a view with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "v",
+        kind: "view",
+        columns: deletableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      })
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/v/rows",
+      headers: authHeaders(app),
+      payload: { keys: [{ id: 1 }] }
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects a delete when the table lacks delete permission with 403", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: deletableColumns,
+        permissions: { select: true, insert: true, update: true, delete: false }
+      })
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { keys: [{ id: 1 }] }
+    });
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it("rejects an empty keys array with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: deletableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: { deleteRowsByKey: async () => ({ deleted: 0 }) }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { keys: [] }
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects a key missing a primary-key column with 400", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: deletableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: { deleteRowsByKey: async () => ({ deleted: 1 }) }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { keys: [{}] }
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects the delete with 403 in a --read-only session, even with delete permission (F096)", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: deletableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      })
+    });
+    const app = createServer({ adapter, readOnly: true });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/users/rows",
+      headers: authHeaders(app),
+      payload: { keys: [{ id: 1 }] }
+    });
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+});
+
 describe("Whole-table CSV export (F066)", () => {
   it("streams a header line plus every row across multiple batches", async () => {
     let callCount = 0;

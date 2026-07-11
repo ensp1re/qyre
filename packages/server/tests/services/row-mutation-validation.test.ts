@@ -4,6 +4,7 @@ import {
   assertMutable,
   resolveInsertValues,
   resolveKey,
+  resolveKeys,
   resolveUpdateChanges
 } from "../../src/services/row-mutation-validation.js";
 
@@ -239,5 +240,36 @@ describe("resolveKey (F100)", () => {
     expect(() => resolveKey(MONGO_TABLE, { _id: "not-an-object-id" }, "mongodb")).toThrow(
       expect.objectContaining({ statusCode: 400 })
     );
+  });
+});
+
+describe("resolveKeys (F101)", () => {
+  it("resolves and coerces every key in the list", () => {
+    expect(resolveKeys(SQL_TABLE, [{ id: 1 }, { id: 2 }], "postgres")).toEqual([
+      { id: 1 },
+      { id: 2 }
+    ]);
+  });
+
+  it("rejects an empty key list - nothing to delete", () => {
+    expect(() => resolveKeys(SQL_TABLE, [], "postgres")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
+  });
+
+  it("rejects if any key in the list is invalid", () => {
+    expect(() => resolveKeys(SQL_TABLE, [{ id: 1 }, { id: "not-a-number" }], "postgres")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
+  });
+
+  it("resolves a list of MongoDB _id keys", () => {
+    expect(
+      resolveKeys(
+        MONGO_TABLE,
+        [{ _id: "507f1f77bcf86cd799439011" }, { _id: "507f1f77bcf86cd799439012" }],
+        "mongodb"
+      )
+    ).toEqual([{ _id: "507f1f77bcf86cd799439011" }, { _id: "507f1f77bcf86cd799439012" }]);
   });
 });

@@ -2,6 +2,7 @@ import type {
   ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
+  DeleteRowsResult,
   InsertRowResult,
   RowFilter,
   RowPage,
@@ -33,6 +34,11 @@ export interface RowMutationApi {
     key: Record<string, unknown>,
     changes: Record<string, unknown>
   ): Promise<UpdateRowResult>;
+  deleteRowsByKey?(
+    schema: string,
+    table: string,
+    keys: Array<Record<string, unknown>>
+  ): Promise<DeleteRowsResult>;
 }
 
 /** A live, engine-specific connection to a single database. */

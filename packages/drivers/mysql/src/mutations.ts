@@ -1,4 +1,4 @@
-import type { InsertRowResult, UpdateRowResult } from "@qyre/core";
+import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/core";
 import type mysql from "mysql2/promise";
 import { quoteIdent } from "./sql.js";
 
@@ -86,4 +86,30 @@ export async function updateRowByKey(
   ];
   const [result] = await pool.query<mysql.ResultSetHeader>(query, values);
   return { matched: result.affectedRows };
+}
+
+/**
+ * Each key is already validated/coerced (full primary-key match enforced) by the caller - see
+ * row-mutation-validation.ts. One parameterized DELETE per key, summed into `deleted` - same
+ * reasoning as Postgres's version: simpler and just as correct as a compound-WHERE statement for
+ * the small, explicit key lists this spec covers.
+ */
+export async function deleteRowsByKey(
+  pool: mysql.Pool,
+  schema: string,
+  table: string,
+  keys: Array<Record<string, unknown>>
+): Promise<DeleteRowsResult> {
+  const target = `${quoteIdent(schema)}.${quoteIdent(table)}`;
+  let deleted = 0;
+  for (const key of keys) {
+    const keyColumns = Object.keys(key);
+    const whereClause = keyColumns.map((column) => `${quoteIdent(column)} = ?`).join(" AND ");
+    const [result] = await pool.query<mysql.ResultSetHeader>(
+      `DELETE FROM ${target} WHERE ${whereClause}`,
+      keyColumns.map((column) => key[column])
+    );
+    deleted += result.affectedRows;
+  }
+  return { deleted };
 }

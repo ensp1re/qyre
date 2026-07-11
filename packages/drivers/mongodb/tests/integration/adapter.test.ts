@@ -259,6 +259,50 @@ describe("MongodbAdapter integration", () => {
     expect(result).toEqual({ matched: 0 });
   });
 
+  it("deletes documents by _id list and reports deleted: 2 (F101)", async () => {
+    const client = new MongoClient(mongoUrl);
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(FIXTURE.table);
+      const inserted = await collection.insertMany([
+        { name: "Delete Test 1" },
+        { name: "Delete Test 2" }
+      ]);
+      const ids = Object.values(inserted.insertedIds).map((id) => String(id));
+
+      const result = await adapter.mutations.deleteRowsByKey?.(
+        databaseName,
+        FIXTURE.table,
+        ids.map((id) => ({ _id: id }))
+      );
+      expect(result).toEqual({ deleted: 2 });
+
+      const remaining = await collection.countDocuments({
+        _id: { $in: Object.values(inserted.insertedIds) }
+      });
+      expect(remaining).toBe(0);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("reports a lower deleted count when some ids no longer match any document (F101)", async () => {
+    const client = new MongoClient(mongoUrl);
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(FIXTURE.table);
+      const inserted = await collection.insertOne({ name: "Delete Test" });
+
+      const result = await adapter.mutations.deleteRowsByKey?.(databaseName, FIXTURE.table, [
+        { _id: String(inserted.insertedId) },
+        { _id: "507f1f77bcf86cd799439011" }
+      ]);
+      expect(result).toEqual({ deleted: 1 });
+    } finally {
+      await client.close();
+    }
+  });
+
   it("rejects the query runner - MongoDB has no query language for it (see the spec)", async () => {
     await expect(adapter.runReadOnlyQuery("SELECT 1")).rejects.toThrow(
       /does not support the SQL query runner/

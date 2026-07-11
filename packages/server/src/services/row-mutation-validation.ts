@@ -168,3 +168,20 @@ export function resolveKey(
   }
   return resolved;
 }
+
+/**
+ * Validates/coerces a delete request's `keys` list (F101) by running each entry through
+ * `resolveKey` - an empty list is rejected outright, matching "keys" being the request's sole
+ * required content (nothing to delete otherwise). No filter-based bulk delete: every key must be an
+ * explicit, already-loaded primary-key match, per docs/product-specs/row-editing.md.
+ */
+export function resolveKeys(
+  tableMetadata: TableMetadata,
+  keys: Array<Record<string, unknown>>,
+  engine: DatabaseAdapter["engine"]
+): Array<Record<string, unknown>> {
+  if (keys.length === 0) {
+    throw badRequest("keys must include at least one entry.");
+  }
+  return keys.map((key) => resolveKey(tableMetadata, key, engine));
+}

@@ -60,6 +60,7 @@ export interface CliArgs {
   filesDir: string | undefined;
   verbose: boolean;
   login: boolean;
+  readOnly: boolean;
 }
 
 /** Parse CLI arguments. Throws (via commander) on malformed flags. */
@@ -83,6 +84,11 @@ export function parseArgs(argv: string[]): CliArgs {
       "skip the connection-string argument and enter connection details interactively (engine, user, password, host, port, database)",
       false
     )
+    .option(
+      "--read-only",
+      "force the whole session read-only regardless of what your database role would otherwise allow",
+      false
+    )
     .addHelpText("beforeAll", () => `${renderQyreTitle()}\n`)
     .addHelpText(
       "after",
@@ -100,13 +106,15 @@ export function parseArgs(argv: string[]): CliArgs {
     filesDir?: string;
     verbose: boolean;
     login: boolean;
+    readOnly: boolean;
   }>();
   return {
     target: program.args[0],
     port: opts.port,
     filesDir: opts.filesDir,
     verbose: opts.verbose,
-    login: opts.login
+    login: opts.login,
+    readOnly: opts.readOnly
   };
 }
 
@@ -321,7 +329,11 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       filesRoot,
       // F064: lets the running instance switch to a different database via POST /api/connect
       // instead of requiring a process restart.
-      adapterFactories
+      adapterFactories,
+      // F096: a hard, Qyre-level ceiling that always wins over whatever the connected database
+      // role would otherwise allow - persists across POST /api/connect since it's independent of
+      // which adapter is currently attached.
+      readOnly: args.readOnly
     });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "EADDRINUSE") {

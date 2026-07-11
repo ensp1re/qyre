@@ -280,3 +280,17 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   transactions need replica-set topology a standalone `mongod` can't provide regardless of grants) -
   out of scope for a privilege-only slice. All four per-engine introspection slices (F092-F095) are
   now done; F096 (`--read-only` CLI flag + central server guard) is next.
+- 2026-07-11 (later): F096 implemented (PR #106) - the CLI's `--read-only` flag forces the whole
+  session read-only; `ServerContext.readOnly` persists across `POST /api/connect`'s adapter swap
+  since that route never touches it; `GET /api/overview`'s capabilities are overridden after the
+  adapter's own introspection resolves (`applyReadOnlyOverride`) to every `supports*` `false` /
+  `readOnlyReason: "qyre-flag"` - a hard, Qyre-level ceiling proven to win even over a fake adapter
+  reporting full writability. `packages/server/src/plugins/read-only-guard.ts` is the single
+  central choke point every future mutating route must register under via a Fastify route-config
+  flag (`config: { mutating: true }`, checked in a shared `preHandler`) - a no-op today, tested by
+  registering throwaway routes against the built app since no real mutating route exists yet. Minor
+  deviation from this entry's literal text: the spec's "without even running the introspection
+  queries" optimization isn't pursued (would need every adapter's `getOverview()` reshaped for a
+  local-only tool's marginal query-cost saving) - the override applies to the already-computed
+  result instead, identical from every caller's perspective. Documented in `docs/SECURITY.md`. F097
+  (permission-aware UI shell) is next - the last slice before any write feature (F099+) can start.

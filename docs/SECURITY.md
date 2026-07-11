@@ -44,6 +44,14 @@ rules are first-class.
 - When write features are eventually added, destructive actions (DROP, DELETE, TRUNCATE, UPDATE
   without WHERE, schema changes) require explicit, unambiguous user confirmation and must never be
   the default path.
+- The CLI's `--read-only` flag (F096) is a hard, Qyre-level ceiling that always wins over whatever
+  the connected database role would otherwise allow - `ConnectionCapabilities` reports every
+  `supports*` flag `false` and `readOnlyReason: "qyre-flag"` regardless of grants
+  (`packages/server/src/services/read-only-capabilities.ts`), and the read-only guard plugin
+  (`packages/server/src/plugins/read-only-guard.ts`) rejects any route registered with `config: {
+mutating: true }` before its handler runs. Every future write route must register under this
+  choke point - it is the single place session read-only mode is enforced server-side, not
+  something each write route may reimplement or bypass.
 
 ## Untrusted input
 

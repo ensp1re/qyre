@@ -12,6 +12,7 @@ import type { FastifyInstance } from "fastify";
 import { registerAuthGuard } from "./plugins/auth-guard.js";
 import { registerErrorHandler } from "./plugins/error-handler.js";
 import { registerHostGuard } from "./plugins/host-guard.js";
+import { registerReadOnlyGuard } from "./plugins/read-only-guard.js";
 import { registerSecurityHeaders } from "./plugins/security-headers.js";
 import { registerStaticWeb } from "./plugins/static-web.js";
 import { registerConnectRoute } from "./routes/connect.js";
@@ -80,6 +81,13 @@ export interface CreateServerOptions {
    * caller can read the generated token back off the returned `RunningServer.authToken`.
    */
   authToken?: string;
+  /**
+   * Forces the whole session read-only regardless of what the connected database role would
+   * otherwise allow (F096, the CLI's `--read-only` flag) - `GET /api/overview`'s capabilities
+   * report every `supports*` flag `false` and `readOnlyReason: "qyre-flag"`, and the read-only
+   * guard plugin rejects any route registered as mutating. Defaults to `false`.
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -95,6 +103,9 @@ export interface ServerContext {
   readonly adapterFactories?: AdapterFactory[];
   lastKnownStatus?: HealthResponse["database"];
   lastError: string | null;
+  /** Whether the session is forced read-only via `--read-only` (F096). Untouched by `POST
+   * /api/connect`'s adapter swap, so it persists across connection switches by construction. */
+  readonly readOnly: boolean;
 }
 
 /** Build (but do not start) the Qyre HTTP server. */
@@ -108,12 +119,14 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
     eventLog: options.eventLog ?? new EventLog(),
     filesRoot: options.filesRoot,
     adapterFactories: options.adapterFactories,
-    lastError: null
+    lastError: null,
+    readOnly: options.readOnly ?? false
   };
 
   registerHostGuard(app);
   registerSecurityHeaders(app);
   registerAuthGuard(app, authToken);
+  registerReadOnlyGuard(app, ctx);
   registerErrorHandler(app, ctx.eventLog);
 
   registerHealthRoute(app, ctx);

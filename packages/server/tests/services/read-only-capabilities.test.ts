@@ -1,0 +1,41 @@
+import type { ConnectionCapabilities } from "@qyre/core";
+import { describe, expect, it } from "vitest";
+import { applyReadOnlyOverride } from "../../src/services/read-only-capabilities.js";
+
+const writable: ConnectionCapabilities = {
+  supportsSql: true,
+  supportsRowMutations: true,
+  supportsDdl: true,
+  supportsIndexManagement: true,
+  supportsDatabaseManagement: true,
+  supportsTransactions: true,
+  readOnlyReason: null
+};
+
+describe("applyReadOnlyOverride (F096)", () => {
+  it("passes capabilities through unchanged when not read-only", () => {
+    expect(applyReadOnlyOverride(writable, false)).toEqual(writable);
+  });
+
+  it("forces every capability false and readOnlyReason to 'qyre-flag' when read-only", () => {
+    expect(applyReadOnlyOverride(writable, true)).toEqual({
+      supportsSql: true,
+      supportsRowMutations: false,
+      supportsDdl: false,
+      supportsIndexManagement: false,
+      supportsDatabaseManagement: false,
+      supportsTransactions: false,
+      readOnlyReason: "qyre-flag"
+    });
+  });
+
+  it("wins over an already-restricted 'grants' reason - qyre-flag always takes precedence", () => {
+    const grantsRestricted: ConnectionCapabilities = { ...writable, readOnlyReason: "grants" };
+    expect(applyReadOnlyOverride(grantsRestricted, true).readOnlyReason).toBe("qyre-flag");
+  });
+
+  it("preserves supportsSql - an engine fact, not a session write-permission fact", () => {
+    const mongoLike: ConnectionCapabilities = { ...writable, supportsSql: false };
+    expect(applyReadOnlyOverride(mongoLike, true).supportsSql).toBe(false);
+  });
+});

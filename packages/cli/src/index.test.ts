@@ -50,6 +50,14 @@ describe("parseArgs", () => {
   it("parses the --login flag", () => {
     expect(parseArgs(["--login"]).login).toBe(true);
   });
+
+  it("defaults readOnly to false", () => {
+    expect(parseArgs(["postgres://localhost/db"]).readOnly).toBe(false);
+  });
+
+  it("parses the --read-only flag (F096)", () => {
+    expect(parseArgs(["postgres://localhost/db", "--read-only"]).readOnly).toBe(true);
+  });
 });
 
 describe("resolvePort", () => {

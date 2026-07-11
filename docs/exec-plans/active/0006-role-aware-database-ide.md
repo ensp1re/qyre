@@ -309,3 +309,20 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   foundation) are now complete; F098 (row-editing product spec) is next - the first write-feature
   slice and the plan's highest-risk open decision (SQL grid editing vs. MongoDB whole-document EJSON
   editing).
+- 2026-07-11 (later still): F098 implemented (PR #108) - `docs/product-specs/row-editing.md` fixes
+  `RowMutationApi` (`insertRow`/`updateRowByKey`/`deleteRowsByKey`, "stale row" `matched`/`deleted`
+  semantics) and the three per-op routes' exact shapes under `/api/tables/:schema/:table/rows`; row
+  identity/editability rules (full PK incl. composite keys, `kind`-gated, structured/binary/unknown
+  columns excluded) fully derivable from existing types with no new field added; value validation
+  reusing F082/F089's `FilterColumnKind` classification rather than a parallel one. Resolved open
+  decision 5: a single `POST /api/mutations/commit`, not per-table - validates every staged op up
+  front, one native transaction, all-or-nothing rollback reporting the failing op's index,
+  registered for every engine but cleanly `400`s for MongoDB. Resolved open decision 1 (the plan's
+  highest-risk decision): MongoDB's document editor uses relaxed Extended JSON via `bson`'s `EJSON`
+  (deliberately not the read-only grid's own display format, which is ambiguous by design for
+  readability, and not Compass's non-JSON shell-helper syntax) and whole-document
+  `findOneAndReplace` with a load-time-snapshot conflict check on save (not a changed-fields diff,
+  matching the "Compass model" the exec plan names) - both reasoned explicitly in the spec. Fixed
+  the audit-event contract (EventLog line + structured pino `request.log` call per mutation) and
+  per-action confirmation thresholds. Spec-only slice, no code changes; F099 (structured row
+  insert, the first slice that actually implements a write path) is next.

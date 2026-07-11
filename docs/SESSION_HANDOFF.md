@@ -6,8 +6,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-11.
-- Branch: `feature/F097-permission-aware-ui-shell`, pushed. PR #107 has both CI jobs green.
-- Queue: F092-F097 are `passing`; F098-F121 and F125-F128 remain `not_started`. `nextIds.F` is 129.
+- Branch: `feature/F098-row-editing-spec`, pushed. PR #108 has both CI jobs green.
+- Queue: F092-F098 are `passing`; F099-F121 and F125-F128 remain `not_started`. `nextIds.F` is 129.
 
 ## Completed
 
@@ -17,17 +17,16 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   F122 session auth, F090 permissions spec, F091 capability plumbing, F123 batched introspection,
   F124 table/view `kind`, F092 Postgres permissions, F129 unplanned driver-modularization refactor,
   F093 MySQL permissions, F094 SQLite writability, F095 MongoDB permissions, F096 `--read-only`
-  session mode - all merged to `main`, PRs #94-#106).
-- F097 (permission-aware UI shell) pushed and CI green: `StatusBar` gains a read-only/read-write
-  access badge wired from the F091 `useCapabilities` hook (shares the `["overview"]` query cache -
-  no extra request), with a tooltip explaining the reason (qyre `--read-only` flag, replica,
-  connection, or grants). New `features/connection/model/capability-gates.ts` exports two generic
-  gates (`sessionAllows`/`tableAllows`, not one per capability flag) every later write surface will
-  call before rendering a control. New `"readonly"` Playwright project connects to the same
-  fully-writable Postgres fixture as `"postgres"` but with `--read-only` forced, proving the flag
-  overrides real grants; a new regression-guard spec asserts the badge and zero write affordances -
-  the standing check every write slice (F099+) must keep green. Visually verified in the Browser
-  pane. PR #107.
+  session mode, F097 permission-aware UI shell - all merged to `main`, PRs #94-#107).
+- F098 (row-editing product spec) pushed and CI green: `docs/product-specs/row-editing.md` fixes
+  `RowMutationApi` (insert/update/delete-by-key + "stale row" semantics), row identity/editability
+  rules, value validation reusing F082/F089's `FilterColumnKind` classification, a single
+  `POST /api/mutations/commit` for the SQL pending-changes-buffer model (resolves exec plan open
+  decision 5), MongoDB's whole-document relaxed-Extended-JSON editor with `findOneAndReplace` +
+  conflict-on-save semantics (resolves open decision 1, the plan's highest-risk decision - explicit
+  reasoning for diverging from both the read-only grid's display format and Compass's shell-helper
+  syntax), the audit-event contract, and confirmation thresholds. Spec-only slice, no code changes.
+  PR #108.
 
 ## In progress
 
@@ -53,7 +52,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Merge PR #107. F090-F097 (the full permission/capability foundation) are now done. F098 (row-
-  editing product spec - the highest-risk decision in the plan: SQL grid editing vs. MongoDB
-  whole-document EJSON editing) is next per the exec plan's "Feature order and dependencies"
-  section - the first of the actual write-feature slices (F099+).
+- Merge PR #108. F090-F098 (permission foundation + the row-editing spec) are now done. F099
+  (structured row insert - `RowMutationApi.insertRow`, `POST /api/tables/:schema/:table/rows`,
+  across all four engines) is next per the exec plan's "Feature order and dependencies" section -
+  the first slice that actually implements a write path.

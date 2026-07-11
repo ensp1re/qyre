@@ -110,11 +110,12 @@
       "id": "F096",
       "behavior": "Qyre-level read-only session mode as the safety cornerstone, landing BEFORE any mutating route exists: the CLI gains a --read-only flag (mentioned in --help and the F088 guided-login flow) that forces the whole session read-only regardless of database grants; the server stores the mode in ServerContext and one central guard (a single choke point every future mutating route must register under, e.g. a route-config flag checked in a shared preHandler) rejects any mutating request with a structured error; capabilities report readOnlyReason 'qyre-flag' so the UI can explain itself; POST /api/connect preserves the flag across connection switches. Depends on F091, F122.",
       "verification": "pnpm --filter qyre test && pnpm --filter @qyre/server test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "97bee3a44a7593eb7b7820640c822d4f21445af2",
+      "evidence": "PR #106 (https://github.com/ensp1re/qyre/pull/106), pushed as 97bee3a. The CLI gains a --read-only flag (packages/cli/src/index.ts's parseArgs, listed in --help alongside --login) that forces the whole session read-only regardless of what the connected database role would allow. ServerContext gains a readonly readOnly: boolean, set once at createServer() time; POST /api/connect never touches it, so it persists across connection switches by construction (verified with a live adapter swap in a new overview.test.ts case). GET /api/overview's capabilities are overridden after the adapter's own getCapabilities() resolves (packages/server/src/services/read-only-capabilities.ts's applyReadOnlyOverride) - every supports* flag false, readOnlyReason 'qyre-flag', proven to win over a fake adapter that reports full writability. New packages/server/src/plugins/read-only-guard.ts registers the single central choke point every future mutating route must opt into via a Fastify route-config flag (config: { mutating: true }, read via request.routeOptions.config.mutating in a shared preHandler) - a no-op today since no mutating route exists yet, tested by registering throwaway test routes directly against the built app. Minor documented deviation: the spec's 'without even running the introspection queries' optimization is not pursued (would require reshaping every adapter's getOverview()/getCapabilities() for a marginal perf saving on a local-only tool) - the override applies to the already-computed result instead, which is behaviorally identical to every caller. Documented in docs/SECURITY.md as the enforcement mechanism every future write route must register under. Verified: pnpm --filter @qyre/qyre test (46 passed), pnpm --filter @qyre/server test (94 passed), pnpm check:quiet, pnpm verify:pr (full local gate incl. @full E2E against live Postgres/MySQL/SQLite/MongoDB). GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": "docs/product-specs/permissions-and-capabilities.md"
+      "spec": "docs/product-specs/permissions-and-capabilities.md",
+      "completedAt": "2026-07-11T10:52:31.000Z"
     },
     {
       "id": "F097",

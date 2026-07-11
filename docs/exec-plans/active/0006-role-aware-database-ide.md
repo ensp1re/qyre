@@ -294,3 +294,18 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   local-only tool's marginal query-cost saving) - the override applies to the already-computed
   result instead, identical from every caller's perspective. Documented in `docs/SECURITY.md`. F097
   (permission-aware UI shell) is next - the last slice before any write feature (F099+) can start.
+- 2026-07-11 (later still): F097 implemented (PR #107) - `StatusBar` gains a read-only/read-write
+  access badge wired from the F091 `useCapabilities` hook, with a tooltip explaining the reason
+  (qyre-flag/replica/connection/grants, mirroring the spec's example copy). New
+  `features/connection/model/capability-gates.ts` exports `sessionAllows`/`tableAllows` - two
+  generic gates, not one per capability flag, since no real write-surface caller exists yet to
+  justify more. New `"readonly"` Playwright project connects to the same fully-writable Postgres
+  fixture as `"postgres"` but with `--read-only` forced - a deliberate choice over this entry's
+  literal "restricted fixture user" wording, since a genuinely restricted role would only re-prove
+  F092's grants path, not F096's flag-override path (the actually-new risk surface this slice adds).
+  A new regression-guard spec asserts the badge and zero write-affording buttons anywhere in the
+  page - the standing check every write slice (F099+) must keep green. Visually verified in the
+  Browser pane against the live Postgres preview server. F090-F097 (the full permission/capability
+  foundation) are now complete; F098 (row-editing product spec) is next - the first write-feature
+  slice and the plan's highest-risk open decision (SQL grid editing vs. MongoDB whole-document EJSON
+  editing).

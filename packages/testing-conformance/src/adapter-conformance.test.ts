@@ -220,7 +220,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
   });
 
   it.skipIf(!configured)(
-    "reports a well-formed capabilities object (F091, F092, F093, F094)",
+    "reports a well-formed capabilities object (F091, F092, F093, F094, F095)",
     async () => {
       const capabilities = await adapter.getCapabilities();
       expect(capabilities.supportsSql).toBe(engine !== "mongodb");
@@ -249,13 +249,19 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
           readOnlyReason: null
         });
       } else {
-        // F095 has not replaced Mongo's conservative F091 stub yet.
-        expect(capabilities.supportsRowMutations).toBe(false);
-        expect(capabilities.supportsDdl).toBe(false);
-        expect(capabilities.supportsIndexManagement).toBe(false);
-        expect(capabilities.supportsDatabaseManagement).toBe(false);
-        expect(capabilities.supportsTransactions).toBe(false);
-        expect(capabilities.readOnlyReason).toBe("grants");
+        // The conformance MongoDB fixture connects with no authentication - the docker-compose/CI
+        // container runs with no authorization enabled at all, so F095's real introspection reports
+        // full access too (an unauthenticated connection has no access control applied, matching
+        // mongod's own default) - except supportsDatabaseManagement/supportsTransactions, which
+        // this slice doesn't model (see packages/drivers/mongodb/src/permissions.ts's top comment).
+        expect(capabilities).toMatchObject({
+          supportsRowMutations: true,
+          supportsDdl: true,
+          supportsIndexManagement: true,
+          supportsDatabaseManagement: false,
+          supportsTransactions: false,
+          readOnlyReason: null
+        });
       }
     }
   );

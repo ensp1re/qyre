@@ -1,8 +1,8 @@
 import type { ColumnMetadata, SchemaMetadata, TableKind, TableMetadata } from "@qyre/core";
 import type { MongoClient } from "mongodb";
 import { inferColumns } from "./bson-values.js";
+import { isSystemCollection, SYSTEM_DATABASES } from "./catalog.js";
 
-const SYSTEM_DATABASES = new Set(["admin", "local", "config"]);
 const FIELD_SAMPLE_SIZE = 100;
 
 /** List user databases and collections in Qyre's schema shape. */
@@ -19,7 +19,7 @@ export async function introspectSchemas(client: MongoClient): Promise<SchemaMeta
       name,
       tables: collections
         .map((collection) => collection.name)
-        .filter((collectionName) => !collectionName.startsWith("system."))
+        .filter((collectionName) => !isSystemCollection(collectionName))
     });
   }
   return schemas;

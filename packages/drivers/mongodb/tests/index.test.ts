@@ -204,11 +204,26 @@ describe("read-only enforcement", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const sourceDirectory = join(here, "../src");
     const source = readdirSync(sourceDirectory)
-      .filter((name) => name.endsWith(".ts"))
+      // permissions.ts (F095) legitimately contains MongoDB's own privilege *action-name*
+      // vocabulary as string literals (e.g. "createCollection", "createIndex" in an actions array
+      // read from connectionStatus{showPrivileges:true}) - the same words as real write methods,
+      // but never called as one; it only ever reads via client.db().command(...). Excluded here so
+      // this scan keeps catching an actual accidental write call elsewhere without a permanent
+      // false positive on that vocabulary.
+      .filter((name) => name.endsWith(".ts") && name !== "permissions.ts")
       .map((name) => readFileSync(join(sourceDirectory, name), "utf-8"))
       .join("\n");
     for (const method of WRITE_METHODS) {
       expect(source, `source must not call ${method}`).not.toContain(method);
+    }
+  });
+
+  it("permissions.ts's privilege-action vocabulary never appears as an actual method call", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(join(here, "../src/permissions.ts"), "utf-8");
+    for (const method of WRITE_METHODS) {
+      const callPattern = method.endsWith("(") ? method : `${method}(`;
+      expect(source, `permissions.ts must not call ${method}`).not.toContain(callPattern);
     }
   });
 });

@@ -263,3 +263,20 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   non-writable SQLite session is now `"connection"`, replacing the F091 stub's `"grants"` (SQLite has
   no grants concept). F095 (MongoDB) is the last of the three parallelizable permission-introspection
   slices; F096 is next after it lands.
+- 2026-07-11: F095 implemented (PR #105) - MongoDB `getCapabilities()`/per-collection
+  `TablePermissions` land via `db.runCommand({connectionStatus:1, showPrivileges:true})`, mapping
+  find/insert/update/remove and createCollection/dropCollection/createIndex/dropIndex actions per
+  resource (exact, db-wildcard, cross-db-wildcard, `anyResource`) - all shapes live-verified against
+  a real `mongod` by creating read/readWrite/dbAdmin/custom-anyResource users and capturing their
+  exact output as fixture data. An unauthenticated connection is full access, matching mongod's real
+  default. Narrower in one respect than this entry's literal text, confirmed with the user before
+  implementing: MongoDB only enforces role restrictions once authorization is enabled globally on
+  the server, and the shared docker-compose/CI container has none at all (every existing Mongo test
+  connects anonymously) - enabling auth to test a live restricted fixture would have required
+  migrating every existing Mongo test/fixture to credentials, a disproportionate blast radius versus
+  F092-F094's purely additive restricted fixtures. Restricted-access scenarios are instead covered by
+  unit tests against the live-verified `connectionStatus` shapes. `supportsDatabaseManagement`/
+  `supportsTransactions` stay always-false for MongoDB (no paired create/drop-database privilege; real
+  transactions need replica-set topology a standalone `mongod` can't provide regardless of grants) -
+  out of scope for a privilege-only slice. All four per-engine introspection slices (F092-F095) are
+  now done; F096 (`--read-only` CLI flag + central server guard) is next.

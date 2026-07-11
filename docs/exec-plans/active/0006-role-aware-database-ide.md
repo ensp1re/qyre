@@ -326,3 +326,30 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   the audit-event contract (EventLog line + structured pino `request.log` call per mutation) and
   per-action confirmation thresholds. Spec-only slice, no code changes; F099 (structured row
   insert, the first slice that actually implements a write path) is next.
+- 2026-07-11 (later still): F099 implemented (PRs #109/#110) - adapters gain `mutations.insertRow`
+  per the F098 spec. Postgres/MySQL/SQLite take a flat column->value map translated to a
+  parameterized `INSERT`: MySQL re-fetches the inserted row via its auto-increment column when
+  `information_schema.COLUMNS.EXTRA` reports one, SQLite via the implicit `rowid` every ordinary
+  table has (both syntaxes for an all-default-values insert - MySQL's `INSERT INTO t () VALUES ()`,
+  SQLite's `INSERT INTO t DEFAULT VALUES` - live-verified against real engines before use, not
+  assumed). MongoDB deserializes the request body as relaxed Extended JSON to real BSON via `bson`'s
+  `EJSON.deserialize` (not `.parse` - Fastify has already JSON-parsed the body into an object with
+  `$oid`/`$date` wrapper sub-objects, so the "already-an-object" variant is the correct one) before
+  `insertOne`. The server adds `POST /api/tables/:schema/:table/rows`, validating the body against
+  the table's real introspected columns by reusing F082/F089's `FilterColumnKind` classification
+  (not a parallel validator), rejecting non-table/collection targets (F124) and missing insert
+  permission (fails closed on undefined permissions - the advisory-introspection principle), gated
+  by the F096 central read-only guard, and logging a structured audit event. Amended the F098 spec
+  mid-implementation: `RowMutationApi`'s three methods are each independently optional
+  (`insertRow?`/`updateRowByKey?`/`deleteRowsByKey?`), not all required together, since the original
+  wording would have forced implementing all three in one slice and contradicted the plan's own
+  F099/F100/F101 split. Also fixed a latent bug found while writing SQLite's rejection test: its
+  `mutations.insertRow` used `Promise.resolve(insertRow(...))`, which let a synchronous throw (e.g.
+  writing a readonly-opened file) escape as an uncaught exception instead of a promise rejection,
+  unlike the other three adapters' already-`async` `insertRow` - fixed by making the wrapper itself
+  `async`. Conformance cases cover successful insert plus an unknown-column rejection across all
+  four engines; each adapter's own integration test covers its engine-specific rejection (Postgres/
+  MySQL: a SELECT-only fixture role/user; SQLite: a chmod-read-only file copy; MongoDB: a native
+  view-namespace write refusal - Postgres/MySQL's simple auto-updatable views would otherwise accept
+  the insert at the adapter layer, so their view rejection is enforced by the server's kind check
+  instead, unit-tested separately). F100 (structured row update) is next.

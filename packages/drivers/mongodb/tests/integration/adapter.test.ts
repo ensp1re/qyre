@@ -143,6 +143,36 @@ describe("MongodbAdapter integration", () => {
     }
   });
 
+  it("reports full writability for the unauthenticated fixture connection (F095)", async () => {
+    // The docker-compose/CI MongoDB fixture runs with no authorization enabled at all - a real
+    // unrestricted local connection, matching mongod's own default. See
+    // packages/drivers/mongodb/src/permissions.ts's top comment for why a genuinely *restricted*
+    // fixture user isn't exercised live here (MongoDB only enforces role restrictions once
+    // authorization is enabled globally on the server - unit tests in permissions.test.ts cover
+    // that case against real, live-verified connectionStatus response shapes instead).
+    await expect(adapter.getCapabilities()).resolves.toEqual({
+      supportsSql: false,
+      supportsRowMutations: true,
+      supportsDdl: true,
+      supportsIndexManagement: true,
+      supportsDatabaseManagement: false,
+      supportsTransactions: false,
+      readOnlyReason: null
+    });
+
+    await expect(adapter.getTable(databaseName, FIXTURE.table)).resolves.toMatchObject({
+      permissions: { select: true, insert: true, update: true, delete: true }
+    });
+
+    const tables = await adapter.getAllTables();
+    expect(tables.find((table) => table.name === FIXTURE.table)?.permissions).toEqual({
+      select: true,
+      insert: true,
+      update: true,
+      delete: true
+    });
+  });
+
   it("rejects the query runner - MongoDB has no query language for it (see the spec)", async () => {
     await expect(adapter.runReadOnlyQuery("SELECT 1")).rejects.toThrow(
       /does not support the SQL query runner/

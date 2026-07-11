@@ -165,6 +165,73 @@ describe("SqliteAdapter integration", () => {
     }
   });
 
+  it("updates a row by primary key and reports matched: 1, even when the value is unchanged (F100)", async () => {
+    const seed = new Database(dbPath);
+    seed.exec(
+      "INSERT INTO qyre_demo_users (name, email) VALUES ('Update Test', 'update-test@example.com')"
+    );
+    seed.close();
+    try {
+      const before = await adapter.getRows("main", "qyre_demo_users", 0, 10);
+      const row = before.rows.find((candidate) => candidate.email === "update-test@example.com");
+      const noop = await adapter.mutations.updateRowByKey?.(
+        "main",
+        "qyre_demo_users",
+        { id: row?.id },
+        { name: "Update Test" }
+      );
+      expect(noop).toEqual({ matched: 1 });
+
+      const result = await adapter.mutations.updateRowByKey?.(
+        "main",
+        "qyre_demo_users",
+        { id: row?.id },
+        { name: "Updated" }
+      );
+      expect(result).toEqual({ matched: 1 });
+
+      const after = await adapter.getRows("main", "qyre_demo_users", 0, 10);
+      expect(after.rows.find((candidate) => candidate.id === row?.id)?.name).toBe("Updated");
+    } finally {
+      const cleanup = new Database(dbPath);
+      cleanup.exec("DELETE FROM qyre_demo_users WHERE email = 'update-test@example.com'");
+      cleanup.close();
+    }
+  });
+
+  it("reports matched: 0 for a key that no longer matches any row (F100)", async () => {
+    const result = await adapter.mutations.updateRowByKey?.(
+      "main",
+      "qyre_demo_users",
+      { id: -1 },
+      { name: "Nobody" }
+    );
+    expect(result).toEqual({ matched: 0 });
+  });
+
+  it("rejects an update against a chmod-read-only file copy (F100)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "qyre-sqlite-readonly-update-"));
+    const readOnlyPath = join(dir, "readonly.db");
+    copyFileSync(dbPath, readOnlyPath);
+    chmodSync(readOnlyPath, 0o444);
+
+    const readOnlyAdapter = new SqliteAdapter({ engine: "sqlite", raw: readOnlyPath });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.mutations.updateRowByKey?.(
+          "main",
+          "qyre_demo_users",
+          { id: 1 },
+          { name: "Should Fail" }
+        )
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+      chmodSync(readOnlyPath, 0o644);
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery("SELECT * FROM qyre_demo_users");
     expect(result.rows).toHaveLength(3);

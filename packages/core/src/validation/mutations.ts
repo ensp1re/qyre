@@ -10,3 +10,17 @@ import { z } from "zod";
  */
 export const insertRowRequestSchema = z.record(z.string(), z.unknown());
 export type InsertRowRequest = z.infer<typeof insertRowRequestSchema>;
+
+/**
+ * Request body for `PATCH /api/tables/:schema/:table/rows` (F100) - `key` identifies the row by its
+ * full primary key; `changes` (SQL) or `document` (MongoDB's whole-document replace, per
+ * docs/product-specs/row-editing.md) carries the new values. Exactly one of `changes`/`document` is
+ * expected per engine - packages/server picks the right one and rejects the other being absent,
+ * since which one applies depends on `db.engine`, not something Zod alone can express here.
+ */
+export const updateRowRequestSchema = z.object({
+  key: z.record(z.string(), z.unknown()),
+  changes: z.record(z.string(), z.unknown()).optional(),
+  document: z.record(z.string(), z.unknown()).optional()
+});
+export type UpdateRowRequest = z.infer<typeof updateRowRequestSchema>;

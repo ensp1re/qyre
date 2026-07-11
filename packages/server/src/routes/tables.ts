@@ -1,11 +1,21 @@
 import { Readable } from "node:stream";
-import { insertRowRequestSchema, MAX_PAGE_SIZE, rowsQuerySchema } from "@qyre/core";
+import {
+  insertRowRequestSchema,
+  MAX_PAGE_SIZE,
+  rowsQuerySchema,
+  updateRowRequestSchema
+} from "@qyre/core";
 import type { AllTablesResponse } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../app.js";
 import { csvLine } from "../services/csv.js";
 import { requireAdapter } from "../services/require-adapter.js";
-import { assertMutable, resolveInsertValues } from "../services/row-mutation-validation.js";
+import {
+  assertMutable,
+  resolveInsertValues,
+  resolveKey,
+  resolveUpdateChanges
+} from "../services/row-mutation-validation.js";
 import { resolveRowQuery } from "../services/row-query.js";
 
 export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): void {
@@ -76,6 +86,68 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
       );
 
       reply.status(201);
+      return result;
+    }
+  );
+
+  // F100: structured row update by full primary-key match. `changes` (SQL) or `document`
+  // (MongoDB's whole-document replace) - see docs/product-specs/row-editing.md's "Mutation API
+  // shape". A 0-matched result is a distinct "stale row" outcome, reported as 409, never a silent
+  // no-op 200 - the caller may have staged an edit against a row that was already changed/removed.
+  app.patch<{ Params: { schema: string; table: string }; Body: unknown }>(
+    "/api/tables/:schema/:table/rows",
+    { config: { mutating: true } },
+    async (request, reply) => {
+      const parsedBody = updateRowRequestSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({ error: "Request body must include key and changes." });
+      }
+      const { schema, table } = request.params;
+      const db = requireAdapter(ctx.adapter);
+      const tableMetadata = await db.getTable(schema, table);
+      assertMutable(tableMetadata, "update");
+      if (!db.mutations?.updateRowByKey) {
+        return reply.status(400).send({ error: "This engine does not support updating rows." });
+      }
+
+      const rawChanges =
+        db.engine === "mongodb" ? parsedBody.data.document : parsedBody.data.changes;
+      if (!rawChanges) {
+        return reply.status(400).send({ error: "Request body must include changes." });
+      }
+
+      const key = resolveKey(tableMetadata, parsedBody.data.key, db.engine);
+      const changes = resolveUpdateChanges(tableMetadata, rawChanges, db.engine);
+
+      const startedAt = performance.now();
+      const result = await db.mutations.updateRowByKey(schema, table, key, changes);
+      const durationMs = Math.round(performance.now() - startedAt);
+
+      if (result.matched === 0) {
+        ctx.eventLog.log(
+          "warn",
+          `Update rejected: ${schema}.${table} row no longer matches (stale).`
+        );
+        request.log.warn(
+          { operation: "update", schema, table, rowCount: 0, durationMs, outcome: "conflict" },
+          "row update conflict"
+        );
+        return reply.status(409).send({ error: "This row was already changed or removed." });
+      }
+
+      ctx.eventLog.log("info", `Updated 1 row in ${schema}.${table}.`);
+      request.log.info(
+        {
+          operation: "update",
+          schema,
+          table,
+          rowCount: result.matched,
+          durationMs,
+          outcome: "success"
+        },
+        "row update succeeded"
+      );
+
       return result;
     }
   );

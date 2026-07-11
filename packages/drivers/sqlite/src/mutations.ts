@@ -1,4 +1,4 @@
-import type { InsertRowResult } from "@qyre/core";
+import type { InsertRowResult, UpdateRowResult } from "@qyre/core";
 import type Database from "better-sqlite3";
 import { normalizeRow } from "./row-values.js";
 import { quoteIdent } from "./sql.js";
@@ -32,4 +32,33 @@ export function insertRow(
     .safeIntegers(true)
     .get(result.lastInsertRowid) as Record<string, unknown> | undefined;
   return { row: row ? normalizeRow(row) : undefined };
+}
+
+/**
+ * `key`/`changes` are already validated/coerced (full primary-key match enforced, PK columns
+ * excluded from `changes`) by the caller - see row-mutation-validation.ts. `matched` comes from
+ * `changes` on the `RunResult` - live-verified that SQLite's own `changes()` counts rows matched by
+ * the `WHERE` clause and processed by the statement, regardless of whether any column's value
+ * actually differed, so setting a column to its current value still reports `matched: 1`, not a
+ * false stale/conflict.
+ */
+export function updateRowByKey(
+  db: Database.Database,
+  table: string,
+  key: Record<string, unknown>,
+  changes: Record<string, unknown>
+): UpdateRowResult {
+  const changeColumns = Object.keys(changes);
+  const keyColumns = Object.keys(key);
+  const target = quoteIdent(table);
+  const setClause = changeColumns.map((column) => `${quoteIdent(column)} = ?`).join(", ");
+  const whereClause = keyColumns.map((column) => `${quoteIdent(column)} = ?`).join(" AND ");
+  const query = `UPDATE ${target} SET ${setClause} WHERE ${whereClause}`;
+  const result = db
+    .prepare(query)
+    .run(
+      ...changeColumns.map((column) => changes[column]),
+      ...keyColumns.map((column) => key[column])
+    );
+  return { matched: result.changes };
 }

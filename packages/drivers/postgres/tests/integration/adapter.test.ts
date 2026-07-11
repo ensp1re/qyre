@@ -198,6 +198,60 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
+  it("updates a row by primary key and reports matched: 1 (F100)", async () => {
+    await runStatements(databaseUrl, [
+      `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('Update Test', 'update-test@example.com')`
+    ]);
+    try {
+      const before = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
+      const row = before.rows.find((candidate) => candidate.email === "update-test@example.com");
+      const result = await adapter.mutations.updateRowByKey?.(
+        FIXTURE.schema,
+        FIXTURE.table,
+        { id: row?.id },
+        { name: "Updated" }
+      );
+      expect(result).toEqual({ matched: 1 });
+
+      const after = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
+      expect(after.rows.find((candidate) => candidate.id === row?.id)?.name).toBe("Updated");
+    } finally {
+      await runStatements(databaseUrl, [
+        `DELETE FROM ${FIXTURE.table} WHERE email = 'update-test@example.com'`
+      ]);
+    }
+  });
+
+  it("reports matched: 0 for a key that no longer matches any row (F100)", async () => {
+    const result = await adapter.mutations.updateRowByKey?.(
+      FIXTURE.schema,
+      FIXTURE.table,
+      { id: -1 },
+      { name: "Nobody" }
+    );
+    expect(result).toEqual({ matched: 0 });
+  });
+
+  it("rejects an update as a SELECT-only fixture role (F100)", async () => {
+    const readOnlyAdapter = new PostgresAdapter({
+      engine: "postgres",
+      raw: requireReadOnlyTestDatabaseUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.mutations.updateRowByKey?.(
+          FIXTURE.schema,
+          FIXTURE.table,
+          { id: 1 },
+          { name: "Should Fail" }
+        )
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("runs a read-only query", async () => {
     const result = await adapter.runReadOnlyQuery(`SELECT * FROM ${FIXTURE.table}`);
     expect(result.rows).toHaveLength(FIXTURE.rowCount);

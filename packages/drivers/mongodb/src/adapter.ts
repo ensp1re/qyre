@@ -15,7 +15,7 @@ import { MongoClient } from "mongodb";
 import { normalizeDocument } from "./bson-values.js";
 import { buildMongoFilter } from "./filters.js";
 import { introspectCollection, introspectSchemas } from "./introspection.js";
-import { insertRow } from "./mutations.js";
+import { insertRow, updateRowByKey } from "./mutations.js";
 import type { ConnectionStatusResult } from "./permissions.js";
 import {
   fetchConnectionCapabilities,
@@ -36,7 +36,9 @@ export class MongodbAdapter implements DatabaseAdapter {
   public readonly engine = "mongodb";
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
   public readonly mutations: RowMutationApi = {
-    insertRow: (schema, table, values) => insertRow(this.getClient(), schema, table, values)
+    insertRow: (schema, table, values) => insertRow(this.getClient(), schema, table, values),
+    updateRowByKey: (schema, table, key, changes) =>
+      updateRowByKey(this.getClient(), schema, table, key, changes)
   };
   private client: MongoClient | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;

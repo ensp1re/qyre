@@ -1,4 +1,4 @@
-import type { InsertRowResult } from "@qyre/core";
+import type { InsertRowResult, UpdateRowResult } from "@qyre/core";
 import type mysql from "mysql2/promise";
 import { quoteIdent } from "./sql.js";
 
@@ -57,4 +57,33 @@ export async function insertRow(
     [result.insertId]
   );
   return { row: rows[0] as Record<string, unknown> | undefined };
+}
+
+/**
+ * `key`/`changes` are already validated/coerced (full primary-key match enforced, PK columns
+ * excluded from `changes`) by the caller - see row-mutation-validation.ts. `matched` comes from
+ * `affectedRows` - live-verified that mysql2's pool defaults to the `CLIENT_FOUND_ROWS` capability
+ * flag (unlike the raw `mysql` CLI client, which reports "rows changed" unless asked otherwise), so
+ * `affectedRows` already reports "rows matched by WHERE", not "rows whose values actually changed" -
+ * setting a column to its current value still reports `matched: 1`, not a false stale/conflict.
+ */
+export async function updateRowByKey(
+  pool: mysql.Pool,
+  schema: string,
+  table: string,
+  key: Record<string, unknown>,
+  changes: Record<string, unknown>
+): Promise<UpdateRowResult> {
+  const changeColumns = Object.keys(changes);
+  const keyColumns = Object.keys(key);
+  const target = `${quoteIdent(schema)}.${quoteIdent(table)}`;
+  const setClause = changeColumns.map((column) => `${quoteIdent(column)} = ?`).join(", ");
+  const whereClause = keyColumns.map((column) => `${quoteIdent(column)} = ?`).join(" AND ");
+  const query = `UPDATE ${target} SET ${setClause} WHERE ${whereClause}`;
+  const values = [
+    ...changeColumns.map((column) => changes[column]),
+    ...keyColumns.map((column) => key[column])
+  ];
+  const [result] = await pool.query<mysql.ResultSetHeader>(query, values);
+  return { matched: result.affectedRows };
 }

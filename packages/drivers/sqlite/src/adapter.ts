@@ -20,7 +20,16 @@ import type {
 } from "@qyre/driver-contract";
 import Database from "better-sqlite3";
 import { computeCapabilities, tablePermissionsFromCapabilities } from "./capabilities.js";
-import { createTable, dropTable, renameTable, truncateTable } from "./ddl.js";
+import {
+  addColumn,
+  alterColumn,
+  createTable,
+  dropColumn,
+  dropTable,
+  renameColumn,
+  renameTable,
+  truncateTable
+} from "./ddl.js";
 import { fetchAllTableTargets, introspectTable, MAIN_SCHEMA } from "./introspection.js";
 import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
 import { normalizeRow } from "./row-values.js";
@@ -53,7 +62,13 @@ export class SqliteAdapter implements DatabaseAdapter {
     createTable: async (_schema, table, columns) => createTable(this.getDb(), table, columns),
     renameTable: async (_schema, table, newName) => renameTable(this.getDb(), table, newName),
     truncateTable: async (_schema, table) => truncateTable(this.getDb(), table),
-    dropTable: async (_schema, table) => dropTable(this.getDb(), table)
+    dropTable: async (_schema, table) => dropTable(this.getDb(), table),
+    addColumn: async (_schema, table, column) => addColumn(this.getDb(), table, column),
+    renameColumn: async (_schema, table, column, newName) =>
+      renameColumn(this.getDb(), table, column, newName),
+    alterColumn: async (_schema, table, column, changes) =>
+      alterColumn(this.getDb(), table, column, changes),
+    dropColumn: async (_schema, table, column) => dropColumn(this.getDb(), table, column)
   };
   private db: Database.Database | undefined;
   private resolvedPath: string | undefined;

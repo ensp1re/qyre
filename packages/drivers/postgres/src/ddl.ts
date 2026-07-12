@@ -56,3 +56,74 @@ export async function truncateTable(pool: Pool, schema: string, table: string): 
 export async function dropTable(pool: Pool, schema: string, table: string): Promise<void> {
   await pool.query(`DROP TABLE ${quoteIdent(schema)}.${quoteIdent(table)}`);
 }
+
+export async function addColumn(
+  pool: Pool,
+  schema: string,
+  table: string,
+  column: ColumnDefinition
+): Promise<void> {
+  const target = `${quoteIdent(schema)}.${quoteIdent(table)}`;
+  await pool.query(`ALTER TABLE ${target} ADD COLUMN ${columnDefinitionSql(column)}`);
+}
+
+export async function renameColumn(
+  pool: Pool,
+  schema: string,
+  table: string,
+  column: string,
+  newName: string
+): Promise<void> {
+  const target = `${quoteIdent(schema)}.${quoteIdent(table)}`;
+  await pool.query(
+    `ALTER TABLE ${target} RENAME COLUMN ${quoteIdent(column)} TO ${quoteIdent(newName)}`
+  );
+}
+
+/**
+ * Postgres expresses each changed facet as its own `ALTER COLUMN` clause in one `ALTER TABLE`
+ * statement (unlike MySQL's `MODIFY COLUMN`, which needs the column's full resulting definition) -
+ * `changes` maps directly onto that, one clause per key actually present. No `USING` clause is
+ * added for a type change - Postgres's implicit assignment cast covers every transition between
+ * the curated catalog's own types that's meaningful without one; a genuinely incompatible cast
+ * surfaces as a real Postgres error, same as typing the statement by hand would.
+ */
+export async function alterColumn(
+  pool: Pool,
+  schema: string,
+  table: string,
+  column: string,
+  changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
+): Promise<void> {
+  const target = `${quoteIdent(schema)}.${quoteIdent(table)}`;
+  const quotedColumn = quoteIdent(column);
+  const clauses: string[] = [];
+  if (changes.dataType !== undefined) {
+    clauses.push(`ALTER COLUMN ${quotedColumn} TYPE ${changes.dataType}`);
+  }
+  if (changes.nullable !== undefined) {
+    clauses.push(
+      `ALTER COLUMN ${quotedColumn} ${changes.nullable ? "DROP NOT NULL" : "SET NOT NULL"}`
+    );
+  }
+  if ("default" in changes) {
+    clauses.push(
+      changes.default === null
+        ? `ALTER COLUMN ${quotedColumn} DROP DEFAULT`
+        : `ALTER COLUMN ${quotedColumn} SET DEFAULT ${formatDefaultLiteral(changes.default as string | number | boolean)}`
+    );
+  }
+  if (clauses.length === 0) return;
+  await pool.query(`ALTER TABLE ${target} ${clauses.join(", ")}`);
+}
+
+export async function dropColumn(
+  pool: Pool,
+  schema: string,
+  table: string,
+  column: string
+): Promise<void> {
+  await pool.query(
+    `ALTER TABLE ${quoteIdent(schema)}.${quoteIdent(table)} DROP COLUMN ${quoteIdent(column)}`
+  );
+}

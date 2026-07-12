@@ -98,6 +98,26 @@ export interface SchemaDdlApi {
    * out of scope for a single-table action). MongoDB: `deleteMany({})`. */
   truncateTable?(schema: string, table: string): Promise<void>;
   dropTable?(schema: string, table: string): Promise<void>;
+
+  // --- Column operations (F111, SQL engines only - absent on MongoDB entirely, not just
+  // per-call-rejected: collections have no fixed structure a "column" concept could alter) ---
+  addColumn?(schema: string, table: string, column: ColumnDefinition): Promise<void>;
+  renameColumn?(schema: string, table: string, column: string, newName: string): Promise<void>;
+  /** `changes` covers only what's actually changing - type, nullable, default - so an adapter
+   * that can express a partial ALTER (Postgres) doesn't have to reconstruct the column's full
+   * definition, while an adapter that can't (MySQL's `MODIFY COLUMN`, SQLite's rebuild path) reads
+   * the column's current definition itself and merges `changes` onto it internally. SQLite always
+   * takes the 12-step rebuild path here (`PRAGMA foreign_keys=OFF`, create-new/copy/swap in one
+   * transaction, recreate indexes/triggers, `PRAGMA foreign_key_check`, commit,
+   * `PRAGMA foreign_keys=ON`) - never a "fast path for safe changes" that could silently diverge
+   * from the one rebuild code path every other change already goes through. */
+  alterColumn?(
+    schema: string,
+    table: string,
+    column: string,
+    changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
+  ): Promise<void>;
+  dropColumn?(schema: string, table: string, column: string): Promise<void>;
 }
 
 /** A live, engine-specific connection to a single database. */

@@ -1,18 +1,30 @@
 import {
+  columnDefinitionSchema,
   confirmedNameRequestSchema,
   createTableRequestSchema,
-  renameTableRequestSchema
+  renameTableRequestSchema,
+  updateColumnRequestSchema
 } from "@qyre/core";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { ServerContext } from "../app.js";
 import { applyReadOnlyOverride } from "../services/read-only-capabilities.js";
 import { requireAdapter } from "../services/require-adapter.js";
 import {
+  assertColumnExists,
   assertDdlTarget,
   ddlRejected,
+  validateColumnDataType,
   validateColumnDefinitions,
   type DdlOperation
 } from "../services/schema-ddl-validation.js";
+
+/** MongoDB has no fixed structure a "column" concept could alter (docs/product-specs/
+ * schema-editing.md's "MongoDB's column operations" section) - registered for every engine (never
+ * a bare 404, which could read as a routing bug) but engine-conditionally rejected here, the same
+ * pattern `POST /api/mutations/commit` already uses for MongoDB. */
+function mongoColumnRoutesNotApplicable(engine: string): boolean {
+  return engine === "mongodb";
+}
 
 function logDdlSuccess(
   ctx: ServerContext,
@@ -273,6 +285,226 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
         table,
         startedAt,
         `Dropped table ${schema}.${table}.`
+      );
+
+      reply.status(204);
+      return null;
+    }
+  );
+
+  // Add a column. Non-destructive - a plain review-before-submit step, no typed confirmation.
+  app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
+    "/api/tables/:schema/:table/ddl/columns",
+    { config: { mutating: true } },
+    async (request, reply) => {
+      const { schema, table } = request.params;
+      const db = requireAdapter(ctx.adapter);
+      if (mongoColumnRoutesNotApplicable(db.engine)) {
+        return reply.status(400).send({ error: "Collections don't have columns to alter." });
+      }
+
+      const parsedBody = columnDefinitionSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({ error: "Request body must be a ColumnDefinition." });
+      }
+      const column = parsedBody.data;
+      const tableMetadata = await db.getTable(schema, table);
+      assertDdlTarget(tableMetadata);
+
+      const capabilities = applyReadOnlyOverride(await db.getCapabilities(), ctx.readOnly);
+      if (!capabilities.supportsDdl || !db.ddl?.addColumn) {
+        throw ddlRejected(
+          ctx,
+          request,
+          "addColumn",
+          schema,
+          table,
+          "This session cannot perform schema-editing operations.",
+          403
+        );
+      }
+      validateColumnDataType(column.dataType, db.engine, column.name);
+
+      const startedAt = performance.now();
+      try {
+        await db.ddl.addColumn(schema, table, column);
+      } catch (error) {
+        logDdlFailure(ctx, request, "addColumn", schema, table, startedAt, error);
+        throw error;
+      }
+      logDdlSuccess(
+        ctx,
+        request,
+        "addColumn",
+        schema,
+        table,
+        startedAt,
+        `Added column ${schema}.${table}.${column.name}.`
+      );
+
+      reply.status(201);
+      return { schema, table, column: column.name };
+    }
+  );
+
+  // Rename and/or alter a column in one request - either or both together, per
+  // docs/product-specs/schema-editing.md's API-shapes section. Non-destructive - a plain
+  // review-before-submit step, no typed confirmation.
+  app.patch<{ Params: { schema: string; table: string; column: string }; Body: unknown }>(
+    "/api/tables/:schema/:table/ddl/columns/:column",
+    { config: { mutating: true } },
+    async (request, reply) => {
+      const { schema, table, column } = request.params;
+      const db = requireAdapter(ctx.adapter);
+      if (mongoColumnRoutesNotApplicable(db.engine)) {
+        return reply.status(400).send({ error: "Collections don't have columns to alter." });
+      }
+
+      const parsedBody = updateColumnRequestSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply
+          .status(400)
+          .send({ error: "Request body must include newName and/or changes." });
+      }
+      const { newName, changes } = parsedBody.data;
+      const tableMetadata = await db.getTable(schema, table);
+      assertDdlTarget(tableMetadata);
+      assertColumnExists(tableMetadata, column);
+
+      const capabilities = applyReadOnlyOverride(await db.getCapabilities(), ctx.readOnly);
+      if (!capabilities.supportsDdl) {
+        throw ddlRejected(
+          ctx,
+          request,
+          newName !== undefined ? "renameColumn" : "alterColumn",
+          schema,
+          table,
+          "This session cannot perform schema-editing operations.",
+          403
+        );
+      }
+      if (changes?.dataType !== undefined) {
+        validateColumnDataType(changes.dataType, db.engine, column);
+      }
+
+      let currentName = column;
+
+      if (newName !== undefined) {
+        const renameColumn = db.ddl?.renameColumn;
+        if (!renameColumn) {
+          return reply
+            .status(400)
+            .send({ error: "This engine does not support renaming columns." });
+        }
+        const startedAt = performance.now();
+        try {
+          await renameColumn(schema, table, column, newName);
+        } catch (error) {
+          logDdlFailure(ctx, request, "renameColumn", schema, table, startedAt, error);
+          throw error;
+        }
+        logDdlSuccess(
+          ctx,
+          request,
+          "renameColumn",
+          schema,
+          table,
+          startedAt,
+          `Renamed column ${schema}.${table}.${column} to ${newName}.`
+        );
+        currentName = newName;
+      }
+
+      if (changes !== undefined) {
+        const alterColumn = db.ddl?.alterColumn;
+        if (!alterColumn) {
+          return reply
+            .status(400)
+            .send({ error: "This engine does not support altering columns." });
+        }
+        const startedAt = performance.now();
+        try {
+          await alterColumn(schema, table, currentName, changes);
+        } catch (error) {
+          logDdlFailure(ctx, request, "alterColumn", schema, table, startedAt, error);
+          throw error;
+        }
+        logDdlSuccess(
+          ctx,
+          request,
+          "alterColumn",
+          schema,
+          table,
+          startedAt,
+          `Altered column ${schema}.${table}.${currentName}.`
+        );
+      }
+
+      return { schema, table, column: currentName };
+    }
+  );
+
+  // Drop a column. Destructive: requires the caller to type the column's exact name, re-validated
+  // server-side. A request body on DELETE is valid HTTP, matching row-editing.md's identical
+  // precedent for its own DELETE route.
+  app.delete<{ Params: { schema: string; table: string; column: string }; Body: unknown }>(
+    "/api/tables/:schema/:table/ddl/columns/:column",
+    { config: { mutating: true } },
+    async (request, reply) => {
+      const { schema, table, column } = request.params;
+      const db = requireAdapter(ctx.adapter);
+      if (mongoColumnRoutesNotApplicable(db.engine)) {
+        return reply.status(400).send({ error: "Collections don't have columns to alter." });
+      }
+
+      const parsedBody = confirmedNameRequestSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({ error: "Request body must be { confirmedName: string }." });
+      }
+      const tableMetadata = await db.getTable(schema, table);
+      assertDdlTarget(tableMetadata);
+      assertColumnExists(tableMetadata, column);
+
+      if (parsedBody.data.confirmedName !== column) {
+        throw ddlRejected(
+          ctx,
+          request,
+          "dropColumn",
+          schema,
+          table,
+          `confirmedName must match the column name "${column}".`,
+          400
+        );
+      }
+
+      const capabilities = applyReadOnlyOverride(await db.getCapabilities(), ctx.readOnly);
+      if (!capabilities.supportsDdl || !db.ddl?.dropColumn) {
+        throw ddlRejected(
+          ctx,
+          request,
+          "dropColumn",
+          schema,
+          table,
+          "This session cannot perform schema-editing operations.",
+          403
+        );
+      }
+
+      const startedAt = performance.now();
+      try {
+        await db.ddl.dropColumn(schema, table, column);
+      } catch (error) {
+        logDdlFailure(ctx, request, "dropColumn", schema, table, startedAt, error);
+        throw error;
+      }
+      logDdlSuccess(
+        ctx,
+        request,
+        "dropColumn",
+        schema,
+        table,
+        startedAt,
+        `Dropped column ${schema}.${table}.${column}.`
       );
 
       reply.status(204);

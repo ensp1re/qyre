@@ -1,5 +1,6 @@
 import type { ColumnDefinition } from "@qyre/core";
 import type Database from "better-sqlite3";
+import { fetchForeignKeyList, fetchTableInfo, type TableInfoRow } from "./introspection.js";
 import { quoteIdent } from "./sql.js";
 
 /**
@@ -49,4 +50,145 @@ export function truncateTable(db: Database.Database, table: string): void {
 
 export function dropTable(db: Database.Database, table: string): void {
   db.exec(`DROP TABLE ${quoteIdent(table)}`);
+}
+
+/** Native `ADD COLUMN` (real limits apply - no non-constant default, no `PRIMARY KEY`/`UNIQUE`,
+ * no `NOT NULL` unless a default is given - SQLite's own constraint, not this adapter's). */
+export function addColumn(db: Database.Database, table: string, column: ColumnDefinition): void {
+  db.exec(`ALTER TABLE ${quoteIdent(table)} ADD COLUMN ${columnDefinitionSql(column)}`);
+}
+
+/** Native `RENAME COLUMN` (3.25+). */
+export function renameColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  newName: string
+): void {
+  db.exec(
+    `ALTER TABLE ${quoteIdent(table)} RENAME COLUMN ${quoteIdent(column)} TO ${quoteIdent(newName)}`
+  );
+}
+
+/** Native `DROP COLUMN` (3.35+, refuses a column that's part of a primary key, a foreign key, an
+ * index, or a generated column - SQLite's own constraint surfaces as a real error). */
+export function dropColumn(db: Database.Database, table: string, column: string): void {
+  db.exec(`ALTER TABLE ${quoteIdent(table)} DROP COLUMN ${quoteIdent(column)}`);
+}
+
+/** Builds one column's definition for the rebuilt table - `override` carries `alterColumn`'s
+ * requested changes for the one column being altered; every other column is carried over verbatim
+ * from its existing `PRAGMA table_info` row, including `dflt_value`'s text exactly as SQLite
+ * itself stores it (already valid, reusable SQL - re-quoting it would risk double-escaping). */
+function rebuildColumnSql(
+  row: TableInfoRow,
+  isSoleIntegerPrimaryKey: boolean,
+  override: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">> | undefined
+): string {
+  const dataType = override?.dataType ?? row.type;
+  const nullable = override?.nullable ?? row.notnull === 0;
+  const parts = [quoteIdent(row.name), dataType];
+  if (isSoleIntegerPrimaryKey) parts.push("PRIMARY KEY");
+  if (!nullable) parts.push("NOT NULL");
+
+  if (override && "default" in override) {
+    const value = override.default;
+    if (value !== null && value !== undefined) parts.push(`DEFAULT ${formatDefaultLiteral(value)}`);
+  } else if (row.dflt_value !== null) {
+    parts.push(`DEFAULT ${row.dflt_value}`);
+  }
+  return parts.join(" ");
+}
+
+/**
+ * SQLite's own documented workaround for a column change its native `ALTER TABLE` can't express
+ * directly (a type change, or a nullable/default change beyond `ADD COLUMN`'s own limits) - the
+ * 12-step rebuild pattern: `PRAGMA foreign_keys=OFF` (a no-op if toggled mid-transaction, so this
+ * must run first), create a new table with the desired final schema, copy every row across, drop
+ * the old table, rename the new one into its place, recreate every index/trigger that referenced
+ * the old table (from `sqlite_master`'s own stored `CREATE INDEX`/`CREATE TRIGGER` text - a view's
+ * stored SQL only names the table, so it keeps working once the rebuilt table exists under the
+ * same name, unaffected by the swap), `PRAGMA foreign_key_check`, commit, `PRAGMA foreign_keys=ON`.
+ * Every `alterColumn` call takes this one path - never a "fast path for safe changes" that could
+ * silently diverge from it, per docs/product-specs/schema-editing.md.
+ */
+function rebuildTable(
+  db: Database.Database,
+  table: string,
+  column: string,
+  changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
+): void {
+  const tableInfo = fetchTableInfo(db, table);
+  const foreignKeys = fetchForeignKeyList(db, table);
+  const replayObjects = db
+    .prepare(
+      `SELECT sql FROM sqlite_master WHERE tbl_name = ? AND type IN ('index', 'trigger') AND sql IS NOT NULL`
+    )
+    .all(table) as Array<{ sql: string }>;
+
+  const pkColumns = tableInfo.filter((row) => row.pk > 0).sort((a, b) => a.pk - b.pk);
+  const isSoleIntegerPrimaryKey =
+    pkColumns.length === 1 && pkColumns[0]?.type.toUpperCase() === "INTEGER";
+
+  const columnDefs = tableInfo.map((row) =>
+    rebuildColumnSql(
+      row,
+      isSoleIntegerPrimaryKey && row.pk > 0,
+      row.name === column ? changes : undefined
+    )
+  );
+  if (!isSoleIntegerPrimaryKey && pkColumns.length > 0) {
+    columnDefs.push(`PRIMARY KEY (${pkColumns.map((row) => quoteIdent(row.name)).join(", ")})`);
+  }
+  for (const foreignKey of foreignKeys) {
+    if (foreignKey.to === null) continue;
+    const actions = [
+      foreignKey.on_delete && foreignKey.on_delete !== "NO ACTION"
+        ? `ON DELETE ${foreignKey.on_delete}`
+        : "",
+      foreignKey.on_update && foreignKey.on_update !== "NO ACTION"
+        ? `ON UPDATE ${foreignKey.on_update}`
+        : ""
+    ]
+      .filter(Boolean)
+      .join(" ");
+    columnDefs.push(
+      `FOREIGN KEY (${quoteIdent(foreignKey.from)}) REFERENCES ${quoteIdent(foreignKey.table)}(${quoteIdent(
+        foreignKey.to
+      )})${actions ? ` ${actions}` : ""}`
+    );
+  }
+
+  const tempTable = `${table}__qyre_rebuild`;
+  const columnNames = tableInfo.map((row) => quoteIdent(row.name)).join(", ");
+
+  db.pragma("foreign_keys = OFF");
+  try {
+    db.transaction(() => {
+      db.exec(`CREATE TABLE ${quoteIdent(tempTable)} (${columnDefs.join(", ")})`);
+      db.exec(
+        `INSERT INTO ${quoteIdent(tempTable)} (${columnNames}) SELECT ${columnNames} FROM ${quoteIdent(table)}`
+      );
+      db.exec(`DROP TABLE ${quoteIdent(table)}`);
+      db.exec(`ALTER TABLE ${quoteIdent(tempTable)} RENAME TO ${quoteIdent(table)}`);
+      for (const object of replayObjects) {
+        db.exec(object.sql);
+      }
+      const violations = db.pragma("foreign_key_check") as unknown[];
+      if (violations.length > 0) {
+        throw new Error(`Foreign key check failed while rebuilding "${table}".`);
+      }
+    })();
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+}
+
+export function alterColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
+): void {
+  rebuildTable(db, table, column, changes);
 }

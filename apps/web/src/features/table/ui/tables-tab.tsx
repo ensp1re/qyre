@@ -125,6 +125,8 @@ export function TablesTab({
       editingDisabledReason={editability.reason}
       primaryKeyColumns={primaryKeyColumns}
       pendingChanges={pendingChanges}
+      canInsert={editability.canInsert}
+      insertableColumns={editability.insertableColumns}
     />
   );
 }

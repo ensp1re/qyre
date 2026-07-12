@@ -11,9 +11,27 @@ export interface TableEditability {
    * docs/product-specs/row-editing.md ("a primary-key column is... never editable when updating an
    * existing row"). Empty when `editable` is false. */
   readonly editableColumns: ReadonlySet<string>;
+  /** Whether Add-row/Duplicate-row (F104) should render at all - hidden entirely (not merely
+   * disabled) when false, per the spec. Gated independently of `editable`/`update`: a session can
+   * have insert without update permission, or vice versa. */
+  readonly canInsert: boolean;
+  /** Why insert is unavailable - present only when `canInsert` is false and there's something worth
+   * explaining (unused today since Add-row/Duplicate-row are hidden, not disabled-with-a-badge, but
+   * kept symmetric with `reason` in case a future slice wants it). */
+  readonly insertReason?: string;
+  /** Columns an insert draft can set - unlike `editableColumns`, primary-key columns ARE included
+   * (a new row's key must be supplied unless the engine auto-generates it, per the spec's insert
+   * section); structured/binary/unknown/null kinds are still excluded. Empty when `canInsert` is
+   * false. */
+  readonly insertableColumns: ReadonlySet<string>;
 }
 
-const NOT_EDITABLE: TableEditability = { editable: false, editableColumns: new Set() };
+const NOT_EDITABLE: TableEditability = {
+  editable: false,
+  editableColumns: new Set(),
+  canInsert: false,
+  insertableColumns: new Set()
+};
 
 function readOnlySessionReason(capabilities: ConnectionCapabilities | undefined): string {
   switch (capabilities?.readOnlyReason) {
@@ -45,51 +63,74 @@ export function computeTableEditability(
   if (!table || engine === "mongodb") return NOT_EDITABLE;
 
   if (table.kind !== "table") {
+    const reason =
+      table.kind === "view"
+        ? "Views are read-only - they have no rows of their own to update."
+        : table.kind === "materialized-view"
+          ? "Materialized views are refreshed, not edited row-by-row."
+          : "This isn't editable.";
     return {
       editable: false,
-      reason:
-        table.kind === "view"
-          ? "Views are read-only - they have no rows of their own to update."
-          : table.kind === "materialized-view"
-            ? "Materialized views are refreshed, not edited row-by-row."
-            : "This isn't editable.",
-      editableColumns: new Set()
+      reason,
+      editableColumns: new Set(),
+      canInsert: false,
+      insertReason: reason,
+      insertableColumns: new Set()
     };
   }
 
   if (!table.columns.some((column) => column.isPrimaryKey)) {
+    const reason = "This table has no primary key, so a specific row can't be reliably targeted.";
     return {
       editable: false,
-      reason: "This table has no primary key, so a specific row can't be reliably targeted.",
-      editableColumns: new Set()
+      reason,
+      editableColumns: new Set(),
+      canInsert: false,
+      insertReason: reason,
+      insertableColumns: new Set()
     };
   }
 
   if (!sessionAllows(capabilities, "supportsRowMutations")) {
+    const reason = readOnlySessionReason(capabilities);
     return {
       editable: false,
-      reason: readOnlySessionReason(capabilities),
-      editableColumns: new Set()
+      reason,
+      editableColumns: new Set(),
+      canInsert: false,
+      insertReason: reason,
+      insertableColumns: new Set()
     };
   }
 
-  if (!tableAllows(table.permissions, "update")) {
-    return {
-      editable: false,
-      reason: "This session doesn't have permission to update this table.",
-      editableColumns: new Set()
-    };
-  }
+  const canUpdate = tableAllows(table.permissions, "update");
+  const canInsert = tableAllows(table.permissions, "insert");
 
-  const editableColumns = new Set(
-    table.columns
-      .filter((column) => !column.isPrimaryKey)
-      .filter((column) => {
-        const kind = classifyFilterColumnKind(column.dataType, engine);
-        return kind !== "structured" && kind !== "binary" && kind !== "unknown" && kind !== "null";
-      })
-      .map((column) => column.name)
-  );
+  const nonStructuredColumns = table.columns.filter((column) => {
+    const kind = classifyFilterColumnKind(column.dataType, engine);
+    return kind !== "structured" && kind !== "binary" && kind !== "unknown" && kind !== "null";
+  });
 
-  return { editable: true, editableColumns };
+  const editableColumns = canUpdate
+    ? new Set(
+        nonStructuredColumns.filter((column) => !column.isPrimaryKey).map((column) => column.name)
+      )
+    : new Set<string>();
+
+  // Unlike `editableColumns`, the primary key IS included here - a new row's key must be supplied
+  // on insert unless the engine auto-generates it (docs/product-specs/row-editing.md).
+  const insertableColumns = canInsert
+    ? new Set(nonStructuredColumns.map((column) => column.name))
+    : new Set<string>();
+
+  return {
+    editable: canUpdate,
+    reason: canUpdate ? undefined : "This session doesn't have permission to update this table.",
+    editableColumns,
+    canInsert,
+    insertReason: canInsert
+      ? undefined
+      : "This session doesn't have permission to insert into this table.",
+    insertableColumns
+  };
 }

@@ -92,3 +92,70 @@ describe("computeTableEditability (F103)", () => {
     expect(result.editableColumns.size).toBe(0);
   });
 });
+
+describe("computeTableEditability insert gating (F104)", () => {
+  it("allows insert with full write access, including the primary key but excluding structured columns", () => {
+    const result = computeTableEditability(EDITABLE_TABLE, WRITABLE_CAPABILITIES, "postgres");
+    expect(result.canInsert).toBe(true);
+    expect(result.insertableColumns.has("id")).toBe(true);
+    expect(result.insertableColumns.has("name")).toBe(true);
+    expect(result.insertableColumns.has("tags")).toBe(false);
+  });
+
+  it("allows insert independently of update permission", () => {
+    const insertOnly: TableMetadata = {
+      ...EDITABLE_TABLE,
+      permissions: { select: true, insert: true, update: false, delete: false }
+    };
+    const result = computeTableEditability(insertOnly, WRITABLE_CAPABILITIES, "postgres");
+    expect(result.editable).toBe(false);
+    expect(result.canInsert).toBe(true);
+    expect(result.insertableColumns.has("id")).toBe(true);
+  });
+
+  it("disables insert when the table lacks insert permission, independently of update", () => {
+    const updateOnly: TableMetadata = {
+      ...EDITABLE_TABLE,
+      permissions: { select: true, insert: false, update: true, delete: false }
+    };
+    const result = computeTableEditability(updateOnly, WRITABLE_CAPABILITIES, "postgres");
+    expect(result.editable).toBe(true);
+    expect(result.canInsert).toBe(false);
+    expect(result.insertReason).toMatch(/permission/i);
+    expect(result.insertableColumns.size).toBe(0);
+  });
+
+  it("disables insert entirely for MongoDB", () => {
+    const result = computeTableEditability(EDITABLE_TABLE, WRITABLE_CAPABILITIES, "mongodb");
+    expect(result.canInsert).toBe(false);
+    expect(result.insertableColumns.size).toBe(0);
+  });
+
+  it("disables insert for a view, with the same reason as editing", () => {
+    const view: TableMetadata = { ...EDITABLE_TABLE, kind: "view" };
+    const result = computeTableEditability(view, WRITABLE_CAPABILITIES, "postgres");
+    expect(result.canInsert).toBe(false);
+    expect(result.insertReason).toMatch(/view/i);
+  });
+
+  it("disables insert for a table with no primary key", () => {
+    const noPk: TableMetadata = {
+      ...EDITABLE_TABLE,
+      columns: columns.map((column) => ({ ...column, isPrimaryKey: false }))
+    };
+    const result = computeTableEditability(noPk, WRITABLE_CAPABILITIES, "postgres");
+    expect(result.canInsert).toBe(false);
+    expect(result.insertReason).toMatch(/primary key/i);
+  });
+
+  it("disables insert for a read-only session", () => {
+    const readOnly: ConnectionCapabilities = {
+      ...WRITABLE_CAPABILITIES,
+      supportsRowMutations: false,
+      readOnlyReason: "qyre-flag"
+    };
+    const result = computeTableEditability(EDITABLE_TABLE, readOnly, "postgres");
+    expect(result.canInsert).toBe(false);
+    expect(result.insertReason).toMatch(/--read-only/);
+  });
+});

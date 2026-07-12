@@ -7,12 +7,13 @@ import { cn } from "../cn.js";
 import { DateTimeInput, type DateTimeInputKind } from "../primitives/date-time-input.js";
 import { formatCell } from "../primitives/format-cell.js";
 
-type EditWidget = "text" | "number" | "boolean" | DateTimeInputKind;
+export type EditWidget = "text" | "number" | "boolean" | DateTimeInputKind;
 
 /** Maps a column's `FilterColumnKind` (F082/F089) to the inline editor widget it gets - the same
  * kind classification `RowsTable`'s caller already used to decide whether this column is editable
- * at all, so a column that reaches this component always has a defined widget. */
-function widgetFor(dataType: string, engine: DatabaseEngine | undefined): EditWidget {
+ * at all, so a column that reaches this component always has a defined widget. Exported so
+ * `NewRowCell` (F104) can pick the identical widget for a column's insert editor. */
+export function widgetFor(dataType: string, engine: DatabaseEngine | undefined): EditWidget {
   switch (classifyFilterColumnKind(dataType, engine)) {
     case "numeric":
       return "number";

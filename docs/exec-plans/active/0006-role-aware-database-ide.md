@@ -477,3 +477,29 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   authoritative gate remains each adapter's engine-level read-only enforcement. F107 (write-capable
   SQL execution - `runQuery(sql)` on the three SQL adapters plus a server confirmation contract) is
   next.
+- 2026-07-12 (later still): F107 implemented (PR pending) - write-capable SQL execution.
+  `DatabaseAdapter.runQuery(sql)` (Postgres/MySQL/SQLite only; absent on MongoDB, which has no SQL
+  query runner) executes a single statement of any classification directly, no `READ ONLY`
+  transaction wrapper, honoring the same per-engine statement timeout and F050 result-row cap
+  (`capResultRows`) as `runReadOnlyQuery` - a writable CTE returning rows via `RETURNING` is still
+  capped. `POST /api/query` routes on session write capability
+  (`applyReadOnlyOverride(getCapabilities(), ctx.readOnly).supportsRowMutations` - `--read-only`,
+  F096, still wins): a session with no write access behaves exactly as before, calling
+  `runReadOnlyQuery` unconditionally; a write-capable session classifies via `classifyStatement`
+  (F106) first - `read` still runs through `runReadOnlyQuery` (its coercion and `READ ONLY` wrapper
+  stay in effect regardless of session write capability, deliberately), `mutation`/`ddl` run
+  directly via `runQuery`, `destructive` is rejected `409` unless the request carries `confirmed:
+true`, checked fresh on every request (a server-enforced round-trip, never a client-only guard).
+  Every executed non-`read` statement logs an audit event to the Console tab's event log with its
+  classification and affected-row count; a rejected unconfirmed-destructive attempt also logs.
+  CRITICAL constraint from the plan's own risk list: `PostgresAdapter.runQuery` deliberately never
+  calls `coerceUnknownQuotedIdentifiers` - that DWIM double-quote-to-string rewrite is acceptable for
+  a read but must never silently alter a mutation's SQL; a dedicated regression test proves an
+  unknown double-quoted token in an `UPDATE` is sent to Postgres verbatim and fails with a native
+  "column does not exist" error, unlike the identical text on the read path. Each SQL adapter's
+  `runQuery` handles the two possible result shapes its own driver returns (Postgres's `rowCount` is
+  always populated; mysql2 returns `RowDataPacket[]` or a `ResultSetHeader` depending on the
+  statement; better-sqlite3's prepared-statement `reader` flag tells us ahead of `.run()`/`.all()`
+  which shape to expect). `docs/product-specs/sql-editor.md` gained a new "Write-capable SQL
+  execution" section. F108 (the SQL editor UI itself becomes write-capable - results-panel
+  affected-row count, a confirmation dialog for destructive statements) is next.

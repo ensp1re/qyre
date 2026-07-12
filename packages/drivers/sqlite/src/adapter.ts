@@ -4,6 +4,7 @@ import type {
   ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
+  QueryExecutionResult,
   RowFilter,
   RowPage,
   RowSort,
@@ -162,6 +163,25 @@ export class SqliteAdapter implements DatabaseAdapter {
     } finally {
       db.pragma("query_only = 0");
     }
+  }
+
+  /** F107: executes a single mutation/ddl/confirmed-destructive statement directly, no
+   * `query_only` toggling. better-sqlite3's prepared-statement `reader` flag tells us ahead of
+   * `.run()`/`.all()` which shape the statement produces - unlike Postgres/MySQL there's no single
+   * call that returns either shape uniformly. No statement timeout (better-sqlite3 is synchronous
+   * and has none to honor here, matching `runReadOnlyQuery`'s own precedent). */
+  async runQuery(sql: string): Promise<QueryExecutionResult> {
+    const stmt = this.getDb().prepare(capResultRows(sql)).safeIntegers(true);
+    if (stmt.reader) {
+      const rows = (stmt.all() as Array<Record<string, unknown>>).map(normalizeRow);
+      return {
+        columns: stmt.columns().map((column) => column.name),
+        rows,
+        rowsAffected: rows.length
+      };
+    }
+    const info = stmt.run();
+    return { columns: [], rows: [], rowsAffected: info.changes };
   }
 }
 

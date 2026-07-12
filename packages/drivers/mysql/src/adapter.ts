@@ -3,6 +3,7 @@ import type {
   ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
+  QueryExecutionResult,
   RowFilter,
   RowPage,
   RowSort,
@@ -213,6 +214,27 @@ export class MysqlAdapter implements DatabaseAdapter {
       },
       capResultRows(sql)
     );
+  }
+
+  /** F107: executes a single mutation/ddl/confirmed-destructive statement directly on the pool, no
+   * `START TRANSACTION READ ONLY` wrapper. mysql2 returns `RowDataPacket[]` for a row-returning
+   * statement and a `ResultSetHeader` (with `affectedRows`) otherwise - both are handled here since
+   * the caller doesn't know ahead of time which shape a given statement produces. */
+  async runQuery(sql: string): Promise<QueryExecutionResult> {
+    const [result, fields] = await this.getPool().query<
+      mysql.RowDataPacket[] | mysql.ResultSetHeader
+    >({
+      sql: capResultRows(sql),
+      timeout: this.statementTimeoutMs
+    });
+    if (Array.isArray(result)) {
+      return {
+        columns: (fields ?? []).map((field) => field.name),
+        rows: result as Array<Record<string, unknown>>,
+        rowsAffected: result.length
+      };
+    }
+    return { columns: [], rows: [], rowsAffected: result.affectedRows };
   }
 }
 

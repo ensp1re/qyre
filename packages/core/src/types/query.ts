@@ -7,6 +7,20 @@ export interface RowPage {
   readonly total?: number;
 }
 
+/**
+ * Result of executing one write-capable SQL statement (F107) via `DatabaseAdapter.runQuery` -
+ * either row-returning (`rows` populated, `rowsAffected` mirrors `rows.length`) or a bare
+ * affected-row count for a statement with no result set (`rows` empty, `rowsAffected` is the
+ * engine-reported changed/affected count - 0 for DDL). Read-shaped statements still go through
+ * `runReadOnlyQuery`/`RowPage`, not this type - see `docs/product-specs/sql-editor.md`'s
+ * "Write-capable SQL execution" section.
+ */
+export interface QueryExecutionResult {
+  readonly columns: string[];
+  readonly rows: Array<Record<string, unknown>>;
+  readonly rowsAffected: number;
+}
+
 /** Which direction to sort rows in `GET /api/tables/:schema/:table/rows` (F065). */
 export type SortDirection = "asc" | "desc";
 

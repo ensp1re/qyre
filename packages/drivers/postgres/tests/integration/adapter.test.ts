@@ -384,6 +384,51 @@ describe("PostgresAdapter integration", () => {
     await expect(adapter.runReadOnlyQuery(`DELETE FROM ${FIXTURE.table}`)).rejects.toThrow();
   });
 
+  it("runQuery executes an INSERT and reports rowsAffected (F107)", async () => {
+    try {
+      const result = await adapter.runQuery?.(
+        `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('RunQuery Insert', 'run-query-insert@example.com')`
+      );
+      expect(result).toEqual({ columns: [], rows: [], rowsAffected: 1 });
+
+      const page = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 10);
+      expect(page.rows.some((row) => row.email === "run-query-insert@example.com")).toBe(true);
+    } finally {
+      await runStatements(databaseUrl, [
+        `DELETE FROM ${FIXTURE.table} WHERE email = 'run-query-insert@example.com'`
+      ]);
+    }
+  });
+
+  it("runQuery executes a DDL statement (F107)", async () => {
+    await runStatements(databaseUrl, ["DROP TABLE IF EXISTS qyre_test_runquery_ddl"]);
+    try {
+      const result = await adapter.runQuery?.(
+        "CREATE TABLE qyre_test_runquery_ddl (id serial PRIMARY KEY)"
+      );
+      expect(result?.columns).toEqual([]);
+      expect(result?.rows).toEqual([]);
+
+      const overview = await adapter.getOverview();
+      const schema = overview.schemas.find((candidate) => candidate.name === FIXTURE.schema);
+      expect(schema?.tables).toContain("qyre_test_runquery_ddl");
+    } finally {
+      await runStatements(databaseUrl, ["DROP TABLE IF EXISTS qyre_test_runquery_ddl"]);
+    }
+  });
+
+  it("CRITICAL: runQuery does NOT rewrite an unknown double-quoted token, unlike runReadOnlyQuery's coercion (F107 regression)", async () => {
+    // The exact same text that runReadOnlyQuery's coercion would silently rewrite into a string
+    // literal (see "treats a double-quoted value..." above) must be sent to Postgres verbatim on
+    // the write path - a mutation's SQL is never DWIM-coerced, only read statements get that
+    // treatment (docs/product-specs/sql-editor.md). `WHERE id = -1` matches no real row, but
+    // Postgres still validates the SET clause's column reference at plan time regardless, so this
+    // never touches fixture data even though it throws.
+    await expect(
+      adapter.runQuery?.(`UPDATE ${FIXTURE.table} SET name="Alan Turing" WHERE id = -1`)
+    ).rejects.toThrow(/column "Alan Turing" does not exist/);
+  });
+
   it("runs a read-only query whose string literal contains a semicolon (F021 regression)", async () => {
     // Previously: assertReadOnly checked for `;` against raw SQL, so filtering by any value
     // containing a semicolon (a URL, encoded blob, free text) was wrongly rejected as

@@ -6,10 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-12.
-- Branch: `main`. F125 merged (PR #119, both CI jobs green) - Phase B (row editing, F098-F105/F125)
-  is now fully complete. F106 (`classifyStatement`, opening Phase C's SQL editor work) implemented
-  on `feature/F106-classify-statement`, not yet pushed/PR'd.
-- Queue: F092-F105 and F125 are `passing`; F106-F121 and F126-F128 remain `not_started`. F106 is
+- Branch: `main`. F106 merged (PR #120, both CI jobs green). F107 (write-capable SQL execution)
+  implemented on `feature/F107-write-capable-sql-execution`, not yet pushed/PR'd.
+- Queue: F092-F106 and F125 are `passing`; F107-F121 and F126-F128 remain `not_started`. F107 is
   `not_started` in `FEATURES.json` pending its own merge (its passing state + evidence will be
   recorded in the next feature's delivery commit, per this session's established bundling
   convention). `nextIds.F` is 129.
@@ -19,28 +18,31 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - All read-only MVP work through F089 is merged and passing; see product specs and Git/PR history.
 - Exec plan 0006 (`docs/exec-plans/active/0006-role-aware-database-ide.md`) queued the full
   read-only-to-write-capable-IDE plan as F090-F128; see the plan's own progress log for full
-  per-feature history and `docs/FEATURES.json` for verification evidence. F090-F105, F122-F125,
-  F129 are merged to `main` (PRs #94-#119): permission/capability foundation (F090-F098,
+  per-feature history and `docs/FEATURES.json` for verification evidence. F090-F106, F122-F125,
+  F129 are merged to `main` (PRs #94-#120): permission/capability foundation (F090-F098,
   F122-F124), the row-mutation write path (`RowMutationApi.insertRow`/`updateRowByKey`/
-  `deleteRowsByKey`/`commitBatch`, F099-F102), and the full row-editing UI - the SQL editable grid
+  `deleteRowsByKey`/`commitBatch`, F099-F102), the full row-editing UI - the SQL editable grid
   (inline cell edit, add/duplicate row, delete staging + commit bar, F103-F105) and MongoDB's
-  whole-document Extended JSON editor (F125).
+  whole-document Extended JSON editor (F125) - and `classifyStatement` (F106), the
+  `read`/`mutation`/`ddl`/`destructive` SQL classification heuristic `assertReadOnly` is now built
+  on top of, opening Phase C's SQL editor work.
 
 ## In progress
 
-- F106 (`classifyStatement`) implemented on `feature/F106-classify-statement`:
-  `packages/drivers/contract`'s `read-only.ts` gains `classifyStatement(sql)`, labeling a single
-  statement `read | mutation | ddl | destructive` from the same comment/literal-stripping text
-  scanner `assertReadOnly` always used - `assertReadOnly` is now reimplemented on top of it
-  (`classification !== "read"` throws), and all 18 of its pre-existing tests pass unmodified.
-  DROP/TRUNCATE are always `destructive`; UPDATE/DELETE without a `WHERE` clause escalate to
-  `destructive` too (an unqualified UPDATE/DELETE rewrites or empties the whole table); a writable
-  CTE (`WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x`) classifies by its inner write
-  action even though it starts with the read-safe `WITH` keyword. An unrecognized statement (e.g.
-  `PRAGMA ...`) conservatively classifies as `mutation`, never `read`, since defense-in-depth means
-  never treating the unknown as safe. Pure text heuristic only - the authoritative gate remains
-  each adapter's engine-level read-only enforcement. `pnpm check:quiet` green; not yet
-  pushed/PR'd.
+- F107 (write-capable SQL execution) implemented on `feature/F107-write-capable-sql-execution`:
+  `DatabaseAdapter.runQuery(sql)` (Postgres/MySQL/SQLite only, absent on MongoDB) executes a single
+  mutation/ddl/confirmed-destructive statement directly, no `READ ONLY` transaction wrapper, honoring
+  the same per-engine statement timeout and F050 result-row cap as `runReadOnlyQuery`. `POST
+/api/query` routes on session write capability: a session with no write access behaves exactly as
+  before; a write-capable session classifies via `classifyStatement` (F106) first - `read` still
+  goes through `runReadOnlyQuery` (coercion + `READ ONLY` wrapper intact), `mutation`/`ddl` run
+  directly via `runQuery`, `destructive` is rejected `409` unless the request carries `confirmed:
+true` (a server-enforced round-trip, checked on every request, never a client-only guard). Every
+  executed non-`read` statement logs an audit event with its classification and affected-row count.
+  CRITICAL constraint verified by a dedicated regression test: `PostgresAdapter.runQuery` never
+  applies `coerceUnknownQuotedIdentifiers` - that DWIM double-quote-to-string rewrite stays a
+  read-only convenience, never silently altering a mutation's SQL. `docs/product-specs/sql-editor.md`
+  gained a "Write-capable SQL execution" section. `pnpm check:quiet` green; not yet pushed/PR'd.
 
 ## Known issues / blockers
 
@@ -67,6 +69,6 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Finish delivering F106 (push, PR, CI, then wait for merge), then F107 (write-capable SQL
-  execution, `runQuery(sql)` on the three SQL adapters + a server confirmation contract) per the
-  exec plan's Phase C order.
+- Finish delivering F107 (push, PR, CI, then wait for merge), then F108 (the SQL editor UI itself
+  becomes write-capable when the session allows - results-panel affected-row count, a confirmation
+  dialog for destructive statements) per the exec plan's Phase C order.

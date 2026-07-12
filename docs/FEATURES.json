@@ -231,11 +231,12 @@
       "id": "F106",
       "behavior": "packages/drivers/contract gains classifyStatement(sql) labeling a single SQL statement as read | mutation | ddl | destructive (DROP/TRUNCATE always destructive; UPDATE/DELETE without a WHERE clause destructive; writable CTEs classify as their write action), extracted by generalizing assertReadOnly's existing comment/literal-stripping scanner so read-only behavior stays bit-for-bit unchanged - assertReadOnly is reimplemented on top of the classifier and its existing tests pass untouched. Pure text heuristic, defense-in-depth only; the authoritative gate remains engine-level enforcement. Unit tests cover the classification matrix including comment/literal/CTE edge cases. No server or UI change. Depends on F090.",
       "verification": "pnpm --filter @qyre/driver-contract test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "561aca7",
+      "evidence": "PR #120 (https://github.com/ensp1re/qyre/pull/120), merged as 561aca7. packages/drivers/contract's read-only.ts gains classifyStatement(sql), generalizing assertReadOnly's existing comment/literal-stripping scanner into a read | mutation | ddl | destructive classification; assertReadOnly is reimplemented on top of it (classification !== \"read\" throws), and all 18 of its pre-existing tests pass unmodified, confirming bit-for-bit unchanged read-only behavior. DROP/TRUNCATE are always destructive. UPDATE/DELETE escalate to destructive only when no WHERE clause bounds them (an unqualified UPDATE/DELETE rewrites or empties the whole table) - with a WHERE clause they're an ordinary mutation. CREATE/ALTER/GRANT/REVOKE/COMMENT classify as ddl; INSERT/MERGE/COPY/CALL/DO/VACUUM/REINDEX/REFRESH/LOCK classify as mutation. A writable CTE (WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x) classifies by its inner write action even though it starts with the read-safe WITH keyword. An unrecognized statement (e.g. PRAGMA ...) conservatively classifies as mutation, never read, since defense-in-depth means never treating the unknown as safe. Pure text heuristic only, no server or UI change - the authoritative gate remains each adapter's engine-level read-only enforcement. Verified: pnpm check:quiet, pnpm verify:pr (full local gate incl. Docker-backed @full E2E across all 5 Playwright projects, green after retries - two unrelated specs each failed once under parallel load and were isolation-verified passing standalone), 17 new classifyStatement unit tests covering the classification matrix. GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-12T05:00:00.000Z"
     },
     {
       "id": "F107",

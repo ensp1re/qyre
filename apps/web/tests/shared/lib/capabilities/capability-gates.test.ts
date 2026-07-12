@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   sessionAllows,
   tableAllows
-} from "../../../../src/features/connection/model/capability-gates.js";
+} from "../../../../src/shared/lib/capabilities/capability-gates.js";
 
 const WRITABLE: ConnectionCapabilities = {
   supportsSql: true,

@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Copy,
   Download,
+  Lock,
   RefreshCw,
   Search,
   X
@@ -25,6 +26,7 @@ import { CellValueDrawer } from "./cell-value-drawer.js";
 import type { InspectableValue } from "./cell-value.js";
 import { CellValue } from "./cell-value.js";
 import { DateDetailPopover } from "./date-detail-popover.js";
+import { EditableCell } from "./editable-cell.js";
 import { FilterBar } from "./filter-bar.js";
 
 export interface RowsTableProps {
@@ -66,6 +68,29 @@ export interface RowsTableProps {
   /** Reports the full next filter set (add, remove, or a primary-key cell click replacing it with
    * a single drill-down filter) - the caller re-fetches `rowPage` filtered accordingly (F072). */
   onFiltersChange?: (filters: RowFilter[] | undefined) => void;
+  /** Enables inline cell editing (F103) - omitted or false renders every cell exactly as before,
+   * matching every other opt-in prop here. The caller derives this (and `editableColumns`) from
+   * session capabilities, table permissions, `kind`, and primary-key presence - this component
+   * never re-derives editability itself. */
+  editable?: boolean;
+  /** Column names eligible for inline editing when `editable` is true - primary-key columns are
+   * never included (see docs/product-specs/row-editing.md). Ignored when `editable` is false. */
+  editableColumns?: ReadonlySet<string>;
+  /** Why editing is unavailable, shown as a small badge in the toolbar - omitted (with `editable`
+   * false) shows no badge and no explanation, matching a table this component has no opinion on
+   * (e.g. the caller hasn't loaded permissions yet). */
+  editingDisabledReason?: string;
+  /** The primary-key column names, used to compute each row's stable identity for the
+   * pending-changes buffer below. Required (with `pendingChanges`) for any cell to be editable. */
+  primaryKeyColumns?: readonly string[];
+  /** The pending-changes buffer (F103) - `RowsTable` stages edits into it and reads staged values
+   * back for dirty-cell display, but never calls the server itself; commit wiring is F105. Omitted
+   * disables editing regardless of `editable`. */
+  pendingChanges?: {
+    getEdit: (rowKey: string, column: string) => { next: unknown } | undefined;
+    stageEdit: (rowKey: string, column: string, original: unknown, next: unknown) => void;
+    revertEdit: (rowKey: string, column: string) => void;
+  };
 }
 
 /** Approximate row height in px (matches the `py-1.5` cell padding + 11px font) - only an estimate
@@ -91,6 +116,15 @@ export function toCsv(columns: string[], rows: Array<Record<string, unknown>>): 
   return lines.join("\n");
 }
 
+/** Stable identity for a row, derived from its primary-key column values (F103) - how a staged
+ * edit is matched back to the same logical row regardless of page/sort/filter changes. Mirrors
+ * `apps/web/src/features/table/model/pending-changes.ts`'s `computeRowKey` exactly (packages/ui
+ * can't depend on apps/web, and this is small enough that duplicating it beats a shared package for
+ * three lines) - both sides must stay in sync if the shape ever changes. */
+function computeRowKey(row: Record<string, unknown>, primaryKeyColumns: readonly string[]): string {
+  return JSON.stringify([...primaryKeyColumns].sort().map((column) => [column, row[column]]));
+}
+
 /** A page of table rows: client-side search over the fetched page, plus server-driven sort (F065)
  * and pagination. */
 export function RowsTable({
@@ -112,7 +146,12 @@ export function RowsTable({
   onExportAllRows,
   onExportSelectedRows,
   filters,
-  onFiltersChange
+  onFiltersChange,
+  editable,
+  editableColumns,
+  editingDisabledReason,
+  primaryKeyColumns,
+  pendingChanges
 }: RowsTableProps): ReactNode {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -293,6 +332,15 @@ export function RowsTable({
           />
         )}
 
+        {!editable && editingDisabledReason && (
+          <span
+            title={editingDisabledReason}
+            className="flex items-center gap-1 rounded-[3px] bg-accent/60 px-2 py-1 font-mono text-[10px] text-muted-foreground"
+          >
+            <Lock className="h-2.5 w-2.5" /> Read-only
+          </span>
+        )}
+
         <div className="ml-auto flex items-center gap-2">
           {selected.size > 0 && (
             <>
@@ -458,12 +506,42 @@ export function RowsTable({
                       const meta = columnByName.get(columnName);
                       const reference =
                         meta?.isForeignKey && onNavigateToForeignKey ? meta.references : undefined;
+                      // FK-with-navigation and PK-with-filter-click keep their existing single-click
+                      // behavior even when this column is otherwise editable - PK columns are never
+                      // in `editableColumns` in the first place (F103), so only the FK case actually
+                      // needs this explicit precedence check.
+                      const isEditableCell =
+                        editable &&
+                        !reference &&
+                        !meta?.isPrimaryKey &&
+                        editableColumns?.has(columnName) &&
+                        pendingChanges &&
+                        primaryKeyColumns;
+                      const rowKey = isEditableCell
+                        ? computeRowKey(row, primaryKeyColumns)
+                        : undefined;
+                      const staged =
+                        isEditableCell && rowKey
+                          ? pendingChanges.getEdit(rowKey, columnName)
+                          : undefined;
                       return (
                         <td
                           key={columnName}
                           className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
                         >
-                          {row[columnName] === null || row[columnName] === undefined ? (
+                          {isEditableCell && rowKey ? (
+                            <EditableCell
+                              displayValue={staged ? staged.next : row[columnName]}
+                              dataType={meta?.dataType ?? "unknown"}
+                              engine={engine}
+                              nullable={meta?.nullable ?? true}
+                              dirty={Boolean(staged)}
+                              onCommit={(next) =>
+                                pendingChanges.stageEdit(rowKey, columnName, row[columnName], next)
+                              }
+                              onRevert={() => pendingChanges.revertEdit(rowKey, columnName)}
+                            />
+                          ) : row[columnName] === null || row[columnName] === undefined ? (
                             <span className="italic text-muted-foreground/30">null</span>
                           ) : reference ? (
                             <button

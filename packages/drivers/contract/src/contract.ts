@@ -18,6 +18,23 @@ import type {
 export type ConnectionEventLevel = "warn" | "error";
 
 /**
+ * The server-side registry a cancellable adapter method (`getRows`/`runReadOnlyQuery`/`runQuery`,
+ * F126) registers a cancel callback with, keyed by the client-supplied `operationId` that request
+ * also carried. `packages/server`'s implementation is the single source of truth; adapters only
+ * see this narrow interface (register/unregister), never the registry's own cancel-triggering
+ * side (`POST /api/operations/:id/cancel` calls that directly, not through the adapter).
+ */
+export interface CancellationRegistry {
+  /** Registers `cancel` for `operationId`, overwriting any existing registration for the same id -
+   * call once the adapter has enough state (a captured pid/threadId/comment tag) to actually
+   * cancel the operation, not before. */
+  register(operationId: string, cancel: () => Promise<void>): void;
+  /** Removes the registration - call in a `finally` once the operation settles (success, error, or
+   * cancellation), so a stale callback is never invoked for a since-completed operation. */
+  unregister(operationId: string): void;
+}
+
+/**
  * Structured row-mutation operations (F099-F101), per docs/product-specs/row-editing.md. Each
  * member is independently optional - not the namespace's own presence/absence - so
  * F099/F100/F101 can each land one method across all four engines without forcing an all-or-
@@ -94,17 +111,24 @@ export interface DatabaseAdapter {
   /** Fetch a page of rows for a table, optionally sorted by one column (F065) and/or narrowed by
    * one or more AND-combined filters (F072). `sort.column`/each `filters[].column` must already be
    * validated against the table's real columns by the caller - see
-   * docs/product-specs/server-side-sort-export.md and docs/product-specs/rows-table-filtering.md. */
+   * docs/product-specs/server-side-sort-export.md and docs/product-specs/rows-table-filtering.md.
+   * `operationId` (F126) is a client-supplied id enabling cancellation - when present and the
+   * engine supports it, the implementation registers a cancel callback with
+   * {@link DatabaseAdapter.operationRegistry} for the query's duration; omitted entirely, this
+   * behaves exactly as before (no extra connection checkout, no registration overhead) - every
+   * caller that doesn't care about cancellation (tests, internal calls) keeps the fast path. */
   getRows(
     schema: string,
     table: string,
     page: number,
     pageSize: number,
     sort?: RowSort,
-    filters?: RowFilter[]
+    filters?: RowFilter[],
+    operationId?: string
   ): Promise<RowPage>;
-  /** Execute a read-only (SELECT-style) query. Implementations must reject mutations. */
-  runReadOnlyQuery(sql: string): Promise<RowPage>;
+  /** Execute a read-only (SELECT-style) query. Implementations must reject mutations.
+   * `operationId` - see {@link DatabaseAdapter.getRows}. */
+  runReadOnlyQuery(sql: string, operationId?: string): Promise<RowPage>;
   /**
    * Execute a single SQL statement of any {@link StatementClassification} without the
    * `runReadOnlyQuery` read-only transaction wrapper - `mutation`/`ddl`/confirmed-`destructive`
@@ -114,9 +138,9 @@ export interface DatabaseAdapter {
    * has no SQL query runner at all (`supportsSql: false`). CRITICAL: unlike `runReadOnlyQuery`,
    * implementations must NOT apply any read-oriented DWIM rewrite (e.g. Postgres's
    * `coerceUnknownQuotedIdentifiers`) - that's acceptable for a read, but must never silently alter
-   * a mutation's SQL.
+   * a mutation's SQL. `operationId` - see {@link DatabaseAdapter.getRows}.
    */
-  runQuery?(sql: string): Promise<QueryExecutionResult>;
+  runQuery?(sql: string, operationId?: string): Promise<QueryExecutionResult>;
   /** Structured row-mutation operations (F099-F101) - absent means the engine has no write
    * mechanism at all; present-but-grants-insufficient is a normal per-call rejection, not a
    * missing namespace. See {@link RowMutationApi}. */
@@ -129,6 +153,15 @@ export interface DatabaseAdapter {
    * no async connection events of their own (SQLite, MongoDB) simply never call it.
    */
   onConnectionEvent?: (level: ConnectionEventLevel, message: string) => void;
+  /**
+   * Optional hook for cancellation (F126) - the server assigns this after `connect()` (same
+   * pattern as {@link onConnectionEvent}), and cancellable methods (`getRows`/`runReadOnlyQuery`/
+   * `runQuery`) use it to register/unregister a cancel callback when called with an `operationId`.
+   * Adapters with no real cancellation mechanism (SQLite, whose synchronous driver blocks the
+   * whole event loop for a query's duration - there is no point at which a cancel request could
+   * even be received) simply never call it.
+   */
+  operationRegistry?: CancellationRegistry;
 }
 
 /** Creates {@link DatabaseAdapter} instances for targets a given engine supports. */

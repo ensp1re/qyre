@@ -7,6 +7,7 @@ import {
   updateRowRequestSchema
 } from "@qyre/core";
 import type { AllTablesResponse } from "@qyre/core";
+import { OperationCancelledError } from "@qyre/driver-contract";
 import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../app.js";
 import { csvLine } from "../services/csv.js";
@@ -70,10 +71,26 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
           .send({ error: "Invalid page/pageSize/sort/filters query parameters." });
       }
       const { schema, table } = request.params;
-      const { page, pageSize, sortColumn, sortDirection, filters } = parsed.data;
+      const { page, pageSize, sortColumn, sortDirection, filters, operationId } = parsed.data;
       const db = requireAdapter(ctx.adapter);
       const resolved = await resolveRowQuery(db, schema, table, sortColumn, sortDirection, filters);
-      return db.getRows(schema, table, page, pageSize, resolved.sort, resolved.filters);
+      try {
+        return await db.getRows(
+          schema,
+          table,
+          page,
+          pageSize,
+          resolved.sort,
+          resolved.filters,
+          operationId
+        );
+      } catch (error) {
+        if (error instanceof OperationCancelledError) {
+          ctx.eventLog.log("info", "Rows fetch cancelled.");
+          return reply.status(499).send({ error: error.message, cancelled: true });
+        }
+        throw error;
+      }
     }
   );
 

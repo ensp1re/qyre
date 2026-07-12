@@ -1,5 +1,5 @@
 import type { DatabaseAdapter } from "@qyre/driver-contract";
-import { stubReadOnlyCapabilities } from "@qyre/driver-contract";
+import { OperationCancelledError, stubReadOnlyCapabilities } from "@qyre/driver-contract";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
 import { authHeaders } from "../helpers/auth.js";
@@ -84,6 +84,39 @@ describe("GET /api/tables/:schema/:table/rows", () => {
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: expect.any(String) });
+    await app.close();
+  });
+
+  it("passes operationId through to getRows and reports a cancellation as 499 (F126)", async () => {
+    let receivedOperationId: string | undefined;
+    const adapter: DatabaseAdapter = {
+      engine: "postgres",
+      connect: async () => {},
+      disconnect: async () => {},
+      ping: async () => true,
+      getVersion: async () => "PostgreSQL 16.0",
+      getCapabilities: async () => stubReadOnlyCapabilities(true),
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [],
+        capabilities: { supportsSql: true }
+      }),
+      getTable: async () => ({ schema: "public", name: "x", columns: [] }),
+      getRows: async (_schema, _table, _page, _pageSize, _sort, _filters, operationId) => {
+        receivedOperationId = operationId;
+        throw new OperationCancelledError();
+      },
+      runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
+    };
+    const app = createServer({ adapter });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/tables/public/users/rows?operationId=op-1",
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(499);
+    expect(response.json()).toMatchObject({ cancelled: true });
+    expect(receivedOperationId).toBe("op-1");
     await app.close();
   });
 });

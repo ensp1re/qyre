@@ -1,7 +1,9 @@
 import type { RowFilter, RowPage, RowSort } from "@qyre/core";
 import { useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 import { fetchRows } from "../api/rows.js";
 import { QUERY_RETRY } from "../../../shared/lib/query/retry.js";
+import { cancelOperation } from "../../../shared/api/operations.js";
 
 interface RowsResult {
   rowPage: RowPage;
@@ -36,13 +38,28 @@ export function useRows(
   sort?: RowSort,
   filters?: RowFilter[]
 ) {
-  return useQuery({
+  // F126: the current fetch's operationId, so cancel() knows what to cancel - a ref since it's
+  // only ever read by an event handler, never rendered. Only the main rowPage fetch is tagged, not
+  // the tiny LIMIT 1 next-page probe below.
+  const operationIdRef = useRef<string | undefined>(undefined);
+  const query = useQuery({
     queryKey: ["rows", schema, table, page, sort?.column, sort?.direction, filters],
     queryFn: async (): Promise<RowsResult> => {
+      const operationId = crypto.randomUUID();
+      operationIdRef.current = operationId;
       const [rowPage, nextPageProbe] = await Promise.all([
-        fetchRows(schema as string, table as string, page, UI_PAGE_SIZE, sort, filters),
+        fetchRows(
+          schema as string,
+          table as string,
+          page,
+          UI_PAGE_SIZE,
+          sort,
+          filters,
+          operationId
+        ),
         fetchRows(schema as string, table as string, (page + 1) * UI_PAGE_SIZE, 1, sort, filters)
       ]);
+      operationIdRef.current = undefined;
       return { rowPage, hasMore: nextPageProbe.rows.length > 0 };
     },
     enabled: Boolean(schema && table),
@@ -53,4 +70,12 @@ export function useRows(
       return previousKey?.[1] === schema && previousKey?.[2] === table ? previousData : undefined;
     }
   });
+  return {
+    ...query,
+    // F126: cancels the in-flight rows fetch - a no-op once it has already settled.
+    cancel: () => {
+      const operationId = operationIdRef.current;
+      if (operationId) void cancelOperation(operationId);
+    }
+  };
 }

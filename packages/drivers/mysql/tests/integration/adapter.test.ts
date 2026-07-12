@@ -485,4 +485,24 @@ describe("MysqlAdapter integration", () => {
       await shortTimeoutAdapter.disconnect();
     }
   });
+
+  it("cancels a running read-only query via the operation registry, and the connection remains usable afterward (F126)", async () => {
+    const callbacks = new Map<string, () => Promise<void>>();
+    adapter.operationRegistry = {
+      register: (id, cancel) => callbacks.set(id, cancel),
+      unregister: (id) => callbacks.delete(id)
+    };
+    try {
+      const operationId = "f126-cancel-test";
+      const slowQuery = adapter.runReadOnlyQuery("SELECT SLEEP(5)", operationId);
+      await expect.poll(() => callbacks.has(operationId), { timeout: 2000 }).toBe(true);
+
+      await callbacks.get(operationId)?.();
+      await expect(slowQuery).rejects.toMatchObject({ name: "OperationCancelledError" });
+
+      expect(await adapter.ping()).toBe(true);
+    } finally {
+      adapter.operationRegistry = undefined;
+    }
+  });
 });

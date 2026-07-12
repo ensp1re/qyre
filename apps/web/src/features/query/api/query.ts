@@ -24,9 +24,19 @@ export class DestructiveConfirmationRequiredError extends Error {
  * session's friendly `readOnlyReason` instead of the raw rejection text. */
 export class ReadOnlySessionRejectionError extends Error {}
 
+/** Thrown when a query was cancelled mid-run via `POST /api/operations/:id/cancel` (F126) - the
+ * SQL Editor catches this to show a distinct "cancelled" outcome instead of a generic error. */
+export class QueryCancelledError extends Error {}
+
 /** Runs a SQL statement. `confirmed` resubmits a previously-rejected destructive statement (F107) -
- * omitted (or false) on the first attempt for every statement, read or write alike. */
-export async function runQuery(sql: string, confirmed?: boolean): Promise<QueryRunResult> {
+ * omitted (or false) on the first attempt for every statement, read or write alike. `operationId`
+ * (F126) is an optional client-generated id that `POST /api/operations/:id/cancel` can later use to
+ * cancel this same run while it's still in flight. */
+export async function runQuery(
+  sql: string,
+  confirmed?: boolean,
+  operationId?: string
+): Promise<QueryRunResult> {
   const token = getAuthToken();
   const headers = new Headers({ "Content-Type": "application/json" });
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -36,7 +46,7 @@ export async function runQuery(sql: string, confirmed?: boolean): Promise<QueryR
     response = await fetch("/api/query", {
       method: "POST",
       headers,
-      body: JSON.stringify(confirmed ? { sql, confirmed: true } : { sql })
+      body: JSON.stringify({ sql, ...(confirmed ? { confirmed: true } : {}), operationId })
     });
   } catch {
     throw new Error("Could not reach the Qyre server. Is it still running?");
@@ -44,7 +54,12 @@ export async function runQuery(sql: string, confirmed?: boolean): Promise<QueryR
 
   const body = (await response.json().catch(() => undefined)) as
     | QueryRunResult
-    | { error?: string; classification?: StatementClassification; reason?: string }
+    | {
+        error?: string;
+        classification?: StatementClassification;
+        reason?: string;
+        cancelled?: boolean;
+      }
     | undefined;
 
   if (response.status === 409 && body && "classification" in body && body.classification) {
@@ -54,6 +69,9 @@ export async function runQuery(sql: string, confirmed?: boolean): Promise<QueryR
     const message =
       (body as { error?: string } | undefined)?.error ??
       `Request failed (status ${response.status}).`;
+    if ((body as { cancelled?: boolean } | undefined)?.cancelled) {
+      throw new QueryCancelledError(message);
+    }
     if ((body as { reason?: string } | undefined)?.reason === "read-only") {
       throw new ReadOnlySessionRejectionError(message);
     }

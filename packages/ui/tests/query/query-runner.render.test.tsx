@@ -6,6 +6,7 @@ const BASE_PROPS = {
   sql: "SELECT 1",
   onSqlChange: vi.fn(),
   onRun: vi.fn(),
+  onCancel: vi.fn(),
   isRunning: false,
   onOpenHistory: vi.fn()
 };
@@ -90,5 +91,20 @@ describe("QueryRunner write-capable result rendering (F108)", () => {
     );
     expect(screen.queryByText(/row.*affected/)).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "a" })).toBeInTheDocument();
+  });
+});
+
+describe("QueryRunner Cancel button (F126)", () => {
+  it("does not render a Cancel button while idle", () => {
+    render(<QueryRunner {...BASE_PROPS} isRunning={false} />);
+    expect(screen.queryByRole("button", { name: /cancel/i })).not.toBeInTheDocument();
+  });
+
+  it("renders a Cancel button while running and calls onCancel when clicked", () => {
+    const onCancel = vi.fn();
+    render(<QueryRunner {...BASE_PROPS} isRunning onCancel={onCancel} />);
+    const button = screen.getByRole("button", { name: /cancel/i });
+    fireEvent.click(button);
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

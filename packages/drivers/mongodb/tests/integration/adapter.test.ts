@@ -9,6 +9,7 @@ import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@qyre/testing";
 import { EJSON } from "bson";
 import { Binary, Long, MongoClient, ObjectId } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { isMongoCancelError, registerMongoCancellation } from "../../src/cancellation.js";
 import { MongodbAdapter } from "../../src/index.js";
 
 describe("MongodbAdapter integration", () => {
@@ -449,6 +450,49 @@ describe("MongodbAdapter integration", () => {
           .find({ $where: "sleep(2000) || true" }, { maxTimeMS: 200 })
           .toArray()
       ).rejects.toThrow(/exceeded time limit/i);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("cancels a running operation via killOp, found through the currentOp comment tag (F126)", async () => {
+    // Same reasoning as the timeout test above: getRows' public API has no way to force a real
+    // call to run long enough to cancel, so this proves the mechanism registerMongoCancellation
+    // relies on directly - tag an operation with `comment`, find it in currentOp by that same
+    // comment, and killOp it - against a genuinely slow $where scan.
+    const client = new MongoClient(mongoUrl);
+    const callbacks = new Map<string, () => Promise<void>>();
+    try {
+      await client.connect();
+      const operationId = "f126-cancel-test";
+      registerMongoCancellation(
+        client,
+        {
+          register: (id, cancel) => callbacks.set(id, cancel),
+          unregister: (id) => callbacks.delete(id)
+        },
+        operationId,
+        databaseName
+      );
+
+      const slowFind = client
+        .db(databaseName)
+        .collection(FIXTURE.table)
+        .find({ $where: "sleep(3000) || true" }, { comment: operationId })
+        .toArray();
+
+      // Give the operation time to actually start executing server-side before currentOp can see
+      // it - registration itself is synchronous, but the query only appears in currentOp once
+      // MongoDB has begun running it.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await callbacks.get(operationId)?.();
+
+      await expect(slowFind).rejects.toMatchObject({ code: expect.any(Number) });
+      const rejection = await slowFind.catch((error: unknown) => error);
+      expect(isMongoCancelError(rejection)).toBe(true);
+
+      // The connection is untouched - a fresh query on the same client still works.
+      expect(await client.db(databaseName).command({ ping: 1 })).toMatchObject({ ok: 1 });
     } finally {
       await client.close();
     }

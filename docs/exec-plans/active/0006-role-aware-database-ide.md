@@ -168,9 +168,13 @@ F121:
 1. **MongoDB document-edit semantics** (F098/F125): changed-fields `findOneAndUpdate` vs
    whole-document replace, and relaxed vs canonical EJSON in the editor. Wrong choice silently
    corrupts data types - decide in F098's spec with live Compass comparison.
-2. **SQLite execution isolation** (F126): worker thread (real cancellation, more moving parts) vs
-   documented non-cancellable (simple, but one bad query freezes the server). Decide in F126 with
-   a spike; leaning worker thread for writes only.
+2. ~~**SQLite execution isolation** (F126)~~ - **Decided in F126: documented non-cancellable**, not
+   a worker thread. better-sqlite3 blocks the whole Node process synchronously, so no cancel
+   request could ever be received mid-query regardless of isolation; and the dominant Cancel use
+   case (a Rows-table fetch) is always a read, so a writes-only worker thread (the original leaning)
+   wouldn't have served it anyway. A full read+write worker-thread migration was judged out of scope
+   for this slice - `packages/drivers/sqlite/src/adapter.ts`'s class doc comment records the
+   reasoning for future reference.
 3. **Token transport** (F122): cookie (needs SameSite/CSRF care) vs Authorization header from the
    SPA (breaks plain `<a download>` links - export URLs need token query params or fetch+blob).
    Decide in F122; leaning header + fetch-based downloads.
@@ -461,7 +465,7 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   Docker-backed `@full` E2E, first run). All row-editing UI slices (F103-F105, F125) are now done;
   Phase C's remaining `not_started` entries in `docs/FEATURES.json` (starting with F106, the SQL
   statement classifier) are next.
-- 2026-07-12 (later still): F106 implemented (PR pending) - `packages/drivers/contract`'s
+- 2026-07-12 (later still): F106 implemented (PR #120, merged as 561aca7) - `packages/drivers/contract`'s
   `read-only.ts` gains `classifyStatement(sql)`, generalizing `assertReadOnly`'s existing
   comment/literal-stripping scanner into a `read | mutation | ddl | destructive` classification;
   `assertReadOnly` is reimplemented on top of it (`classification !== "read"` throws) and all 18 of
@@ -477,7 +481,7 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   authoritative gate remains each adapter's engine-level read-only enforcement. F107 (write-capable
   SQL execution - `runQuery(sql)` on the three SQL adapters plus a server confirmation contract) is
   next.
-- 2026-07-12 (later still): F107 implemented (PR pending) - write-capable SQL execution.
+- 2026-07-12 (later still): F107 implemented (PR #121, merged as 7e84dee) - write-capable SQL execution.
   `DatabaseAdapter.runQuery(sql)` (Postgres/MySQL/SQLite only; absent on MongoDB, which has no SQL
   query runner) executes a single statement of any classification directly, no `READ ONLY`
   transaction wrapper, honoring the same per-engine statement timeout and F050 result-row cap
@@ -503,7 +507,7 @@ true`, checked fresh on every request (a server-enforced round-trip, never a cli
   which shape to expect). `docs/product-specs/sql-editor.md` gained a new "Write-capable SQL
   execution" section. F108 (the SQL editor UI itself becomes write-capable - results-panel
   affected-row count, a confirmation dialog for destructive statements) is next.
-- 2026-07-12 (later still): F108 implemented (PR pending) - the SQL Editor UI itself becomes
+- 2026-07-12 (later still): F108 implemented (PR #122, merged as c875f7c) - the SQL Editor UI itself becomes
   write-capable, with no special-casing needed by the developer: the same `Run` button and
   `⌘/Ctrl+Enter` shortcut work for every classification. The results panel (`QueryRunner`) renders
   `"N row(s) affected."` for a rowless `QueryExecutionResult`, distinguished from a genuinely empty
@@ -531,3 +535,53 @@ confirm-destructive-statement-dialog.tsx`) naming the classification and the exa
 sql-editor.md` gained a new "SQL Editor UI (F108)" section. F108 was the last write-affordance
   slice in Phase C; F126 (query cancellation) and F127 (column-level autocomplete) remain to close
   it out.
+- 2026-07-12 (later still): F126 implemented (PR pending) - query cancellation and long-operation
+  handling. A `CancellationRegistry` (`@qyre/driver-contract`) registers/unregisters a cancel
+  callback by client-supplied `operationId`; `OperationRegistry` (`packages/server/src/services/`)
+  is the server-side implementation, one instance per `ServerContext`, assigned onto whichever
+  adapter is currently connected as `adapter.operationRegistry` (mirroring the existing
+  `onConnectionEvent` post-`connect()` hook pattern) and reassigned on every `POST /api/connect`
+  swap. `getRows`/`runReadOnlyQuery`/`runQuery` all gained an optional trailing `operationId?`
+  param; a cancellable adapter registers just before executing and unregisters when done, so a
+  caller that never passes an `operationId` (most internal calls, most existing tests) pays zero
+  extra overhead. `POST /api/operations/:id/cancel` (new route, deliberately not gated by the
+  read-only guard, since cancelling a stuck read must work even in a read-only session) triggers the
+  callback; `cancelled: false` means nothing was left to cancel (already finished, no real
+  mechanism, or an unknown id) - never an error. Per-engine mechanics: Postgres captures
+  `pg_backend_pid()` per checkout and calls `pg_cancel_backend()` from a second connection
+  (`packages/drivers/postgres/src/cancellation.ts`); a `wasCancelledByUser()` closure flag, set
+  synchronously the instant the registry's callback runs (before the async `pg_cancel_backend` call
+  is even awaited), distinguishes a real cancellation from Postgres reusing the identical `57014`
+  SQLSTATE for a plain `statement_timeout` expiry (F032) - without it, F032's own pre-existing
+  timeout test broke, since both errors were indistinguishable by code alone; a regression test
+  locks this in. MySQL captures `connection.threadId` and issues `KILL QUERY <id>` from a second
+  connection (`.../mysql/src/cancellation.ts`). MongoDB tags the operation with a `comment` query
+  option, finds its real `opid` via `currentOp` matching that same comment, and calls `killOp`
+  (`.../mongodb/src/cancellation.ts`) - best-effort, since the driver manages its own internal pool
+  with no per-request connection to capture a pid from ahead of time the way Postgres/MySQL do;
+  every failure (missing privilege, already finished, unsupported server version) is swallowed
+  silently rather than surfaced. **Open decision #2 resolved**: SQLite is documented as
+  non-cancellable for both reads and writes (`packages/drivers/sqlite/src/adapter.ts`'s class doc
+  comment), not moved to a worker thread - better-sqlite3 blocks the whole Node process
+  synchronously, so no cancel request could ever be received mid-query regardless of isolation, and
+  the dominant Cancel use case (a Rows-table fetch) is always a read, so a writes-only worker thread
+  (the plan's original leaning) wouldn't have served it anyway; a full read+write worker-thread
+  migration was judged out of scope for this slice. `OperationCancelledError`
+  (`@qyre/driver-contract/src/errors.ts`) is the shared "this was cancelled" signal every adapter
+  translates its engine-specific error into; both `POST /api/query` and
+  `GET /api/tables/:schema/:table/rows` catch it and reply `499` with `{ error, cancelled: true }`,
+  logging a distinct info-level `"Query cancelled."`/`"Rows fetch cancelled."` event, never a
+  generic error. `apps/web` generates a `crypto.randomUUID()` `operationId` per SQL run and per rows
+  fetch, threads it through `runQuery`/`fetchRows`, and calls the new `cancelOperation(id)`
+  (`shared/api/operations.ts`) on Cancel; `QueryRunner` (`packages/ui`) shows a Cancel button beside
+  Run while `isRunning`, and the Rows tab's "Loading rows..." spinner gained the same control. A
+  cancelled run renders `"Query cancelled."` through the existing error slot - a distinct message,
+  not a raw exception dump - via a new `QueryCancelledError` class distinguishing it from a genuine
+  query failure. New tests: Postgres/MySQL/MongoDB integration tests proving cancellation _and_ that
+  the connection stays usable afterward; `OperationRegistry` unit tests; server route tests for both
+  cancellable routes' `499`/`cancelled: true` responses plus an end-to-end fake-adapter round trip
+  through `POST /api/operations/:id/cancel`; `QueryRunner` Cancel-button render tests. Manually
+  verified end-to-end against a live Postgres connection (`SELECT pg_sleep(10)` genuinely
+  interrupted well before completion; Console tab showed `"Query cancelled."` distinct from normal
+  `"Query executed..."` entries). F126 was the second-to-last Phase C slice; F127 (column-level
+  autocomplete) remains to close it out.

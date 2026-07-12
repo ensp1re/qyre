@@ -7,7 +7,7 @@ import { EditorView, keymap } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { basicSetup } from "codemirror";
-import { History, Play } from "lucide-react";
+import { History, Play, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { CellValueDrawer } from "../data-grid/cell-value-drawer.js";
@@ -28,6 +28,9 @@ export interface QueryRunnerProps {
   sql: string;
   onSqlChange: (sql: string) => void;
   onRun: () => void;
+  /** Cancels the currently running query (F126) - the Cancel button is only rendered while
+   * `isRunning`. */
+  onCancel: () => void;
   isRunning: boolean;
   /** A read query's `RowPage`, or a write-capable session's `QueryExecutionResult` (F108) - the
    * latter is distinguished by its `rowsAffected` field and rendered as an affected-row count
@@ -106,6 +109,7 @@ export function QueryRunner({
   sql,
   onSqlChange,
   onRun,
+  onCancel,
   isRunning,
   result,
   error,
@@ -225,6 +229,17 @@ export function QueryRunner({
           )}
           {isRunning ? "Running..." : "Run"}
         </button>
+        {isRunning && (
+          <button
+            type="button"
+            onClick={onCancel}
+            title="Cancel query"
+            className="flex items-center gap-1 rounded-[3px] border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          >
+            <X className="h-2.5 w-2.5" />
+            Cancel
+          </button>
+        )}
         <span className="hidden rounded-[2px] border border-border px-1 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
           {shortcutLabel}
         </span>

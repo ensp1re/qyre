@@ -9,10 +9,20 @@ import type {
   TableMetadata,
   TablePermissions
 } from "@qyre/core";
-import { resolvePageRequest, stubReadOnlyCapabilities } from "@qyre/driver-contract";
-import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driver-contract";
+import {
+  OperationCancelledError,
+  resolvePageRequest,
+  stubReadOnlyCapabilities
+} from "@qyre/driver-contract";
+import type {
+  AdapterFactory,
+  CancellationRegistry,
+  DatabaseAdapter,
+  RowMutationApi
+} from "@qyre/driver-contract";
 import { MongoClient } from "mongodb";
 import { normalizeDocument } from "./bson-values.js";
+import { isMongoCancelError, registerMongoCancellation } from "./cancellation.js";
 import { buildMongoFilter } from "./filters.js";
 import { introspectCollection, introspectSchemas } from "./introspection.js";
 import { deleteRowsByKey, getDocumentText, insertRow, updateRowByKey } from "./mutations.js";
@@ -35,6 +45,7 @@ function resolveStatementTimeoutMs(): number {
 export class MongodbAdapter implements DatabaseAdapter {
   public readonly engine = "mongodb";
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
+  public operationRegistry?: CancellationRegistry;
   public readonly mutations: RowMutationApi = {
     insertRow: (schema, table, values) => insertRow(this.getClient(), schema, table, values),
     updateRowByKey: (schema, table, key, changes, expectedOriginal) =>
@@ -159,32 +170,44 @@ export class MongodbAdapter implements DatabaseAdapter {
     page: number,
     pageSize: number,
     sort?: RowSort,
-    filters?: RowFilter[]
+    filters?: RowFilter[],
+    operationId?: string
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     const columns =
       filters && filters.length > 0 ? (await this.getTable(schema, table)).columns : [];
     const filterDocument = buildMongoFilter(filters, columns);
-    const documents = await this.getClient()
-      .db(schema)
-      .collection(table)
-      .find(filterDocument, { maxTimeMS: this.statementTimeoutMs })
-      .sort(sort ? { [sort.column]: sort.direction === "asc" ? 1 : -1 } : { _id: 1 })
-      .skip(offset)
-      .limit(safePageSize)
-      .toArray();
+    registerMongoCancellation(this.getClient(), this.operationRegistry, operationId, schema);
+    try {
+      const documents = await this.getClient()
+        .db(schema)
+        .collection(table)
+        .find(filterDocument, {
+          maxTimeMS: this.statementTimeoutMs,
+          ...(operationId ? { comment: operationId } : {})
+        })
+        .sort(sort ? { [sort.column]: sort.direction === "asc" ? 1 : -1 } : { _id: 1 })
+        .skip(offset)
+        .limit(safePageSize)
+        .toArray();
 
-    const fieldNames = new Set<string>();
-    for (const document of documents) {
-      for (const key of Object.keys(document)) fieldNames.add(key);
+      const fieldNames = new Set<string>();
+      for (const document of documents) {
+        for (const key of Object.keys(document)) fieldNames.add(key);
+      }
+
+      return {
+        columns: [...fieldNames],
+        rows: documents.map((document) => normalizeDocument(document)),
+        page: safePage,
+        pageSize: safePageSize
+      };
+    } catch (error) {
+      if (isMongoCancelError(error)) throw new OperationCancelledError();
+      throw error;
+    } finally {
+      if (operationId) this.operationRegistry?.unregister(operationId);
     }
-
-    return {
-      columns: [...fieldNames],
-      rows: documents.map((document) => normalizeDocument(document)),
-      page: safePage,
-      pageSize: safePageSize
-    };
   }
 
   async runReadOnlyQuery(_sql: string): Promise<RowPage> {

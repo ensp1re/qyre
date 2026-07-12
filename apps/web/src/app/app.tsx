@@ -1,4 +1,4 @@
-import type { ConnectionStatus, RowFilter } from "@qyre/core";
+import type { ConnectionStatus, RowFilter, StatementClassification } from "@qyre/core";
 import {
   ConnectDrawer,
   ErrorBoundary,
@@ -13,7 +13,7 @@ import {
   TitleBar
 } from "@qyre/ui";
 import type { ReactNode } from "react";
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { useCapabilities } from "../features/connection/model/use-capabilities.js";
 import { useConnect } from "../features/connection/model/use-connect.js";
 import { useHealth } from "../features/connection/model/use-health.js";
@@ -22,6 +22,7 @@ import { useClearConsole, useConsoleEvents } from "../features/console/model/use
 import { ConsoleTab } from "../features/console/ui/console-tab.js";
 import { useFileContent, useFilesOverview } from "../features/files/model/use-files.js";
 import { FilesTab } from "../features/files/ui/files-tab.js";
+import { DestructiveConfirmationRequiredError } from "../features/query/api/query.js";
 import { useQueryHistory } from "../features/query/model/use-query-history.js";
 import { useRunQuery } from "../features/query/model/use-run-query.js";
 import { SqlEditorTab } from "../features/query/ui/sql-editor-tab.js";
@@ -113,6 +114,11 @@ export function App(): ReactNode {
   const consoleEvents = useConsoleEvents({ enabled: status === "connected" });
   const clearConsole = useClearConsole();
   const runQuery = useRunQuery();
+  // F108: set when the last run was rejected as destructive pending confirmation (F107) - renders
+  // ConfirmDestructiveStatementDialog instead of a raw error.
+  const [pendingConfirmation, setPendingConfirmation] = useState<
+    { sql: string; classification: StatementClassification } | undefined
+  >(undefined);
 
   function selectTable(schema: string, tableName: string, initialFilters?: RowFilter[]): void {
     dispatch({
@@ -134,12 +140,44 @@ export function App(): ReactNode {
 
   function runSql(): void {
     const start = performance.now();
-    runQuery.mutate(querySql, {
-      onSuccess: () => {
-        dispatch({ type: "queryCompleted", durationMs: Math.round(performance.now() - start) });
-        queryHistory.record(querySql);
+    runQuery.mutate(
+      { sql: querySql, confirmed: false },
+      {
+        onSuccess: (result) => {
+          dispatch({ type: "queryCompleted", durationMs: Math.round(performance.now() - start) });
+          queryHistory.record(querySql, result.classification);
+        },
+        onError: (error) => {
+          if (error instanceof DestructiveConfirmationRequiredError) {
+            setPendingConfirmation({ sql: querySql, classification: error.classification });
+          }
+        }
       }
-    });
+    );
+  }
+
+  // F108: resubmits the pending statement with confirmed: true (F107's server-enforced round-trip)
+  // once the developer explicitly confirms in ConfirmDestructiveStatementDialog. Closes the dialog
+  // once the resubmission settles either way - a second genuine failure (e.g. a real SQL error) is
+  // shown via QueryRunner's normal error state instead of leaving the dialog open.
+  function confirmDestructiveRun(): void {
+    if (!pendingConfirmation) return;
+    const start = performance.now();
+    const sql = pendingConfirmation.sql;
+    runQuery.mutate(
+      { sql, confirmed: true },
+      {
+        onSuccess: (result) => {
+          dispatch({ type: "queryCompleted", durationMs: Math.round(performance.now() - start) });
+          queryHistory.record(sql, result.classification);
+        },
+        onSettled: () => setPendingConfirmation(undefined)
+      }
+    );
+  }
+
+  function cancelDestructiveRun(): void {
+    setPendingConfirmation(undefined);
   }
 
   function selectFromHistory(sql: string): void {
@@ -228,10 +266,14 @@ export function App(): ReactNode {
                     onSqlChange={(sql) => dispatch({ type: "queryChanged", sql })}
                     onRun={runSql}
                     runQuery={runQuery}
+                    capabilities={capabilities.data}
                     onOpenHistory={() => dispatch({ type: "historyChanged", open: true })}
                     tableNames={tableNames}
                     resultsHeight={resultsHeight}
                     onResultsHeightChange={setResultsHeight}
+                    pendingConfirmation={pendingConfirmation}
+                    onConfirmDestructive={confirmDestructiveRun}
+                    onCancelDestructive={cancelDestructiveRun}
                   />
                 ) : tab === "tables" ? (
                   <TablesTab

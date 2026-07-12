@@ -1,3 +1,4 @@
+import type { StatementClassification } from "@qyre/core";
 import { History, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useRef } from "react";
@@ -5,10 +6,14 @@ import { cn } from "../cn.js";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
 
 /** One past successful SQL Editor query (F012). Persisted by the caller (apps/web), not this
- * package - packages/ui stays presentation-only per FRONTEND.md. */
+ * package - packages/ui stays presentation-only per FRONTEND.md. `classification` (F108) is
+ * absent for a query recorded before this field existed, or for a read-only session (which never
+ * computes one, per docs/product-specs/sql-editor.md's "read-only sessions keep today's editor
+ * exactly"). */
 export interface QueryHistoryEntry {
   readonly sql: string;
   readonly ranAt: number;
+  readonly classification?: StatementClassification;
 }
 
 export interface QueryHistoryDrawerProps {
@@ -95,8 +100,17 @@ export function QueryHistoryDrawer({
                     <p className="line-clamp-3 whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/80">
                       {entry.sql}
                     </p>
-                    <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+                    <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
                       {formatRelativeTime(entry.ranAt)}
+                      {entry.classification && entry.classification !== "read" && (
+                        <span
+                          data-testid="query-history-classification"
+                          className="rounded-[2px] border px-1 py-0.5 uppercase tracking-wide"
+                          style={{ borderColor: "var(--c-red)", color: "var(--c-red)" }}
+                        >
+                          {entry.classification}
+                        </span>
+                      )}
                     </p>
                   </button>
                 </li>

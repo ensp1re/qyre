@@ -1,9 +1,10 @@
+import type { StatementClassification } from "@qyre/core";
 import { ReadOnlyViolationError } from "./errors.js";
 
 export { ReadOnlyViolationError } from "./errors.js";
-
-/** A single SQL statement's write classification, from a pure text heuristic (see below). */
-export type StatementClassification = "read" | "mutation" | "ddl" | "destructive";
+// Re-exported from @qyre/core (not defined here) so apps/web can type against the same
+// classification values without depending on this adapter-layer package (F108).
+export type { StatementClassification } from "@qyre/core";
 
 const READ_LEADING_KEYWORDS = ["select", "with", "explain", "show", "table", "values"];
 

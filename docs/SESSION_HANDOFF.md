@@ -5,9 +5,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Current state
 
-- Date: 2026-07-11.
-- Branch: `main`. F099 merged (PRs #109/#110, both CI jobs green).
-- Queue: F092-F099 are `passing`; F100-F121 and F125-F128 remain `not_started`. `nextIds.F` is 129.
+- Date: 2026-07-12.
+- Branch: `main`. F103 merged (PR #115, both CI jobs green).
+- Queue: F092-F103 are `passing`; F104-F121 and F125-F128 remain `not_started`. `nextIds.F` is 129.
 
 ## Completed
 
@@ -19,20 +19,23 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   F093 MySQL permissions, F094 SQLite writability, F095 MongoDB permissions, F096 `--read-only`
   session mode, F097 permission-aware UI shell, F098 row-editing product spec - all merged to
   `main`, PRs #94-#108).
-- F099 (structured row insert, the first slice that actually implements a write path) merged to
-  `main`: adapters gain `mutations.insertRow` per `docs/product-specs/row-editing.md` -
-  Postgres/MySQL/SQLite take a flat column->value map translated to a parameterized `INSERT`
-  (MySQL re-fetches via its auto-increment column when present; SQLite via the implicit `rowid`);
-  MongoDB deserializes a relaxed-EJSON document to real BSON via `bson`'s `EJSON.deserialize`
-  before `insertOne`. The server adds `POST /api/tables/:schema/:table/rows`, validating the body
-  against the table's real introspected columns
-  (`packages/server/src/services/row-mutation-validation.ts`, reusing F082/F089's
-  `FilterColumnKind`), rejecting non-table/collection targets and missing insert permission, gated
-  by the F096 central read-only guard, and logging a structured audit event. Amended the F098 spec
-  mid-implementation so `RowMutationApi`'s three methods are each independently optional, matching
-  the F099/F100/F101 incremental-slice split. Fixed a latent bug in SQLite's `mutations.insertRow`
-  wiring (a synchronous throw was escaping as an uncaught exception instead of a promise
-  rejection). PRs #109/#110 (see "Known issues" below for why there are two).
+- Row-editing write path (F099-F102), each adding one `RowMutationApi` slice with its server route,
+  validation, and cross-engine conformance coverage: F099 structured insert (`mutations.insertRow`,
+  `POST /api/tables/:schema/:table/rows`, PRs #109/#110), F100 structured update
+  (`mutations.updateRowByKey`, `PATCH` on the same resource, full-primary-key match with
+  `matched: 0` reported as `409`, PR #112), F101 structured delete (`mutations.deleteRowsByKey`,
+  `DELETE` on the same resource, explicit key-list only - no filter-based bulk delete, PR #113),
+  F102 batch commit (`mutations.commitBatch` on the three SQL engines only, one native transaction
+  per batch, `POST /api/mutations/commit`, MongoDB `400`s - it saves per-document instead, PR #114).
+  Full details and verification evidence for each are in `docs/FEATURES.json`.
+- F103 (SQL editable grid) merged to `main`: the Rows table becomes an editable grid on SQL engines
+  - double-click/Enter opens a type-aware inline editor (text/number/boolean/date/time/datetime,
+    reusing F082/F089's filter value controls), edits stage into a client-side pending-changes
+    buffer keyed by primary key without touching the server, dirty cells get amber styling plus a
+    revert control. Editability (`computeTableEditability`,
+    `apps/web/src/features/table/model/editability.ts`) is derived from existing
+    capabilities/permissions/kind data and gates closed for MongoDB, views, PK-less tables, and
+    read-only sessions/tables. Commit wiring to F102's batch endpoint is F105. PR #115.
 
 ## In progress
 
@@ -63,7 +66,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- F100 (structured row update - `RowMutationApi.updateRowByKey`, `PATCH` on the rows resource,
-  requiring a full primary-key match, zero-rows-matched reported as a distinct "stale row" outcome)
-  is next per the exec plan's "Feature order and dependencies" section - follows F099's exact
-  pattern (adapter method + server route + validation + conformance across all four engines).
+- F104 (permission-gated Add-row and Duplicate-row affordances for the SQL editable grid - a
+  new-row editor with F103's same type-aware inputs, nullable/default-value handling, per-column
+  validation before staging into the pending buffer; Duplicate pre-fills from the selected row
+  minus auto-generated keys) is next per the exec plan's "Feature order and dependencies" section.
+  Hidden entirely for sessions/tables without insert permission, views, and MongoDB.

@@ -353,3 +353,54 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   view-namespace write refusal - Postgres/MySQL's simple auto-updatable views would otherwise accept
   the insert at the adapter layer, so their view rejection is enforced by the server's kind check
   instead, unit-tested separately). F100 (structured row update) is next.
+- 2026-07-11 (later still): F100 implemented (PR #112) - adapters gain `mutations.updateRowByKey`.
+  Postgres/MySQL/SQLite translate a full primary-key match plus a `changes` map into a parameterized
+  `UPDATE`, reporting `matched` (0 or 1) from the driver's own row-count. Live-verified that MySQL's
+  `affectedRows` and SQLite's `changes()` both already report "rows matched", not "rows whose value
+  actually changed" (mysql2's pool defaults to `CLIENT_FOUND_ROWS`, unlike the raw `mysql` CLI
+  client) - a same-value update correctly reports `matched: 1`, not a false stale/conflict. MongoDB
+  replaces the whole document (`findOneAndReplace` keyed on `_id`, the "Compass model", not a
+  changed-fields `$set`) after EJSON-deserializing the request body - a field absent from the
+  replacement is genuinely removed, not merely left untouched. Server adds `PATCH
+/api/tables/:schema/:table/rows`: `resolveKey` validates the full primary key is supplied
+  (rejecting tables with no primary key at all), `resolveUpdateChanges` rejects primary-key columns
+  in the changes map and empty change sets - both reusing the same `FilterColumnKind` coercion
+  `insertRow`'s validation already established. A `matched: 0` result is reported as `409`, never a
+  silent `200` - the row may have been changed or removed since it was loaded. F101 (structured row
+  delete) is next.
+- 2026-07-11 (later still): F101 implemented (PR #113) - adapters gain `mutations.deleteRowsByKey`.
+  Each engine deletes by an explicit list of primary-key matches, never a filter-evaluated bulk
+  delete. Postgres/MySQL/SQLite run one parameterized `DELETE` per key and sum the affected-row
+  counts into `deleted`; MongoDB runs a single `deleteMany({ _id: { $in: [...] } })`. Server adds
+  `DELETE /api/tables/:schema/:table/rows`: `resolveKeys` validates every key via the same
+  `resolveKey` full-primary-key-match logic F100 established, rejecting an empty keys array
+  outright. A `deleted` count lower than the requested key count is reported as `409`, never a
+  silent `200`. F102 (batch commit) is next.
+- 2026-07-11 (later still): F102 implemented (PR #114) - adapters gain `mutations.commitBatch`
+  (Postgres/MySQL/SQLite only; MongoDB deliberately excluded - its document editor saves
+  per-document, per decision 5). Runs an ordered array of staged insert/update/delete ops in one
+  native transaction on a single checked-out connection, all-or-nothing - a stale update
+  (`matched: 0`) or delete (`deleted < keys.length`) rolls back and reports that op's index, same
+  treatment a native constraint-violation error gets. Postgres/MySQL use
+  `pool.connect()`/`getConnection()` plus `BEGIN`/`COMMIT`/`ROLLBACK`; SQLite reuses
+  better-sqlite3's synchronous `db.transaction()` wrapper, which already rolls back and re-throws on
+  any exception. Server adds `POST /api/mutations/commit`: validates every op against its own
+  table's real columns/permissions/kind up front (`resolveBatchOp`, reusing the exact per-op
+  `resolve*` helpers F099-F101 already established) before the transaction starts, registered for
+  every engine but responds `400` for MongoDB explaining documents save individually there. F103
+  (SQL editable grid) is next - the last row-editing slice before F104/F105's insert/delete UI.
+- 2026-07-12: F103 implemented (PR #115) - the Rows table becomes an editable grid on SQL engines.
+  Double-click or Enter starts inline cell editing with a type-aware widget (text/number/boolean/
+  date/time/datetime) reusing F082/F089's filter value controls (`EditableCell`,
+  `packages/ui/src/data-grid/editable-cell.tsx`); edits stage into a client-side pending-changes
+  buffer keyed by primary key (`usePendingChanges`,
+  `apps/web/src/features/table/model/pending-changes.ts`) so they survive pagination/sort/filter
+  changes, without touching the server - commit wiring to F102's batch endpoint is F105. Dirty cells
+  get amber styling and a revert control; a "Read-only" badge surfaces why editing is unavailable
+  when it is. Editability (`computeTableEditability`,
+  `apps/web/src/features/table/model/editability.ts`) is derived entirely from existing
+  capabilities/permissions/kind data - no new backend field - and gates closed for MongoDB, views/
+  materialized views, tables without a primary key, and read-only sessions/tables. Moved
+  `capability-gates.ts` out of the `connection` feature into `shared/lib/capabilities/`, since it's
+  now consumed by the `table` feature too and the web-structure check forbids feature-to-feature
+  imports. F104 (permission-gated Add-row/Duplicate-row UI) is next.

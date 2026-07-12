@@ -154,41 +154,45 @@
       "id": "F100",
       "behavior": "Structured row update per docs/product-specs/row-editing.md: the mutations namespace gains updateRowByKey requiring a full primary-key match (composite keys supported; MongoDB matches _id), rejecting tables without a primary key and kind !== 'table'/'collection' targets, parameterized everywhere; SQL engines take a flat changes map; MongoDB takes the F098-specced document-update payload (changed-fields or replace, per the spec decision) parsed from EJSON server-side. Zero-rows-matched is reported as a distinct outcome (stale row), never as silent success. Server route (PATCH on the rows resource) gated by guard + update permission, audited, with the same column-validation pattern as F099. Conformance across all four engines including restricted-user rejection and the 0-matched outcome. Depends on F099.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "2620335",
+      "evidence": "PR #112 (https://github.com/ensp1re/qyre/pull/112), merged as 2620335. Adapters gain mutations.updateRowByKey per docs/product-specs/row-editing.md: Postgres/MySQL/SQLite translate a full primary-key match plus a changes map into a parameterized UPDATE, reporting matched (0 or 1) from the driver's own row-count - live-verified that MySQL's affectedRows and SQLite's changes() both already report \"rows matched\", not \"rows whose value actually changed\" (mysql2's pool defaults to CLIENT_FOUND_ROWS, unlike the raw mysql CLI client), so a same-value update correctly reports matched: 1, not a false stale/conflict. MongoDB replaces the whole document (findOneAndReplace keyed on _id, the \"Compass model\") after EJSON-deserializing the request body - a field absent from the replacement is genuinely removed, not merely left untouched. Server adds PATCH /api/tables/:schema/:table/rows: resolveKey validates the full primary key is supplied (rejecting tables with no primary key at all), resolveUpdateChanges rejects primary-key columns in the changes map and empty change sets - both reusing the same FilterColumnKind coercion insertRow's validation already established (packages/server/src/services/row-mutation-validation.ts). A matched: 0 result is reported as 409, never a silent 200. Fixed a latent bug in SQLite's insertRow wrapper along the way (Promise.resolve(insertRow(...)) -> async wrapper, so a synchronous throw is caught as a rejection). Verified: pnpm --filter @qyre/server test (137 tests, incl. 17 new), adapter integration tests against live Docker fixtures for all 4 engines, node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test (68 tests), pnpm check:quiet, pnpm verify:pr (full local gate incl. @full E2E across all 5 Playwright projects). GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": "docs/product-specs/row-editing.md"
+      "spec": "docs/product-specs/row-editing.md",
+      "completedAt": "2026-07-11T15:00:00.000Z"
     },
     {
       "id": "F101",
       "behavior": "Structured row delete per docs/product-specs/row-editing.md: the mutations namespace gains deleteRowsByKey(schema, table, keyMatches[]) deleting only by an explicit list of primary-key identities (no filter-based bulk delete in this slice - that stays a deliberate non-feature until a spec revisits it), parameterized everywhere, MongoDB by _id list, kind-gated (F124). Server route gated by guard + delete permission, audited with the deleted count; zero-matched keys reported distinctly. Conformance across all four engines including restricted-user rejection. Depends on F100.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "f8a6037",
+      "evidence": "PR #113 (https://github.com/ensp1re/qyre/pull/113), merged as f8a6037. Adapters gain mutations.deleteRowsByKey per docs/product-specs/row-editing.md: each engine deletes by an explicit list of primary-key matches, never a filter-evaluated bulk delete. Postgres/MySQL/SQLite run one parameterized DELETE per key and sum the affected-row counts into deleted; MongoDB runs a single deleteMany({ _id: { $in: [...] } }). Server adds DELETE /api/tables/:schema/:table/rows: resolveKeys validates every key via the same resolveKey full-primary-key-match logic F100 established, rejecting an empty keys array outright. A deleted count lower than the requested key count is reported as 409, never a silent 200. Verified: pnpm --filter @qyre/server test (148 tests, incl. 19 new), adapter integration tests against live Docker fixtures for all 4 engines (full delete, partial/stale deleted count, restricted-user rejection), node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test (76 tests), pnpm check:quiet, pnpm verify:pr (full local gate incl. @full E2E across all 5 Playwright projects). GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": "docs/product-specs/row-editing.md"
+      "spec": "docs/product-specs/row-editing.md",
+      "completedAt": "2026-07-11T16:30:00.000Z"
     },
     {
       "id": "F102",
       "behavior": "Batch commit for the SQL pending-changes model per docs/product-specs/row-editing.md: one endpoint applies an ordered set of staged inserts/updates/deletes wrapped in a single transaction on Postgres/MySQL/SQLite (all-or-nothing; rollback on first failure with the failing op index reported). MongoDB is deliberately NOT part of this endpoint - its document editor (F125) saves per-document, per the exec plan's decision 5. Adapters gain the transactional wrapper in their mutations namespace; the server validates every op against introspected columns/permissions/kind before starting, and audits the batch outcome. Conformance: mixed-batch success and mid-batch failure rollback on the three SQL engines; MongoDB asserts the endpoint cleanly reports not-applicable. Depends on F101.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "d9374ad",
+      "evidence": "PR #114 (https://github.com/ensp1re/qyre/pull/114), merged as d9374ad. Adapters gain mutations.commitBatch (Postgres/MySQL/SQLite only) per docs/product-specs/row-editing.md: runs an ordered array of staged insert/update/delete ops in one native transaction on a single checked-out connection, all-or-nothing - a stale update (matched: 0) or delete (deleted < keys.length) rolls back and reports that op's index, same treatment a native constraint-violation error gets. Postgres/MySQL use pool.connect()/getConnection() plus BEGIN/COMMIT/ROLLBACK; SQLite reuses better-sqlite3's synchronous db.transaction() wrapper, which already rolls back and re-throws on any exception. Server adds POST /api/mutations/commit: validates every op against its own table's real columns/permissions/kind up front (resolveBatchOp, reusing the exact per-op resolve* helpers F099-F101 already established) before the transaction starts, registered for every engine but responds 400 for MongoDB explaining documents save individually there. A rolled-back commit is reported as 409 with the failing op's index, never a silent 200. Verified: pnpm --filter @qyre/server test (170 tests, incl. 8 new commit route tests + 5 new resolveBatchOp unit tests), adapter integration tests against live Docker fixtures for the three SQL engines (mixed-batch success, mid-batch rollback), node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test (88 tests, incl. MongoDB asserts commitBatch is absent), pnpm check:quiet, pnpm verify:pr (full local gate incl. @full E2E across all 5 Playwright projects). GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": "docs/product-specs/row-editing.md"
+      "spec": "docs/product-specs/row-editing.md",
+      "completedAt": "2026-07-11T18:00:00.000Z"
     },
     {
       "id": "F103",
       "behavior": "The Rows table becomes an editable grid on SQL engines when - and only when - session capabilities, the table's permissions, its kind (F124: real tables only, not views), and a present primary key allow: double-click/Enter starts inline cell editing with type-aware editors reusing the F082/F089 filter value controls (boolean picker, native date/time/datetime inputs, number/text, explicit NULL setter, revert-cell), edits stage into a visible pending-changes buffer (dirty-cell styling) without touching the server, and editing is cleanly disabled - with the reason surfaced in UI copy - for read-only sessions, PK-less tables, views, and non-editable columns per the spec. MongoDB does not participate (its editing surface is F125's document editor). The buffer lives in features/table model state; commit wiring arrives in F105. Depends on F097, F098.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "710e2c1",
+      "evidence": "PR #115 (https://github.com/ensp1re/qyre/pull/115), merged as 710e2c1. Adds inline cell editing to the SQL table grid: double-click or Enter opens a type-aware widget (text/number/boolean/date/time/datetime) reusing F082/F089's filter value controls; edits stage into a client-side pending-changes buffer keyed by primary key (survives pagination/sort/filter changes), not committed to the server yet - commit wiring to F102's batch-commit endpoint is F105. Dirty cells get amber styling and a revert control; a \"Read-only\" badge explains why editing is unavailable when it is. Editability is derived per table from existing capabilities/permissions/kind data via computeTableEditability (apps/web/src/features/table/model/editability.ts) - no new backend field - and gates closed for MongoDB, views/materialized views, tables without a primary key, and read-only sessions/tables. New EditableCell component (packages/ui/src/data-grid/editable-cell.tsx) and usePendingChanges buffer hook (apps/web/src/features/table/model/pending-changes.ts). Moved capability-gates.ts out of the connection feature into shared/lib/capabilities/, since it's now consumed by the table feature too and the web-structure check forbids feature-to-feature imports. Verified: pnpm check:quiet (green), pnpm verify:pr (full local gate incl. Docker-backed @full E2E across all 5 Playwright projects, green after retries - transient parallel-load flakes in unrelated pre-existing specs, each isolation-verified passing), 8 new computeTableEditability unit tests, 11 new pending-changes buffer unit tests, 10 new EditableCell render tests, 7 new RowsTable inline-editing integration render tests, manual browser verification against a live Postgres connection (double-click opens the editor, Enter commits with dirty amber styling + revert button, revert restores the original value with nothing written to the server). GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": "docs/product-specs/row-editing.md"
+      "spec": "docs/product-specs/row-editing.md",
+      "completedAt": "2026-07-12T01:00:00.000Z"
     },
     {
       "id": "F104",

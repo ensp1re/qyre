@@ -77,7 +77,15 @@ function TestHost({
       primaryKeyColumns={["id"]}
       editable={editable}
       editableColumns={new Set(["id", "name"])}
-      pendingChanges={{ getEdit, stageEdit, revertEdit }}
+      pendingChanges={{
+        getEdit,
+        stageEdit,
+        revertEdit,
+        inserts: [],
+        addInsert: () => "",
+        updateInsertValue: () => {},
+        removeInsert: () => {}
+      }}
     />
   );
 }

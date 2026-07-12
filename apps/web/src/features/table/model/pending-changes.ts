@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 export interface StagedEdit {
   readonly original: unknown;
@@ -7,6 +7,17 @@ export interface StagedEdit {
 
 export type PendingEdits = ReadonlyMap<string, ReadonlyMap<string, StagedEdit>>;
 
+/** One staged new-row draft (F104) - `values` only holds columns the user actually touched; an
+ * omitted column lets the engine apply its own default/auto-generated value on commit, rather than
+ * the UI guessing one (see `docs/product-specs/row-editing.md`'s auto-generated-primary-key note,
+ * generalized to every column). */
+export interface PendingInsertRow {
+  readonly id: string;
+  readonly values: Readonly<Record<string, unknown>>;
+}
+
+export type PendingInserts = readonly PendingInsertRow[];
+
 export interface PendingChangesApi {
   getEdit: (rowKey: string, column: string) => StagedEdit | undefined;
   stageEdit: (rowKey: string, column: string, original: unknown, next: unknown) => void;
@@ -14,6 +25,14 @@ export interface PendingChangesApi {
   clear: () => void;
   /** Total staged cell edits across every row - 0 when the buffer is empty. */
   size: number;
+  /** Staged new-row drafts (F104), in the order they were added. */
+  inserts: PendingInserts;
+  /** Stages a new draft row, optionally pre-filled (Duplicate row) - returns its id. */
+  addInsert: (initialValues?: Record<string, unknown>) => string;
+  /** Sets (or, given `undefined`, clears) one column's value on a draft row. */
+  updateInsertValue: (id: string, column: string, value: unknown) => void;
+  /** Discards a whole draft row. */
+  removeInsert: (id: string) => void;
 }
 
 /** Pure state transition backing `stageEdit` - a plain function so it's unit-testable without
@@ -54,6 +73,40 @@ export function countPendingEdits(edits: PendingEdits): number {
   return total;
 }
 
+/** Pure state transition backing `addInsert` (F104) - appends a new draft row with the given id and
+ * initial values (empty when adding a blank row; pre-filled when duplicating an existing row). */
+export function applyAddInsert(
+  inserts: PendingInserts,
+  id: string,
+  initialValues: Record<string, unknown> = {}
+): PendingInserts {
+  return [...inserts, { id, values: initialValues }];
+}
+
+/** Pure state transition backing `updateInsertValue` - see {@link applyStageEdit}. Setting `value`
+ * to `undefined` removes the column from `values` entirely (back to "untouched"), rather than
+ * storing an explicit `undefined`, so an untouched column stays indistinguishable from one the user
+ * never visited. */
+export function applyUpdateInsertValue(
+  inserts: PendingInserts,
+  id: string,
+  column: string,
+  value: unknown
+): PendingInserts {
+  return inserts.map((insert) => {
+    if (insert.id !== id) return insert;
+    const values = { ...insert.values };
+    if (value === undefined) delete values[column];
+    else values[column] = value;
+    return { ...insert, values };
+  });
+}
+
+/** Pure state transition backing `removeInsert` - discards a whole draft row. */
+export function applyRemoveInsert(inserts: PendingInserts, id: string): PendingInserts {
+  return inserts.filter((insert) => insert.id !== id);
+}
+
 /**
  * Client-side pending-changes buffer for the SQL editable grid (F103): edits stage here without
  * touching the server. Commit wiring (F105) reads from this same buffer; this hook only owns the
@@ -68,6 +121,8 @@ export function countPendingEdits(edits: PendingEdits): number {
  */
 export function usePendingChanges(): PendingChangesApi {
   const [edits, setEdits] = useState<PendingEdits>(new Map());
+  const [inserts, setInserts] = useState<PendingInserts>([]);
+  const nextInsertId = useRef(0);
 
   const getEdit = useCallback(
     (rowKey: string, column: string) => edits.get(rowKey)?.get(column),
@@ -85,11 +140,38 @@ export function usePendingChanges(): PendingChangesApi {
     setEdits((current) => applyRevertEdit(current, rowKey, column));
   }, []);
 
-  const clear = useCallback(() => setEdits(new Map()), []);
+  const clear = useCallback(() => {
+    setEdits(new Map());
+    setInserts([]);
+  }, []);
 
   const size = useMemo(() => countPendingEdits(edits), [edits]);
 
-  return { getEdit, stageEdit, revertEdit, clear, size };
+  const addInsert = useCallback((initialValues?: Record<string, unknown>) => {
+    const id = `insert-${nextInsertId.current++}`;
+    setInserts((current) => applyAddInsert(current, id, initialValues));
+    return id;
+  }, []);
+
+  const updateInsertValue = useCallback((id: string, column: string, value: unknown) => {
+    setInserts((current) => applyUpdateInsertValue(current, id, column, value));
+  }, []);
+
+  const removeInsert = useCallback((id: string) => {
+    setInserts((current) => applyRemoveInsert(current, id));
+  }, []);
+
+  return {
+    getEdit,
+    stageEdit,
+    revertEdit,
+    clear,
+    size,
+    inserts,
+    addInsert,
+    updateInsertValue,
+    removeInsert
+  };
 }
 
 /** Stable identity for a row, derived from its primary-key column values - the buffer's key, and

@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyAddInsert,
+  applyRemoveInsert,
   applyRevertEdit,
   applyStageEdit,
+  applyUpdateInsertValue,
   computeRowKey,
   countPendingEdits,
-  type PendingEdits
+  type PendingEdits,
+  type PendingInserts
 } from "../../../../src/features/table/model/pending-changes.js";
 
 describe("applyStageEdit / applyRevertEdit (F103)", () => {
@@ -79,5 +83,46 @@ describe("computeRowKey (F103)", () => {
 
   it("produces different keys for different primary-key values", () => {
     expect(computeRowKey({ id: 1 }, ["id"])).not.toBe(computeRowKey({ id: 2 }, ["id"]));
+  });
+});
+
+describe("applyAddInsert / applyUpdateInsertValue / applyRemoveInsert (F104)", () => {
+  it("appends a new draft row with the given id and initial values", () => {
+    const inserts: PendingInserts = [];
+    const next = applyAddInsert(inserts, "insert-0", { name: "Ada" });
+    expect(next).toEqual([{ id: "insert-0", values: { name: "Ada" } }]);
+  });
+
+  it("defaults to an empty values map when none is given", () => {
+    const next = applyAddInsert([], "insert-0");
+    expect(next[0]?.values).toEqual({});
+  });
+
+  it("does not mutate the input array (immutable update)", () => {
+    const inserts: PendingInserts = [];
+    applyAddInsert(inserts, "insert-0");
+    expect(inserts.length).toBe(0);
+  });
+
+  it("sets a column's value on the matching draft row only", () => {
+    let inserts: PendingInserts = applyAddInsert([], "insert-0");
+    inserts = applyAddInsert(inserts, "insert-1");
+    inserts = applyUpdateInsertValue(inserts, "insert-0", "name", "Ada");
+    expect(inserts[0]?.values).toEqual({ name: "Ada" });
+    expect(inserts[1]?.values).toEqual({});
+  });
+
+  it("removes the column from values when set to undefined - back to untouched", () => {
+    let inserts: PendingInserts = applyAddInsert([], "insert-0");
+    inserts = applyUpdateInsertValue(inserts, "insert-0", "name", "Ada");
+    inserts = applyUpdateInsertValue(inserts, "insert-0", "name", undefined);
+    expect(inserts[0]?.values).toEqual({});
+  });
+
+  it("discards a whole draft row", () => {
+    let inserts: PendingInserts = applyAddInsert([], "insert-0");
+    inserts = applyAddInsert(inserts, "insert-1");
+    inserts = applyRemoveInsert(inserts, "insert-0");
+    expect(inserts.map((insert) => insert.id)).toEqual(["insert-1"]);
   });
 });

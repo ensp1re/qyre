@@ -11,10 +11,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  CopyPlus,
   Download,
   Lock,
+  Plus,
   RefreshCw,
   Search,
+  Trash2,
   X
 } from "lucide-react";
 import type { PointerEvent, ReactNode } from "react";
@@ -28,6 +31,7 @@ import { CellValue } from "./cell-value.js";
 import { DateDetailPopover } from "./date-detail-popover.js";
 import { EditableCell } from "./editable-cell.js";
 import { FilterBar } from "./filter-bar.js";
+import { NewRowCell } from "./new-row-cell.js";
 
 export interface RowsTableProps {
   rowPage: RowPage;
@@ -83,14 +87,27 @@ export interface RowsTableProps {
   /** The primary-key column names, used to compute each row's stable identity for the
    * pending-changes buffer below. Required (with `pendingChanges`) for any cell to be editable. */
   primaryKeyColumns?: readonly string[];
-  /** The pending-changes buffer (F103) - `RowsTable` stages edits into it and reads staged values
-   * back for dirty-cell display, but never calls the server itself; commit wiring is F105. Omitted
-   * disables editing regardless of `editable`. */
+  /** The pending-changes buffer (F103/F104) - `RowsTable` stages edits/inserts into it and reads
+   * staged values back for dirty-cell/draft-row display, but never calls the server itself; commit
+   * wiring is F105. Omitted disables editing and Add-row/Duplicate-row regardless of `editable`/
+   * `canInsert`. */
   pendingChanges?: {
     getEdit: (rowKey: string, column: string) => { next: unknown } | undefined;
     stageEdit: (rowKey: string, column: string, original: unknown, next: unknown) => void;
     revertEdit: (rowKey: string, column: string) => void;
+    inserts: readonly { id: string; values: Readonly<Record<string, unknown>> }[];
+    addInsert: (initialValues?: Record<string, unknown>) => string;
+    updateInsertValue: (id: string, column: string, value: unknown) => void;
+    removeInsert: (id: string) => void;
   };
+  /** Whether Add-row/Duplicate-row (F104) render at all - hidden entirely (not disabled) when
+   * false, matching `docs/product-specs/row-editing.md`. Independent of `editable`: a session can
+   * have insert without update permission. */
+  canInsert?: boolean;
+  /** Columns an insert draft can set - primary-key columns are included here (unlike
+   * `editableColumns`), since a new row's key must be supplied unless the engine auto-generates it.
+   * Ignored when `canInsert` is false. */
+  insertableColumns?: ReadonlySet<string>;
 }
 
 /** Approximate row height in px (matches the `py-1.5` cell padding + 11px font) - only an estimate
@@ -151,7 +168,9 @@ export function RowsTable({
   editableColumns,
   editingDisabledReason,
   primaryKeyColumns,
-  pendingChanges
+  pendingChanges,
+  canInsert,
+  insertableColumns
 }: RowsTableProps): ReactNode {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -303,6 +322,24 @@ export function RowsTable({
     onExportSelectedRows?.(toCsv(rowPage.columns, rows));
   }
 
+  // F104: Add-row/Duplicate-row are hidden entirely (not disabled) when the session/table can't
+  // insert - see docs/product-specs/row-editing.md.
+  const canAddRow = Boolean(canInsert && pendingChanges);
+
+  /** Pre-fills a new draft from an existing row's insertable columns, primary key excluded - a
+   * duplicate never proposes an exact copy of another row's key, which would just collide on
+   * insert; the user (or the engine, if auto-generated) supplies a new one. */
+  function duplicateRow(row: Record<string, unknown>): void {
+    if (!pendingChanges || !insertableColumns) return;
+    const initialValues: Record<string, unknown> = {};
+    for (const columnName of insertableColumns) {
+      if (primaryKeyColumns?.includes(columnName)) continue;
+      const value = row[columnName];
+      if (value !== null && value !== undefined) initialValues[columnName] = value;
+    }
+    pendingChanges.addInsert(initialValues);
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
@@ -342,6 +379,15 @@ export function RowsTable({
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          {canAddRow && (
+            <button
+              type="button"
+              onClick={() => pendingChanges?.addInsert()}
+              className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <Plus className="h-3 w-3" /> Add row
+            </button>
+          )}
           {selected.size > 0 && (
             <>
               <span className="font-mono text-[10px]" style={{ color: "var(--c-blue)" }}>
@@ -395,7 +441,7 @@ export function RowsTable({
         </div>
       </div>
 
-      {rowPage.rows.length === 0 ? (
+      {rowPage.rows.length === 0 && !(pendingChanges && pendingChanges.inserts.length > 0) ? (
         <div data-testid="rows-table" className="flex-1 p-3">
           <p className="font-mono text-[11px] text-muted-foreground">No rows in this table.</p>
         </div>
@@ -422,7 +468,12 @@ export function RowsTable({
                     />
                   </label>
                 </th>
-                <th className="w-8 border-b border-r border-border px-2 py-2 text-right font-normal text-muted-foreground/40">
+                <th
+                  className={cn(
+                    "border-b border-r border-border px-2 py-2 text-right font-normal text-muted-foreground/40",
+                    canAddRow ? "w-14" : "w-8"
+                  )}
+                >
                   #
                 </th>
                 {rowPage.columns.map((columnName) => {
@@ -469,6 +520,59 @@ export function RowsTable({
               </tr>
             </thead>
             <tbody>
+              {canAddRow &&
+                pendingChanges &&
+                pendingChanges.inserts.map((insert) => (
+                  <tr
+                    key={insert.id}
+                    className="border-b border-border-subtle"
+                    style={{
+                      backgroundColor: "color-mix(in srgb, var(--c-green) 8%, transparent)"
+                    }}
+                  >
+                    <td className="w-8 border-r border-border-subtle px-2 py-1.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => pendingChanges.removeInsert(insert.id)}
+                        aria-label="Discard new row"
+                        title="Discard new row"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </td>
+                    <td
+                      className="w-14 border-r border-border-subtle px-2 py-1.5 text-right font-bold"
+                      style={{ color: "var(--c-green)" }}
+                    >
+                      new
+                    </td>
+                    {rowPage.columns.map((columnName) => {
+                      const meta = columnByName.get(columnName);
+                      const isInsertable = insertableColumns?.has(columnName);
+                      return (
+                        <td
+                          key={columnName}
+                          className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5"
+                        >
+                          {isInsertable ? (
+                            <NewRowCell
+                              value={insert.values[columnName]}
+                              dataType={meta?.dataType ?? "unknown"}
+                              engine={engine}
+                              nullable={meta?.nullable ?? true}
+                              onChange={(next) =>
+                                pendingChanges.updateInsertValue(insert.id, columnName, next)
+                              }
+                            />
+                          ) : (
+                            <span className="italic text-muted-foreground/30">not editable</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
               {topPadding > 0 && (
                 <tr>
                   <td colSpan={rowPage.columns.length + 2} style={{ height: topPadding }} />
@@ -499,8 +603,29 @@ export function RowsTable({
                         aria-label={`Select row ${virtualRow.index + 1}`}
                       />
                     </td>
-                    <td className="w-8 border-r border-border-subtle px-2 py-1.5 text-right text-muted-foreground/30">
-                      {virtualRow.index + 1}
+                    <td
+                      className={cn(
+                        "border-r border-border-subtle px-1 py-1.5 text-right text-muted-foreground/30",
+                        canAddRow ? "w-14" : "w-8"
+                      )}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        {canAddRow && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              duplicateRow(row);
+                            }}
+                            aria-label={`Duplicate row ${virtualRow.index + 1}`}
+                            title="Duplicate row"
+                            className="text-muted-foreground/60 hover:text-foreground"
+                          >
+                            <CopyPlus className="h-2.5 w-2.5" />
+                          </button>
+                        )}
+                        <span>{virtualRow.index + 1}</span>
+                      </div>
                     </td>
                     {rowPage.columns.map((columnName) => {
                       const meta = columnByName.get(columnName);

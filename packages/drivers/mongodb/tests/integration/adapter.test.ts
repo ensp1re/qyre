@@ -226,6 +226,29 @@ describe("MongodbAdapter integration", () => {
     }
   });
 
+  it("createTable/renameTable/truncateTable/dropTable roundtrip - maps onto collection ops (F110)", async () => {
+    const table = "qyre_test_ddl";
+    const renamed = "qyre_test_ddl_renamed";
+    await adapter.ddl?.createTable?.(databaseName, table, []);
+    const created = await adapter.getTable(databaseName, table);
+    expect(created.kind).toBe("collection");
+
+    await adapter.ddl?.renameTable?.(databaseName, table, renamed);
+    await expect(adapter.getTable(databaseName, renamed)).resolves.toMatchObject({
+      name: renamed
+    });
+
+    await adapter.mutations.insertRow?.(databaseName, renamed, { hello: "world" });
+    await adapter.ddl?.truncateTable?.(databaseName, renamed);
+    const afterTruncate = await adapter.getRows(databaseName, renamed, 0, 10);
+    expect(afterTruncate.rows).toHaveLength(0);
+
+    await adapter.ddl?.dropTable?.(databaseName, renamed);
+    const overview = await adapter.getOverview();
+    const schema = overview.schemas.find((candidate) => candidate.name === databaseName);
+    expect(schema?.tables).not.toContain(renamed);
+  });
+
   it("replaces a whole document by _id, deserializing relaxed EJSON, and reports matched: 1 (F100)", async () => {
     const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
     const ada = page.rows.find((row) => row.name === "Ada Lovelace");

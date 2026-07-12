@@ -198,6 +198,61 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
+  it("createTable/renameTable/truncateTable/dropTable roundtrip (F110)", async () => {
+    const table = "qyre_test_ddl";
+    const renamed = "qyre_test_ddl_renamed";
+    try {
+      await adapter.ddl?.createTable?.(FIXTURE.schema, table, [
+        { name: "id", dataType: "integer", nullable: false, default: null },
+        { name: "count", dataType: "integer", nullable: true, default: 5 }
+      ]);
+      const created = await adapter.getTable(FIXTURE.schema, table);
+      expect(created.kind).toBe("table");
+      expect(created.columns.map((column) => column.name).sort()).toEqual(["count", "id"]);
+
+      await adapter.ddl?.renameTable?.(FIXTURE.schema, table, renamed);
+      await expect(adapter.getTable(FIXTURE.schema, renamed)).resolves.toMatchObject({
+        name: renamed
+      });
+
+      await runStatements(databaseUrl, [`INSERT INTO ${renamed} (id, count) VALUES (1, 1)`]);
+      await adapter.ddl?.truncateTable?.(FIXTURE.schema, renamed);
+      const afterTruncate = await adapter.getRows(FIXTURE.schema, renamed, 0, 10);
+      expect(afterTruncate.rows).toHaveLength(0);
+
+      await adapter.ddl?.dropTable?.(FIXTURE.schema, renamed);
+      // Postgres's own introspection reads pg_class's catalog-level row estimate rather than
+      // issuing a live query against the table, so getTable on a dropped table resolves with an
+      // empty-but-present result instead of rejecting - the overview's table list is the
+      // authoritative existence check here.
+      const overview = await adapter.getOverview();
+      const schema = overview.schemas.find((candidate) => candidate.name === FIXTURE.schema);
+      expect(schema?.tables).not.toContain(renamed);
+    } finally {
+      await runStatements(databaseUrl, [
+        `DROP TABLE IF EXISTS ${table}`,
+        `DROP TABLE IF EXISTS ${renamed}`
+      ]);
+    }
+  });
+
+  it("rejects createTable as a SELECT-only fixture role (F110)", async () => {
+    const readOnlyAdapter = new PostgresAdapter({
+      engine: "postgres",
+      raw: requireReadOnlyTestDatabaseUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.ddl?.createTable?.(FIXTURE.schema, "qyre_test_ddl_denied", [
+          { name: "id", dataType: "integer", nullable: false, default: null }
+        ])
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("updates a row by primary key and reports matched: 1 (F100)", async () => {
     await runStatements(databaseUrl, [
       `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('Update Test', 'update-test@example.com')`

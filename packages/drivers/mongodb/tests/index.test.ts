@@ -174,10 +174,10 @@ describe("mongodbAdapterFactory", () => {
 
 // MongoDB has no server-enforced read-only mode to fall back on (see this spec's "Read-only
 // enforcement" section) - the guarantee is instead that a Mongo write API is only ever called from
-// mutations.ts (F099's one deliberate, gated write path - see "read-only enforcement" below), never
-// anywhere else in the adapter. This is the "lint-style check" that spec explicitly calls for:
-// fails loudly if a future change adds an unplanned write call, rather than relying solely on code
-// review to catch it.
+// mutations.ts (F099's one deliberate, gated write path) or ddl.ts (F110's equally deliberate,
+// gated schema-lifecycle write path) - see "read-only enforcement" below - never anywhere else in
+// the adapter. This is the "lint-style check" that spec explicitly calls for: fails loudly if a
+// future change adds an unplanned write call, rather than relying solely on code review to catch it.
 const WRITE_METHODS = [
   "insertOne",
   "insertMany",
@@ -201,7 +201,7 @@ const WRITE_METHODS = [
 ];
 
 describe("read-only enforcement", () => {
-  it("no write API calls exist outside the dedicated mutations module", () => {
+  it("no write API calls exist outside the dedicated mutations/ddl modules", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const sourceDirectory = join(here, "../src");
     const source = readdirSync(sourceDirectory)
@@ -209,10 +209,15 @@ describe("read-only enforcement", () => {
       // vocabulary as string literals (e.g. "createCollection", "createIndex" in an actions array
       // read from connectionStatus{showPrivileges:true}) - the same words as real write methods,
       // but never called as one; it only ever reads via client.db().command(...). mutations.ts
-      // (F099) is the one deliberate, gated write path - see the next test. Both excluded here so
-      // this scan keeps catching an actual *accidental* write call elsewhere.
+      // (F099) and ddl.ts (F110) are the two deliberate, gated write paths - see the next tests.
+      // All three excluded here so this scan keeps catching an actual *accidental* write call
+      // elsewhere.
       .filter(
-        (name) => name.endsWith(".ts") && name !== "permissions.ts" && name !== "mutations.ts"
+        (name) =>
+          name.endsWith(".ts") &&
+          name !== "permissions.ts" &&
+          name !== "mutations.ts" &&
+          name !== "ddl.ts"
       )
       .map((name) => readFileSync(join(sourceDirectory, name), "utf-8"))
       .join("\n");
@@ -243,6 +248,22 @@ describe("read-only enforcement", () => {
     for (const method of WRITE_METHODS.filter((candidate) => !shipped.includes(candidate))) {
       const callPattern = method.endsWith("(") ? method : `${method}(`;
       expect(source, `mutations.ts must not yet call ${method}`).not.toContain(callPattern);
+    }
+  });
+
+  it("ddl.ts only calls the write methods table-lifecycle DDL has actually shipped so far (F110: createCollection, renameCollection, deleteMany, .drop()", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(join(here, "../src/ddl.ts"), "utf-8");
+    const shipped = ["createCollection", "renameCollection", "deleteMany", ".drop("];
+    for (const method of shipped) {
+      const callPattern = method.endsWith("(") ? method : `${method}(`;
+      expect(source, `ddl.ts must call ${method}`).toContain(callPattern);
+    }
+    // Index management (F112) stays absent until its own feature slice deliberately adds it - the
+    // same "fails loudly on an unplanned write call" guarantee mutations.ts gets, scoped to ddl.ts.
+    for (const method of WRITE_METHODS.filter((candidate) => !shipped.includes(candidate))) {
+      const callPattern = method.endsWith("(") ? method : `${method}(`;
+      expect(source, `ddl.ts must not yet call ${method}`).not.toContain(callPattern);
     }
   });
 });

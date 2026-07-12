@@ -18,11 +18,13 @@ import type {
   AdapterFactory,
   CancellationRegistry,
   DatabaseAdapter,
-  RowMutationApi
+  RowMutationApi,
+  SchemaDdlApi
 } from "@qyre/driver-contract";
 import { MongoClient } from "mongodb";
 import { normalizeDocument } from "./bson-values.js";
 import { isMongoCancelError, registerMongoCancellation } from "./cancellation.js";
+import { createTable, dropTable, renameTable, truncateTable } from "./ddl.js";
 import { buildMongoFilter } from "./filters.js";
 import { introspectCollection, introspectSchemas } from "./introspection.js";
 import { deleteRowsByKey, getDocumentText, insertRow, updateRowByKey } from "./mutations.js";
@@ -53,6 +55,12 @@ export class MongodbAdapter implements DatabaseAdapter {
     deleteRowsByKey: (schema, table, keys) =>
       deleteRowsByKey(this.getClient(), schema, table, keys),
     getDocumentText: (schema, table, id) => getDocumentText(this.getClient(), schema, table, id)
+  };
+  public readonly ddl: SchemaDdlApi = {
+    createTable: (schema, table, columns) => createTable(this.getClient(), schema, table, columns),
+    renameTable: (schema, table, newName) => renameTable(this.getClient(), schema, table, newName),
+    truncateTable: (schema, table) => truncateTable(this.getClient(), schema, table),
+    dropTable: (schema, table) => dropTable(this.getClient(), schema, table)
   };
   private client: MongoClient | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;

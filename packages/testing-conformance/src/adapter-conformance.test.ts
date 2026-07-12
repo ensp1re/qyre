@@ -668,4 +668,55 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(adapter.mutations?.commitBatch).toBeUndefined();
     }
   );
+
+  it.skipIf(!configured)(
+    "createTable/renameTable/truncateTable/dropTable roundtrip (F110)",
+    async () => {
+      const created = `qyre_ddl_${suffix}`;
+      const renamed = `qyre_ddl_renamed_${suffix}`;
+      const intType = engine === "postgres" ? "integer" : engine === "mysql" ? "INT" : "INTEGER";
+      const columns =
+        engine === "mongodb"
+          ? []
+          : [
+              { name: "id", dataType: intType, nullable: false, default: null },
+              { name: "count", dataType: intType, nullable: true, default: 5 }
+            ];
+
+      await adapter.ddl?.createTable?.(fixture.schema, created, columns);
+      const createdMetadata = await adapter.getTable(fixture.schema, created);
+      expect(createdMetadata.kind).toBe(engine === "mongodb" ? "collection" : "table");
+      if (engine !== "mongodb") {
+        expect(createdMetadata.columns.map((column) => column.name).sort()).toEqual([
+          "count",
+          "id"
+        ]);
+      }
+
+      await adapter.ddl?.renameTable?.(fixture.schema, created, renamed);
+      const renamedMetadata = await adapter.getTable(fixture.schema, renamed);
+      expect(renamedMetadata.name).toBe(renamed);
+
+      await adapter.mutations?.insertRow?.(
+        fixture.schema,
+        renamed,
+        engine === "mongodb" ? { hello: "world" } : { id: 1, count: 1 }
+      );
+      const beforeTruncate = await adapter.getRows(fixture.schema, renamed, 0, 10);
+      expect(beforeTruncate.rows).toHaveLength(1);
+
+      await adapter.ddl?.truncateTable?.(fixture.schema, renamed);
+      const afterTruncate = await adapter.getRows(fixture.schema, renamed, 0, 10);
+      expect(afterTruncate.rows).toHaveLength(0);
+
+      await adapter.ddl?.dropTable?.(fixture.schema, renamed);
+      // Not every engine's getTable rejects for a dropped target (Postgres's own introspection
+      // falls back to an empty-but-present result rather than erroring, since it reads pg_class's
+      // catalog-level row estimate rather than issuing a live query against the table) - checking
+      // the schema's table list is the one assertion that holds uniformly across all four engines.
+      const overview = await adapter.getOverview();
+      const schema = overview.schemas.find((candidate) => candidate.name === fixture.schema);
+      expect(schema?.tables).not.toContain(renamed);
+    }
+  );
 });

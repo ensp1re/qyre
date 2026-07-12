@@ -165,6 +165,51 @@ describe("SqliteAdapter integration", () => {
     }
   });
 
+  it("createTable/renameTable/truncateTable/dropTable roundtrip (F110)", async () => {
+    const table = "qyre_test_ddl";
+    const renamed = "qyre_test_ddl_renamed";
+    await adapter.ddl?.createTable?.("main", table, [
+      { name: "id", dataType: "INTEGER", nullable: false, default: null },
+      { name: "count", dataType: "INTEGER", nullable: true, default: 5 }
+    ]);
+    const created = await adapter.getTable("main", table);
+    expect(created.kind).toBe("table");
+    expect(created.columns.map((column) => column.name).sort()).toEqual(["count", "id"]);
+
+    await adapter.ddl?.renameTable?.("main", table, renamed);
+    await expect(adapter.getTable("main", renamed)).resolves.toMatchObject({ name: renamed });
+
+    const seedForTruncate = new Database(dbPath);
+    seedForTruncate.exec(`INSERT INTO ${renamed} (id, count) VALUES (1, 1)`);
+    seedForTruncate.close();
+    await adapter.ddl?.truncateTable?.("main", renamed);
+    const afterTruncate = await adapter.getRows("main", renamed, 0, 10);
+    expect(afterTruncate.rows).toHaveLength(0);
+
+    await adapter.ddl?.dropTable?.("main", renamed);
+    await expect(adapter.getTable("main", renamed)).rejects.toThrow();
+  });
+
+  it("rejects createTable against a chmod-read-only file copy (F110)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "qyre-sqlite-readonly-ddl-"));
+    const readOnlyPath = join(dir, "readonly.db");
+    copyFileSync(dbPath, readOnlyPath);
+    chmodSync(readOnlyPath, 0o444);
+
+    const readOnlyAdapter = new SqliteAdapter({ engine: "sqlite", raw: readOnlyPath });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.ddl?.createTable?.("main", "qyre_test_ddl_denied", [
+          { name: "id", dataType: "INTEGER", nullable: false, default: null }
+        ])
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+      chmodSync(readOnlyPath, 0o644);
+    }
+  });
+
   it("updates a row by primary key and reports matched: 1, even when the value is unchanged (F100)", async () => {
     const seed = new Database(dbPath);
     seed.exec(

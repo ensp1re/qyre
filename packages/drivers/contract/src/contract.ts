@@ -1,4 +1,5 @@
 import type {
+  ColumnDefinition,
   CommitMutationsResult,
   ConnectionCapabilities,
   ConnectionTarget,
@@ -80,6 +81,25 @@ export interface RowMutationApi {
   getDocumentText?(schema: string, table: string, id: string): Promise<string | undefined>;
 }
 
+/**
+ * Table/collection-lifecycle DDL operations (F110), per docs/product-specs/schema-editing.md. Each
+ * member is independently optional - not the namespace's own presence/absence - so F110 (table
+ * lifecycle) can land ahead of F111 (column ops)/F112 (index ops) without forcing an all-or-nothing
+ * implementation, mirroring {@link RowMutationApi}'s exact pattern. `columns`/`table`/`newName` are
+ * already validated (identifier shape for new names, `dataType` against the engine's curated type
+ * catalog) by the caller before an adapter method is ever invoked - see
+ * packages/server/src/services/schema-ddl-validation.ts.
+ */
+export interface SchemaDdlApi {
+  createTable?(schema: string, table: string, columns: ColumnDefinition[]): Promise<void>;
+  renameTable?(schema: string, table: string, newName: string): Promise<void>;
+  /** Deletes every row but keeps the table/collection itself. Postgres/MySQL: native `TRUNCATE`.
+   * SQLite: `DELETE FROM` (no native TRUNCATE, and no automatic `VACUUM` - a full-database operation
+   * out of scope for a single-table action). MongoDB: `deleteMany({})`. */
+  truncateTable?(schema: string, table: string): Promise<void>;
+  dropTable?(schema: string, table: string): Promise<void>;
+}
+
 /** A live, engine-specific connection to a single database. */
 export interface DatabaseAdapter {
   /** The engine identifier, e.g. "postgres". */
@@ -145,6 +165,10 @@ export interface DatabaseAdapter {
    * mechanism at all; present-but-grants-insufficient is a normal per-call rejection, not a
    * missing namespace. See {@link RowMutationApi}. */
   mutations?: RowMutationApi;
+  /** Table/collection-lifecycle DDL operations (F110) - absent means the engine has no DDL
+   * mechanism Qyre models at all (none do today); present-but-grants-insufficient is a normal
+   * per-call rejection, not a missing namespace. See {@link SchemaDdlApi}. */
+  ddl?: SchemaDdlApi;
   /**
    * Optional hook for adapters whose underlying client emits connection events asynchronously,
    * outside of any single request - e.g. Postgres/MySQL's pool "error" event when an idle

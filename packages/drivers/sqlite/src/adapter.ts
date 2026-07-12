@@ -12,9 +12,15 @@ import type {
   TableMetadata
 } from "@qyre/core";
 import { assertReadOnly, capResultRows, resolvePageRequest } from "@qyre/driver-contract";
-import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driver-contract";
+import type {
+  AdapterFactory,
+  DatabaseAdapter,
+  RowMutationApi,
+  SchemaDdlApi
+} from "@qyre/driver-contract";
 import Database from "better-sqlite3";
 import { computeCapabilities, tablePermissionsFromCapabilities } from "./capabilities.js";
+import { createTable, dropTable, renameTable, truncateTable } from "./ddl.js";
 import { fetchAllTableTargets, introspectTable, MAIN_SCHEMA } from "./introspection.js";
 import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
 import { normalizeRow } from "./row-values.js";
@@ -42,6 +48,12 @@ export class SqliteAdapter implements DatabaseAdapter {
       updateRowByKey(this.getDb(), table, key, changes),
     deleteRowsByKey: async (_schema, table, keys) => deleteRowsByKey(this.getDb(), table, keys),
     commitBatch: async (ops) => commitBatch(this.getDb(), ops)
+  };
+  public readonly ddl: SchemaDdlApi = {
+    createTable: async (_schema, table, columns) => createTable(this.getDb(), table, columns),
+    renameTable: async (_schema, table, newName) => renameTable(this.getDb(), table, newName),
+    truncateTable: async (_schema, table) => truncateTable(this.getDb(), table),
+    dropTable: async (_schema, table) => dropTable(this.getDb(), table)
   };
   private db: Database.Database | undefined;
   private resolvedPath: string | undefined;

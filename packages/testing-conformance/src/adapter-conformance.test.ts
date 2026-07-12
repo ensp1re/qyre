@@ -719,4 +719,51 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(schema?.tables).not.toContain(renamed);
     }
   );
+
+  it.skipIf(!configured || engine === "mongodb")(
+    "addColumn/renameColumn/alterColumn/dropColumn roundtrip (F111)",
+    async () => {
+      const table = `qyre_ddl_columns_${suffix}`;
+      const intType = engine === "postgres" ? "integer" : engine === "mysql" ? "INT" : "INTEGER";
+      const textType = engine === "postgres" ? "text" : "TEXT";
+
+      await adapter.ddl?.createTable?.(fixture.schema, table, [
+        { name: "id", dataType: intType, nullable: false, default: null }
+      ]);
+
+      await adapter.ddl?.addColumn?.(fixture.schema, table, {
+        name: "note",
+        dataType: textType,
+        nullable: true,
+        default: null
+      });
+      const afterAdd = await adapter.getTable(fixture.schema, table);
+      expect(afterAdd.columns.map((column) => column.name).sort()).toEqual(["id", "note"]);
+
+      await adapter.ddl?.renameColumn?.(fixture.schema, table, "note", "remark");
+      const afterRename = await adapter.getTable(fixture.schema, table);
+      expect(afterRename.columns.map((column) => column.name).sort()).toEqual(["id", "remark"]);
+
+      await adapter.ddl?.alterColumn?.(fixture.schema, table, "remark", { nullable: false });
+      const afterAlter = await adapter.getTable(fixture.schema, table);
+      expect(afterAlter.columns.find((column) => column.name === "remark")?.nullable).toBe(false);
+
+      await adapter.ddl?.alterColumn?.(fixture.schema, table, "remark", { nullable: true });
+      await adapter.ddl?.dropColumn?.(fixture.schema, table, "remark");
+      const afterDrop = await adapter.getTable(fixture.schema, table);
+      expect(afterDrop.columns.map((column) => column.name)).toEqual(["id"]);
+
+      await adapter.ddl?.dropTable?.(fixture.schema, table);
+    }
+  );
+
+  it.skipIf(!configured || engine !== "mongodb")(
+    "column operations are not offered on MongoDB - collections have no fixed structure (F111)",
+    () => {
+      expect(adapter.ddl?.addColumn).toBeUndefined();
+      expect(adapter.ddl?.renameColumn).toBeUndefined();
+      expect(adapter.ddl?.alterColumn).toBeUndefined();
+      expect(adapter.ddl?.dropColumn).toBeUndefined();
+    }
+  );
 });

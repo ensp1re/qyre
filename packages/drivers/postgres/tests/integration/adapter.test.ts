@@ -253,6 +253,67 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
+  it("addColumn/renameColumn/alterColumn/dropColumn roundtrip (F111)", async () => {
+    const table = "qyre_test_ddl_columns";
+    try {
+      await adapter.ddl?.createTable?.(FIXTURE.schema, table, [
+        { name: "id", dataType: "integer", nullable: false, default: null }
+      ]);
+
+      await adapter.ddl?.addColumn?.(FIXTURE.schema, table, {
+        name: "note",
+        dataType: "text",
+        nullable: true,
+        default: null
+      });
+      let metadata = await adapter.getTable(FIXTURE.schema, table);
+      expect(metadata.columns.map((column) => column.name).sort()).toEqual(["id", "note"]);
+
+      await adapter.ddl?.renameColumn?.(FIXTURE.schema, table, "note", "remark");
+      metadata = await adapter.getTable(FIXTURE.schema, table);
+      expect(metadata.columns.map((column) => column.name).sort()).toEqual(["id", "remark"]);
+
+      await adapter.ddl?.alterColumn?.(FIXTURE.schema, table, "remark", {
+        dataType: "varchar",
+        nullable: false,
+        default: "n/a"
+      });
+      metadata = await adapter.getTable(FIXTURE.schema, table);
+      const remark = metadata.columns.find((column) => column.name === "remark");
+      expect(remark?.nullable).toBe(false);
+      await runStatements(databaseUrl, [`INSERT INTO ${table} (id) VALUES (1)`]);
+      const rows = await adapter.getRows(FIXTURE.schema, table, 0, 10);
+      expect(rows.rows[0]?.remark).toBe("n/a");
+
+      await adapter.ddl?.alterColumn?.(FIXTURE.schema, table, "remark", { nullable: true });
+      await adapter.ddl?.dropColumn?.(FIXTURE.schema, table, "remark");
+      metadata = await adapter.getTable(FIXTURE.schema, table);
+      expect(metadata.columns.map((column) => column.name)).toEqual(["id"]);
+    } finally {
+      await runStatements(databaseUrl, [`DROP TABLE IF EXISTS ${table}`]);
+    }
+  });
+
+  it("rejects addColumn as a SELECT-only fixture role (F111)", async () => {
+    const readOnlyAdapter = new PostgresAdapter({
+      engine: "postgres",
+      raw: requireReadOnlyTestDatabaseUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.ddl?.addColumn?.(FIXTURE.schema, FIXTURE.table, {
+          name: "denied",
+          dataType: "text",
+          nullable: true,
+          default: null
+        })
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("updates a row by primary key and reports matched: 1 (F100)", async () => {
     await runStatements(databaseUrl, [
       `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('Update Test', 'update-test@example.com')`

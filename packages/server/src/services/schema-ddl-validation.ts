@@ -4,9 +4,17 @@ import type { DatabaseAdapter } from "@qyre/driver-contract";
 import type { FastifyRequest } from "fastify";
 import type { ServerContext } from "../app.js";
 
-/** Table-lifecycle DDL operations landed so far (F110) - grows as F111 (columns)/F112 (indexes)
- * land, per docs/product-specs/schema-editing.md's audit-event contract. */
-export type DdlOperation = "createTable" | "renameTable" | "truncateTable" | "dropTable";
+/** DDL operations landed so far (F110's table lifecycle, F111's column ops) - grows as F112
+ * (indexes) lands, per docs/product-specs/schema-editing.md's audit-event contract. */
+export type DdlOperation =
+  | "createTable"
+  | "renameTable"
+  | "truncateTable"
+  | "dropTable"
+  | "addColumn"
+  | "renameColumn"
+  | "alterColumn"
+  | "dropColumn";
 
 function badRequest(message: string): Error {
   return Object.assign(new Error(message), { statusCode: 400 });
@@ -26,6 +34,17 @@ export function assertDdlTarget(tableMetadata: TableMetadata): void {
   }
 }
 
+/**
+ * Validates a `:column` route param against the table's real, freshly introspected columns (F111) -
+ * the same "an unrecognized target is 400, not a database-level error" pattern row-mutation routes
+ * already apply to column names (F099-F101).
+ */
+export function assertColumnExists(tableMetadata: TableMetadata, column: string): void {
+  if (!tableMetadata.columns.some((candidate) => candidate.name === column)) {
+    throw badRequest(`Unknown column "${column}".`);
+  }
+}
+
 const COLUMN_TYPE_CATALOG: Partial<Record<string, readonly string[]>> = {
   postgres: POSTGRES_COLUMN_TYPES,
   mysql: MYSQL_COLUMN_TYPES,
@@ -33,26 +52,31 @@ const COLUMN_TYPE_CATALOG: Partial<Record<string, readonly string[]>> = {
 };
 
 /**
- * Validates every column's `dataType` against the connected engine's curated type catalog
- * (docs/product-specs/schema-editing.md's "Column type catalog") before an adapter is ever called -
- * a `dataType` sits inside a DDL statement, not a value position a prepared statement can
- * parameter-bind, so an unvalidated string here would be a real SQL-injection surface. MongoDB has
- * no catalog to check against - its `createTable` ignores `columns` entirely (see the spec's
- * "MongoDB's column operations" section), so this is a no-op there.
+ * Validates one `dataType` against the connected engine's curated type catalog (docs/product-specs/
+ * schema-editing.md's "Column type catalog") before an adapter is ever called - a `dataType` sits
+ * inside a DDL statement, not a value position a prepared statement can parameter-bind, so an
+ * unvalidated string here would be a real SQL-injection surface. MongoDB has no catalog to check
+ * against - its column operations don't exist at all (see the spec's "MongoDB's column operations"
+ * section), so this is a no-op there.
  */
+export function validateColumnDataType(
+  dataType: string,
+  engine: DatabaseAdapter["engine"],
+  columnName: string
+): void {
+  const catalog = COLUMN_TYPE_CATALOG[engine];
+  if (!catalog) return;
+  if (!catalog.includes(dataType)) {
+    throw badRequest(`Column "${columnName}" has an unsupported type "${dataType}" for ${engine}.`);
+  }
+}
+
+/** Validates every column's `dataType` for `createTable` (F110) - see {@link validateColumnDataType}. */
 export function validateColumnDefinitions(
   columns: ColumnDefinition[],
   engine: DatabaseAdapter["engine"]
 ): void {
-  const catalog = COLUMN_TYPE_CATALOG[engine];
-  if (!catalog) return;
-  for (const column of columns) {
-    if (!catalog.includes(column.dataType)) {
-      throw badRequest(
-        `Column "${column.name}" has an unsupported type "${column.dataType}" for ${engine}.`
-      );
-    }
-  }
+  for (const column of columns) validateColumnDataType(column.dataType, engine, column.name);
 }
 
 /**

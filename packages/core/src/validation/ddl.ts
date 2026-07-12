@@ -42,9 +42,41 @@ export const renameTableRequestSchema = z.object({ newName: identifierSchema });
 export type RenameTableRequest = z.infer<typeof renameTableRequestSchema>;
 
 /**
- * Request body shared by `POST .../ddl/truncate` and `DELETE /api/tables/:schema/:table` (F110) -
- * the caller must type the target table's exact name before either destructive operation runs; the
- * server independently re-validates the match, per the spec's typed-confirmation rule.
+ * Request body shared by `POST .../ddl/truncate`, `DELETE /api/tables/:schema/:table` (F110), and
+ * `DELETE .../ddl/columns/:column` (F111) - the caller must type the target's exact name before a
+ * destructive operation runs; the server independently re-validates the match, per the spec's
+ * typed-confirmation rule.
  */
 export const confirmedNameRequestSchema = z.object({ confirmedName: z.string() });
 export type ConfirmedNameRequest = z.infer<typeof confirmedNameRequestSchema>;
+
+/**
+ * `changes` for `PATCH /api/tables/:schema/:table/ddl/columns/:column` (F111) - covers only what's
+ * actually changing (type, nullable, default), per `SchemaDdlApi.alterColumn`'s exact shape; at
+ * least one field is required so an empty `{}` isn't accepted as a no-op alter.
+ */
+const alterColumnChangesSchema = z
+  .object({
+    dataType: z.string().optional(),
+    nullable: z.boolean().optional(),
+    default: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional()
+  })
+  .refine((changes) => Object.keys(changes).length > 0, {
+    message: "changes must include at least one of dataType/nullable/default."
+  });
+
+/**
+ * Request body for `PATCH /api/tables/:schema/:table/ddl/columns/:column` (F111) - `newName`
+ * and/or `changes`, at least one required, so a single designer-form submission can rename and
+ * retype a column in one request instead of two round trips, per docs/product-specs/
+ * schema-editing.md's API-shapes section.
+ */
+export const updateColumnRequestSchema = z
+  .object({
+    newName: identifierSchema.optional(),
+    changes: alterColumnChangesSchema.optional()
+  })
+  .refine((body) => body.newName !== undefined || body.changes !== undefined, {
+    message: "At least one of newName/changes is required."
+  });
+export type UpdateColumnRequest = z.infer<typeof updateColumnRequestSchema>;

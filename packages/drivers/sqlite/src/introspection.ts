@@ -5,12 +5,12 @@ import { quoteIdent } from "./sql.js";
 /** SQLite has a single implicit namespace; the UI still expects a schema name. */
 export const MAIN_SCHEMA = "main";
 
-interface TableInfoRow {
+export interface TableInfoRow {
   cid: number;
   name: string;
   type: string;
   notnull: number;
-  dflt_value: unknown;
+  dflt_value: string | null;
   pk: number;
 }
 
@@ -28,7 +28,7 @@ interface IndexInfoRow {
   name: string;
 }
 
-interface ForeignKeyListRow {
+export interface ForeignKeyListRow {
   id: number;
   seq: number;
   table: string;
@@ -37,6 +37,20 @@ interface ForeignKeyListRow {
   on_update: string;
   on_delete: string;
   match: string;
+}
+
+/** Raw `PRAGMA table_info` rows (cid/type/notnull/dflt_value/pk) - unlike `ColumnMetadata`, this
+ * carries a column's default value text and 1-based PK sequence number, both needed to faithfully
+ * reconstruct a table's full definition for `alterColumn`'s 12-step rebuild (F111). */
+export function fetchTableInfo(db: Database.Database, table: string): TableInfoRow[] {
+  return db.pragma(`table_info(${quoteIdent(table)})`) as TableInfoRow[];
+}
+
+/** Raw `PRAGMA foreign_key_list` rows, incl. `on_update`/`on_delete` actions - `ColumnMetadata.
+ * references` only carries the target table/column, not enough to faithfully reconstruct a
+ * `FOREIGN KEY` clause during `alterColumn`'s rebuild (F111). */
+export function fetchForeignKeyList(db: Database.Database, table: string): ForeignKeyListRow[] {
+  return db.pragma(`foreign_key_list(${quoteIdent(table)})`) as ForeignKeyListRow[];
 }
 
 /** Every non-system table or view in sqlite_master. */
@@ -70,8 +84,8 @@ export function introspectTable(
   schema: string,
   table: string
 ): TableMetadata {
-  const tableInfo = db.pragma(`table_info(${quoteIdent(table)})`) as TableInfoRow[];
-  const foreignKeyList = db.pragma(`foreign_key_list(${quoteIdent(table)})`) as ForeignKeyListRow[];
+  const tableInfo = fetchTableInfo(db, table);
+  const foreignKeyList = fetchForeignKeyList(db, table);
   const foreignKeys = new Set(foreignKeyList.map((foreignKey) => foreignKey.from));
   const foreignKeyReferences = new Map(
     foreignKeyList

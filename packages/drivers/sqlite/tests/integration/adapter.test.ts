@@ -210,6 +210,108 @@ describe("SqliteAdapter integration", () => {
     }
   });
 
+  it("addColumn/renameColumn/dropColumn roundtrip via native ALTER TABLE (F111)", async () => {
+    const table = "qyre_test_ddl_columns";
+    await adapter.ddl?.createTable?.("main", table, [
+      { name: "id", dataType: "INTEGER", nullable: false, default: null }
+    ]);
+
+    await adapter.ddl?.addColumn?.("main", table, {
+      name: "extra",
+      dataType: "TEXT",
+      nullable: true,
+      default: null
+    });
+    let metadata = await adapter.getTable("main", table);
+    expect(metadata.columns.map((column) => column.name).sort()).toEqual(["extra", "id"]);
+
+    await adapter.ddl?.renameColumn?.("main", table, "extra", "note");
+    metadata = await adapter.getTable("main", table);
+    expect(metadata.columns.map((column) => column.name).sort()).toEqual(["id", "note"]);
+
+    await adapter.ddl?.dropColumn?.("main", table, "note");
+    metadata = await adapter.getTable("main", table);
+    expect(metadata.columns.map((column) => column.name)).toEqual(["id"]);
+
+    await adapter.ddl?.dropTable?.("main", table);
+  });
+
+  it("alterColumn's 12-step rebuild preserves data, indexes, and foreign keys (F111)", async () => {
+    const parent = "qyre_test_rebuild_parent";
+    const child = "qyre_test_rebuild_child";
+    const seed = new Database(dbPath);
+    seed.exec(`
+      CREATE TABLE ${parent} (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        age INTEGER DEFAULT 0
+      );
+      CREATE UNIQUE INDEX idx_${parent}_email ON ${parent}(email);
+      CREATE TABLE ${child} (
+        id INTEGER PRIMARY KEY,
+        parent_id INTEGER NOT NULL REFERENCES ${parent}(id) ON DELETE CASCADE,
+        total REAL NOT NULL
+      );
+      INSERT INTO ${parent} (name, email, age) VALUES
+        ('Ada Lovelace', 'ada@example.com', 30),
+        ('Alan Turing', 'alan@example.com', 25);
+      INSERT INTO ${child} (parent_id, total) VALUES (1, 9.99);
+    `);
+    seed.close();
+
+    try {
+      // A type change SQLite's own ADD COLUMN-family limits can't express - always the rebuild
+      // path, per docs/product-specs/schema-editing.md.
+      await adapter.ddl?.alterColumn?.("main", parent, "age", { dataType: "TEXT", nullable: true });
+
+      // Data survived (age coerced by SQLite's own TEXT affinity, not dropped).
+      const rows = await adapter.getRows("main", parent, 0, 10);
+      expect(rows.rows.map((row) => row.name).sort()).toEqual(["Ada Lovelace", "Alan Turing"]);
+      expect(rows.rows.every((row) => typeof row.age === "string")).toBe(true);
+
+      // The unique index survived the rebuild (recreated from sqlite_master's stored SQL).
+      const metadata = await adapter.getTable("main", parent);
+      expect(metadata.indexes?.some((index) => index.name === `idx_${parent}_email`)).toBe(true);
+
+      // The child table's foreign key to the rebuilt table still holds (no violations), and the
+      // child row itself survived untouched.
+      const raw = new Database(dbPath);
+      expect(raw.pragma("foreign_key_check")).toEqual([]);
+      raw.close();
+      const childRows = await adapter.getRows("main", child, 0, 10);
+      expect(childRows.rows).toHaveLength(1);
+      expect(childRows.rows[0]?.total).toBe(9.99);
+    } finally {
+      const cleanup = new Database(dbPath);
+      cleanup.exec(`DROP TABLE IF EXISTS ${child}; DROP TABLE IF EXISTS ${parent};`);
+      cleanup.close();
+    }
+  });
+
+  it("rejects addColumn against a chmod-read-only file copy (F111)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "qyre-sqlite-readonly-ddl-columns-"));
+    const readOnlyPath = join(dir, "readonly.db");
+    copyFileSync(dbPath, readOnlyPath);
+    chmodSync(readOnlyPath, 0o444);
+
+    const readOnlyAdapter = new SqliteAdapter({ engine: "sqlite", raw: readOnlyPath });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.ddl?.addColumn?.("main", "qyre_demo_users", {
+          name: "denied",
+          dataType: "TEXT",
+          nullable: true,
+          default: null
+        })
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+      chmodSync(readOnlyPath, 0o644);
+    }
+  });
+
   it("updates a row by primary key and reports matched: 1, even when the value is unchanged (F100)", async () => {
     const seed = new Database(dbPath);
     seed.exec(

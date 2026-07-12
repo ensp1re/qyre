@@ -28,7 +28,16 @@ import type {
 import mysql from "mysql2/promise";
 import { tableKey } from "./catalog.js";
 import { isMysqlCancelError, withCancellableConnection } from "./cancellation.js";
-import { createTable, dropTable, renameTable, truncateTable } from "./ddl.js";
+import {
+  addColumn,
+  alterColumn,
+  createTable,
+  dropColumn,
+  dropTable,
+  renameColumn,
+  renameTable,
+  truncateTable
+} from "./ddl.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
 import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
 import {
@@ -61,7 +70,13 @@ export class MysqlAdapter implements DatabaseAdapter {
     createTable: (schema, table, columns) => createTable(this.getPool(), schema, table, columns),
     renameTable: (schema, table, newName) => renameTable(this.getPool(), schema, table, newName),
     truncateTable: (schema, table) => truncateTable(this.getPool(), schema, table),
-    dropTable: (schema, table) => dropTable(this.getPool(), schema, table)
+    dropTable: (schema, table) => dropTable(this.getPool(), schema, table),
+    addColumn: (schema, table, column) => addColumn(this.getPool(), schema, table, column),
+    renameColumn: (schema, table, column, newName) =>
+      renameColumn(this.getPool(), schema, table, column, newName),
+    alterColumn: (schema, table, column, changes) =>
+      alterColumn(this.getPool(), schema, table, column, changes),
+    dropColumn: (schema, table, column) => dropColumn(this.getPool(), schema, table, column)
   };
   private pool: mysql.Pool | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;

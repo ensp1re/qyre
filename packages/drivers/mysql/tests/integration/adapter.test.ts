@@ -193,6 +193,67 @@ describe("MysqlAdapter integration", () => {
     }
   });
 
+  it("addColumn/renameColumn/alterColumn/dropColumn roundtrip (F111)", async () => {
+    const table = "qyre_test_ddl_columns";
+    const pool = mysql.createPool(databaseUrl);
+    try {
+      await adapter.ddl?.createTable?.(databaseName, table, [
+        { name: "id", dataType: "INT", nullable: false, default: null }
+      ]);
+
+      await adapter.ddl?.addColumn?.(databaseName, table, {
+        name: "extra",
+        dataType: "INT",
+        nullable: true,
+        default: null
+      });
+      let metadata = await adapter.getTable(databaseName, table);
+      expect(metadata.columns.map((column) => column.name).sort()).toEqual(["extra", "id"]);
+
+      await adapter.ddl?.renameColumn?.(databaseName, table, "extra", "value");
+      metadata = await adapter.getTable(databaseName, table);
+      expect(metadata.columns.map((column) => column.name).sort()).toEqual(["id", "value"]);
+
+      await adapter.ddl?.alterColumn?.(databaseName, table, "value", {
+        nullable: false,
+        default: 0
+      });
+      metadata = await adapter.getTable(databaseName, table);
+      expect(metadata.columns.find((column) => column.name === "value")?.nullable).toBe(false);
+      await pool.query(`INSERT INTO ${table} (id) VALUES (1)`);
+      const [rows] = await pool.query(`SELECT value FROM ${table} WHERE id = 1`);
+      expect((rows as Array<{ value: number }>)[0]?.value).toBe(0);
+
+      await adapter.ddl?.alterColumn?.(databaseName, table, "value", { nullable: true });
+      await adapter.ddl?.dropColumn?.(databaseName, table, "value");
+      metadata = await adapter.getTable(databaseName, table);
+      expect(metadata.columns.map((column) => column.name)).toEqual(["id"]);
+    } finally {
+      await pool.query(`DROP TABLE IF EXISTS ${table}`);
+      await pool.end();
+    }
+  });
+
+  it("rejects addColumn as a SELECT-only fixture user (F111)", async () => {
+    const readOnlyAdapter = new MysqlAdapter({
+      engine: "mysql",
+      raw: requireReadOnlyTestMysqlUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.ddl?.addColumn?.(databaseName, FIXTURE.table, {
+          name: "denied",
+          dataType: "INT",
+          nullable: true,
+          default: null
+        })
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("createTable/renameTable/truncateTable/dropTable roundtrip (F110)", async () => {
     const table = "qyre_test_ddl";
     const renamed = "qyre_test_ddl_renamed";

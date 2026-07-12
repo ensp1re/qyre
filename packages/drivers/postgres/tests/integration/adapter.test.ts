@@ -314,6 +314,57 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
+  it("createIndex/dropIndex roundtrip, a unique index rejects a duplicate value (F112)", async () => {
+    const table = "qyre_test_ddl_index";
+    const indexName = "idx_qyre_test_ddl_index_code";
+    try {
+      await adapter.ddl?.createTable?.(FIXTURE.schema, table, [
+        { name: "code", dataType: "integer", nullable: true, default: null }
+      ]);
+      await adapter.ddl?.createIndex?.(FIXTURE.schema, table, {
+        name: indexName,
+        columns: ["code"],
+        unique: true
+      });
+
+      const withIndex = await adapter.getTable(FIXTURE.schema, table);
+      expect(withIndex.indexes?.find((index) => index.name === indexName)).toMatchObject({
+        columns: ["code"],
+        unique: true
+      });
+
+      await runStatements(databaseUrl, [`INSERT INTO ${table} (code) VALUES (1)`]);
+      await expect(
+        runStatements(databaseUrl, [`INSERT INTO ${table} (code) VALUES (1)`])
+      ).rejects.toThrow();
+
+      await adapter.ddl?.dropIndex?.(FIXTURE.schema, table, indexName);
+      const withoutIndex = await adapter.getTable(FIXTURE.schema, table);
+      expect(withoutIndex.indexes?.some((index) => index.name === indexName)).toBe(false);
+    } finally {
+      await runStatements(databaseUrl, [`DROP TABLE IF EXISTS ${table}`]);
+    }
+  });
+
+  it("rejects createIndex as a SELECT-only fixture role (F112)", async () => {
+    const readOnlyAdapter = new PostgresAdapter({
+      engine: "postgres",
+      raw: requireReadOnlyTestDatabaseUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.ddl?.createIndex?.(FIXTURE.schema, FIXTURE.table, {
+          name: "idx_denied",
+          columns: ["name"],
+          unique: false
+        })
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("updates a row by primary key and reports matched: 1 (F100)", async () => {
     await runStatements(databaseUrl, [
       `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('Update Test', 'update-test@example.com')`

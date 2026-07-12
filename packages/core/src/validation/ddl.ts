@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ColumnDefinition } from "../types/ddl.js";
+import type { ColumnDefinition, IndexDefinition } from "../types/ddl.js";
 
 /**
  * "Conservative identifier pattern" (docs/product-specs/schema-editing.md) for a genuinely new name
@@ -80,3 +80,16 @@ export const updateColumnRequestSchema = z
     message: "At least one of newName/changes is required."
   });
 export type UpdateColumnRequest = z.infer<typeof updateColumnRequestSchema>;
+
+/**
+ * Request body for `POST /api/tables/:schema/:table/ddl/indexes` (F112) - `name` is the "genuinely
+ * new" identifier the operation itself introduces (conservative identifier pattern); `columns` are
+ * existing column/field names, further validated against the table's real introspected structure
+ * in packages/server (Zod alone can't know the connected table's real columns).
+ */
+export const indexDefinitionSchema = z.object({
+  name: identifierSchema,
+  columns: z.array(z.string()).min(1),
+  unique: z.boolean()
+}) satisfies z.ZodType<IndexDefinition>;
+export type CreateIndexRequest = z.infer<typeof indexDefinitionSchema>;

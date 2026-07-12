@@ -308,17 +308,18 @@
       "id": "F111",
       "behavior": "Column operations per docs/product-specs/schema-editing.md: addColumn/renameColumn/dropColumn/alterColumn (type, nullability, default) - native ALTER on Postgres/MySQL; SQLite uses native ADD/RENAME/DROP COLUMN where the operation and version allow and the spec's rebuild pattern (PRAGMA foreign_keys=OFF, create-new/copy/swap in one transaction, PRAGMA foreign_key_check) for retype/constraint changes, chunking the copy so a large table doesn't block the event loop unboundedly; not-applicable on MongoDB (capability reported false, UI hides the surface). Server routes with typed confirmation for dropColumn, audit events, and conformance including a SQLite rebuild data-preservation case (data, indexes, FKs survive) and restricted-user rejection. Depends on F110.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "bcc3c41",
+      "evidence": "PR #127 (https://github.com/ensp1re/qyre/pull/127), merged as bcc3c41. addColumn/renameColumn/alterColumn/dropColumn added to SchemaDdlApi, implemented across Postgres/MySQL/SQLite (absent on MongoDB entirely - no per-column concept on a schemaless collection). Postgres uses native per-clause ALTER COLUMN (ALTER COLUMN TYPE/SET-DROP NOT NULL/SET-DROP DEFAULT). MySQL's alterColumn reads the column's current definition directly from information_schema.columns (COLUMN_TYPE, not DATA_TYPE, to preserve length/precision; COLUMN_DEFAULT, since the shared ColumnMetadata read type has no default field at all) and merges requested changes onto it for one MODIFY COLUMN statement, per MySQL's own full-redefinition requirement. SQLite's addColumn/renameColumn/dropColumn use native ALTER TABLE; alterColumn always takes the 12-step rebuild path (PRAGMA foreign_keys=OFF, create a new table with the desired final schema from PRAGMA table_info/foreign_key_list, copy every row, drop the old table, rename the new one into place, replay every index/trigger from sqlite_master's own stored CREATE statements, PRAGMA foreign_key_check, commit, PRAGMA foreign_keys=ON) - manually smoke-tested against a fixture with a unique index, a trigger, and a cross-table FK with ON DELETE CASCADE, all three survived intact. Server routes: POST /api/tables/:schema/:table/ddl/columns (add), PATCH .../ddl/columns/:column (rename and/or alter in one request, alter applied to the new name when both given), DELETE .../ddl/columns/:column (drop, typed confirmation) - gated by F096 + the session's real supportsDdl, dataType validated against the curated catalog, column existence validated against the table's real introspected columns; a column route against MongoDB responds 400 explaining collections have no columns to alter, registered but engine-conditionally rejected, never a bare 404. Conformance: an add/rename/alter/drop roundtrip in the shared testing-conformance suite (skipped for MongoDB, plus a dedicated assertion there that all four column methods are undefined) and each SQL engine's own integration tests, incl. a dedicated SQLite rebuild data-preservation case (data, a unique index, and a cross-table FK all survive) and restricted-user/read-only rejection; 16 new packages/server/tests/routes/schema-ddl.test.ts route tests cover the add/rename/alter/drop paths, the combined rename+alter request, unknown-column rejection, unsupported-type rejection, MongoDB 400, and --read-only 403. Verified: pnpm check:quiet:run and pnpm verify:pr (full local gate incl. Docker-backed Postgres/MySQL/MongoDB integration tests, the shared conformance suite, and full E2E, all green).",
       "blockedReason": null,
-      "spec": "docs/product-specs/schema-editing.md"
+      "spec": "docs/product-specs/schema-editing.md",
+      "completedAt": "2026-07-12T23:28:10.000Z"
     },
     {
       "id": "F112",
       "behavior": "Index management per docs/product-specs/schema-editing.md: createIndex (columns, unique flag) and dropIndex in the ddl namespace across all four engines (MongoDB native createIndex/dropIndex), building on the existing IndexMetadata listing from getTable; server routes gated + audited; conformance: create-list-drop roundtrip on every engine, unique-index constraint behavior, restricted-user rejection. Depends on F110.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

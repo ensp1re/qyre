@@ -1,4 +1,4 @@
-import type { ColumnDefinition } from "@qyre/core";
+import type { ColumnDefinition, IndexDefinition } from "@qyre/core";
 import type mysql from "mysql2/promise";
 import { quoteIdent } from "./sql.js";
 
@@ -149,4 +149,30 @@ export async function dropColumn(
 ): Promise<void> {
   const target = `${quoteIdent(schema)}.${quoteIdent(table)}`;
   await pool.query(`ALTER TABLE ${target} DROP COLUMN ${quoteIdent(column)}`);
+}
+
+export async function createIndex(
+  pool: mysql.Pool,
+  schema: string,
+  table: string,
+  definition: IndexDefinition
+): Promise<void> {
+  const unique = definition.unique ? "UNIQUE " : "";
+  const columns = definition.columns.map(quoteIdent).join(", ");
+  await pool.query(
+    `CREATE ${unique}INDEX ${quoteIdent(definition.name)} ON ${quoteIdent(schema)}.${quoteIdent(table)} (${columns})`
+  );
+}
+
+/** MySQL's `DROP INDEX` requires the table (index names are unique per table, not per schema, and
+ * the grammar itself takes an `ON table` clause). */
+export async function dropIndex(
+  pool: mysql.Pool,
+  schema: string,
+  table: string,
+  indexName: string
+): Promise<void> {
+  await pool.query(
+    `DROP INDEX ${quoteIdent(indexName)} ON ${quoteIdent(schema)}.${quoteIdent(table)}`
+  );
 }

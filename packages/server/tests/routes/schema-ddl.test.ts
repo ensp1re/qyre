@@ -324,6 +324,292 @@ describe("DELETE /api/tables/:schema/:table (F110)", () => {
   });
 });
 
+const WIDGETS_INDEXES = [
+  { name: "idx_widgets_title", columns: ["title"], unique: true, primary: false }
+];
+
+describe("POST /api/tables/:schema/:table/ddl/indexes (F112)", () => {
+  it("creates an index and returns 201, and logs an audit event", async () => {
+    let received: unknown;
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => writableCapabilities(),
+      getTable: async () => ({
+        schema: "public",
+        name: "widgets",
+        kind: "table",
+        columns: WIDGETS_COLUMNS,
+        indexes: WIDGETS_INDEXES
+      }),
+      ddl: {
+        createIndex: async (schema, table, definition) => {
+          received = { schema, table, definition };
+        }
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/widgets/ddl/indexes",
+      headers: authHeaders(app),
+      payload: { name: "idx_widgets_title2", columns: ["title"], unique: false }
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(received).toEqual({
+      schema: "public",
+      table: "widgets",
+      definition: { name: "idx_widgets_title2", columns: ["title"], unique: false }
+    });
+    await app.close();
+  });
+
+  it("rejects an unknown column with 400, before calling the adapter", async () => {
+    let createIndexCalled = false;
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => writableCapabilities(),
+      getTable: async () => ({
+        schema: "public",
+        name: "widgets",
+        kind: "table",
+        columns: WIDGETS_COLUMNS,
+        indexes: WIDGETS_INDEXES
+      }),
+      ddl: {
+        createIndex: async () => {
+          createIndexCalled = true;
+        }
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/widgets/ddl/indexes",
+      headers: authHeaders(app),
+      payload: { name: "idx_denied", columns: ["does_not_exist"], unique: false }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(createIndexCalled).toBe(false);
+    await app.close();
+  });
+
+  it("rejects an invalid index name with 400 before calling the adapter", async () => {
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => writableCapabilities(),
+      getTable: async () => ({
+        schema: "public",
+        name: "widgets",
+        kind: "table",
+        columns: WIDGETS_COLUMNS,
+        indexes: WIDGETS_INDEXES
+      })
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/widgets/ddl/indexes",
+      headers: authHeaders(app),
+      payload: { name: "1; DROP TABLE users;--", columns: ["title"], unique: false }
+    });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects creating an index on a view with 400, before calling the adapter (F124)", async () => {
+    let createIndexCalled = false;
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => writableCapabilities(),
+      getTable: async () => ({ schema: "public", name: "v", kind: "view", columns: [] }),
+      ddl: {
+        createIndex: async () => {
+          createIndexCalled = true;
+        }
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/v/ddl/indexes",
+      headers: authHeaders(app),
+      payload: { name: "idx_v", columns: ["title"], unique: false }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(createIndexCalled).toBe(false);
+    await app.close();
+  });
+
+  it("rejects with 403 when supportsDdl is true but supportsIndexManagement is false", async () => {
+    let createIndexCalled = false;
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => ({ ...writableCapabilities(), supportsIndexManagement: false }),
+      getTable: async () => ({
+        schema: "public",
+        name: "widgets",
+        kind: "table",
+        columns: WIDGETS_COLUMNS,
+        indexes: WIDGETS_INDEXES
+      }),
+      ddl: {
+        createIndex: async () => {
+          createIndexCalled = true;
+        }
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/widgets/ddl/indexes",
+      headers: authHeaders(app),
+      payload: { name: "idx_denied", columns: ["title"], unique: false }
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(createIndexCalled).toBe(false);
+    await app.close();
+  });
+
+  it("rejects with 403 in a --read-only session, even with full grants (F096)", async () => {
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => writableCapabilities(),
+      getTable: async () => ({
+        schema: "public",
+        name: "widgets",
+        kind: "table",
+        columns: WIDGETS_COLUMNS,
+        indexes: WIDGETS_INDEXES
+      }),
+      ddl: { createIndex: async () => {} }
+    });
+    const app = createServer({ adapter, readOnly: true });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/widgets/ddl/indexes",
+      headers: authHeaders(app),
+      payload: { name: "idx_denied", columns: ["title"], unique: false }
+    });
+
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+});
+
+describe("DELETE /api/tables/:schema/:table/ddl/indexes/:indexName (F112)", () => {
+  it("drops an index and returns 204, and logs an audit event", async () => {
+    let dropCalled = false;
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => writableCapabilities(),
+      getTable: async () => ({
+        schema: "public",
+        name: "widgets",
+        kind: "table",
+        columns: WIDGETS_COLUMNS,
+        indexes: WIDGETS_INDEXES
+      }),
+      ddl: {
+        dropIndex: async () => {
+          dropCalled = true;
+        }
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/widgets/ddl/indexes/idx_widgets_title",
+      headers: authHeaders(app)
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(dropCalled).toBe(true);
+    await app.close();
+  });
+
+  it("rejects an unknown index with 400, before calling the adapter", async () => {
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => writableCapabilities(),
+      getTable: async () => ({
+        schema: "public",
+        name: "widgets",
+        kind: "table",
+        columns: WIDGETS_COLUMNS,
+        indexes: WIDGETS_INDEXES
+      })
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/widgets/ddl/indexes/does_not_exist",
+      headers: authHeaders(app)
+    });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects with 403 when supportsDdl is true but supportsIndexManagement is false", async () => {
+    let dropCalled = false;
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => ({ ...writableCapabilities(), supportsIndexManagement: false }),
+      getTable: async () => ({
+        schema: "public",
+        name: "widgets",
+        kind: "table",
+        columns: WIDGETS_COLUMNS,
+        indexes: WIDGETS_INDEXES
+      }),
+      ddl: {
+        dropIndex: async () => {
+          dropCalled = true;
+        }
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/widgets/ddl/indexes/idx_widgets_title",
+      headers: authHeaders(app)
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(dropCalled).toBe(false);
+    await app.close();
+  });
+
+  it("rejects with 403 in a --read-only session, even with full grants (F096)", async () => {
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => writableCapabilities(),
+      getTable: async () => ({
+        schema: "public",
+        name: "widgets",
+        kind: "table",
+        columns: WIDGETS_COLUMNS,
+        indexes: WIDGETS_INDEXES
+      }),
+      ddl: { dropIndex: async () => {} }
+    });
+    const app = createServer({ adapter, readOnly: true });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/tables/public/widgets/ddl/indexes/idx_widgets_title",
+      headers: authHeaders(app)
+    });
+
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+});
+
 const WIDGETS_COLUMNS = [
   { name: "id", dataType: "integer", nullable: false, isPrimaryKey: true, isForeignKey: false },
   { name: "title", dataType: "text", nullable: true, isPrimaryKey: false, isForeignKey: false }

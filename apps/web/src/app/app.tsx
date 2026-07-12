@@ -235,9 +235,14 @@ export function App(): ReactNode {
                   />
                 ) : tab === "tables" ? (
                   <TablesTab
+                    // Remounts (discarding any staged edits, F103) on table switch - see
+                    // TablesTab's own doc comment for why this is the intended reset mechanism
+                    // rather than an explicit clear-on-selected-change effect.
+                    key={selected ? `${selected.schema}.${selected.table}` : "none"}
                     selected={selected}
                     table={table}
                     engine={overview.data?.engine}
+                    capabilities={capabilities.data}
                     rows={rows}
                     page={page}
                     onPageChange={(update) => dispatch({ type: "pageChanged", page: update(page) })}

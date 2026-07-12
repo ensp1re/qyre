@@ -1,7 +1,15 @@
-import type { DatabaseEngine, ForeignKeyReference, RowFilter, RowSort } from "@qyre/core";
+import type {
+  ConnectionCapabilities,
+  DatabaseEngine,
+  ForeignKeyReference,
+  RowFilter,
+  RowSort
+} from "@qyre/core";
 import { ErrorState, RowsTable, Spinner } from "@qyre/ui";
 import type { ReactNode } from "react";
 import { exportRowsUrl } from "../api/rows.js";
+import { computeTableEditability } from "../model/editability.js";
+import { usePendingChanges } from "../model/pending-changes.js";
 import type { useRows } from "../model/use-rows.js";
 import type { useTable } from "../model/use-table.js";
 
@@ -9,6 +17,7 @@ export interface TablesTabProps {
   selected: { schema: string; table: string } | undefined;
   table: ReturnType<typeof useTable>;
   engine?: DatabaseEngine;
+  capabilities?: ConnectionCapabilities;
   rows: ReturnType<typeof useRows>;
   page: number;
   onPageChange: (updater: (current: number) => number) => void;
@@ -36,11 +45,19 @@ function downloadCsv(filename: string, csv: string): void {
   URL.revokeObjectURL(url);
 }
 
-/** Tables tab content - the selected table's paginated row browser. */
+/**
+ * Tables tab content - the selected table's paginated row browser, editable inline on SQL engines
+ * when session/table permissions allow (F103). `usePendingChanges` is called unconditionally (React
+ * hooks rules) even before `selected` is known - the caller keys this whole component by the
+ * selected table (see App.tsx) so switching tables remounts it, discarding any staged edits along
+ * with every other piece of this component's state, per docs/product-specs/row-editing.md's
+ * "switching tables doesn't carry the buffer over" scoping.
+ */
 export function TablesTab({
   selected,
   table,
   engine,
+  capabilities,
   rows,
   page,
   onPageChange,
@@ -50,6 +67,8 @@ export function TablesTab({
   filters,
   onFiltersChange
 }: TablesTabProps): ReactNode {
+  const pendingChanges = usePendingChanges();
+
   if (!selected) {
     return <p className="text-[13px] text-muted-foreground">Select a table from the sidebar.</p>;
   }
@@ -72,6 +91,11 @@ export function TablesTab({
   }
 
   if (!rows.data) return null;
+
+  const editability = computeTableEditability(table.data, capabilities, engine);
+  const primaryKeyColumns = (table.data?.columns ?? [])
+    .filter((column) => column.isPrimaryKey)
+    .map((column) => column.name);
 
   return (
     <RowsTable
@@ -96,6 +120,11 @@ export function TablesTab({
       onExportSelectedRows={(csv) => downloadCsv(`${selected.table}-selected.csv`, csv)}
       filters={filters}
       onFiltersChange={onFiltersChange}
+      editable={editability.editable}
+      editableColumns={editability.editableColumns}
+      editingDisabledReason={editability.reason}
+      primaryKeyColumns={primaryKeyColumns}
+      pendingChanges={pendingChanges}
     />
   );
 }

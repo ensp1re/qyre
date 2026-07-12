@@ -665,7 +665,11 @@ describe("PATCH /api/tables/:schema/:table/rows (F100)", () => {
       method: "PATCH",
       url: "/api/tables/test/users/rows",
       headers: authHeaders(app),
-      payload: { key: { _id: "507f1f77bcf86cd799439011" }, document: { name: "Grace" } }
+      payload: {
+        key: { _id: "507f1f77bcf86cd799439011" },
+        document: { name: "Grace" },
+        originalDocument: { name: "Ada" }
+      }
     });
 
     expect(response.statusCode).toBe(200);
@@ -673,6 +677,41 @@ describe("PATCH /api/tables/:schema/:table/rows (F100)", () => {
       key: { _id: "507f1f77bcf86cd799439011" },
       changes: { name: "Grace" }
     });
+    await app.close();
+  });
+
+  it("rejects a MongoDB update with 400 when originalDocument is missing (F125 lost-update protection)", async () => {
+    const adapter = makeFakeAdapter({
+      engine: "mongodb",
+      getTable: async () => ({
+        schema: "test",
+        name: "users",
+        kind: "collection",
+        columns: [
+          {
+            name: "_id",
+            dataType: "objectId",
+            nullable: false,
+            isPrimaryKey: true,
+            isForeignKey: false
+          }
+        ],
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: {
+        updateRowByKey: async () => ({ matched: 1 })
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/test/users/rows",
+      headers: authHeaders(app),
+      payload: { key: { _id: "507f1f77bcf86cd799439011" }, document: { name: "Grace" } }
+    });
+
+    expect(response.statusCode).toBe(400);
     await app.close();
   });
 

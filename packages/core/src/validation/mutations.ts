@@ -17,11 +17,15 @@ export type InsertRowRequest = z.infer<typeof insertRowRequestSchema>;
  * docs/product-specs/row-editing.md) carries the new values. Exactly one of `changes`/`document` is
  * expected per engine - packages/server picks the right one and rejects the other being absent,
  * since which one applies depends on `db.engine`, not something Zod alone can express here.
+ * `originalDocument` (MongoDB only, F125) is the document as the editor loaded it before editing -
+ * required alongside `document` so the server can detect a concurrent change since load (lost-update
+ * protection) before replacing.
  */
 export const updateRowRequestSchema = z.object({
   key: z.record(z.string(), z.unknown()),
   changes: z.record(z.string(), z.unknown()).optional(),
-  document: z.record(z.string(), z.unknown()).optional()
+  document: z.record(z.string(), z.unknown()).optional(),
+  originalDocument: z.record(z.string(), z.unknown()).optional()
 });
 export type UpdateRowRequest = z.infer<typeof updateRowRequestSchema>;
 

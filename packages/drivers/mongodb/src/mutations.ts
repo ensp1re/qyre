@@ -33,22 +33,67 @@ export async function insertRow(
  * updating an existing row" rule) even if present in the submitted text. `matched` is 0 when no
  * document with that `_id` exists (the caller reports this as the same "stale row" conflict SQL's
  * 0-rowcount update gets), 1 when a document was found and replaced.
+ *
+ * `expectedOriginal` (F125's whole-document editor) is the document as it was loaded before
+ * editing - when present, the current document is re-fetched and structurally compared against it
+ * first, by re-serializing both to relaxed EJSON text and comparing the strings. Deliberately not a
+ * plain-object deep-equal (`node:util`'s `isDeepStrictEqual`): `mongodb` (CommonJS) and this
+ * package's own `bson` import (ESM) resolve to two separate compiled copies of the `bson` library -
+ * a real "dual package hazard," not just a build quirk - so a document the driver returns and one
+ * this file deserializes never share the same `ObjectId`/`Date` *class*, even for byte-identical
+ * values, and a strict class-aware deep-equal would report every save as a false conflict. `EJSON`
+ * itself avoids this by tagging BSON values with a `_bsontype` string instead of checking
+ * `instanceof`, so stringifying both sides through the same `EJSON.stringify` call sidesteps the
+ * hazard entirely. A mismatch means the document changed since it was loaded, reported as the same
+ * `matched: 0` conflict a stale key gets - never overwritten silently.
  */
 export async function updateRowByKey(
   client: MongoClient,
   schema: string,
   table: string,
   key: Record<string, unknown>,
-  changes: Record<string, unknown>
+  changes: Record<string, unknown>,
+  expectedOriginal?: Record<string, unknown>
 ): Promise<UpdateRowResult> {
   const id = new ObjectId(key._id as string);
+  const collection = client.db(schema).collection(table);
+
+  if (expectedOriginal) {
+    const current = await collection.findOne({ _id: id });
+    const deserializedExpected = EJSON.deserialize(expectedOriginal, {
+      relaxed: true
+    }) as Record<string, unknown>;
+    const currentText = current ? EJSON.stringify(current, { relaxed: true }) : undefined;
+    const expectedText = EJSON.stringify(deserializedExpected, { relaxed: true });
+    if (currentText !== expectedText) {
+      return { matched: 0 };
+    }
+  }
+
   const deserialized = EJSON.deserialize(changes, { relaxed: true }) as Record<string, unknown>;
   const { _id: _omitted, ...replacement } = deserialized;
-  const result = await client
+  const result = await collection.findOneAndReplace({ _id: id }, replacement);
+  return { matched: result ? 1 : 0 };
+}
+
+/**
+ * Fetches one document by `_id` as relaxed Extended JSON text (F125) - the whole-document editor's
+ * fresh load, never the grid's own lossy display values (`ObjectId`/`Date` are ambiguous there by
+ * design, per F081; editing cannot tolerate that ambiguity). `undefined` when no document with that
+ * id exists - the caller reports this as a 404, not a stale-row conflict (there is nothing to edit).
+ */
+export async function getDocumentText(
+  client: MongoClient,
+  schema: string,
+  table: string,
+  id: string
+): Promise<string | undefined> {
+  const document = await client
     .db(schema)
     .collection(table)
-    .findOneAndReplace({ _id: id }, replacement);
-  return { matched: result ? 1 : 0 };
+    .findOne({ _id: new ObjectId(id) });
+  if (!document) return undefined;
+  return EJSON.stringify(document, { relaxed: true });
 }
 
 /**

@@ -40,6 +40,26 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     return { tables };
   });
 
+  // F125: fetches one document as relaxed Extended JSON text - the whole-document editor's fresh
+  // load, never the grid's own lossy display values (ObjectId/Date are ambiguous there by design,
+  // F081). MongoDB only; not gated by mutating:true since this only re-serializes data the read
+  // path already exposes, just unambiguously.
+  app.get<{ Params: { schema: string; table: string; id: string } }>(
+    "/api/tables/:schema/:table/document/:id",
+    async (request, reply) => {
+      const { schema, table, id } = request.params;
+      const db = requireAdapter(ctx.adapter);
+      if (db.engine !== "mongodb" || !db.mutations?.getDocumentText) {
+        return reply.status(400).send({ error: "This engine does not support document editing." });
+      }
+      const document = await db.mutations.getDocumentText(schema, table, id);
+      if (document === undefined) {
+        return reply.status(404).send({ error: "No document with that _id exists." });
+      }
+      return { document };
+    }
+  );
+
   app.get<{ Params: { schema: string; table: string }; Querystring: Record<string, string> }>(
     "/api/tables/:schema/:table/rows",
     async (request, reply) => {
@@ -117,12 +137,27 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
       if (!rawChanges) {
         return reply.status(400).send({ error: "Request body must include changes." });
       }
+      // F125: MongoDB's whole-document editor must prove it started from the document currently
+      // stored, not just supply a replacement - lost-update protection per
+      // docs/product-specs/row-editing.md. Required (not merely accepted) so the protection can
+      // never be silently skipped for this engine.
+      if (db.engine === "mongodb" && !parsedBody.data.originalDocument) {
+        return reply.status(400).send({ error: "Request body must include originalDocument." });
+      }
 
       const key = resolveKey(tableMetadata, parsedBody.data.key, db.engine);
       const changes = resolveUpdateChanges(tableMetadata, rawChanges, db.engine);
+      const expectedOriginal =
+        db.engine === "mongodb" ? parsedBody.data.originalDocument : undefined;
 
       const startedAt = performance.now();
-      const result = await db.mutations.updateRowByKey(schema, table, key, changes);
+      const result = await db.mutations.updateRowByKey(
+        schema,
+        table,
+        key,
+        changes,
+        expectedOriginal
+      );
       const durationMs = Math.round(performance.now() - startedAt);
 
       if (result.matched === 0) {

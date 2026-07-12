@@ -419,3 +419,45 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   column's insert editor matches its update editor exactly - always in an editing state, unlike
   `EditableCell`, since a fresh draft has no prior value to revert toward. F105 (the pending-changes
   workflow's remaining piece - staged deletion from selection plus the commit bar) is next.
+- 2026-07-12 (later still): F105 implemented (PR #118) - completes the SQL pending-changes
+  workflow. Selected rows can be staged for deletion via an explicit "Delete N selected" confirming
+  click, distinct from mere selection, matching the spec's requirement that delete always needs its
+  own confirmation beyond the buffer/commit review; staging a delete clears any staged cell edit for
+  that row. A new `CommitBar` (packages/ui) shows staged insert/update/delete counts with an
+  expandable generated-statement preview (display-only, never the real query sent to the driver).
+  Commit runs through F102's batch endpoint (`POST /api/mutations/commit`); a mid-batch rollback
+  (`409`) surfaces the failing operation's index, highlighted in the preview, and preserves the
+  whole buffer so work is never lost. `computeTableEditability` gains `canDelete`, gated on
+  `TablePermissions.delete` independently of update/insert. New commit-preview model
+  (`apps/web/src/features/table/model/commit-preview.ts`) builds the ordered `MutationOp[]` request
+  body and a human-readable SQL preview per op from the buffer's staged state. F125 (MongoDB
+  whole-document editor) is next - the last row-editing UI slice before Phase C.
+- 2026-07-12 (later still): F125 implemented (PR pending) - MongoDB's whole-document Extended JSON
+  editor. Relaxed Extended JSON (`bson`'s `EJSON.stringify`/`deserialize` with `relaxed: true`) is
+  the wire format - `ObjectId` as `{"$oid":...}`, `Date` as `{"$date":...}` - deliberately not the
+  read-only grid's own lossy display format. Save performs a whole-document replace via
+  `findOneAndReplace` (the Compass model), not a changed-fields `$set` - a field absent from the
+  replacement is genuinely removed. Lost-update protection: the editor captures the full document at
+  load time; on save the server re-fetches the current document and compares it to the captured
+  original, rejecting as `matched: 0` (the same `409` treatment a stale key gets) if they differ -
+  `RowMutationApi.updateRowByKey` gained an optional `expectedOriginal` parameter and
+  `updateRowRequestSchema` gained `originalDocument` to carry it. New MongoDB-only
+  `GET /api/tables/:schema/:table/document/:id` route serves fresh, unambiguous EJSON text - the
+  editor never reuses the grid's own already-fetched, lossy row data. Insert-document and
+  delete-document reuse the existing F099/F101 per-op routes directly, not F102's batch-commit
+  endpoint (which excludes MongoDB) - the first `apps/web` feature to call the per-op routes
+  directly from the frontend. Delete-document requires typed confirmation (the exact `_id` hex
+  string) before the Delete button enables, stronger than the SQL grid's plain click-to-stage
+  confirmation, since a whole-document delete is irreversible with no buffer/undo. Found and fixed a
+  real production bug during implementation: `bson`'s package `exports` field ships two separate
+  compiled files (`bson.node.mjs` for ESM importers, `bson.cjs` for CJS requirers), each defining
+  its own independent `ObjectId`/`Date` classes - `mongodb` (CJS) and `@qyre/mongodb` (ESM)
+  therefore resolve different `bson` module instances, so a value the driver returns is never
+  `instanceof` the class `EJSON.deserialize` constructs even for byte-identical data, which would
+  have made every document save falsely report a stale-document conflict. Fixed by comparing
+  `EJSON.stringify(...)` string output on both sides instead of object instances - `EJSON`'s own
+  `_bsontype`-tag-based duck-typing correctly recognizes foreign-module BSON instances, unlike
+  `instanceof`. `pnpm check:quiet` and `pnpm verify:pr` both green (full local gate incl.
+  Docker-backed `@full` E2E, first run). All row-editing UI slices (F103-F105, F125) are now done;
+  Phase C's remaining `not_started` entries in `docs/FEATURES.json` (starting with F106, the SQL
+  statement classifier) are next.

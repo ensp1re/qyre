@@ -6,6 +6,7 @@
  * trivially.
  */
 import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@qyre/testing";
+import { EJSON } from "bson";
 import { Binary, Long, MongoClient, ObjectId } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MongodbAdapter } from "../../src/index.js";
@@ -259,6 +260,58 @@ describe("MongodbAdapter integration", () => {
     expect(result).toEqual({ matched: 0 });
   });
 
+  it("replaces the document when expectedOriginal matches what's currently stored (F125 lost-update protection)", async () => {
+    const client = new MongoClient(mongoUrl);
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(FIXTURE.table);
+      const inserted = await collection.insertOne({ name: "Original", email: "a@x.com" });
+      const id = String(inserted.insertedId);
+
+      const result = await adapter.mutations.updateRowByKey?.(
+        databaseName,
+        FIXTURE.table,
+        { _id: id },
+        { name: "Changed", email: "a@x.com" },
+        { _id: { $oid: id }, name: "Original", email: "a@x.com" }
+      );
+      expect(result).toEqual({ matched: 1 });
+
+      const after = await collection.findOne({ _id: inserted.insertedId });
+      expect(after?.name).toBe("Changed");
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("rejects the replace with matched: 0 when expectedOriginal no longer matches what's stored (F125 lost-update protection)", async () => {
+    const client = new MongoClient(mongoUrl);
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(FIXTURE.table);
+      const inserted = await collection.insertOne({ name: "Original", email: "a@x.com" });
+      const id = String(inserted.insertedId);
+
+      // Someone else changed the document after it was loaded for editing.
+      await collection.updateOne({ _id: inserted.insertedId }, { $set: { name: "Concurrent" } });
+
+      const result = await adapter.mutations.updateRowByKey?.(
+        databaseName,
+        FIXTURE.table,
+        { _id: id },
+        { name: "My Edit", email: "a@x.com" },
+        { _id: { $oid: id }, name: "Original", email: "a@x.com" }
+      );
+      expect(result).toEqual({ matched: 0 });
+
+      // The concurrent write is preserved - the stale replace never ran.
+      const after = await collection.findOne({ _id: inserted.insertedId });
+      expect(after?.name).toBe("Concurrent");
+    } finally {
+      await client.close();
+    }
+  });
+
   it("deletes documents by _id list and reports deleted: 2 (F101)", async () => {
     const client = new MongoClient(mongoUrl);
     try {
@@ -301,6 +354,47 @@ describe("MongodbAdapter integration", () => {
     } finally {
       await client.close();
     }
+  });
+
+  it("getDocumentText returns the document as relaxed EJSON, preserving ObjectId/Date (F125)", async () => {
+    const client = new MongoClient(mongoUrl);
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(FIXTURE.table);
+      const joinedAt = new Date("2024-01-01T00:00:00.000Z");
+      const inserted = await collection.insertOne({ name: "EJSON Roundtrip", joinedAt });
+      const id = String(inserted.insertedId);
+
+      const text = await adapter.mutations.getDocumentText?.(databaseName, FIXTURE.table, id);
+      expect(text).toBeDefined();
+      expect(text).toContain(`"$oid":"${id}"`);
+      expect(text).toContain('"$date"');
+
+      // The text round-trips back to real BSON, not ambiguous plain JSON. Checked via `_bsontype`/
+      // `.toString()` rather than `instanceof ObjectId` - this test's own `bson` import and the one
+      // `mongodb` (a CommonJS package) resolves internally are two separate compiled copies of the
+      // library (a real "dual package hazard"), so a value either produces is never `instanceof`
+      // the other's class even when byte-identical; EJSON itself sidesteps this the same way.
+      const parsed = EJSON.parse(text ?? "", { relaxed: true }) as {
+        _id: { _bsontype?: string; toString(): string };
+        joinedAt: Date;
+      };
+      expect(parsed._id._bsontype).toBe("ObjectId");
+      expect(parsed._id.toString()).toBe(id);
+      expect(parsed.joinedAt).toBeInstanceOf(Date);
+      expect(parsed.joinedAt.getTime()).toBe(joinedAt.getTime());
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("getDocumentText returns undefined for an _id that doesn't match any document (F125)", async () => {
+    const text = await adapter.mutations.getDocumentText?.(
+      databaseName,
+      FIXTURE.table,
+      "507f1f77bcf86cd799439011"
+    );
+    expect(text).toBeUndefined();
   });
 
   it("rejects the query runner - MongoDB has no query language for it (see the spec)", async () => {

@@ -10,6 +10,7 @@ export * from "./data-grid/cell-value-drawer.js";
 export * from "./data-grid/cell-value.js";
 export * from "./data-grid/commit-bar.js";
 export * from "./data-grid/date-detail-popover.js";
+export * from "./data-grid/document-editor-drawer.js";
 export * from "./data-grid/rows-table.js";
 export * from "./feedback/error-boundary.js";
 export * from "./feedback/error-state.js";

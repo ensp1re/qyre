@@ -209,12 +209,12 @@
       "id": "F105",
       "behavior": "The SQL pending-changes workflow completes per docs/product-specs/row-editing.md: selected rows (F083 selection) can be staged for deletion when permitted; a commit bar shows staged insert/update/delete counts, previews the exact generated parameterized statements before applying (TablePlus commit-preview model), commits through the F102 batch endpoint with per-op error surfacing (failed op highlighted, buffer preserved on failure so work is never lost), and discards cleanly; deletes above the spec's threshold require typed confirmation. E2E: an edit-commit-verify roundtrip on one SQL engine, and the F097 read-only guard stays green. Depends on F102, F104.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm test:e2e",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "7a96f8f",
+      "evidence": "PR #118 (https://github.com/ensp1re/qyre/pull/118), merged as 7a96f8f. Selected rows can now be staged for deletion via its own explicit confirming click (a \"Delete N selected\" button, distinct from mere selection, matching the spec's requirement that delete always needs its own confirmation beyond the buffer/commit review). A commit bar shows staged insert/update/delete counts with an expandable generated-statement preview (parameter values shown inline for readability - display-only, never the real query sent to the driver). Commit runs through F102's batch endpoint (POST /api/mutations/commit); a mid-batch rollback (409) surfaces the failing operation's index (highlighted in the preview) and preserves the whole buffer so work is never lost. Discard clears everything at once. computeTableEditability gains canDelete, gated on TablePermissions.delete independently of update/insert - hidden entirely when unavailable. New commit-preview model (apps/web/src/features/table/model/commit-preview.ts) builds the ordered MutationOp[] request body and a human-readable SQL preview per op. New CommitBar component (packages/ui) and RowsTable delete-staging UI (red/strikethrough row, disabled checkbox, per-row Undo). New e2e roundtrip spec: an edit, an insert, and a delete all commit together and persist after the grid refetches; the F097 read-only guard stays green with the new controls correctly hidden. Verified: pnpm check:quiet, pnpm verify:pr (full local gate incl. Docker-backed @full E2E across all 5 Playwright projects, green on the first run), 10 new delete-staging pending-changes buffer unit tests, 7 new canDelete editability unit tests, 13 new commit-preview buildMutationOps/buildPreviewLine/parseRowKey unit tests, 8 new CommitBar render tests, 7 new RowsTable delete-staging integration render tests, manual browser verification against a live Postgres connection (edited a cell, added a row, staged a row for deletion, reviewed the exact generated SQL preview, committed - the delete disappeared, the insert appeared with its auto-generated key, and the edit persisted, all in one transaction). GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
       "spec": "docs/product-specs/row-editing.md",
-      "completedAt": null
+      "completedAt": "2026-07-12T03:00:00.000Z"
     },
     {
       "id": "F125",

@@ -231,3 +231,59 @@ set only mounts the visible rows as DOM nodes, not all 1,000.
 - `SELECT * FROM <a table with more than 1,000 rows>` returns at most 1,000 rows.
 - `EXPLAIN`/`SHOW` queries are unaffected.
 - A query that already fits comfortably under the cap returns unchanged.
+
+## Write-capable SQL execution (Postgres/MySQL/SQLite)
+
+### Behavior
+
+For a session/role with write access, the SQL Editor can run more than `SELECT`-shaped statements.
+`DatabaseAdapter.runQuery(sql)` (F107) executes a single statement of any classification directly -
+no `READ ONLY` transaction wrapper - returning either the row-returning shape (`columns`/`rows`) or
+a bare affected-row count (`rowsAffected`) for a statement with no result set. Honors the same
+per-engine statement timeout as `runReadOnlyQuery` (Statement timeout, above) and the same F050
+result-row cap (`capResultRows`) - a writable CTE that returns rows via `RETURNING` is still capped,
+just like a plain `SELECT`. `runQuery` is absent on MongoDB, which has no SQL query runner at all.
+
+**Routing** (`POST /api/query`): a session with no write capability (`supportsRowMutations: false`,
+including under `--read-only`, F096 - that flag always wins) behaves exactly as before, calling
+`runReadOnlyQuery` unconditionally. A write-capable session instead classifies the statement first
+via `classifyStatement` (F106):
+
+- `read` - still runs through `runReadOnlyQuery`, never `runQuery`. This is deliberate, not an
+  oversight: `runReadOnlyQuery`'s coercion (Postgres's double-quoted-string DWIM rewrite, above) and
+  `READ ONLY` transaction wrapper are read-only conveniences/guarantees that stay in effect
+  regardless of session write capability.
+- `mutation`/`ddl` - runs directly via `runQuery`.
+- `destructive` - rejected with `409` unless the request body carries `confirmed: true`; once
+  confirmed, also runs via `runQuery`. The confirmation is a server-enforced round-trip, not a
+  client-only guard: the server checks the flag on every request rather than trusting any
+  client-side "already confirmed" state, so a client can't skip showing its own confirmation UI by
+  simply omitting the check.
+
+**CRITICAL**: the write path must never apply Postgres's `coerceUnknownQuotedIdentifiers` rewrite
+(Double-quoted string values, above) - that DWIM double-quote-to-string coercion is acceptable for a
+read (where "smoothing over a likely typo" only affects what's displayed) but must never silently
+alter a mutation's SQL, where the same rewrite could change which rows a statement actually affects.
+`PostgresAdapter.runQuery` calls the pool directly, bypassing `coerceUnknownQuotedIdentifiers`
+entirely - a regression test locks this in.
+
+Every non-`read` statement that actually executes (`mutation`/`ddl`/confirmed-`destructive`) logs an
+audit event to the Console tab's event log with its classification and affected-row count. A
+rejected unconfirmed-destructive attempt also logs (without executing).
+
+### Acceptance criteria
+
+- A read-only session/role behaves identically to today regardless of statement classification - an
+  `INSERT`/`UPDATE`/`DELETE`/`CREATE`/`DROP` is rejected the same way it always was.
+- A write-capable session's `SELECT` still goes through the coercion-applying, capped,
+  `READ ONLY`-transaction-wrapped read path.
+- A write-capable session's `INSERT`/`UPDATE ... WHERE ...`/`CREATE TABLE` runs directly and reports
+  rows-affected.
+- A write-capable session's `DROP TABLE`/unqualified `UPDATE`/`DELETE` (no `WHERE`) is rejected with
+  `409` until resubmitted with `confirmed: true`, at which point it runs.
+- `--read-only` (F096) still wins over a write-capable adapter - every statement, regardless of
+  classification, is rejected the same way a read-only session always rejects a non-`SELECT`.
+- Postgres: a mutation containing a double-quoted token that doesn't match any real column is sent
+  to the database verbatim (and fails with a native "column does not exist" error, proving no
+  coercion happened) - unlike the identical text on the read path, which the coercion would have
+  silently rewritten into a string literal.

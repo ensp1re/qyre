@@ -397,6 +397,41 @@ describe("MysqlAdapter integration", () => {
     await expect(adapter.runReadOnlyQuery(`DELETE FROM ${FIXTURE.table}`)).rejects.toThrow();
   });
 
+  it("runQuery executes an INSERT and reports rowsAffected (F107)", async () => {
+    try {
+      const result = await adapter.runQuery?.(
+        `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('RunQuery Insert', 'run-query-insert@example.com')`
+      );
+      expect(result).toEqual({ columns: [], rows: [], rowsAffected: 1 });
+
+      const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
+      expect(page.rows.some((row) => row.email === "run-query-insert@example.com")).toBe(true);
+    } finally {
+      const pool = mysql.createPool(databaseUrl);
+      await pool.query(`DELETE FROM ${FIXTURE.table} WHERE email = 'run-query-insert@example.com'`);
+      await pool.end();
+    }
+  });
+
+  it("runQuery executes a DDL statement (F107)", async () => {
+    const pool = mysql.createPool(databaseUrl);
+    try {
+      await pool.query("DROP TABLE IF EXISTS qyre_test_runquery_ddl");
+      const result = await adapter.runQuery?.(
+        "CREATE TABLE qyre_test_runquery_ddl (id int AUTO_INCREMENT PRIMARY KEY)"
+      );
+      expect(result?.columns).toEqual([]);
+      expect(result?.rows).toEqual([]);
+
+      const overview = await adapter.getOverview();
+      const schema = overview.schemas.find((candidate) => candidate.name === databaseName);
+      expect(schema?.tables).toContain("qyre_test_runquery_ddl");
+    } finally {
+      await pool.query("DROP TABLE IF EXISTS qyre_test_runquery_ddl");
+      await pool.end();
+    }
+  });
+
   it("MySQL's own READ ONLY transaction refuses a write, independent of assertReadOnly", async () => {
     // Proves the actual backstop mechanism (not just that assertReadOnly's string scan catches an
     // obvious DELETE, which the "rejects a mutating query" test above already covers): open the

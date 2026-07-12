@@ -437,6 +437,23 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     }
   );
 
+  // MongoDB has no SQL query runner at all (supportsSql: false) - runQuery is absent there by
+  // design, not a gap (F107, docs/product-specs/sql-editor.md's "Write-capable SQL execution").
+  it.skipIf(!configured || engine === "mongodb")(
+    "runQuery executes an INSERT directly and reports rowsAffected, visible via getRows (F107)",
+    async () => {
+      const result = await adapter.runQuery?.(
+        `INSERT INTO ${fixture.populatedTable} (n, label) VALUES (42, 'conformance-run-query')`
+      );
+      expect(result).toEqual({ columns: [], rows: [], rowsAffected: 1 });
+
+      const page = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10, undefined, [
+        { column: "label", op: "eq", value: "conformance-run-query" }
+      ]);
+      expect(page.rows).toHaveLength(1);
+    }
+  );
+
   it.skipIf(!configured)(
     "updateRowByKey updates a row by primary key, visible via getRows (F100)",
     async () => {

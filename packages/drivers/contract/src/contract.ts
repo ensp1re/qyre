@@ -6,6 +6,7 @@ import type {
   DeleteRowsResult,
   InsertRowResult,
   MutationOp,
+  QueryExecutionResult,
   RowFilter,
   RowPage,
   RowSort,
@@ -104,6 +105,18 @@ export interface DatabaseAdapter {
   ): Promise<RowPage>;
   /** Execute a read-only (SELECT-style) query. Implementations must reject mutations. */
   runReadOnlyQuery(sql: string): Promise<RowPage>;
+  /**
+   * Execute a single SQL statement of any {@link StatementClassification} without the
+   * `runReadOnlyQuery` read-only transaction wrapper - `mutation`/`ddl`/confirmed-`destructive`
+   * statements only, per `POST /api/query`'s routing (F107, `docs/product-specs/sql-editor.md`'s
+   * "Write-capable SQL execution"). `read`-classified statements still go through
+   * `runReadOnlyQuery`, never this method. Postgres/MySQL/SQLite only - absent on MongoDB, which
+   * has no SQL query runner at all (`supportsSql: false`). CRITICAL: unlike `runReadOnlyQuery`,
+   * implementations must NOT apply any read-oriented DWIM rewrite (e.g. Postgres's
+   * `coerceUnknownQuotedIdentifiers`) - that's acceptable for a read, but must never silently alter
+   * a mutation's SQL.
+   */
+  runQuery?(sql: string): Promise<QueryExecutionResult>;
   /** Structured row-mutation operations (F099-F101) - absent means the engine has no write
    * mechanism at all; present-but-grants-insufficient is a normal per-call rejection, not a
    * missing namespace. See {@link RowMutationApi}. */

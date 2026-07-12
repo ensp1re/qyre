@@ -380,6 +380,39 @@ describe("SqliteAdapter integration", () => {
     expect(after.rows).toHaveLength(3);
   });
 
+  it("runQuery executes an INSERT and reports rowsAffected via the reader flag (F107)", async () => {
+    try {
+      const result = await adapter.runQuery?.(
+        "INSERT INTO qyre_demo_users (name, email) VALUES ('RunQuery Insert', 'run-query-insert@example.com')"
+      );
+      expect(result).toEqual({ columns: [], rows: [], rowsAffected: 1 });
+
+      const page = await adapter.getRows("main", "qyre_demo_users", 0, 10);
+      expect(page.rows.some((row) => row.email === "run-query-insert@example.com")).toBe(true);
+    } finally {
+      const cleanup = new Database(dbPath);
+      cleanup.exec("DELETE FROM qyre_demo_users WHERE email = 'run-query-insert@example.com'");
+      cleanup.close();
+    }
+  });
+
+  it("runQuery executes a DDL statement (F107)", async () => {
+    try {
+      const result = await adapter.runQuery?.(
+        "CREATE TABLE qyre_test_runquery_ddl (id INTEGER PRIMARY KEY)"
+      );
+      expect(result?.columns).toEqual([]);
+      expect(result?.rows).toEqual([]);
+
+      const overview = await adapter.getOverview();
+      expect(overview.schemas[0]?.tables).toContain("qyre_test_runquery_ddl");
+    } finally {
+      const cleanup = new Database(dbPath);
+      cleanup.exec("DROP TABLE IF EXISTS qyre_test_runquery_ddl");
+      cleanup.close();
+    }
+  });
+
   it("SQLite's own query_only pragma refuses a write, independent of assertReadOnly (F094)", () => {
     // Unlike Postgres, SQLite has no writable-CTE or stored-procedure equivalent that could hide a
     // write behind a leading SELECT/WITH keyword - assertReadOnly's strict allowlist (only SELECT,

@@ -3,6 +3,7 @@ import type {
   ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
+  QueryExecutionResult,
   RowFilter,
   RowPage,
   RowSort,
@@ -192,6 +193,22 @@ export class PostgresAdapter implements DatabaseAdapter {
       },
       capResultRows(rewritten)
     );
+  }
+
+  /**
+   * F107: executes a single mutation/ddl/confirmed-destructive statement directly on the pool, no
+   * `READ ONLY` transaction wrapper. CRITICAL: deliberately does NOT call
+   * `coerceUnknownQuotedIdentifiers` - that DWIM double-quote-to-string rewrite is acceptable on
+   * `runReadOnlyQuery`'s read path but must never silently alter a mutation's SQL (see
+   * docs/product-specs/sql-editor.md).
+   */
+  async runQuery(sql: string): Promise<QueryExecutionResult> {
+    const result = await this.getPool().query(capResultRows(sql));
+    return {
+      columns: result.fields.map((field) => field.name),
+      rows: result.rows as Array<Record<string, unknown>>,
+      rowsAffected: result.rowCount ?? result.rows.length
+    };
   }
 }
 

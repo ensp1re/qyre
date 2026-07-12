@@ -535,7 +535,7 @@ confirm-destructive-statement-dialog.tsx`) naming the classification and the exa
 sql-editor.md` gained a new "SQL Editor UI (F108)" section. F108 was the last write-affordance
   slice in Phase C; F126 (query cancellation) and F127 (column-level autocomplete) remain to close
   it out.
-- 2026-07-12 (later still): F126 implemented (PR pending) - query cancellation and long-operation
+- 2026-07-12 (later still): F126 implemented (PR #123, merged as 7547c69) - query cancellation and long-operation
   handling. A `CancellationRegistry` (`@qyre/driver-contract`) registers/unregisters a cancel
   callback by client-supplied `operationId`; `OperationRegistry` (`packages/server/src/services/`)
   is the server-side implementation, one instance per `ServerContext`, assigned onto whichever
@@ -585,3 +585,33 @@ sql-editor.md` gained a new "SQL Editor UI (F108)" section. F108 was the last wr
   interrupted well before completion; Console tab showed `"Query cancelled."` distinct from normal
   `"Query executed..."` entries). F126 was the second-to-last Phase C slice; F127 (column-level
   autocomplete) remains to close it out.
+- 2026-07-12 (later still): F127 implemented (PR pending) - column-level SQL autocomplete, the last
+  Phase C slice. `packages/ui/src/query/sql-completion.ts`'s completion source (F013) gained three
+  new pieces layered onto the existing FROM/JOIN table-name and keyword completion:
+  `resolveReferencedTables(sql, tables)` scans every `FROM`/`JOIN` clause (regex-based, not a real
+  parser - matches this file's existing lightweight-heuristic style) and maps each alias, and each
+  unaliased table's own name, to its `CompletionTable` (name + bare column names), case-
+  insensitively - `FROM users u JOIN orders o` resolves both `u`/`users` and `o`/`orders`; a clause
+  keyword immediately following a table reference with no alias (`FROM users WHERE ...`) is
+  excluded from the alias capture via a negative lookahead so it's never mistaken for one.
+  `matchQualifiedPrefix(textBeforeCursor)` detects the cursor sitting right after `alias.`/`table.`
+  (optionally quoted) - that position suggests only the resolved table's columns. Everywhere else
+  (SELECT lists, WHERE/ON clauses, ...) suggests the read-only keywords plus the columns of every
+  table referenced so far in the statement, deduplicated across aliases pointing at the same table.
+  `needsQuoting(identifier)`/`quoteIdentifier(identifier, engine)` quote a suggested identifier only
+  when it isn't safe to leave unquoted (mixed case, spaces/punctuation, a leading digit) - Postgres
+  in particular folds an unquoted identifier to lowercase, so a mixed-case column left unquoted
+  would silently reference the wrong name; MySQL quotes with backticks, Postgres/SQLite with double
+  quotes, both doubling an embedded quote of their own kind. The completion's visible `label` stays
+  the bare name; only the inserted `apply` text is quoted. No new server surface - reuses
+  `GET /api/tables`'s already-fetched metadata (the same data the Schema tab renders), threaded from
+  `apps/web`'s `app.tsx` (`allTables.tables` reduced to `{name, columns}` pairs) through
+  `SqlEditorTab` to `QueryRunner`, which now takes `tables`/`engine` props (via ref-backed getters,
+  mirroring the existing `tableNamesRef` pattern, so a connection switch's fresh schema/engine is
+  picked up without recreating the CodeMirror extension). New unit tests cover alias resolution
+  (aliased/unaliased/quoted/schema-qualified/JOIN, clause-keyword exclusion), qualified-prefix
+  detection, and per-engine quoting (simple vs. mixed-case vs. punctuated identifiers, embedded-
+  quote doubling). The existing `sql-editor-autocomplete.spec.ts` e2e spec gained a column-
+  completion step (typing `<table>.em` after the FROM clause resolves to exactly the fixture's real
+  `email` column); manually verified end-to-end against a live Postgres connection too. F127 closes
+  out Phase C.

@@ -461,3 +461,19 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   Docker-backed `@full` E2E, first run). All row-editing UI slices (F103-F105, F125) are now done;
   Phase C's remaining `not_started` entries in `docs/FEATURES.json` (starting with F106, the SQL
   statement classifier) are next.
+- 2026-07-12 (later still): F106 implemented (PR pending) - `packages/drivers/contract`'s
+  `read-only.ts` gains `classifyStatement(sql)`, generalizing `assertReadOnly`'s existing
+  comment/literal-stripping scanner into a `read | mutation | ddl | destructive` classification;
+  `assertReadOnly` is reimplemented on top of it (`classification !== "read"` throws) and all 18 of
+  its pre-existing tests pass unmodified, confirming bit-for-bit unchanged read-only behavior.
+  DROP/TRUNCATE are always `destructive`; UPDATE/DELETE escalate to `destructive` only when no
+  `WHERE` clause bounds them (an unqualified UPDATE/DELETE rewrites or empties the whole table) -
+  with a `WHERE` clause they're an ordinary `mutation`. CREATE/ALTER/GRANT/REVOKE/COMMENT classify
+  as `ddl`; INSERT/MERGE/COPY/CALL/DO/VACUUM/REINDEX/REFRESH/LOCK classify as `mutation`. A writable
+  CTE classifies by its inner write action even though it starts with the read-safe `WITH` keyword,
+  matching `assertReadOnly`'s existing writable-CTE rejection. An unrecognized statement (e.g.
+  `PRAGMA ...`) conservatively classifies as `mutation`, never `read`, since defense-in-depth means
+  never treating the unknown as safe. Pure text heuristic only, no server or UI change - the
+  authoritative gate remains each adapter's engine-level read-only enforcement. F107 (write-capable
+  SQL execution - `runQuery(sql)` on the three SQL adapters plus a server confirmation contract) is
+  next.

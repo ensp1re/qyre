@@ -1,4 +1,4 @@
-import type { QueryExecutionResult, RowPage } from "@qyre/core";
+import type { DatabaseEngine, QueryExecutionResult, RowPage } from "@qyre/core";
 import { autocompletion } from "@codemirror/autocomplete";
 import { StandardSQL, sql as sqlLanguage } from "@codemirror/lang-sql";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
@@ -16,6 +16,7 @@ import { CellValue } from "../data-grid/cell-value.js";
 import { ErrorState } from "../feedback/error-state.js";
 import { Spinner } from "../feedback/spinner.js";
 import { ResizeHandle } from "../primitives/resize-handle.js";
+import type { CompletionTable } from "./sql-completion.js";
 import { createSqlCompletionSource } from "./sql-completion.js";
 
 /** Exported so the caller owning persistence (F071's `usePanelSize`) can seed/clamp against the
@@ -41,10 +42,14 @@ export interface QueryRunnerProps {
   /** Opens the query history drawer (F012) - rendered by the caller, not this component. */
   onOpenHistory: () => void;
   /**
-   * Table names for schema-aware autocomplete after FROM/JOIN (F013), sourced by the caller from
-   * already-fetched schema data - this package must not fetch data itself (FRONTEND.md).
+   * Tables (with columns) for schema-aware autocomplete after FROM/JOIN and column completion
+   * after `alias.`/`table.` (F013, F127), sourced by the caller from already-fetched schema data -
+   * this package must not fetch data itself (FRONTEND.md).
    */
-  tableNames?: readonly string[];
+  tables?: readonly CompletionTable[];
+  /** The connected engine, used to quote a suggested identifier in the right dialect (F127) when
+   * it needs it. Defaults to `"postgres"`'s quoting rules if omitted. */
+  engine?: DatabaseEngine;
   /** Results panel height in px (F071). Omitted keeps the previous fixed 256px (`max-h-64`) - both
    * this and `onResultsHeightChange` must be supplied together for the resize handle to appear. */
   resultsHeight?: number;
@@ -114,7 +119,8 @@ export function QueryRunner({
   result,
   error,
   onOpenHistory,
-  tableNames = [],
+  tables = [],
+  engine = "postgres",
   resultsHeight,
   onResultsHeightChange
 }: QueryRunnerProps): ReactNode {
@@ -149,11 +155,13 @@ export function QueryRunner({
   const onSqlChangeRef = useRef(onSqlChange);
   const onRunRef = useRef(onRun);
   const canRunRef = useRef(canRun);
-  const tableNamesRef = useRef(tableNames);
+  const tablesRef = useRef(tables);
+  const engineRef = useRef(engine);
   onSqlChangeRef.current = onSqlChange;
   onRunRef.current = onRun;
   canRunRef.current = canRun;
-  tableNamesRef.current = tableNames;
+  tablesRef.current = tables;
+  engineRef.current = engine;
 
   useEffect(() => {
     if (!editorParentRef.current) return;
@@ -165,7 +173,14 @@ export function QueryRunner({
         basicSetup,
         sqlLanguage({ dialect: StandardSQL }),
         syntaxHighlighting(sqlHighlightStyle),
-        autocompletion({ override: [createSqlCompletionSource(() => tableNamesRef.current)] }),
+        autocompletion({
+          override: [
+            createSqlCompletionSource(
+              () => tablesRef.current,
+              () => engineRef.current
+            )
+          ]
+        }),
         // Prec.highest so this beats basicSetup's own defaultKeymap binding for the same chord
         // (Mod-Enter is bound there to insertBlankLine) - otherwise that fires first and this
         // handler never runs.

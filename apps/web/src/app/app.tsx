@@ -109,7 +109,12 @@ export function App(): ReactNode {
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page, sort, filters);
   const allTables = useAllTables({ enabled: status === "connected" });
-  const tableNames = (overview.data?.schemas ?? []).flatMap((schema) => schema.tables);
+  // F127: reuses the already-fetched /api/tables metadata (no new server surface) for the SQL
+  // Editor's column-level autocomplete - the same data the Schema tab renders.
+  const completionTables = allTables.tables.map((table) => ({
+    name: table.name,
+    columns: table.columns.map((column) => column.name)
+  }));
   const filesOverview = useFilesOverview({ enabled: status === "connected" });
   const fileContent = useFileContent(selectedFilePath);
   const consoleEvents = useConsoleEvents({ enabled: status === "connected" });
@@ -290,7 +295,8 @@ export function App(): ReactNode {
                     runQuery={runQuery}
                     capabilities={capabilities.data}
                     onOpenHistory={() => dispatch({ type: "historyChanged", open: true })}
-                    tableNames={tableNames}
+                    tables={completionTables}
+                    engine={overview.data?.engine}
                     resultsHeight={resultsHeight}
                     onResultsHeightChange={setResultsHeight}
                     pendingConfirmation={pendingConfirmation}

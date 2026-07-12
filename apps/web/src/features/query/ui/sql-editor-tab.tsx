@@ -1,4 +1,5 @@
-import type { ConnectionCapabilities, StatementClassification } from "@qyre/core";
+import type { ConnectionCapabilities, DatabaseEngine, StatementClassification } from "@qyre/core";
+import type { CompletionTable } from "@qyre/ui";
 import { ConfirmDestructiveStatementDialog, QueryRunner, READ_ONLY_REASON_LABEL } from "@qyre/ui";
 import type { ReactNode } from "react";
 import {
@@ -22,7 +23,8 @@ export interface SqlEditorTabProps {
    * when a read-only session's write attempt is rejected. */
   capabilities?: ConnectionCapabilities;
   onOpenHistory: () => void;
-  tableNames: string[];
+  tables: CompletionTable[];
+  engine?: DatabaseEngine;
   resultsHeight: number;
   onResultsHeightChange: (height: number) => void;
   /** Set when the last run was rejected as destructive pending confirmation (F107/F108) - renders
@@ -42,7 +44,8 @@ export function SqlEditorTab({
   runQuery,
   capabilities,
   onOpenHistory,
-  tableNames,
+  tables,
+  engine,
   resultsHeight,
   onResultsHeightChange,
   pendingConfirmation,
@@ -87,7 +90,8 @@ export function SqlEditorTab({
         result={runQuery.data}
         error={error}
         onOpenHistory={onOpenHistory}
-        tableNames={tableNames}
+        tables={tables}
+        engine={engine}
         resultsHeight={resultsHeight}
         onResultsHeightChange={onResultsHeightChange}
       />

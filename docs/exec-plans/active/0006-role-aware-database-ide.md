@@ -181,8 +181,12 @@ F121:
 4. Whether `ConnectionCapabilities` travels inside `GET /api/overview` or a separate endpoint -
    decide in F090's spec; leaning extended overview (single round-trip).
 5. Commit endpoint shape (single `/api/mutations/commit` vs per-table) - decide in F098's spec.
-6. Type catalog exposure for the table designer (static per-adapter list vs introspected) -
-   decide in F109's spec.
+6. ~~Type catalog exposure for the table designer (static per-adapter list vs introspected)~~ -
+   **Decided in F109's spec: static, curated, per-engine list**, not introspected from the engine's
+   own type catalog. Postgres's real `pg_type` alone lists hundreds of mostly-irrelevant rows;
+   SQLite has no real type catalog to introspect at all (just five storage-class affinities a
+   curated list maps directly onto). See `docs/product-specs/schema-editing.md`'s "Column type
+   catalog" section for starting per-engine lists and full reasoning.
 
 ## Second-pass revisions (2026-07-10)
 
@@ -585,7 +589,7 @@ sql-editor.md` gained a new "SQL Editor UI (F108)" section. F108 was the last wr
   interrupted well before completion; Console tab showed `"Query cancelled."` distinct from normal
   `"Query executed..."` entries). F126 was the second-to-last Phase C slice; F127 (column-level
   autocomplete) remains to close it out.
-- 2026-07-12 (later still): F127 implemented (PR pending) - column-level SQL autocomplete, the last
+- 2026-07-12 (later still): F127 implemented (PR #124, merged as 898b1be) - column-level SQL autocomplete, the last
   Phase C slice. `packages/ui/src/query/sql-completion.ts`'s completion source (F013) gained three
   new pieces layered onto the existing FROM/JOIN table-name and keyword completion:
   `resolveReferencedTables(sql, tables)` scans every `FROM`/`JOIN` clause (regex-based, not a real
@@ -615,3 +619,37 @@ sql-editor.md` gained a new "SQL Editor UI (F108)" section. F108 was the last wr
   completion step (typing `<table>.em` after the FROM clause resolves to exactly the fixture's real
   `email` column); manually verified end-to-end against a live Postgres connection too. F127 closes
   out Phase C.
+- 2026-07-12 (later still): F109 implemented (PR pending) - `docs/product-specs/schema-editing.md`,
+  Phase D's foundation spec (spec-only slice, `pnpm check:state`, no implementation). Fixes
+  `SchemaDdlApi` (table/collection lifecycle - `createTable`/`renameTable`/`truncateTable`/
+  `dropTable`; column ops - `addColumn`/`renameColumn`/`alterColumn`/`dropColumn`, absent entirely
+  on MongoDB since collections have no fixed structure to alter; index ops -
+  `createIndex`/`dropIndex`), `ColumnDefinition`/`IndexDefinition`, and the per-engine DDL matrix -
+  most notably SQLite's genuinely constrained native `ALTER TABLE` (`ADD COLUMN` with real limits,
+  `RENAME COLUMN`/`RENAME TO` 3.25+, `DROP COLUMN` 3.35+) and the 12-step rebuild pattern
+  (`PRAGMA foreign_keys=OFF` -> create-new/copy/swap in one transaction -> recreate indexes/
+  triggers/views -> `PRAGMA foreign_key_check` -> commit -> `PRAGMA foreign_keys=ON`) `alterColumn`
+  falls back to for any change SQLite's own `ALTER TABLE` can't express directly - always the
+  rebuild path for a destructive/data-affecting change, never a "fast path sometimes, rebuild
+  otherwise" split. Gating uses the session-level `supportsDdl`/`supportsIndexManagement`
+  capabilities F090 already reserved, not a new per-table permission field - DDL privilege is
+  granted at the schema/database level in every engine here, unlike row-level grants, so there's no
+  per-table DDL grant to introspect. **Resolves exec plan open decision 6**: the table designer's
+  type picker (F113) offers a static, curated, per-engine list, not one introspected from the
+  engine's own type catalog - Postgres's real `pg_type` alone lists hundreds of mostly-irrelevant
+  rows, and SQLite has no real type catalog at all (just five storage-class affinities a curated
+  list maps directly onto); starting catalogs are named in the spec, exact membership left to
+  F113's own judgment. Typed-confirmation (type the target's exact name before the action enables)
+  is required for `dropTable`/`truncateTable`/`dropColumn` specifically - the clearest irreversible-
+  data-loss cases - while `dropIndex` uses a plain confirming click (recoverable by recreating it)
+  and every non-destructive operation uses a review-before-submit step mirroring `row-editing.md`'s
+  buffer-preview precedent; the server independently re-validates a destructive request's
+  `confirmedName` regardless of what the UI already gated. Routes: `POST /api/schemas/:schema/
+tables` (create, no existing `:table` to scope under yet) plus `/api/tables/:schema/:table/ddl/...`
+  for everything scoped to one existing table - all gated by the F096 central read-only guard and
+  the relevant capability flag, with a MongoDB column-route call responding `400` (registered for
+  every engine, never a bare 404, same pattern `POST /api/mutations/commit` already uses for
+  MongoDB). The audit-event contract is reused unchanged from `row-editing.md`, applied to DDL's own
+  operation/outcome vocabulary. Also records F127's passing state and evidence in
+  `docs/FEATURES.json` (merged as PR #124, left unrecorded from the previous turn). F109 is Phase
+  D's first slice; F110 (table lifecycle implementation) is next.

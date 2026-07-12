@@ -2,35 +2,36 @@ import { ReadOnlyViolationError } from "./errors.js";
 
 export { ReadOnlyViolationError } from "./errors.js";
 
-const ALLOWED_LEADING_KEYWORDS = ["select", "with", "explain", "show", "table", "values"];
+/** A single SQL statement's write classification, from a pure text heuristic (see below). */
+export type StatementClassification = "read" | "mutation" | "ddl" | "destructive";
 
-// Data-modifying/DDL/permission keywords that must never appear anywhere in the statement, not just
-// as the leading keyword - e.g. Postgres allows *writable CTEs*
+const READ_LEADING_KEYWORDS = ["select", "with", "explain", "show", "table", "values"];
+
+// Every keyword below is a partition of the same forbidden-word set assertReadOnly has always
+// scanned for - not just as the leading keyword, since Postgres allows *writable CTEs*
 // (`WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x`), which start with the allowed "with"
-// keyword but perform a real DELETE. This list is a heuristic, defense-in-depth layer, not the
-// authoritative guarantee - every engine adapter's `runReadOnlyQuery` must also enforce read-only at
-// the engine level (a Postgres `READ ONLY` transaction, a SQLite read-only connection, etc.), which
-// catches whatever this scan misses.
-const FORBIDDEN_KEYWORDS = [
+// keyword but perform a real DELETE. This is a heuristic, defense-in-depth layer, not the
+// authoritative guarantee - every engine adapter's `runReadOnlyQuery` must also enforce read-only
+// at the engine level (a Postgres `READ ONLY` transaction, a SQLite read-only connection, etc.),
+// which catches whatever this scan misses.
+const DESTRUCTIVE_KEYWORDS = ["drop", "truncate"];
+// UPDATE/DELETE are only unconditionally destructive when no WHERE clause bounds them (an
+// unqualified UPDATE/DELETE rewrites or empties the whole table); with a WHERE clause they're an
+// ordinary mutation, checked below.
+const DESTRUCTIVE_WITHOUT_WHERE_KEYWORDS = ["update", "delete"];
+const DDL_KEYWORDS = ["create", "alter", "grant", "revoke", "comment", "security"];
+const MUTATION_KEYWORDS = [
   "insert",
   "update",
   "delete",
   "merge",
-  "truncate",
-  "drop",
-  "alter",
-  "create",
-  "grant",
-  "revoke",
   "copy",
   "call",
   "do",
   "vacuum",
   "reindex",
   "refresh",
-  "lock",
-  "comment",
-  "security"
+  "lock"
 ];
 
 /** Remove SQL comments so keyword detection is not fooled by them. */
@@ -49,9 +50,59 @@ function stripLiterals(sql: string): string {
     .replace(/"(?:[^"]|"")*"/g, " "); // double-quoted identifiers
 }
 
-function findForbiddenKeyword(sql: string): string | undefined {
-  const lower = sql.toLowerCase();
-  return FORBIDDEN_KEYWORDS.find((keyword) => new RegExp(`\\b${keyword}\\b`).test(lower));
+function hasWord(sql: string, word: string): boolean {
+  return new RegExp(`\\b${word}\\b`).test(sql);
+}
+
+/**
+ * Classify a single SQL statement as `read` | `mutation` | `ddl` | `destructive`, from the same
+ * comment/literal-stripping text scan `assertReadOnly` has always used (now built on top of this).
+ * Pure text heuristic, defense-in-depth only - see the module-level comment on
+ * {@link DESTRUCTIVE_KEYWORDS}.
+ *
+ * Throws {@link ReadOnlyViolationError} for an empty query or multiple statements, since both make
+ * classification meaningless (there's no single statement to label).
+ */
+export function classifyStatement(sql: string): StatementClassification {
+  const withoutComments = stripComments(sql).trim();
+  if (!withoutComments) {
+    throw new ReadOnlyViolationError("Empty query.");
+  }
+
+  const withoutTrailingSemicolon = withoutComments.replace(/;\s*$/, "");
+  // Check for a `;` against literal/identifier-stripped text, not raw SQL - otherwise a data value
+  // that happens to contain a semicolon (a URL, a free-text field, an encoded blob) is wrongly
+  // rejected as "multiple statements".
+  const stripped = stripLiterals(withoutTrailingSemicolon);
+  if (stripped.includes(";")) {
+    throw new ReadOnlyViolationError("Multiple statements are not allowed.");
+  }
+
+  const lower = stripped.toLowerCase();
+
+  if (DESTRUCTIVE_KEYWORDS.some((keyword) => hasWord(lower, keyword))) {
+    return "destructive";
+  }
+  if (
+    DESTRUCTIVE_WITHOUT_WHERE_KEYWORDS.some((keyword) => hasWord(lower, keyword)) &&
+    !hasWord(lower, "where")
+  ) {
+    return "destructive";
+  }
+  if (DDL_KEYWORDS.some((keyword) => hasWord(lower, keyword))) {
+    return "ddl";
+  }
+  if (MUTATION_KEYWORDS.some((keyword) => hasWord(lower, keyword))) {
+    return "mutation";
+  }
+
+  const firstKeyword = withoutTrailingSemicolon.split(/\s+/)[0]?.toLowerCase() ?? "";
+  if (READ_LEADING_KEYWORDS.includes(firstKeyword)) {
+    return "read";
+  }
+  // Unrecognized statement (e.g. PRAGMA, vendor-specific syntax) - conservatively assume it could
+  // write, since defense-in-depth means never treating the unknown as safe.
+  return "mutation";
 }
 
 /**
@@ -61,38 +112,14 @@ function findForbiddenKeyword(sql: string): string | undefined {
  *
  * Throws {@link ReadOnlyViolationError} otherwise. This is a defense-in-depth check; each adapter's
  * `runReadOnlyQuery` must also enforce read-only at the engine level as the authoritative guarantee
- * (see this module's top-level comment).
+ * (see {@link classifyStatement}'s top-level comment).
  */
 export function assertReadOnly(sql: string): void {
-  const withoutComments = stripComments(sql).trim();
-  if (!withoutComments) {
-    throw new ReadOnlyViolationError("Empty query.");
-  }
-
-  const withoutTrailingSemicolon = withoutComments.replace(/;\s*$/, "");
-  // Check for a `;` against literal/identifier-stripped text (same as the forbidden-keyword scan
-  // below), not raw SQL - otherwise a data value that happens to contain a semicolon (a URL, a
-  // free-text field, an encoded blob) is wrongly rejected as "multiple statements".
-  if (stripLiterals(withoutTrailingSemicolon).includes(";")) {
+  const classification = classifyStatement(sql);
+  if (classification !== "read") {
     throw new ReadOnlyViolationError(
-      "Multiple statements are not allowed in the read-only query runner."
-    );
-  }
-
-  const firstKeyword = withoutTrailingSemicolon.split(/\s+/)[0]?.toLowerCase() ?? "";
-  if (!ALLOWED_LEADING_KEYWORDS.includes(firstKeyword)) {
-    throw new ReadOnlyViolationError(
-      `Only read-only statements are allowed (${ALLOWED_LEADING_KEYWORDS.join(", ").toUpperCase()}). ` +
-        `Received a statement starting with "${firstKeyword.toUpperCase()}".`
-    );
-  }
-
-  const forbidden = findForbiddenKeyword(stripLiterals(withoutTrailingSemicolon));
-  if (forbidden) {
-    throw new ReadOnlyViolationError(
-      `Only read-only statements are allowed. The query contains a disallowed keyword: ` +
-        `"${forbidden.toUpperCase()}" (e.g. inside a writable CTE, which Postgres allows even though ` +
-        `the statement starts with a read-only keyword).`
+      `Only read-only statements are allowed (${READ_LEADING_KEYWORDS.join(", ").toUpperCase()}). ` +
+        `Statement classified as "${classification}".`
     );
   }
 }

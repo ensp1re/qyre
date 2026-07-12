@@ -8,6 +8,7 @@ export * from "./connection/connect-drawer.js";
 export * from "./connection/files-browser.js";
 export * from "./data-grid/cell-value-drawer.js";
 export * from "./data-grid/cell-value.js";
+export * from "./data-grid/commit-bar.js";
 export * from "./data-grid/date-detail-popover.js";
 export * from "./data-grid/rows-table.js";
 export * from "./feedback/error-boundary.js";

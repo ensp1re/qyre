@@ -404,3 +404,18 @@ DbGate, MongoDB Compass) found and fixed these first-pass gaps:
   `capability-gates.ts` out of the `connection` feature into `shared/lib/capabilities/`, since it's
   now consumed by the `table` feature too and the web-structure check forbids feature-to-feature
   imports. F104 (permission-gated Add-row/Duplicate-row UI) is next.
+- 2026-07-12 (later): F104 implemented (PR #117) - extends the pending-changes buffer with staged
+  new-row drafts. "Add row" opens a blank draft with a type-aware input per insertable column
+  (primary key included this time, unlike update's `editableColumns` - a new row's key must be
+  supplied unless the engine auto-generates it); "Duplicate row" pre-fills a draft from the
+  selected row's insertable columns, primary-key columns excluded, since a duplicate proposing an
+  exact copy of another row's key would just collide on insert. Both are hidden entirely (not
+  disabled) when the session/table can't insert - `computeTableEditability` gained
+  `canInsert`/`insertReason`/`insertableColumns`, gated on `TablePermissions.insert` independently
+  of update permission (a session can have one without the other). A column the user never touches
+  in a draft is simply omitted from the staged `values` map, letting the engine apply its own
+  default/auto-generated value on commit rather than the UI guessing one. New `NewRowCell`
+  component (`packages/ui/src/data-grid/new-row-cell.tsx`) reuses `EditableCell`'s `widgetFor` so a
+  column's insert editor matches its update editor exactly - always in an editing state, unlike
+  `EditableCell`, since a fresh draft has no prior value to revert toward. F105 (the pending-changes
+  workflow's remaining piece - staged deletion from selection plus the commit bar) is next.

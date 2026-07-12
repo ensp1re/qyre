@@ -99,6 +99,9 @@ export interface RowsTableProps {
     addInsert: (initialValues?: Record<string, unknown>) => string;
     updateInsertValue: (id: string, column: string, value: unknown) => void;
     removeInsert: (id: string) => void;
+    deletes: ReadonlySet<string>;
+    stageDelete: (rowKey: string) => void;
+    unstageDelete: (rowKey: string) => void;
   };
   /** Whether Add-row/Duplicate-row (F104) render at all - hidden entirely (not disabled) when
    * false, matching `docs/product-specs/row-editing.md`. Independent of `editable`: a session can
@@ -108,6 +111,9 @@ export interface RowsTableProps {
    * `editableColumns`), since a new row's key must be supplied unless the engine auto-generates it.
    * Ignored when `canInsert` is false. */
   insertableColumns?: ReadonlySet<string>;
+  /** Whether selected rows can be staged for deletion (F105) - hidden entirely (not disabled) when
+   * false. Independent of `editable`/`canInsert`. */
+  canDelete?: boolean;
 }
 
 /** Approximate row height in px (matches the `py-1.5` cell padding + 11px font) - only an estimate
@@ -170,7 +176,8 @@ export function RowsTable({
   primaryKeyColumns,
   pendingChanges,
   canInsert,
-  insertableColumns
+  insertableColumns,
+  canDelete
 }: RowsTableProps): ReactNode {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -340,6 +347,22 @@ export function RowsTable({
     pendingChanges.addInsert(initialValues);
   }
 
+  // F105: staging is hidden entirely (not disabled) when the session/table can't delete, mirroring
+  // canAddRow above.
+  const canStageDelete = Boolean(canDelete && pendingChanges && primaryKeyColumns);
+
+  /** Stages every currently-selected row for deletion - clicking this button IS the explicit
+   * confirming click docs/product-specs/row-editing.md requires for delete, distinct from mere
+   * selection (which stays a read-only, side-effect-free action everywhere else in this table). */
+  function stageSelectedForDelete(): void {
+    if (!pendingChanges || !primaryKeyColumns) return;
+    for (const { row, index } of filtered) {
+      if (!selected.has(index)) continue;
+      pendingChanges.stageDelete(computeRowKey(row, primaryKeyColumns));
+    }
+    setSelected(new Set());
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
@@ -409,6 +432,16 @@ export function RowsTable({
               >
                 <Copy className="h-3 w-3" /> Copy as CSV
               </button>
+              {canStageDelete && (
+                <button
+                  type="button"
+                  onClick={stageSelectedForDelete}
+                  className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] hover:bg-accent"
+                  style={{ color: "var(--c-red)" }}
+                >
+                  <Trash2 className="h-3 w-3" /> Delete {selected.size} selected
+                </button>
+              )}
             </>
           )}
           {(onExportAllRows || canExportSelectedRows) && (
@@ -582,6 +615,11 @@ export function RowsTable({
                 const item = filtered[virtualRow.index];
                 if (!item) return null;
                 const { row, index } = item;
+                const rowKey =
+                  pendingChanges && primaryKeyColumns
+                    ? computeRowKey(row, primaryKeyColumns)
+                    : undefined;
+                const markedForDelete = Boolean(rowKey && pendingChanges?.deletes.has(rowKey));
                 return (
                   <tr
                     key={index}
@@ -592,6 +630,11 @@ export function RowsTable({
                       "cursor-pointer select-none border-b border-border-subtle hover:bg-accent/40",
                       selected.has(index) && "bg-primary/5"
                     )}
+                    style={
+                      markedForDelete
+                        ? { backgroundColor: "color-mix(in srgb, var(--c-red) 8%, transparent)" }
+                        : undefined
+                    }
                   >
                     <td className="w-8 border-r border-border-subtle px-2 py-1.5 text-center">
                       <input
@@ -599,6 +642,7 @@ export function RowsTable({
                         checked={selected.has(index)}
                         onChange={() => toggleRow(index)}
                         onClick={(event) => event.stopPropagation()}
+                        disabled={markedForDelete}
                         className="h-3 w-3 accent-primary"
                         aria-label={`Select row ${virtualRow.index + 1}`}
                       />
@@ -606,25 +650,43 @@ export function RowsTable({
                     <td
                       className={cn(
                         "border-r border-border-subtle px-1 py-1.5 text-right text-muted-foreground/30",
-                        canAddRow ? "w-14" : "w-8"
+                        canAddRow || markedForDelete ? "w-14" : "w-8"
                       )}
                     >
                       <div className="flex items-center justify-end gap-1">
-                        {canAddRow && (
+                        {markedForDelete ? (
                           <button
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              duplicateRow(row);
+                              if (rowKey) pendingChanges?.unstageDelete(rowKey);
                             }}
-                            aria-label={`Duplicate row ${virtualRow.index + 1}`}
-                            title="Duplicate row"
-                            className="text-muted-foreground/60 hover:text-foreground"
+                            aria-label={`Undo delete row ${virtualRow.index + 1}`}
+                            title="Undo delete"
+                            className="font-mono text-[9px] font-bold hover:underline"
+                            style={{ color: "var(--c-red)" }}
                           >
-                            <CopyPlus className="h-2.5 w-2.5" />
+                            undo
                           </button>
+                        ) : (
+                          canAddRow && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                duplicateRow(row);
+                              }}
+                              aria-label={`Duplicate row ${virtualRow.index + 1}`}
+                              title="Duplicate row"
+                              className="text-muted-foreground/60 hover:text-foreground"
+                            >
+                              <CopyPlus className="h-2.5 w-2.5" />
+                            </button>
+                          )
                         )}
-                        <span>{virtualRow.index + 1}</span>
+                        <span className={markedForDelete ? "line-through" : undefined}>
+                          {virtualRow.index + 1}
+                        </span>
                       </div>
                     </td>
                     {rowPage.columns.map((columnName) => {
@@ -641,10 +703,8 @@ export function RowsTable({
                         !meta?.isPrimaryKey &&
                         editableColumns?.has(columnName) &&
                         pendingChanges &&
-                        primaryKeyColumns;
-                      const rowKey = isEditableCell
-                        ? computeRowKey(row, primaryKeyColumns)
-                        : undefined;
+                        primaryKeyColumns &&
+                        !markedForDelete;
                       const staged =
                         isEditableCell && rowKey
                           ? pendingChanges.getEdit(rowKey, columnName)
@@ -652,7 +712,10 @@ export function RowsTable({
                       return (
                         <td
                           key={columnName}
-                          className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80"
+                          className={cn(
+                            "whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80",
+                            markedForDelete && "line-through opacity-60"
+                          )}
                         >
                           {isEditableCell && rowKey ? (
                             <EditableCell

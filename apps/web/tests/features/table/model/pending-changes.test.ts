@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   applyAddInsert,
   applyRemoveInsert,
+  applyRemoveRowEdits,
   applyRevertEdit,
+  applyStageDelete,
   applyStageEdit,
+  applyUnstageDelete,
   applyUpdateInsertValue,
   computeRowKey,
   countPendingEdits,
@@ -124,5 +127,57 @@ describe("applyAddInsert / applyUpdateInsertValue / applyRemoveInsert (F104)", (
     inserts = applyAddInsert(inserts, "insert-1");
     inserts = applyRemoveInsert(inserts, "insert-0");
     expect(inserts.map((insert) => insert.id)).toEqual(["insert-1"]);
+  });
+});
+
+describe("applyStageDelete / applyUnstageDelete (F105)", () => {
+  it("stages a row for deletion", () => {
+    const deletes = applyStageDelete(new Set(), "row-1");
+    expect(deletes.has("row-1")).toBe(true);
+  });
+
+  it("does not mutate the input set (immutable update)", () => {
+    const deletes = new Set<string>();
+    applyStageDelete(deletes, "row-1");
+    expect(deletes.size).toBe(0);
+  });
+
+  it("staging an already-staged row is a no-op, returning the same reference", () => {
+    const deletes = applyStageDelete(new Set(), "row-1");
+    expect(applyStageDelete(deletes, "row-1")).toBe(deletes);
+  });
+
+  it("un-stages a row's deletion", () => {
+    let deletes = applyStageDelete(new Set(), "row-1");
+    deletes = applyUnstageDelete(deletes, "row-1");
+    expect(deletes.has("row-1")).toBe(false);
+  });
+
+  it("un-staging a row that isn't staged is a no-op, returning the same reference", () => {
+    const deletes = new Set<string>();
+    expect(applyUnstageDelete(deletes, "row-1")).toBe(deletes);
+  });
+});
+
+describe("applyRemoveRowEdits (F105)", () => {
+  it("drops every staged cell edit for one row", () => {
+    let edits: PendingEdits = new Map();
+    edits = applyStageEdit(edits, "row-1", "name", "Ada", "Grace");
+    edits = applyStageEdit(edits, "row-1", "email", "a@x.com", "b@x.com");
+    edits = applyRemoveRowEdits(edits, "row-1");
+    expect(edits.has("row-1")).toBe(false);
+  });
+
+  it("leaves other rows untouched", () => {
+    let edits: PendingEdits = new Map();
+    edits = applyStageEdit(edits, "row-1", "name", "Ada", "Grace");
+    edits = applyStageEdit(edits, "row-2", "name", "Bob", "Robert");
+    edits = applyRemoveRowEdits(edits, "row-1");
+    expect(edits.has("row-2")).toBe(true);
+  });
+
+  it("is a no-op for a row with no staged edits, returning the same reference", () => {
+    const edits: PendingEdits = new Map();
+    expect(applyRemoveRowEdits(edits, "row-1")).toBe(edits);
   });
 });

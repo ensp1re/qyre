@@ -198,11 +198,12 @@
       "id": "F104",
       "behavior": "Permission-gated Add-row and Duplicate-row affordances for the SQL editable grid per docs/product-specs/row-editing.md: a new-row editor with the same type-aware inputs as F103, nullable/default-value handling, and per-column validation before staging into the pending buffer; Duplicate pre-fills from the selected row minus auto-generated keys (serial/identity) per the spec. Hidden entirely for sessions/tables without insert permission, views, and MongoDB (F125 owns document insertion). Depends on F103.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "05ce272",
+      "evidence": "PR #117 (https://github.com/ensp1re/qyre/pull/117), merged as 05ce272. Extends the F103 pending-changes buffer with staged new-row drafts: \"Add row\" opens a blank draft with a type-aware input per insertable column (primary key included, since a new row's key must be supplied unless the engine auto-generates it); \"Duplicate row\" pre-fills a draft from the selected row's insertable columns, primary-key columns excluded so a duplicate never proposes an exact copy of another row's key. Both hidden entirely (not disabled) when the session/table can't insert - computeTableEditability gained canInsert/insertReason/insertableColumns, gated on TablePermissions.insert independently of update permission. A column left untouched in a draft is omitted from the staged values, letting the engine apply its own default/auto-generated value. New NewRowCell component (packages/ui/src/data-grid/new-row-cell.tsx) reuses EditableCell's widgetFor so a column's insert editor matches its update editor exactly. Verified: pnpm check:quiet, pnpm verify:pr (full local gate incl. Docker-backed @full E2E across all 5 Playwright projects, green after retries - transient parallel-load flakes in unrelated pre-existing specs, each isolation-verified passing), 7 new computeTableEditability insert-gating unit tests, 6 new pending-changes insert buffer unit tests, 8 new NewRowCell render tests, 8 new RowsTable Add-row/Duplicate-row integration render tests, manual browser verification against a live Postgres connection (Add row shows a blank draft with live inputs and correctly marks the structured profile column \"not editable\"; Duplicate row pre-fills from the source row with the primary key left blank; discard cleanly removes the draft with nothing written to the server). GitHub CI passed both End-to-end and Lint/typecheck/test/build.",
       "blockedReason": null,
-      "spec": "docs/product-specs/row-editing.md"
+      "spec": "docs/product-specs/row-editing.md",
+      "completedAt": "2026-07-12T02:00:00.000Z"
     },
     {
       "id": "F105",
@@ -212,7 +213,8 @@
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,
-      "spec": "docs/product-specs/row-editing.md"
+      "spec": "docs/product-specs/row-editing.md",
+      "completedAt": null
     },
     {
       "id": "F125",

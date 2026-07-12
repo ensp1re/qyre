@@ -24,13 +24,18 @@ export interface TableEditability {
    * section); structured/binary/unknown/null kinds are still excluded. Empty when `canInsert` is
    * false. */
   readonly insertableColumns: ReadonlySet<string>;
+  /** Whether selected rows can be staged for deletion (F105) - hidden entirely (not merely
+   * disabled) when false. Gated independently of `editable`/`canInsert`: a session can have delete
+   * without update or insert permission, or vice versa. */
+  readonly canDelete: boolean;
 }
 
 const NOT_EDITABLE: TableEditability = {
   editable: false,
   editableColumns: new Set(),
   canInsert: false,
-  insertableColumns: new Set()
+  insertableColumns: new Set(),
+  canDelete: false
 };
 
 function readOnlySessionReason(capabilities: ConnectionCapabilities | undefined): string {
@@ -75,7 +80,8 @@ export function computeTableEditability(
       editableColumns: new Set(),
       canInsert: false,
       insertReason: reason,
-      insertableColumns: new Set()
+      insertableColumns: new Set(),
+      canDelete: false
     };
   }
 
@@ -87,7 +93,8 @@ export function computeTableEditability(
       editableColumns: new Set(),
       canInsert: false,
       insertReason: reason,
-      insertableColumns: new Set()
+      insertableColumns: new Set(),
+      canDelete: false
     };
   }
 
@@ -99,12 +106,14 @@ export function computeTableEditability(
       editableColumns: new Set(),
       canInsert: false,
       insertReason: reason,
-      insertableColumns: new Set()
+      insertableColumns: new Set(),
+      canDelete: false
     };
   }
 
   const canUpdate = tableAllows(table.permissions, "update");
   const canInsert = tableAllows(table.permissions, "insert");
+  const canDelete = tableAllows(table.permissions, "delete");
 
   const nonStructuredColumns = table.columns.filter((column) => {
     const kind = classifyFilterColumnKind(column.dataType, engine);
@@ -131,6 +140,7 @@ export function computeTableEditability(
     insertReason: canInsert
       ? undefined
       : "This session doesn't have permission to insert into this table.",
-    insertableColumns
+    insertableColumns,
+    canDelete
   };
 }

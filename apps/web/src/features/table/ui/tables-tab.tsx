@@ -5,16 +5,25 @@ import type {
   RowFilter,
   RowSort
 } from "@qyre/core";
-import { CommitBar, ErrorState, RowsTable, Spinner } from "@qyre/ui";
+import { CommitBar, DocumentEditorDrawer, ErrorState, RowsTable, Spinner } from "@qyre/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import {
+  deleteDocument,
+  fetchDocumentText,
+  insertDocument,
+  saveDocument
+} from "../api/document.js";
 import { commitMutations } from "../api/mutations.js";
 import { exportRowsUrl } from "../api/rows.js";
 import { buildMutationOps, buildPreviewLine } from "../model/commit-preview.js";
+import { computeDocumentEditability } from "../model/document-editability.js";
 import { computeTableEditability } from "../model/editability.js";
 import { usePendingChanges } from "../model/pending-changes.js";
 import type { useRows } from "../model/use-rows.js";
 import type { useTable } from "../model/use-table.js";
+
+type DocumentEditorState = { mode: "edit"; id: string } | { mode: "insert" } | undefined;
 
 export interface TablesTabProps {
   selected: { schema: string; table: string } | undefined;
@@ -75,10 +84,21 @@ export function TablesTab({
   const [commitError, setCommitError] = useState<
     { message: string; failedIndex?: number } | undefined
   >(undefined);
+  const [documentEditor, setDocumentEditor] = useState<DocumentEditorState>(undefined);
+  const [documentText, setDocumentText] = useState<string | undefined>(undefined);
+  const [documentLoading, setDocumentLoading] = useState(false);
+  const [documentSaving, setDocumentSaving] = useState(false);
+  const [documentDeleting, setDocumentDeleting] = useState(false);
+  const [documentError, setDocumentError] = useState<string | undefined>(undefined);
 
   if (!selected) {
     return <p className="text-[13px] text-muted-foreground">Select a table from the sidebar.</p>;
   }
+  // A plain `const`, not the `selected` prop itself: TypeScript only retains narrowing across a
+  // nested function's closure boundary for locals it can prove are never reassigned, not for
+  // function parameters/props - the handlers below (defined as nested `function` declarations)
+  // need this to use `.schema`/`.table` without a redundant `selected &&` check each time.
+  const selectedTable = selected;
 
   if (rows.isLoading) {
     return (
@@ -100,6 +120,7 @@ export function TablesTab({
   if (!rows.data) return null;
 
   const editability = computeTableEditability(table.data, capabilities, engine);
+  const documentEditability = computeDocumentEditability(table.data, capabilities, engine);
   const primaryKeyColumns = (table.data?.columns ?? [])
     .filter((column) => column.isPrimaryKey)
     .map((column) => column.name);
@@ -139,6 +160,81 @@ export function TablesTab({
     setCommitError(undefined);
   }
 
+  function openEditDocument(row: Record<string, unknown>): void {
+    const id = String(row._id);
+    setDocumentEditor({ mode: "edit", id });
+    setDocumentError(undefined);
+    setDocumentText(undefined);
+    setDocumentLoading(true);
+    fetchDocumentText(selectedTable.schema, selectedTable.table, id)
+      .then((text) => setDocumentText(text))
+      .catch((err: unknown) =>
+        setDocumentError(err instanceof Error ? err.message : "Failed to load document.")
+      )
+      .finally(() => setDocumentLoading(false));
+  }
+
+  function openInsertDocument(): void {
+    setDocumentEditor({ mode: "insert" });
+    setDocumentError(undefined);
+    setDocumentText("");
+  }
+
+  function closeDocumentEditor(): void {
+    setDocumentEditor(undefined);
+    setDocumentText(undefined);
+    setDocumentError(undefined);
+  }
+
+  async function handleSaveDocument(text: string): Promise<void> {
+    if (!documentEditor) return;
+    setDocumentSaving(true);
+    setDocumentError(undefined);
+    try {
+      if (documentEditor.mode === "insert") {
+        await insertDocument(selectedTable.schema, selectedTable.table, text);
+        closeDocumentEditor();
+        rows.refetch();
+        return;
+      }
+      // `documentText` is guaranteed loaded once `Save` is reachable (the drawer only enables it
+      // once `loading` is false), so it's the original the editor loaded - the lost-update
+      // protection's baseline.
+      const result = await saveDocument(
+        selectedTable.schema,
+        selectedTable.table,
+        documentEditor.id,
+        text,
+        documentText ?? ""
+      );
+      if (result.matched === 0) {
+        setDocumentError("This document was already changed or removed.");
+      } else {
+        closeDocumentEditor();
+        rows.refetch();
+      }
+    } catch (err) {
+      setDocumentError(err instanceof Error ? err.message : "Save failed.");
+    } finally {
+      setDocumentSaving(false);
+    }
+  }
+
+  async function handleDeleteDocument(): Promise<void> {
+    if (!documentEditor || documentEditor.mode !== "edit") return;
+    setDocumentDeleting(true);
+    setDocumentError(undefined);
+    try {
+      await deleteDocument(selectedTable.schema, selectedTable.table, documentEditor.id);
+      closeDocumentEditor();
+      rows.refetch();
+    } catch (err) {
+      setDocumentError(err instanceof Error ? err.message : "Delete failed.");
+    } finally {
+      setDocumentDeleting(false);
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1">
@@ -172,6 +268,10 @@ export function TablesTab({
           canInsert={editability.canInsert}
           insertableColumns={editability.insertableColumns}
           canDelete={editability.canDelete}
+          canEditDocument={documentEditability.canEdit}
+          onEditDocument={openEditDocument}
+          canInsertDocument={documentEditability.canInsert}
+          onInsertDocument={openInsertDocument}
         />
       </div>
       <CommitBar
@@ -185,6 +285,21 @@ export function TablesTab({
         error={commitError?.message}
         failedIndex={commitError?.failedIndex}
       />
+      {documentEditor && (
+        <DocumentEditorDrawer
+          mode={documentEditor.mode}
+          initialText={documentEditor.mode === "insert" ? "" : documentText}
+          loading={documentEditor.mode === "edit" && documentLoading}
+          saving={documentSaving}
+          deleting={documentDeleting}
+          error={documentError}
+          canDelete={documentEditability.canDelete}
+          documentId={documentEditor.mode === "edit" ? documentEditor.id : undefined}
+          onSave={(text) => void handleSaveDocument(text)}
+          onDelete={documentEditor.mode === "edit" ? () => void handleDeleteDocument() : undefined}
+          onClose={closeDocumentEditor}
+        />
+      )}
     </div>
   );
 }

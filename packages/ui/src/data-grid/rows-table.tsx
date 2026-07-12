@@ -14,6 +14,7 @@ import {
   CopyPlus,
   Download,
   Lock,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -114,6 +115,17 @@ export interface RowsTableProps {
   /** Whether selected rows can be staged for deletion (F105) - hidden entirely (not disabled) when
    * false. Independent of `editable`/`canInsert`. */
   canDelete?: boolean;
+  /** MongoDB's whole-document editing (F125) - a separate affordance set from the SQL grid's own
+   * `editable`/`canInsert`/`canDelete` (always false for MongoDB, see
+   * `apps/web/src/features/table/model/editability.ts`). `canEditDocument` renders a per-row "Edit
+   * document" action in the same slot Duplicate-row uses for SQL (the two never coexist - only one
+   * engine's affordance set is ever true), calling `onEditDocument` with that row's raw data. */
+  canEditDocument?: boolean;
+  onEditDocument?: (row: Record<string, unknown>) => void;
+  /** Renders a toolbar "Insert document" action, calling `onInsertDocument` with no arguments - the
+   * caller owns opening the document editor in insert mode. */
+  canInsertDocument?: boolean;
+  onInsertDocument?: () => void;
 }
 
 /** Approximate row height in px (matches the `py-1.5` cell padding + 11px font) - only an estimate
@@ -177,7 +189,11 @@ export function RowsTable({
   pendingChanges,
   canInsert,
   insertableColumns,
-  canDelete
+  canDelete,
+  canEditDocument,
+  onEditDocument,
+  canInsertDocument,
+  onInsertDocument
 }: RowsTableProps): ReactNode {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -409,6 +425,15 @@ export function RowsTable({
               className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <Plus className="h-3 w-3" /> Add row
+            </button>
+          )}
+          {canInsertDocument && onInsertDocument && (
+            <button
+              type="button"
+              onClick={onInsertDocument}
+              className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <Plus className="h-3 w-3" /> Insert document
             </button>
           )}
           {selected.size > 0 && (
@@ -650,7 +675,7 @@ export function RowsTable({
                     <td
                       className={cn(
                         "border-r border-border-subtle px-1 py-1.5 text-right text-muted-foreground/30",
-                        canAddRow || markedForDelete ? "w-14" : "w-8"
+                        canAddRow || markedForDelete || canEditDocument ? "w-14" : "w-8"
                       )}
                     >
                       <div className="flex items-center justify-end gap-1">
@@ -667,6 +692,19 @@ export function RowsTable({
                             style={{ color: "var(--c-red)" }}
                           >
                             undo
+                          </button>
+                        ) : canEditDocument && onEditDocument ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onEditDocument(row);
+                            }}
+                            aria-label={`Edit document ${virtualRow.index + 1}`}
+                            title="Edit document"
+                            className="text-muted-foreground/60 hover:text-foreground"
+                          >
+                            <Pencil className="h-2.5 w-2.5" />
                           </button>
                         ) : (
                           canAddRow && (

@@ -1,4 +1,4 @@
-import type { RowPage } from "@qyre/core";
+import type { QueryExecutionResult, RowPage } from "@qyre/core";
 import { autocompletion } from "@codemirror/autocomplete";
 import { StandardSQL, sql as sqlLanguage } from "@codemirror/lang-sql";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
@@ -29,7 +29,11 @@ export interface QueryRunnerProps {
   onSqlChange: (sql: string) => void;
   onRun: () => void;
   isRunning: boolean;
-  result?: RowPage;
+  /** A read query's `RowPage`, or a write-capable session's `QueryExecutionResult` (F108) - the
+   * latter is distinguished by its `rowsAffected` field and rendered as an affected-row count
+   * instead of a row table when it has no rows of its own (an INSERT/UPDATE/DELETE/DDL statement,
+   * as opposed to a writable CTE that also returns rows via RETURNING). */
+  result?: RowPage | QueryExecutionResult;
   error?: string;
   /** Opens the query history drawer (F012) - rendered by the caller, not this component. */
   onOpenHistory: () => void;
@@ -274,7 +278,9 @@ export function QueryRunner({
         >
           {result.rows.length === 0 ? (
             <p className="p-3 font-mono text-[11px] text-muted-foreground">
-              Query returned no rows.
+              {"rowsAffected" in result
+                ? `${result.rowsAffected} row${result.rowsAffected === 1 ? "" : "s"} affected.`
+                : "Query returned no rows."}
             </p>
           ) : (
             <table className="w-full border-collapse font-mono text-[11px]">

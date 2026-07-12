@@ -287,3 +287,48 @@ rejected unconfirmed-destructive attempt also logs (without executing).
   to the database verbatim (and fails with a native "column does not exist" error, proving no
   coercion happened) - unlike the identical text on the read path, which the coercion would have
   silently rewritten into a string literal.
+
+## SQL Editor UI (F108)
+
+### Behavior
+
+The SQL Editor (`QueryRunner`, `packages/ui/src/query/query-runner.tsx`) surfaces F107's
+write-capable execution without any special-casing by the developer - the same `Run` button and
+`⌘/Ctrl+Enter` shortcut work for every classification:
+
+- **Affected-row rendering**: the results panel shows the row table when `runQuery`'s response has
+  rows (a writable CTE's `RETURNING`), otherwise `"N row(s) affected."` for a rowless
+  `QueryExecutionResult` - distinguished from a genuinely empty `SELECT` (`"Query returned no
+rows."`) by the presence of a `rowsAffected` field.
+- **Destructive confirmation**: a `409` response with `classification: "destructive"` opens
+  `ConfirmDestructiveStatementDialog` (`packages/ui/src/query/confirm-destructive-statement-dialog.tsx`)
+  showing the classification and the exact statement text, never a generic "are you sure?".
+  Confirming resubmits the same statement with `confirmed: true` - the dialog is the client-side
+  half of F107's server-enforced round-trip, not a bypass of it. Canceling runs nothing.
+- **Query history classification**: `QueryHistoryEntry` (`packages/ui/src/query/
+query-history-drawer.tsx`) gains an optional `classification` field, populated from the response
+  for every write-capable-session run (absent for a plain read-only session, which never computes
+  one - see below). A non-`read` entry shows a small classification badge in the history drawer.
+- **Read-only friendly message**: a read-only session's rejected write attempt shows the session's
+  own `readOnlyReason` (e.g. `"Read-only: your database role has no write grants"`, the exact
+  `StatusBar` badge copy, shared via `@qyre/ui`'s `READ_ONLY_REASON_LABEL`) instead of the raw
+  `"Only read-only statements are allowed..."` rejection text - distinguished from an unrelated
+  query failure (a real syntax/reference error) via a `reason: "read-only"` discriminator the
+  server adds only to that specific rejection, never guessed client-side from the message text.
+- **Read-only sessions are otherwise untouched**: no classification field, no confirmation dialog,
+  no affected-row rendering path is ever reachable - `POST /api/query` behaves exactly as it did
+  before F107 for a session with no write capability at all.
+
+### Acceptance criteria
+
+- Running a write-capable `UPDATE ... WHERE ...`/`INSERT`/`CREATE TABLE` shows `"N row(s)
+affected."` in the results panel, not an empty-rows message.
+- Running an unqualified `DELETE`/`UPDATE` or a `DROP` opens a dialog naming the statement and its
+  `destructive` classification; canceling leaves the database untouched; confirming runs it and
+  shows the affected-row count.
+- The query history drawer shows a classification badge for a recorded mutation/ddl/destructive
+  entry, and no badge for a `read` entry or an entry recorded before this field existed.
+- A read-only session's rejected write attempt shows the same friendly text `StatusBar`'s access
+  badge tooltip uses for that session's `readOnlyReason`, not the raw server rejection message.
+- A read-only session's genuine query failure (e.g. a bad table name) still shows its own real
+  error message, never the read-only friendly text.

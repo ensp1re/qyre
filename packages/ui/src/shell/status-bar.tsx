@@ -1,6 +1,7 @@
 import type { ConnectionCapabilities, ConnectionStatus, DatabaseEngine } from "@qyre/core";
 import { Clock } from "lucide-react";
 import type { ReactNode } from "react";
+import { READ_ONLY_REASON_LABEL } from "./read-only-reason.js";
 
 export interface StatusBarProps {
   status: ConnectionStatus;
@@ -19,18 +20,6 @@ export interface StatusBarProps {
    * (F097). Omitted while disconnected/loading, same as every other connection-dependent field. */
   capabilities?: ConnectionCapabilities;
 }
-
-/** Mirrors docs/product-specs/permissions-and-capabilities.md's example badge copy exactly for
- * "qyre-flag"/"replica"/"grants"; "connection" has no example there, phrased consistently. */
-const READ_ONLY_REASON_LABEL: Record<
-  Exclude<ConnectionCapabilities["readOnlyReason"], null>,
-  string
-> = {
-  "qyre-flag": "Read-only: qyre --read-only flag",
-  replica: "Read-only: replica connection",
-  connection: "Read-only: the connection itself is read-only",
-  grants: "Read-only: your database role has no write grants"
-};
 
 /** True once the session can perform at least one kind of write - the same "any supports* flag
  * true" test the product spec uses to decide whether any write affordance may render at all. */

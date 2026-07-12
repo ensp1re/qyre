@@ -503,3 +503,31 @@ true`, checked fresh on every request (a server-enforced round-trip, never a cli
   which shape to expect). `docs/product-specs/sql-editor.md` gained a new "Write-capable SQL
   execution" section. F108 (the SQL editor UI itself becomes write-capable - results-panel
   affected-row count, a confirmation dialog for destructive statements) is next.
+- 2026-07-12 (later still): F108 implemented (PR pending) - the SQL Editor UI itself becomes
+  write-capable, with no special-casing needed by the developer: the same `Run` button and
+  `⌘/Ctrl+Enter` shortcut work for every classification. The results panel (`QueryRunner`) renders
+  `"N row(s) affected."` for a rowless `QueryExecutionResult`, distinguished from a genuinely empty
+  `SELECT` by the presence of a `rowsAffected` field. A `409` destructive rejection opens a new
+  `ConfirmDestructiveStatementDialog` (`packages/ui/src/query/
+confirm-destructive-statement-dialog.tsx`) naming the classification and the exact statement text;
+  confirming resubmits with `confirmed: true` (the client-side half of F107's server-enforced
+  round-trip, not a bypass of it) - canceling runs nothing. `QueryHistoryEntry` gains an optional
+  `classification`, shown as a badge in the history drawer for a non-`read` entry. A read-only
+  session's rejected write attempt shows its own friendly `readOnlyReason` (the exact `StatusBar`
+  badge copy, extracted into a shared `packages/ui/src/shell/read-only-reason.ts` so both consumers
+  use one source of truth) instead of the raw rejection text - distinguished from a genuine query
+  failure via a new `reason: "read-only"` discriminator the server adds only to that specific
+  rejection (`runReadOnlyPath`'s catch in `packages/server/src/routes/query.ts`), never guessed
+  client-side from the message text. `POST /api/query`'s success response also gained an optional
+  `classification` field for a write-capable session (both the `read` sub-case delegating to
+  `runReadOnlyPath` and the direct `runQuery` case) - a plain read-only session's response is
+  untouched, matching the spec's "read-only sessions keep today's editor exactly". Found and fixed a
+  real bug during manual browser verification (not caught by the arrow-function-based server unit
+  test fakes): `DatabaseAdapter.runQuery` is a plain class method relying on `this` (`this.getPool()`
+  /`this.getDb()`), unlike `mutations`, a readonly object of already-bound arrow functions - the
+  route had detached it (`const runQuery = db.runQuery`) before calling it, throwing inside every
+  real adapter's method body. Fixed with `db.runQuery?.bind(db)`; a new class-based fake-adapter
+  regression test locks this in, verified to actually fail without the fix. `docs/product-specs/
+sql-editor.md` gained a new "SQL Editor UI (F108)" section. F108 was the last write-affordance
+  slice in Phase C; F126 (query cancellation) and F127 (column-level autocomplete) remain to close
+  it out.

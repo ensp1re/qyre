@@ -21,6 +21,15 @@ export interface QueryExecutionResult {
   readonly rowsAffected: number;
 }
 
+/**
+ * A single SQL statement's write classification (F106), from `@qyre/driver-contract`'s
+ * `classifyStatement` text heuristic. Lives in `@qyre/core` (not `@qyre/driver-contract`, which
+ * depends on this package) so `apps/web` can type `POST /api/query`'s response/request shapes
+ * (F108) without depending on the adapter-layer `@qyre/driver-contract` package -
+ * `@qyre/driver-contract`'s `read-only.ts` re-exports this same type for its existing consumers.
+ */
+export type StatementClassification = "read" | "mutation" | "ddl" | "destructive";
+
 /** Which direction to sort rows in `GET /api/tables/:schema/:table/rows` (F065). */
 export type SortDirection = "asc" | "desc";
 

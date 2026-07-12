@@ -65,3 +65,30 @@ describe("QueryRunner results panel resizing (F071)", () => {
     expect(screen.queryByRole("separator")).not.toBeInTheDocument();
   });
 });
+
+describe("QueryRunner write-capable result rendering (F108)", () => {
+  it("renders an affected-row count for a rowless QueryExecutionResult", () => {
+    render(<QueryRunner {...BASE_PROPS} result={{ columns: [], rows: [], rowsAffected: 3 }} />);
+    expect(screen.getByText("3 rows affected.")).toBeInTheDocument();
+  });
+
+  it("uses singular phrasing for exactly one affected row", () => {
+    render(<QueryRunner {...BASE_PROPS} result={{ columns: [], rows: [], rowsAffected: 1 }} />);
+    expect(screen.getByText("1 row affected.")).toBeInTheDocument();
+  });
+
+  it("still renders 'Query returned no rows.' for an empty RowPage (no rowsAffected field)", () => {
+    render(
+      <QueryRunner {...BASE_PROPS} result={{ columns: [], rows: [], page: 0, pageSize: 25 }} />
+    );
+    expect(screen.getByText("Query returned no rows.")).toBeInTheDocument();
+  });
+
+  it("renders the row table (not an affected-row message) when a QueryExecutionResult has rows", () => {
+    render(
+      <QueryRunner {...BASE_PROPS} result={{ columns: ["a"], rows: [{ a: 1 }], rowsAffected: 1 }} />
+    );
+    expect(screen.queryByText(/row.*affected/)).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "a" })).toBeInTheDocument();
+  });
+});

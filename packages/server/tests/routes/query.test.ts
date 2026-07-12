@@ -129,12 +129,15 @@ describe("POST /api/query", () => {
       headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(400);
-    expect(response.json()).toMatchObject({ error: "Only read-only statements are allowed." });
+    expect(response.json()).toMatchObject({
+      error: "Only read-only statements are allowed.",
+      reason: "read-only"
+    });
     await app.close();
   });
 
-  describe("write-capable sessions (F107)", () => {
-    it("still routes a read-classified statement through runReadOnlyQuery, not runQuery", async () => {
+  describe("write-capable sessions (F107, F108)", () => {
+    it("still routes a read-classified statement through runReadOnlyQuery, not runQuery, tagged with classification: read", async () => {
       const { adapter, runQuery } = writeCapableAdapter(async () => ({
         columns: [],
         rows: [],
@@ -148,6 +151,7 @@ describe("POST /api/query", () => {
         headers: authHeaders(app)
       });
       expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ classification: "read" });
       expect(runQuery).not.toHaveBeenCalled();
       await app.close();
     });
@@ -166,7 +170,12 @@ describe("POST /api/query", () => {
         headers: authHeaders(app)
       });
       expect(response.statusCode).toBe(200);
-      expect(response.json()).toEqual({ columns: [], rows: [], rowsAffected: 1 });
+      expect(response.json()).toEqual({
+        columns: [],
+        rows: [],
+        rowsAffected: 1,
+        classification: "mutation"
+      });
       expect(runQuery).toHaveBeenCalledWith("UPDATE users SET name = 'x' WHERE id = 1");
       await app.close();
     });
@@ -185,6 +194,7 @@ describe("POST /api/query", () => {
         headers: authHeaders(app)
       });
       expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ classification: "ddl" });
       expect(runQuery).toHaveBeenCalledWith("CREATE TABLE t (id int)");
       await app.close();
     });
@@ -222,8 +232,66 @@ describe("POST /api/query", () => {
         headers: authHeaders(app)
       });
       expect(response.statusCode).toBe(200);
-      expect(response.json()).toEqual({ columns: [], rows: [], rowsAffected: 5 });
+      expect(response.json()).toEqual({
+        columns: [],
+        rows: [],
+        rowsAffected: 5,
+        classification: "destructive"
+      });
       expect(runQuery).toHaveBeenCalledWith("DROP TABLE users");
+      await app.close();
+    });
+
+    it("calls runQuery bound to the adapter instance, not detached (regression: a real adapter's runQuery relies on `this`, unlike the arrow-function fakes above)", async () => {
+      // Every real adapter's runQuery is a plain class method (this.getPool()/this.getDb()) -
+      // calling it detached from the instance (e.g. `const fn = adapter.runQuery; fn(sql)`) throws
+      // inside the method itself. This class-based fake reproduces that shape; the arrow-function
+      // fakes elsewhere in this file (vi.fn(async (sql) => ...)) don't rely on `this` at all and so
+      // would never have caught this bug.
+      class ClassBasedAdapter implements DatabaseAdapter {
+        engine = "postgres";
+        ranWith: string | undefined;
+        async connect() {}
+        async disconnect() {}
+        async ping() {
+          return true;
+        }
+        async getVersion() {
+          return "PostgreSQL 16.0";
+        }
+        async getCapabilities(): Promise<ConnectionCapabilities> {
+          return WRITABLE_CAPABILITIES;
+        }
+        async getOverview() {
+          return { engine: "postgres" as const, schemas: [], capabilities: WRITABLE_CAPABILITIES };
+        }
+        async getTable() {
+          return { schema: "public", name: "x", columns: [] };
+        }
+        async getRows() {
+          return { columns: [], rows: [], page: 0, pageSize: 0 };
+        }
+        async runReadOnlyQuery(sql: string) {
+          assertReadOnly(sql);
+          return { columns: [], rows: [], page: 0, pageSize: 0 };
+        }
+        async runQuery(sql: string) {
+          // Throws if called without `this` bound to this instance - exactly what a real
+          // adapter's this.getPool()/this.getDb() call does.
+          this.ranWith = sql;
+          return { columns: [], rows: [], rowsAffected: 1 };
+        }
+      }
+      const adapter = new ClassBasedAdapter();
+      const app = createServer({ adapter });
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/query",
+        payload: { sql: "UPDATE users SET name = 'x' WHERE id = 1" },
+        headers: authHeaders(app)
+      });
+      expect(response.statusCode).toBe(200);
+      expect(adapter.ranWith).toBe("UPDATE users SET name = 'x' WHERE id = 1");
       await app.close();
     });
 

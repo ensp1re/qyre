@@ -193,6 +193,55 @@ describe("MysqlAdapter integration", () => {
     }
   });
 
+  it("createTable/renameTable/truncateTable/dropTable roundtrip (F110)", async () => {
+    const table = "qyre_test_ddl";
+    const renamed = "qyre_test_ddl_renamed";
+    const pool = mysql.createPool(databaseUrl);
+    try {
+      await adapter.ddl?.createTable?.(databaseName, table, [
+        { name: "id", dataType: "INT", nullable: false, default: null },
+        { name: "count", dataType: "INT", nullable: true, default: 5 }
+      ]);
+      const created = await adapter.getTable(databaseName, table);
+      expect(created.kind).toBe("table");
+      expect(created.columns.map((column) => column.name).sort()).toEqual(["count", "id"]);
+
+      await adapter.ddl?.renameTable?.(databaseName, table, renamed);
+      await expect(adapter.getTable(databaseName, renamed)).resolves.toMatchObject({
+        name: renamed
+      });
+
+      await pool.query(`INSERT INTO ${renamed} (id, count) VALUES (1, 1)`);
+      await adapter.ddl?.truncateTable?.(databaseName, renamed);
+      const afterTruncate = await adapter.getRows(databaseName, renamed, 0, 10);
+      expect(afterTruncate.rows).toHaveLength(0);
+
+      await adapter.ddl?.dropTable?.(databaseName, renamed);
+      await expect(adapter.getTable(databaseName, renamed)).rejects.toThrow();
+    } finally {
+      await pool.query(`DROP TABLE IF EXISTS ${table}`);
+      await pool.query(`DROP TABLE IF EXISTS ${renamed}`);
+      await pool.end();
+    }
+  });
+
+  it("rejects createTable as a SELECT-only fixture user (F110)", async () => {
+    const readOnlyAdapter = new MysqlAdapter({
+      engine: "mysql",
+      raw: requireReadOnlyTestMysqlUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.ddl?.createTable?.(databaseName, "qyre_test_ddl_denied", [
+          { name: "id", dataType: "INT", nullable: false, default: null }
+        ])
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("updates a row by primary key and reports matched: 1, even when the value is unchanged (F100)", async () => {
     const seedPool = mysql.createPool(databaseUrl);
     await seedPool.query(

@@ -22,6 +22,7 @@ import { registerHealthRoute } from "./routes/health.js";
 import { registerMutationsRoutes } from "./routes/mutations.js";
 import { registerOverviewRoute } from "./routes/overview.js";
 import { registerQueryRoute } from "./routes/query.js";
+import { registerSchemaDdlRoutes } from "./routes/schema-ddl.js";
 import { registerTablesRoutes } from "./routes/tables.js";
 import { registerOperationsRoutes } from "./routes/operations.js";
 import { generateAuthToken } from "./services/auth-token.js";
@@ -143,6 +144,7 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   registerOverviewRoute(app, ctx);
   registerTablesRoutes(app, ctx);
   registerMutationsRoutes(app, ctx);
+  registerSchemaDdlRoutes(app, ctx);
   registerQueryRoute(app, ctx);
   registerConsoleRoutes(app, ctx);
   registerFilesRoutes(app, ctx);

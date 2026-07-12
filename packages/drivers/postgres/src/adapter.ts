@@ -22,12 +22,14 @@ import type {
   AdapterFactory,
   CancellationRegistry,
   DatabaseAdapter,
-  RowMutationApi
+  RowMutationApi,
+  SchemaDdlApi
 } from "@qyre/driver-contract";
 import type { Pool } from "pg";
 import { tableKey } from "./catalog.js";
 import { isPgCancelError, withCancellableClient } from "./cancellation.js";
 import { createPostgresPool } from "./connection.js";
+import { createTable, dropTable, renameTable, truncateTable } from "./ddl.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
 import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
 import {
@@ -49,6 +51,12 @@ export class PostgresAdapter implements DatabaseAdapter {
       updateRowByKey(this.getPool(), schema, table, key, changes),
     deleteRowsByKey: (schema, table, keys) => deleteRowsByKey(this.getPool(), schema, table, keys),
     commitBatch: (ops) => commitBatch(this.getPool(), ops)
+  };
+  public readonly ddl: SchemaDdlApi = {
+    createTable: (schema, table, columns) => createTable(this.getPool(), schema, table, columns),
+    renameTable: (schema, table, newName) => renameTable(this.getPool(), schema, table, newName),
+    truncateTable: (schema, table) => truncateTable(this.getPool(), schema, table),
+    dropTable: (schema, table) => dropTable(this.getPool(), schema, table)
   };
   private pool: Pool | undefined;
 

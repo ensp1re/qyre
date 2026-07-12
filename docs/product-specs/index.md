@@ -74,6 +74,11 @@ single engine's behavior, not the whole product.
   editor with replace-not-diff save semantics, the audit-event contract, and confirmation
   thresholds - plan 0006 Phase B's foundation. A spec-only slice - F099 onward implement it. Tracked
   as F098.
+- [`schema-editing.md`](schema-editing.md) - the DDL API shape (`SchemaDdlApi`): table/collection
+  lifecycle, column ops, index ops, the per-engine DDL matrix (including SQLite's constrained
+  `ALTER TABLE` and its 12-step rebuild fallback), the static per-engine column type catalog,
+  kind/session-capability gating, typed-confirmation for destructive DDL, and the API routes - plan
+  0006 Phase D's foundation. A spec-only slice - F110 onward implement it. Tracked as F109.
 
 ## Rules
 

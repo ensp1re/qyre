@@ -159,3 +159,62 @@ describe("computeTableEditability insert gating (F104)", () => {
     expect(result.insertReason).toMatch(/--read-only/);
   });
 });
+
+describe("computeTableEditability delete gating (F105)", () => {
+  it("allows delete with full write access", () => {
+    const result = computeTableEditability(EDITABLE_TABLE, WRITABLE_CAPABILITIES, "postgres");
+    expect(result.canDelete).toBe(true);
+  });
+
+  it("allows delete independently of update/insert permission", () => {
+    const deleteOnly: TableMetadata = {
+      ...EDITABLE_TABLE,
+      permissions: { select: true, insert: false, update: false, delete: true }
+    };
+    const result = computeTableEditability(deleteOnly, WRITABLE_CAPABILITIES, "postgres");
+    expect(result.editable).toBe(false);
+    expect(result.canInsert).toBe(false);
+    expect(result.canDelete).toBe(true);
+  });
+
+  it("disables delete when the table lacks delete permission, independently of update/insert", () => {
+    const noDelete: TableMetadata = {
+      ...EDITABLE_TABLE,
+      permissions: { select: true, insert: true, update: true, delete: false }
+    };
+    const result = computeTableEditability(noDelete, WRITABLE_CAPABILITIES, "postgres");
+    expect(result.editable).toBe(true);
+    expect(result.canInsert).toBe(true);
+    expect(result.canDelete).toBe(false);
+  });
+
+  it("disables delete entirely for MongoDB", () => {
+    const result = computeTableEditability(EDITABLE_TABLE, WRITABLE_CAPABILITIES, "mongodb");
+    expect(result.canDelete).toBe(false);
+  });
+
+  it("disables delete for a view", () => {
+    const view: TableMetadata = { ...EDITABLE_TABLE, kind: "view" };
+    const result = computeTableEditability(view, WRITABLE_CAPABILITIES, "postgres");
+    expect(result.canDelete).toBe(false);
+  });
+
+  it("disables delete for a table with no primary key", () => {
+    const noPk: TableMetadata = {
+      ...EDITABLE_TABLE,
+      columns: columns.map((column) => ({ ...column, isPrimaryKey: false }))
+    };
+    const result = computeTableEditability(noPk, WRITABLE_CAPABILITIES, "postgres");
+    expect(result.canDelete).toBe(false);
+  });
+
+  it("disables delete for a read-only session", () => {
+    const readOnly: ConnectionCapabilities = {
+      ...WRITABLE_CAPABILITIES,
+      supportsRowMutations: false,
+      readOnlyReason: "qyre-flag"
+    };
+    const result = computeTableEditability(EDITABLE_TABLE, readOnly, "postgres");
+    expect(result.canDelete).toBe(false);
+  });
+});

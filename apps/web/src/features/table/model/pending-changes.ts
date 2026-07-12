@@ -19,6 +19,9 @@ export interface PendingInsertRow {
 export type PendingInserts = readonly PendingInsertRow[];
 
 export interface PendingChangesApi {
+  /** Every staged cell edit, keyed by row then column - exposed (not just `getEdit`) so a commit
+   * flow (F105) can build one update op per dirty row. */
+  edits: PendingEdits;
   getEdit: (rowKey: string, column: string) => StagedEdit | undefined;
   stageEdit: (rowKey: string, column: string, original: unknown, next: unknown) => void;
   revertEdit: (rowKey: string, column: string) => void;
@@ -33,6 +36,15 @@ export interface PendingChangesApi {
   updateInsertValue: (id: string, column: string, value: unknown) => void;
   /** Discards a whole draft row. */
   removeInsert: (id: string) => void;
+  /** Rows staged for deletion (F105), by row key. */
+  deletes: ReadonlySet<string>;
+  /** Stages a row for deletion - the caller's own confirming click IS the explicit per-delete
+   * confirmation `docs/product-specs/row-editing.md` requires; this call itself is never
+   * conditional/implicit. Drops any staged cell edit for that row - editing a row about to be
+   * deleted has no meaning. */
+  stageDelete: (rowKey: string) => void;
+  /** Un-stages a row's deletion. */
+  unstageDelete: (rowKey: string) => void;
 }
 
 /** Pure state transition backing `stageEdit` - a plain function so it's unit-testable without
@@ -107,6 +119,38 @@ export function applyRemoveInsert(inserts: PendingInserts, id: string): PendingI
   return inserts.filter((insert) => insert.id !== id);
 }
 
+/** Pure state transition backing `stageDelete` (F105). */
+export function applyStageDelete(
+  deletes: ReadonlySet<string>,
+  rowKey: string
+): ReadonlySet<string> {
+  if (deletes.has(rowKey)) return deletes;
+  const next = new Set(deletes);
+  next.add(rowKey);
+  return next;
+}
+
+/** Pure state transition backing `unstageDelete` - see {@link applyStageDelete}. */
+export function applyUnstageDelete(
+  deletes: ReadonlySet<string>,
+  rowKey: string
+): ReadonlySet<string> {
+  if (!deletes.has(rowKey)) return deletes;
+  const next = new Set(deletes);
+  next.delete(rowKey);
+  return next;
+}
+
+/** Drops every staged cell edit for one row - used when a row is staged for deletion, since editing
+ * a row about to be deleted has no meaning. Returns the same `edits` reference when the row had no
+ * staged edits. */
+export function applyRemoveRowEdits(edits: PendingEdits, rowKey: string): PendingEdits {
+  if (!edits.has(rowKey)) return edits;
+  const next = new Map(edits);
+  next.delete(rowKey);
+  return next;
+}
+
 /**
  * Client-side pending-changes buffer for the SQL editable grid (F103): edits stage here without
  * touching the server. Commit wiring (F105) reads from this same buffer; this hook only owns the
@@ -122,6 +166,7 @@ export function applyRemoveInsert(inserts: PendingInserts, id: string): PendingI
 export function usePendingChanges(): PendingChangesApi {
   const [edits, setEdits] = useState<PendingEdits>(new Map());
   const [inserts, setInserts] = useState<PendingInserts>([]);
+  const [deletes, setDeletes] = useState<ReadonlySet<string>>(new Set());
   const nextInsertId = useRef(0);
 
   const getEdit = useCallback(
@@ -143,6 +188,7 @@ export function usePendingChanges(): PendingChangesApi {
   const clear = useCallback(() => {
     setEdits(new Map());
     setInserts([]);
+    setDeletes(new Set());
   }, []);
 
   const size = useMemo(() => countPendingEdits(edits), [edits]);
@@ -161,7 +207,17 @@ export function usePendingChanges(): PendingChangesApi {
     setInserts((current) => applyRemoveInsert(current, id));
   }, []);
 
+  const stageDelete = useCallback((rowKey: string) => {
+    setDeletes((current) => applyStageDelete(current, rowKey));
+    setEdits((current) => applyRemoveRowEdits(current, rowKey));
+  }, []);
+
+  const unstageDelete = useCallback((rowKey: string) => {
+    setDeletes((current) => applyUnstageDelete(current, rowKey));
+  }, []);
+
   return {
+    edits,
     getEdit,
     stageEdit,
     revertEdit,
@@ -170,7 +226,10 @@ export function usePendingChanges(): PendingChangesApi {
     inserts,
     addInsert,
     updateInsertValue,
-    removeInsert
+    removeInsert,
+    deletes,
+    stageDelete,
+    unstageDelete
   };
 }
 

@@ -6,8 +6,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-12.
-- Branch: `main`. F103 merged (PR #115, both CI jobs green).
-- Queue: F092-F103 are `passing`; F104-F121 and F125-F128 remain `not_started`. `nextIds.F` is 129.
+- Branch: `main`. F104 merged (PR #117, both CI jobs green).
+- Queue: F092-F104 are `passing`; F105-F121 and F125-F128 remain `not_started`. `nextIds.F` is 129.
 
 ## Completed
 
@@ -36,6 +36,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
     `apps/web/src/features/table/model/editability.ts`) is derived from existing
     capabilities/permissions/kind data and gates closed for MongoDB, views, PK-less tables, and
     read-only sessions/tables. Commit wiring to F102's batch endpoint is F105. PR #115.
+- F104 (Add-row/Duplicate-row) merged to `main`: extends the pending-changes buffer with staged
+  new-row drafts. "Add row" opens a blank draft with a type-aware input per insertable column
+  (primary key included, since a new row's key must be supplied unless the engine auto-generates
+  it); "Duplicate row" pre-fills a draft from the selected row, primary-key columns excluded. Both
+  hidden entirely (not disabled) when the session/table can't insert - `computeTableEditability`
+  gained `canInsert`/`insertReason`/`insertableColumns`, gated on `TablePermissions.insert`
+  independently of update permission. A column left untouched in a draft is simply omitted from the
+  staged values, letting the engine apply its own default. New `NewRowCell` component
+  (`packages/ui/src/data-grid/new-row-cell.tsx`) reuses `EditableCell`'s `widgetFor`. PR #117.
 
 ## In progress
 
@@ -66,8 +75,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- F104 (permission-gated Add-row and Duplicate-row affordances for the SQL editable grid - a
-  new-row editor with F103's same type-aware inputs, nullable/default-value handling, per-column
-  validation before staging into the pending buffer; Duplicate pre-fills from the selected row
-  minus auto-generated keys) is next per the exec plan's "Feature order and dependencies" section.
-  Hidden entirely for sessions/tables without insert permission, views, and MongoDB.
+- F105 (the SQL pending-changes workflow completes: staged deletion from selection, a commit bar
+  with a generated-statement preview, committing through F102's batch endpoint with per-op error
+  surfacing, delete's own explicit confirming click) is next per the exec plan's "Feature order and
+  dependencies" section - the last row-editing UI slice before F125's MongoDB document editor.

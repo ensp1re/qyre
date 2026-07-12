@@ -67,7 +67,10 @@ function TestHost({
         inserts,
         addInsert,
         updateInsertValue,
-        removeInsert
+        removeInsert,
+        deletes: new Set(),
+        stageDelete: vi.fn(),
+        unstageDelete: vi.fn()
       }}
     />
   );

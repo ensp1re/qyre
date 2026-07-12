@@ -5,9 +5,12 @@ import type {
   RowFilter,
   RowSort
 } from "@qyre/core";
-import { ErrorState, RowsTable, Spinner } from "@qyre/ui";
+import { CommitBar, ErrorState, RowsTable, Spinner } from "@qyre/ui";
 import type { ReactNode } from "react";
+import { useState } from "react";
+import { commitMutations } from "../api/mutations.js";
 import { exportRowsUrl } from "../api/rows.js";
+import { buildMutationOps, buildPreviewLine } from "../model/commit-preview.js";
 import { computeTableEditability } from "../model/editability.js";
 import { usePendingChanges } from "../model/pending-changes.js";
 import type { useRows } from "../model/use-rows.js";
@@ -68,6 +71,10 @@ export function TablesTab({
   onFiltersChange
 }: TablesTabProps): ReactNode {
   const pendingChanges = usePendingChanges();
+  const [committing, setCommitting] = useState(false);
+  const [commitError, setCommitError] = useState<
+    { message: string; failedIndex?: number } | undefined
+  >(undefined);
 
   if (!selected) {
     return <p className="text-[13px] text-muted-foreground">Select a table from the sidebar.</p>;
@@ -97,36 +104,87 @@ export function TablesTab({
     .filter((column) => column.isPrimaryKey)
     .map((column) => column.name);
 
-  return (
-    <RowsTable
-      rowPage={rows.data.rowPage}
-      columns={table.data?.columns}
-      engine={engine}
-      tableName={selected.table}
-      approxRowCount={table.data?.rowCount}
-      page={page}
-      canGoPrevious={page > 0}
-      canGoNext={rows.data.hasMore}
-      onPrevious={() => onPageChange((current) => Math.max(0, current - 1))}
-      onNext={() => onPageChange((current) => current + 1)}
-      onRefresh={() => rows.refetch()}
-      onNavigateToForeignKey={onNavigateToForeignKey}
-      sortColumn={sort?.column}
-      sortDirection={sort?.direction}
-      onSortChange={onSortChange}
-      onExportAllRows={() =>
-        downloadExport(exportRowsUrl(selected.schema, selected.table, sort, filters))
+  const ops = buildMutationOps(
+    selected.schema,
+    selected.table,
+    pendingChanges.edits,
+    pendingChanges.inserts,
+    pendingChanges.deletes
+  );
+  const previewLines = ops.map(buildPreviewLine);
+
+  async function handleCommit(): Promise<void> {
+    setCommitting(true);
+    setCommitError(undefined);
+    try {
+      const result = await commitMutations(ops);
+      if (result.committed) {
+        pendingChanges.clear();
+        rows.refetch();
+      } else {
+        setCommitError({
+          message: `Commit failed and was rolled back at operation ${result.failedIndex + 1}.`,
+          failedIndex: result.failedIndex
+        });
       }
-      onExportSelectedRows={(csv) => downloadCsv(`${selected.table}-selected.csv`, csv)}
-      filters={filters}
-      onFiltersChange={onFiltersChange}
-      editable={editability.editable}
-      editableColumns={editability.editableColumns}
-      editingDisabledReason={editability.reason}
-      primaryKeyColumns={primaryKeyColumns}
-      pendingChanges={pendingChanges}
-      canInsert={editability.canInsert}
-      insertableColumns={editability.insertableColumns}
-    />
+    } catch (err) {
+      setCommitError({ message: err instanceof Error ? err.message : "Commit failed." });
+    } finally {
+      setCommitting(false);
+    }
+  }
+
+  function handleDiscard(): void {
+    pendingChanges.clear();
+    setCommitError(undefined);
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1">
+        <RowsTable
+          rowPage={rows.data.rowPage}
+          columns={table.data?.columns}
+          engine={engine}
+          tableName={selected.table}
+          approxRowCount={table.data?.rowCount}
+          page={page}
+          canGoPrevious={page > 0}
+          canGoNext={rows.data.hasMore}
+          onPrevious={() => onPageChange((current) => Math.max(0, current - 1))}
+          onNext={() => onPageChange((current) => current + 1)}
+          onRefresh={() => rows.refetch()}
+          onNavigateToForeignKey={onNavigateToForeignKey}
+          sortColumn={sort?.column}
+          sortDirection={sort?.direction}
+          onSortChange={onSortChange}
+          onExportAllRows={() =>
+            downloadExport(exportRowsUrl(selected.schema, selected.table, sort, filters))
+          }
+          onExportSelectedRows={(csv) => downloadCsv(`${selected.table}-selected.csv`, csv)}
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+          editable={editability.editable}
+          editableColumns={editability.editableColumns}
+          editingDisabledReason={editability.reason}
+          primaryKeyColumns={primaryKeyColumns}
+          pendingChanges={pendingChanges}
+          canInsert={editability.canInsert}
+          insertableColumns={editability.insertableColumns}
+          canDelete={editability.canDelete}
+        />
+      </div>
+      <CommitBar
+        insertCount={pendingChanges.inserts.length}
+        updateCount={pendingChanges.edits.size}
+        deleteCount={pendingChanges.deletes.size}
+        previewLines={previewLines}
+        onCommit={() => void handleCommit()}
+        onDiscard={handleDiscard}
+        committing={committing}
+        error={commitError?.message}
+        failedIndex={commitError?.failedIndex}
+      />
+    </div>
   );
 }

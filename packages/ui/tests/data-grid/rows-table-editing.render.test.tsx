@@ -84,7 +84,10 @@ function TestHost({
         inserts: [],
         addInsert: () => "",
         updateInsertValue: () => {},
-        removeInsert: () => {}
+        removeInsert: () => {},
+        deletes: new Set(),
+        stageDelete: () => {},
+        unstageDelete: () => {}
       }}
     />
   );

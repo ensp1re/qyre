@@ -2,6 +2,7 @@ import type { ConnectionCapabilities } from "@qyre/core";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 import {
   assertReadOnly,
+  OperationCancelledError,
   ReadOnlyViolationError,
   stubReadOnlyCapabilities
 } from "@qyre/driver-contract";
@@ -136,6 +137,40 @@ describe("POST /api/query", () => {
     await app.close();
   });
 
+  it("passes operationId through to runReadOnlyQuery and reports a cancellation as 499 (F126)", async () => {
+    let receivedOperationId: string | undefined;
+    const adapter: DatabaseAdapter = {
+      engine: "postgres",
+      connect: async () => {},
+      disconnect: async () => {},
+      ping: async () => true,
+      getVersion: async () => "PostgreSQL 16.0",
+      getCapabilities: async () => stubReadOnlyCapabilities(true),
+      getOverview: async () => ({
+        engine: "postgres",
+        schemas: [],
+        capabilities: { supportsSql: true }
+      }),
+      getTable: async () => ({ schema: "public", name: "x", columns: [] }),
+      getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
+      runReadOnlyQuery: async (_sql, operationId) => {
+        receivedOperationId = operationId;
+        throw new OperationCancelledError();
+      }
+    };
+    const app = createServer({ adapter });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/query",
+      payload: { sql: "SELECT * FROM users", operationId: "op-1" },
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(499);
+    expect(response.json()).toMatchObject({ cancelled: true });
+    expect(receivedOperationId).toBe("op-1");
+    await app.close();
+  });
+
   describe("write-capable sessions (F107, F108)", () => {
     it("still routes a read-classified statement through runReadOnlyQuery, not runQuery, tagged with classification: read", async () => {
       const { adapter, runQuery } = writeCapableAdapter(async () => ({
@@ -176,7 +211,7 @@ describe("POST /api/query", () => {
         rowsAffected: 1,
         classification: "mutation"
       });
-      expect(runQuery).toHaveBeenCalledWith("UPDATE users SET name = 'x' WHERE id = 1");
+      expect(runQuery).toHaveBeenCalledWith("UPDATE users SET name = 'x' WHERE id = 1", undefined);
       await app.close();
     });
 
@@ -195,7 +230,7 @@ describe("POST /api/query", () => {
       });
       expect(response.statusCode).toBe(200);
       expect(response.json()).toMatchObject({ classification: "ddl" });
-      expect(runQuery).toHaveBeenCalledWith("CREATE TABLE t (id int)");
+      expect(runQuery).toHaveBeenCalledWith("CREATE TABLE t (id int)", undefined);
       await app.close();
     });
 
@@ -238,7 +273,26 @@ describe("POST /api/query", () => {
         rowsAffected: 5,
         classification: "destructive"
       });
-      expect(runQuery).toHaveBeenCalledWith("DROP TABLE users");
+      expect(runQuery).toHaveBeenCalledWith("DROP TABLE users", undefined);
+      await app.close();
+    });
+
+    it("passes operationId through to runQuery and reports a cancellation as 499 (F126)", async () => {
+      let receivedOperationId: string | undefined;
+      const { adapter } = writeCapableAdapter(async (_sql, operationId) => {
+        receivedOperationId = operationId;
+        throw new OperationCancelledError();
+      });
+      const app = createServer({ adapter });
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/query",
+        payload: { sql: "UPDATE users SET name = 'x' WHERE id = 1", operationId: "op-2" },
+        headers: authHeaders(app)
+      });
+      expect(response.statusCode).toBe(499);
+      expect(response.json()).toMatchObject({ cancelled: true });
+      expect(receivedOperationId).toBe("op-2");
       await app.close();
     });
 

@@ -13,13 +13,20 @@ import type {
 import {
   assertReadOnly,
   capResultRows,
+  OperationCancelledError,
   resolvePageRequest,
   runInReadOnlyTransaction,
   stubReadOnlyCapabilities
 } from "@qyre/driver-contract";
-import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driver-contract";
+import type {
+  AdapterFactory,
+  CancellationRegistry,
+  DatabaseAdapter,
+  RowMutationApi
+} from "@qyre/driver-contract";
 import mysql from "mysql2/promise";
 import { tableKey } from "./catalog.js";
+import { isMysqlCancelError, withCancellableConnection } from "./cancellation.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
 import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
 import {
@@ -40,6 +47,7 @@ function resolveStatementTimeoutMs(): number {
 export class MysqlAdapter implements DatabaseAdapter {
   public readonly engine = "mysql";
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
+  public operationRegistry?: CancellationRegistry;
   public readonly mutations: RowMutationApi = {
     insertRow: (schema, table, values) => insertRow(this.getPool(), schema, table, values),
     updateRowByKey: (schema, table, key, changes) =>
@@ -164,55 +172,83 @@ export class MysqlAdapter implements DatabaseAdapter {
     page: number,
     pageSize: number,
     sort?: RowSort,
-    filters?: RowFilter[]
+    filters?: RowFilter[],
+    operationId?: string
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     const orderBy = sort
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
       : "";
     const { clause: whereClause, params: filterParams } = buildFilterClause(filters);
-    const [rows, fields] = await this.getPool().query<mysql.RowDataPacket[]>(
-      {
-        sql: `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}${orderBy} LIMIT ? OFFSET ?`,
-        timeout: this.statementTimeoutMs
-      },
-      [...filterParams, safePageSize, offset]
-    );
-    return {
-      columns: fields.map((field) => field.name),
-      rows: rows as Array<Record<string, unknown>>,
-      page: safePage,
-      pageSize: safePageSize
-    };
-  }
-
-  async runReadOnlyQuery(sql: string): Promise<RowPage> {
-    assertReadOnly(sql);
-    const connection = await this.getPool().getConnection();
-    return runInReadOnlyTransaction(
-      {
-        begin: async () => {
-          await connection.query("START TRANSACTION READ ONLY");
-        },
-        query: async (querySql) => {
-          const [rows, fields] = await connection.query<mysql.RowDataPacket[]>({
-            sql: querySql,
-            timeout: this.statementTimeoutMs
-          });
+    return withCancellableConnection(
+      this.getPool(),
+      this.operationRegistry,
+      operationId,
+      async (connection, wasCancelledByUser) => {
+        try {
+          const [rows, fields] = await connection.query<mysql.RowDataPacket[]>(
+            {
+              sql: `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}${orderBy} LIMIT ? OFFSET ?`,
+              timeout: this.statementTimeoutMs
+            },
+            [...filterParams, safePageSize, offset]
+          );
           return {
             columns: fields.map((field) => field.name),
-            rows: rows as Array<Record<string, unknown>>
+            rows: rows as Array<Record<string, unknown>>,
+            page: safePage,
+            pageSize: safePageSize
           };
-        },
-        commit: async () => {
-          await connection.query("COMMIT");
-        },
-        rollback: async () => {
-          await connection.query("ROLLBACK");
-        },
-        release: () => connection.release()
-      },
-      capResultRows(sql)
+        } catch (error) {
+          if (isMysqlCancelError(error) && wasCancelledByUser())
+            throw new OperationCancelledError();
+          throw error;
+        }
+      }
+    );
+  }
+
+  async runReadOnlyQuery(sql: string, operationId?: string): Promise<RowPage> {
+    assertReadOnly(sql);
+    return withCancellableConnection(
+      this.getPool(),
+      this.operationRegistry,
+      operationId,
+      async (connection, wasCancelledByUser) => {
+        try {
+          return await runInReadOnlyTransaction(
+            {
+              begin: async () => {
+                await connection.query("START TRANSACTION READ ONLY");
+              },
+              query: async (querySql) => {
+                const [rows, fields] = await connection.query<mysql.RowDataPacket[]>({
+                  sql: querySql,
+                  timeout: this.statementTimeoutMs
+                });
+                return {
+                  columns: fields.map((field) => field.name),
+                  rows: rows as Array<Record<string, unknown>>
+                };
+              },
+              commit: async () => {
+                await connection.query("COMMIT");
+              },
+              rollback: async () => {
+                await connection.query("ROLLBACK");
+              },
+              // withCancellableConnection releases the connection in its own `finally` - this
+              // callback exists only to satisfy runInReadOnlyTransaction's shape.
+              release: () => {}
+            },
+            capResultRows(sql)
+          );
+        } catch (error) {
+          if (isMysqlCancelError(error) && wasCancelledByUser())
+            throw new OperationCancelledError();
+          throw error;
+        }
+      }
     );
   }
 
@@ -220,21 +256,34 @@ export class MysqlAdapter implements DatabaseAdapter {
    * `START TRANSACTION READ ONLY` wrapper. mysql2 returns `RowDataPacket[]` for a row-returning
    * statement and a `ResultSetHeader` (with `affectedRows`) otherwise - both are handled here since
    * the caller doesn't know ahead of time which shape a given statement produces. */
-  async runQuery(sql: string): Promise<QueryExecutionResult> {
-    const [result, fields] = await this.getPool().query<
-      mysql.RowDataPacket[] | mysql.ResultSetHeader
-    >({
-      sql: capResultRows(sql),
-      timeout: this.statementTimeoutMs
-    });
-    if (Array.isArray(result)) {
-      return {
-        columns: (fields ?? []).map((field) => field.name),
-        rows: result as Array<Record<string, unknown>>,
-        rowsAffected: result.length
-      };
-    }
-    return { columns: [], rows: [], rowsAffected: result.affectedRows };
+  async runQuery(sql: string, operationId?: string): Promise<QueryExecutionResult> {
+    return withCancellableConnection(
+      this.getPool(),
+      this.operationRegistry,
+      operationId,
+      async (connection, wasCancelledByUser) => {
+        try {
+          const [result, fields] = await connection.query<
+            mysql.RowDataPacket[] | mysql.ResultSetHeader
+          >({
+            sql: capResultRows(sql),
+            timeout: this.statementTimeoutMs
+          });
+          if (Array.isArray(result)) {
+            return {
+              columns: (fields ?? []).map((field) => field.name),
+              rows: result as Array<Record<string, unknown>>,
+              rowsAffected: result.length
+            };
+          }
+          return { columns: [], rows: [], rowsAffected: result.affectedRows };
+        } catch (error) {
+          if (isMysqlCancelError(error) && wasCancelledByUser())
+            throw new OperationCancelledError();
+          throw error;
+        }
+      }
+    );
   }
 }
 

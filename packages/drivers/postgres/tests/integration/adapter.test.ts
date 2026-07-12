@@ -601,4 +601,48 @@ describe("PostgresAdapter integration", () => {
       await shortTimeoutAdapter.disconnect();
     }
   });
+
+  it("cancels a running read-only query via the operation registry, and the connection remains usable afterward (F126)", async () => {
+    const callbacks = new Map<string, () => Promise<void>>();
+    adapter.operationRegistry = {
+      register: (id, cancel) => callbacks.set(id, cancel),
+      unregister: (id) => callbacks.delete(id)
+    };
+    try {
+      const operationId = "f126-cancel-test";
+      const slowQuery = adapter.runReadOnlyQuery("SELECT pg_sleep(5)", operationId);
+      // Give the query time to register its cancel callback and actually start on the server -
+      // registration happens synchronously before the slow query itself runs, but this still
+      // guards against a flaky race on a loaded CI runner.
+      await expect.poll(() => callbacks.has(operationId), { timeout: 2000 }).toBe(true);
+
+      await callbacks.get(operationId)?.();
+      await expect(slowQuery).rejects.toMatchObject({ name: "OperationCancelledError" });
+
+      // The pool itself is untouched - a fresh query on the same adapter still works.
+      expect(await adapter.ping()).toBe(true);
+    } finally {
+      adapter.operationRegistry = undefined;
+    }
+  });
+
+  it("does not report a plain statement-timeout expiry as a user cancellation (F126 regression, F032)", async () => {
+    // The exact same 57014 SQLSTATE Postgres uses for pg_cancel_backend() is also what
+    // statement_timeout reports on its own - only wasCancelledByUser() (set solely when this
+    // adapter's own registry callback runs) may distinguish them. Reproduces F032's timeout path
+    // with a registry attached (unlike the plain F032 test above) to prove it still throws the
+    // *timeout* error, not OperationCancelledError, when nothing actually called cancel().
+    process.env.QYRE_STATEMENT_TIMEOUT_MS = "200";
+    const shortTimeoutAdapter = new PostgresAdapter({ engine: "postgres", raw: databaseUrl });
+    shortTimeoutAdapter.operationRegistry = { register: () => {}, unregister: () => {} };
+    try {
+      await shortTimeoutAdapter.connect();
+      await expect(
+        shortTimeoutAdapter.runReadOnlyQuery("SELECT pg_sleep(2)", "f126-timeout-test")
+      ).rejects.not.toMatchObject({ name: "OperationCancelledError" });
+    } finally {
+      delete process.env.QYRE_STATEMENT_TIMEOUT_MS;
+      await shortTimeoutAdapter.disconnect();
+    }
+  });
 });

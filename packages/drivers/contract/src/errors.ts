@@ -17,3 +17,18 @@ export class ReadOnlyViolationError extends Error {
     this.name = "ReadOnlyViolationError";
   }
 }
+
+/**
+ * Thrown by a cancellable adapter method (`getRows`/`runReadOnlyQuery`/`runQuery`, F126) when the
+ * underlying driver reports the operation was cancelled server-side (Postgres `57014`, MySQL
+ * `ER_QUERY_INTERRUPTED`, MongoDB `Interrupted`/`CursorKilled`) - each adapter translates its own
+ * engine-specific cancellation error into this one shared class so `packages/server` can report a
+ * distinct "cancelled" outcome instead of a generic failure, without depending on any concrete
+ * engine package.
+ */
+export class OperationCancelledError extends Error {
+  constructor() {
+    super("The operation was cancelled.");
+    this.name = "OperationCancelledError";
+  }
+}

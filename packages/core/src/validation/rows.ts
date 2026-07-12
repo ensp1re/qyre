@@ -36,6 +36,9 @@ export const rowsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
   sortColumn: z.string().min(1).optional(),
   sortDirection: z.enum(["asc", "desc"]).default("asc"),
+  // F126: optional client-generated id enabling `POST /api/operations/:id/cancel` to cancel this
+  // same rows fetch while it's still running - same pattern as runQuerySchema's operationId.
+  operationId: z.string().min(1).optional(),
   filters: z
     .string()
     .optional()

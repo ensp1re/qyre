@@ -39,6 +39,7 @@ export function registerConnectRoute(app: FastifyInstance, ctx: ServerContext): 
     // Reassigned before the old adapter disconnects, so nothing in between can observe a moment
     // with no adapter at all.
     newAdapter.onConnectionEvent = (level, message) => ctx.eventLog.log(level, message);
+    newAdapter.operationRegistry = ctx.operationRegistry;
     ctx.adapter = newAdapter;
     ctx.target = newTarget;
     // Reset transition-tracking state so /api/health's next poll treats the new connection as a

@@ -3,6 +3,7 @@ import { ConfirmDestructiveStatementDialog, QueryRunner, READ_ONLY_REASON_LABEL 
 import type { ReactNode } from "react";
 import {
   DestructiveConfirmationRequiredError,
+  QueryCancelledError,
   ReadOnlySessionRejectionError
 } from "../api/query.js";
 import type { useRunQuery } from "../model/use-run-query.js";
@@ -14,6 +15,8 @@ export interface SqlEditorTabProps {
   sql: string;
   onSqlChange: (sql: string) => void;
   onRun: () => void;
+  /** Cancels the currently running query (F126) - shown as a Cancel control while `runQuery.isPending`. */
+  onCancel: () => void;
   runQuery: ReturnType<typeof useRunQuery>;
   /** Session-level capabilities (F108) - used only to look up a friendly `readOnlyReason` message
    * when a read-only session's write attempt is rejected. */
@@ -35,6 +38,7 @@ export function SqlEditorTab({
   sql,
   onSqlChange,
   onRun,
+  onCancel,
   runQuery,
   capabilities,
   onOpenHistory,
@@ -62,12 +66,15 @@ export function SqlEditorTab({
   const error =
     rawError instanceof DestructiveConfirmationRequiredError
       ? undefined
-      : rawError instanceof ReadOnlySessionRejectionError
-        ? ((capabilities?.readOnlyReason && READ_ONLY_REASON_LABEL[capabilities.readOnlyReason]) ??
-          rawError.message)
-        : rawError instanceof Error
-          ? rawError.message
-          : undefined;
+      : rawError instanceof QueryCancelledError
+        ? "Query cancelled."
+        : rawError instanceof ReadOnlySessionRejectionError
+          ? ((capabilities?.readOnlyReason &&
+              READ_ONLY_REASON_LABEL[capabilities.readOnlyReason]) ??
+            rawError.message)
+          : rawError instanceof Error
+            ? rawError.message
+            : undefined;
 
   return (
     <>
@@ -75,6 +82,7 @@ export function SqlEditorTab({
         sql={sql}
         onSqlChange={onSqlChange}
         onRun={onRun}
+        onCancel={onCancel}
         isRunning={runQuery.isPending}
         result={runQuery.data}
         error={error}

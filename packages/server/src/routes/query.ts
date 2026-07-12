@@ -1,5 +1,9 @@
 import { runQuerySchema } from "@qyre/core";
-import { classifyStatement, ReadOnlyViolationError } from "@qyre/driver-contract";
+import {
+  classifyStatement,
+  OperationCancelledError,
+  ReadOnlyViolationError
+} from "@qyre/driver-contract";
 import type { DatabaseAdapter, StatementClassification } from "@qyre/driver-contract";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import type { ServerContext } from "../app.js";
@@ -25,17 +29,22 @@ async function runReadOnlyPath(
   ctx: ServerContext,
   sql: string,
   reply: FastifyReply,
-  classification?: StatementClassification
+  classification?: StatementClassification,
+  operationId?: string
 ) {
   const start = Date.now();
   try {
-    const result = await db.runReadOnlyQuery(sql);
+    const result = await db.runReadOnlyQuery(sql, operationId);
     ctx.eventLog.log(
       "info",
       `Query executed in ${Date.now() - start}ms - ${result.rows.length} rows returned`
     );
     return classification ? { ...result, classification } : result;
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      ctx.eventLog.log("info", "Query cancelled.");
+      return reply.status(499).send({ error: error.message, cancelled: true });
+    }
     if (error instanceof ReadOnlyViolationError) {
       ctx.eventLog.log("warn", `Query rejected: ${error.message}`);
       return reply
@@ -56,7 +65,7 @@ export function registerQueryRoute(app: FastifyInstance, ctx: ServerContext): vo
         .status(400)
         .send({ error: "Request body must be { sql: string, confirmed?: boolean }." });
     }
-    const { sql, confirmed } = parsed.data;
+    const { sql, confirmed, operationId } = parsed.data;
     const db = requireAdapter(ctx.adapter);
 
     const capabilities = applyReadOnlyOverride(await db.getCapabilities(), ctx.readOnly);
@@ -66,7 +75,7 @@ export function registerQueryRoute(app: FastifyInstance, ctx: ServerContext): vo
     // Postgres's `this.getPool()`).
     const runQuery = db.runQuery?.bind(db);
     if (!capabilities.supportsRowMutations || !runQuery) {
-      return runReadOnlyPath(db, ctx, sql, reply);
+      return runReadOnlyPath(db, ctx, sql, reply, undefined, operationId);
     }
 
     let classification: StatementClassification;
@@ -81,7 +90,7 @@ export function registerQueryRoute(app: FastifyInstance, ctx: ServerContext): vo
     }
 
     if (classification === "read") {
-      return runReadOnlyPath(db, ctx, sql, reply, classification);
+      return runReadOnlyPath(db, ctx, sql, reply, classification, operationId);
     }
 
     if (classification === "destructive" && !confirmed) {
@@ -96,11 +105,19 @@ export function registerQueryRoute(app: FastifyInstance, ctx: ServerContext): vo
     }
 
     const start = Date.now();
-    const result = await runQuery(sql);
-    ctx.eventLog.log(
-      "info",
-      `Executed a ${classification} statement in ${Date.now() - start}ms - ${result.rowsAffected} row(s) affected.`
-    );
-    return { ...result, classification };
+    try {
+      const result = await runQuery(sql, operationId);
+      ctx.eventLog.log(
+        "info",
+        `Executed a ${classification} statement in ${Date.now() - start}ms - ${result.rowsAffected} row(s) affected.`
+      );
+      return { ...result, classification };
+    } catch (error) {
+      if (error instanceof OperationCancelledError) {
+        ctx.eventLog.log("info", "Query cancelled.");
+        return reply.status(499).send({ error: error.message, cancelled: true });
+      }
+      throw error;
+    }
   });
 }

@@ -30,6 +30,13 @@ export interface QueryExecutionResult {
  */
 export type StatementClassification = "read" | "mutation" | "ddl" | "destructive";
 
+/** Response shape of `POST /api/operations/:id/cancel` (F126). `cancelled: false` isn't an error -
+ * it just means there was nothing left to cancel (the operation already finished, the engine has
+ * no real cancellation mechanism, or the id was never registered). */
+export interface CancelOperationResult {
+  readonly cancelled: boolean;
+}
+
 /** Which direction to sort rows in `GET /api/tables/:schema/:table/rows` (F065). */
 export type SortDirection = "asc" | "desc";
 

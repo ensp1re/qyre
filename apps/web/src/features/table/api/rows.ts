@@ -19,17 +19,21 @@ function appendSortAndFilterParams(
 }
 
 /** Fetch a page of rows for a table, optionally sorted by one column (F065) and/or narrowed by
- * one or more AND-combined filters (F072). */
+ * one or more AND-combined filters (F072). `operationId` (F126) is an optional client-generated id
+ * that `POST /api/operations/:id/cancel` can later use to cancel this same fetch while it's still
+ * in flight. */
 export function fetchRows(
   schema: string,
   table: string,
   page: number,
   pageSize: number,
   sort?: RowSort,
-  filters?: RowFilter[]
+  filters?: RowFilter[],
+  operationId?: string
 ): Promise<RowPage> {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   appendSortAndFilterParams(params, sort, filters);
+  if (operationId) params.set("operationId", operationId);
   return fetchJson<RowPage>(
     `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/rows?${params}`
   );

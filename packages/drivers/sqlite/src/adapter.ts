@@ -20,6 +20,17 @@ import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutat
 import { normalizeRow } from "./row-values.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
+/**
+ * SQLite has no cancellation support (F126) and intentionally omits `operationRegistry` - unlike
+ * Postgres/MySQL's connection-pool cancel commands or MongoDB's `killOp`, better-sqlite3 runs every
+ * query synchronously on Node's single thread, so the process can't receive and act on a cancel
+ * request while a query is in flight; there is no "second connection" to send one from. This is
+ * true for reads as much as writes, so a writes-only worker-thread migration (the one place a
+ * synchronous engine could plausibly support cancellation) wouldn't help the dominant Cancel use
+ * case anyway (the Rows-table fetch is always a read). A full read+write worker-thread rewrite is
+ * out of scope for this slice; callers should treat SQLite as non-cancellable and hide/disable any
+ * Cancel control for it.
+ */
 export class SqliteAdapter implements DatabaseAdapter {
   public readonly engine = "sqlite";
   public readonly mutations: RowMutationApi = {

@@ -104,6 +104,13 @@ export function TablesTab({
     return (
       <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
         <Spinner /> Loading rows...
+        <button
+          type="button"
+          onClick={rows.cancel}
+          className="ml-1 rounded-[3px] border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+        >
+          Cancel
+        </button>
       </p>
     );
   }

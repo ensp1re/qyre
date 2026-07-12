@@ -10,7 +10,12 @@
  * already shares the exact same `assertReadOnly` call (conformant by construction, see
  * `@qyre/driver-contract`), and each engine's own integration test file already covers bigint/date
  * fidelity against fixtures too engine-specific to usefully generalize (F019's
- * `column-type-fidelity.md`).
+ * `column-type-fidelity.md`). Query cancellation (F126) is the same story: each engine needs its
+ * own "genuinely slow query" trigger (Postgres `pg_sleep`, MySQL `SLEEP`, MongoDB a raw `$where`
+ * sleep this fixture's typed `getRows` API can't express) too engine-specific to share one
+ * assertion - see each engine's own `tests/integration/adapter.test.ts` for its "cancels a running
+ * query, and the connection remains usable afterward" case; SQLite has none, documented as
+ * non-cancellable in `packages/drivers/sqlite/src/adapter.ts`.
  *
  * Each engine skips gracefully (not silently - see the console.warn) when its env var is unset,
  * distinct from that engine's own integration test file, which fails loudly - this file's purpose

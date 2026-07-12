@@ -13,7 +13,8 @@ import {
   TitleBar
 } from "@qyre/ui";
 import type { ReactNode } from "react";
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
+import { cancelOperation } from "../shared/api/operations.js";
 import { useCapabilities } from "../features/connection/model/use-capabilities.js";
 import { useConnect } from "../features/connection/model/use-connect.js";
 import { useHealth } from "../features/connection/model/use-health.js";
@@ -119,6 +120,9 @@ export function App(): ReactNode {
   const [pendingConfirmation, setPendingConfirmation] = useState<
     { sql: string; classification: StatementClassification } | undefined
   >(undefined);
+  // F126: the currently in-flight run's operationId, so cancelRun() knows what to cancel - a ref
+  // (not state) since it's only ever read by an event handler, never rendered.
+  const runOperationIdRef = useRef<string | undefined>(undefined);
 
   function selectTable(schema: string, tableName: string, initialFilters?: RowFilter[]): void {
     dispatch({
@@ -140,8 +144,10 @@ export function App(): ReactNode {
 
   function runSql(): void {
     const start = performance.now();
+    const operationId = crypto.randomUUID();
+    runOperationIdRef.current = operationId;
     runQuery.mutate(
-      { sql: querySql, confirmed: false },
+      { sql: querySql, confirmed: false, operationId },
       {
         onSuccess: (result) => {
           dispatch({ type: "queryCompleted", durationMs: Math.round(performance.now() - start) });
@@ -151,9 +157,19 @@ export function App(): ReactNode {
           if (error instanceof DestructiveConfirmationRequiredError) {
             setPendingConfirmation({ sql: querySql, classification: error.classification });
           }
+        },
+        onSettled: () => {
+          runOperationIdRef.current = undefined;
         }
       }
     );
+  }
+
+  // F126: cancels the currently running query via its operationId - a no-op once the run has
+  // already settled (runOperationIdRef is cleared in onSettled above).
+  function cancelRun(): void {
+    const operationId = runOperationIdRef.current;
+    if (operationId) void cancelOperation(operationId);
   }
 
   // F108: resubmits the pending statement with confirmed: true (F107's server-enforced round-trip)
@@ -164,14 +180,19 @@ export function App(): ReactNode {
     if (!pendingConfirmation) return;
     const start = performance.now();
     const sql = pendingConfirmation.sql;
+    const operationId = crypto.randomUUID();
+    runOperationIdRef.current = operationId;
     runQuery.mutate(
-      { sql, confirmed: true },
+      { sql, confirmed: true, operationId },
       {
         onSuccess: (result) => {
           dispatch({ type: "queryCompleted", durationMs: Math.round(performance.now() - start) });
           queryHistory.record(sql, result.classification);
         },
-        onSettled: () => setPendingConfirmation(undefined)
+        onSettled: () => {
+          runOperationIdRef.current = undefined;
+          setPendingConfirmation(undefined);
+        }
       }
     );
   }
@@ -265,6 +286,7 @@ export function App(): ReactNode {
                     sql={querySql}
                     onSqlChange={(sql) => dispatch({ type: "queryChanged", sql })}
                     onRun={runSql}
+                    onCancel={cancelRun}
                     runQuery={runQuery}
                     capabilities={capabilities.data}
                     onOpenHistory={() => dispatch({ type: "historyChanged", open: true })}

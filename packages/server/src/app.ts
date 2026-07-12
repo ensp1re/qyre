@@ -23,8 +23,10 @@ import { registerMutationsRoutes } from "./routes/mutations.js";
 import { registerOverviewRoute } from "./routes/overview.js";
 import { registerQueryRoute } from "./routes/query.js";
 import { registerTablesRoutes } from "./routes/tables.js";
+import { registerOperationsRoutes } from "./routes/operations.js";
 import { generateAuthToken } from "./services/auth-token.js";
 import { EventLog } from "./services/event-log.js";
+import { OperationRegistry } from "./services/operation-registry.js";
 
 // Ambient augmentation declared here (not a standalone .d.ts) so it's visible in every downstream
 // package's own `tsc` run too - each package/*'s tsconfig only `include`s its own src, so a
@@ -107,6 +109,10 @@ export interface ServerContext {
   /** Whether the session is forced read-only via `--read-only` (F096). Untouched by `POST
    * /api/connect`'s adapter swap, so it persists across connection switches by construction. */
   readonly readOnly: boolean;
+  /** In-flight cancellable-operation registry (F126) - outlives any single adapter swap; assigned
+   * onto whichever adapter is currently connected as `adapter.operationRegistry`, the same
+   * "server assigns a hook after connect()" pattern `onConnectionEvent` already uses. */
+  readonly operationRegistry: OperationRegistry;
 }
 
 /** Build (but do not start) the Qyre HTTP server. */
@@ -121,8 +127,10 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
     filesRoot: options.filesRoot,
     adapterFactories: options.adapterFactories,
     lastError: null,
-    readOnly: options.readOnly ?? false
+    readOnly: options.readOnly ?? false,
+    operationRegistry: new OperationRegistry()
   };
+  if (ctx.adapter) ctx.adapter.operationRegistry = ctx.operationRegistry;
 
   registerHostGuard(app);
   registerSecurityHeaders(app);
@@ -138,6 +146,7 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   registerQueryRoute(app, ctx);
   registerConsoleRoutes(app, ctx);
   registerFilesRoutes(app, ctx);
+  registerOperationsRoutes(app, ctx);
 
   registerStaticWeb(app, options.webRoot, authToken);
 

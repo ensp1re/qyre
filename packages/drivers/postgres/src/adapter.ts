@@ -13,13 +13,20 @@ import type {
 import {
   assertReadOnly,
   capResultRows,
+  OperationCancelledError,
   resolvePageRequest,
   runInReadOnlyTransaction,
   stubReadOnlyCapabilities
 } from "@qyre/driver-contract";
-import type { AdapterFactory, DatabaseAdapter, RowMutationApi } from "@qyre/driver-contract";
+import type {
+  AdapterFactory,
+  CancellationRegistry,
+  DatabaseAdapter,
+  RowMutationApi
+} from "@qyre/driver-contract";
 import type { Pool } from "pg";
 import { tableKey } from "./catalog.js";
+import { isPgCancelError, withCancellableClient } from "./cancellation.js";
 import { createPostgresPool } from "./connection.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
 import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
@@ -35,6 +42,7 @@ import { buildFilterClause, quoteIdent } from "./sql.js";
 export class PostgresAdapter implements DatabaseAdapter {
   public readonly engine = "postgres";
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
+  public operationRegistry?: CancellationRegistry;
   public readonly mutations: RowMutationApi = {
     insertRow: (schema, table, values) => insertRow(this.getPool(), schema, table, values),
     updateRowByKey: (schema, table, key, changes) =>
@@ -144,54 +152,80 @@ export class PostgresAdapter implements DatabaseAdapter {
     page: number,
     pageSize: number,
     sort?: RowSort,
-    filters?: RowFilter[]
+    filters?: RowFilter[],
+    operationId?: string
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     const orderBy = sort
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
       : "";
     const { clause: whereClause, params: filterParams } = buildFilterClause(filters);
-    const result = await this.getPool().query(
-      `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}${orderBy} LIMIT $${
-        filterParams.length + 1
-      } OFFSET $${filterParams.length + 2}`,
-      [...filterParams, safePageSize, offset]
+    return withCancellableClient(
+      this.getPool(),
+      this.operationRegistry,
+      operationId,
+      async (client, wasCancelledByUser) => {
+        try {
+          const result = await client.query(
+            `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}${orderBy} LIMIT $${
+              filterParams.length + 1
+            } OFFSET $${filterParams.length + 2}`,
+            [...filterParams, safePageSize, offset]
+          );
+          return {
+            columns: result.fields.map((field) => field.name),
+            rows: result.rows as Array<Record<string, unknown>>,
+            page: safePage,
+            pageSize: safePageSize
+          };
+        } catch (error) {
+          if (isPgCancelError(error) && wasCancelledByUser()) throw new OperationCancelledError();
+          throw error;
+        }
+      }
     );
-    return {
-      columns: result.fields.map((field) => field.name),
-      rows: result.rows as Array<Record<string, unknown>>,
-      page: safePage,
-      pageSize: safePageSize
-    };
   }
 
-  async runReadOnlyQuery(sql: string): Promise<RowPage> {
+  async runReadOnlyQuery(sql: string, operationId?: string): Promise<RowPage> {
     const rewritten = sql.includes('"')
       ? coerceUnknownQuotedIdentifiers(sql, await fetchKnownIdentifiers(this.getPool()))
       : sql;
     assertReadOnly(rewritten);
-    const client = await this.getPool().connect();
-    return runInReadOnlyTransaction(
-      {
-        begin: async () => {
-          await client.query("BEGIN TRANSACTION READ ONLY");
-        },
-        query: async (querySql) => {
-          const result = await client.query(querySql);
-          return {
-            columns: result.fields.map((field) => field.name),
-            rows: result.rows as Array<Record<string, unknown>>
-          };
-        },
-        commit: async () => {
-          await client.query("COMMIT");
-        },
-        rollback: async () => {
-          await client.query("ROLLBACK");
-        },
-        release: () => client.release()
-      },
-      capResultRows(rewritten)
+    return withCancellableClient(
+      this.getPool(),
+      this.operationRegistry,
+      operationId,
+      async (client, wasCancelledByUser) => {
+        try {
+          return await runInReadOnlyTransaction(
+            {
+              begin: async () => {
+                await client.query("BEGIN TRANSACTION READ ONLY");
+              },
+              query: async (querySql) => {
+                const result = await client.query(querySql);
+                return {
+                  columns: result.fields.map((field) => field.name),
+                  rows: result.rows as Array<Record<string, unknown>>
+                };
+              },
+              commit: async () => {
+                await client.query("COMMIT");
+              },
+              rollback: async () => {
+                await client.query("ROLLBACK");
+              },
+              // withCancellableClient releases the client in its own `finally` - this callback
+              // exists only to satisfy runInReadOnlyTransaction's shape, not to double-release.
+              release: () => {}
+            },
+            capResultRows(rewritten)
+          );
+        } catch (error) {
+          if (isPgCancelError(error) && wasCancelledByUser()) throw new OperationCancelledError();
+          throw error;
+        }
+      }
     );
   }
 
@@ -202,13 +236,25 @@ export class PostgresAdapter implements DatabaseAdapter {
    * `runReadOnlyQuery`'s read path but must never silently alter a mutation's SQL (see
    * docs/product-specs/sql-editor.md).
    */
-  async runQuery(sql: string): Promise<QueryExecutionResult> {
-    const result = await this.getPool().query(capResultRows(sql));
-    return {
-      columns: result.fields.map((field) => field.name),
-      rows: result.rows as Array<Record<string, unknown>>,
-      rowsAffected: result.rowCount ?? result.rows.length
-    };
+  async runQuery(sql: string, operationId?: string): Promise<QueryExecutionResult> {
+    return withCancellableClient(
+      this.getPool(),
+      this.operationRegistry,
+      operationId,
+      async (client, wasCancelledByUser) => {
+        try {
+          const result = await client.query(capResultRows(sql));
+          return {
+            columns: result.fields.map((field) => field.name),
+            rows: result.rows as Array<Record<string, unknown>>,
+            rowsAffected: result.rowCount ?? result.rows.length
+          };
+        } catch (error) {
+          if (isPgCancelError(error) && wasCancelledByUser()) throw new OperationCancelledError();
+          throw error;
+        }
+      }
+    );
   }
 }
 

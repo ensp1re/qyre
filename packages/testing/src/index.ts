@@ -6,7 +6,7 @@
 import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import mysql from "mysql2/promise";
 import { Pool } from "pg";
 
@@ -407,10 +407,9 @@ export async function setupMysqlFixture(connectionString: string): Promise<void>
  * Create the same fixture collection/documents as {@link setupFixture}'s Postgres version, in
  * MongoDB - plus a nested `profile` field on one document (matching F016's structured-cell-value
  * e2e fixture), since a Mongo document's nested fields are the common case this engine exists to
- * browse (see docs/product-specs/connect-and-inspect-mongodb.md). Unlike setupFixture/
- * setupMysqlFixture/setupSqliteFixture, this isn't guarded by a lock: the Mongo Playwright project
- * runs one browse journey that writes this fixture, while SQL-only journeys skip Mongo explicitly.
- * The adapter integration suite also calls it, but package tests finish before E2E begins.
+ * browse (see docs/product-specs/connect-and-inspect-mongodb.md). Fixed ObjectIds and replacement
+ * upserts make concurrent Playwright setup idempotent: overlapping workers converge on the same
+ * three documents instead of duplicating rows between a collection drop and insert.
  */
 export async function setupMongoFixture(connectionString: string): Promise<void> {
   const databaseName = new URL(connectionString).pathname.slice(1) || "qyre_test";
@@ -418,19 +417,31 @@ export async function setupMongoFixture(connectionString: string): Promise<void>
   try {
     await client.connect();
     const db = client.db(databaseName);
-    await db
-      .collection(FIXTURE.table)
-      .drop()
-      .catch(() => {});
-    await db.collection(FIXTURE.table).insertMany([
+    const collection = db.collection(FIXTURE.table);
+    const documents = [
       {
+        _id: new ObjectId("000000000000000000000001"),
         name: "Ada Lovelace",
         email: "ada@example.com",
         profile: { account: { tags: ["admin", "beta"] } }
       },
-      { name: "Alan Turing", email: "alan@example.com" },
-      { name: "Grace Hopper", email: "grace@example.com" }
-    ]);
+      {
+        _id: new ObjectId("000000000000000000000002"),
+        name: "Alan Turing",
+        email: "alan@example.com"
+      },
+      {
+        _id: new ObjectId("000000000000000000000003"),
+        name: "Grace Hopper",
+        email: "grace@example.com"
+      }
+    ];
+    await collection.bulkWrite(
+      documents.map((document) => ({
+        replaceOne: { filter: { _id: document._id }, replacement: document, upsert: true }
+      }))
+    );
+    await collection.deleteMany({ _id: { $nin: documents.map((document) => document._id) } });
   } finally {
     await client.close();
   }

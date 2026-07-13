@@ -52,6 +52,8 @@ Each journey has a repeatable verification path and clear failure signals.
 - SQL fixture setup keeps tables present after their first creation and replaces rows inside a
   transaction while holding the engine's fixture lock. Parallel browser workers therefore see a
   complete previous or next fixture, never a transient `DROP TABLE` catalog gap.
+- MongoDB fixture setup uses fixed ObjectIds and replacement upserts, so parallel browser workers
+  converge on the same three documents instead of duplicating rows during reset.
 
 ## Required runtime signals
 

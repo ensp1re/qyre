@@ -8,17 +8,6 @@
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
     {
-      "id": "F109",
-      "behavior": "Product-spec pass for schema editing before implementation: create docs/product-specs/schema-editing.md covering the ddl adapter namespace (table lifecycle: create/rename/truncate/drop; column ops: add/rename/drop/alter type-nullability-default; index ops: create/drop), the per-engine DDL matrix - Postgres/MySQL native ALTER; SQLite native ADD/RENAME/DROP COLUMN (3.25/3.35+) where possible and the documented rebuild pattern (PRAGMA foreign_keys=OFF, create-new/copy/swap in one transaction, PRAGMA foreign_key_check after) for retype/constraint changes; MongoDB mapped to collections + indexes with column ops not-applicable - plus each engine's column type catalog exposure for the table designer (open decision in exec plan 0006: static list vs introspected), kind-gating rules (F124: DDL applies to kind 'table'/'collection' only; views/matviews are out of managed scope this plan), typed-confirmation rules for destructive DDL (type the table name to drop/truncate, per docs/SECURITY.md), and the API shapes. Depends on F090, F124.",
-      "verification": "pnpm check:state",
-      "state": "passing",
-      "commitHash": "862d756",
-      "evidence": "PR #125 (https://github.com/ensp1re/qyre/pull/125), merged as 862d756. Spec-only slice, no implementation, matching F090/F098's precedent: docs/product-specs/schema-editing.md fixes SchemaDdlApi (table/collection lifecycle - create/rename/truncate/drop; column ops - add/rename/alter/drop, absent on MongoDB per its schemaless collections), ColumnDefinition/IndexDefinition, the per-engine DDL matrix (SQLite's constrained native ALTER TABLE and the 12-step rebuild pattern alterColumn falls back to for anything it can't express directly), kind-gating reusing supportsDdl/supportsIndexManagement (F090), the static curated per-engine type-catalog decision (exec plan open decision 6), and typed-confirmation rules for dropTable/truncateTable/dropColumn. Verified: pnpm check:state. Its passing state and evidence are recorded here per this session's established bundling convention (see F108's precedent), not as a standalone PR.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/schema-editing.md",
-      "completedAt": "2026-07-12T19:11:23.000Z"
-    },
-    {
       "id": "F110",
       "behavior": "Table lifecycle per docs/product-specs/schema-editing.md: adapters gain the ddl namespace with createTable (columns with types from the engine's exposed type catalog, PK incl. composite, nullability, defaults), renameTable, truncateTable, and dropTable - MongoDB maps to create/rename/drop collection with truncate as deleteMany({}). All operations are kind-gated (F124): targeting a view/matview is rejected up front with a clear error, never sent to the engine as the wrong statement. Server routes gate on the ddl capability + F096 central guard, require the spec's typed-confirmation token for drop/truncate server-side, and audit every operation. Conformance: create-inspect-drop roundtrip on all four engines, restricted-user rejection, unconfirmed-drop rejection, view-target rejection. Depends on F096, F109.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
@@ -99,11 +88,12 @@
       "id": "F117",
       "behavior": "Permission-gated CSV import into an existing table: a server endpoint streams and parses the upload (with an explicit request-size/row-count cap and multipart limits so a huge or malicious file cannot exhaust memory or disk - the F066 streaming-export philosophy in reverse), validates and coerces values per column type against introspected metadata, and inserts in bounded batches through the mutations namespace (transactional per batch, per-row error report with line numbers); the UI wizard maps CSV columns to table columns with a dry-run preview of the first rows and a clear success/failure summary. Kind-gated (tables/collections only) and permission-gated. Needs a short product-spec pass (docs/product-specs/csv-import.md) before implementation, following the F063-F066 pattern. Depends on F099, F102.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "817f746",
+      "evidence": "Draft PR #133 (https://github.com/ensp1re/qyre/pull/133), pushed as 817f746. Added the capped streaming multipart POST /api/tables/:schema/:table/import.csv contract with inspect/validate/import modes, scalar coercion against introspected metadata, physical source-line errors, a 20-row preview, and server-side kind/insert-permission/read-only enforcement. Postgres/MySQL/SQLite use existing commitBatch transactions in bounded 250-row batches; standalone MongoDB uses one-document atomic insertRow calls. The Tables toolbar and shared CsvImportDialog provide exact-name mapping defaults, dry-run invalidation, coerced preview, and inserted/failed result reporting while hiding the action for unavailable targets. Added the browser-safe @qyre/core/csv-import export plus 2 core, 11 server, 5 web, and 4 UI tests, and extended the standing read-only E2E canary. Verified on Node 22 with CI=1 pnpm verify:pr locally and again through the pre-push hook: 34/34 package tasks, smoke E2E, and full E2E passed against Postgres, MySQL, SQLite, and MongoDB; both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": "docs/product-specs/csv-import.md"
+      "spec": "docs/product-specs/csv-import.md",
+      "completedAt": "2026-07-13T19:36:19.000Z"
     },
     {
       "id": "F118",

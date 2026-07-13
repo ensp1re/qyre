@@ -7,8 +7,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 - Date: 2026-07-13.
 - Branch: `feature/F117-csv-import`, based on `main` through merged PR #132.
-- Queue: F106-F116 and F125-F127 are `passing`; F117 is `active`; F118-F121 and F128 remain
-  `not_started`. `nextIds.F` is 129.
+- Queue: F110-F117 are `passing`; F118-F121 and F128 remain `not_started`. `nextIds.F` is 129.
 
 ## Completed
 
@@ -23,25 +22,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   (F110), column ops (F111, incl. SQLite's 12-step rebuild), index ops (F112), the table designer
   UI (F113), the Structure view (F114), database/schema lifecycle (F115), and its management UI
   (F116) - all gated server-side on F096 + the relevant capability flag.
+- F117 (CSV import) is pushed as `817f746` in draft PR #133 with both GitHub CI jobs green. Its
+  capped streaming inspect/validate/import API, typed mapping/coercion, bounded SQL transactions,
+  one-document MongoDB batches, permission/kind gates, mapping/dry-run/result UI, product contract,
+  and read-only E2E canary are complete. The local and pre-push `CI=1 pnpm verify:pr` gates passed
+  against all four engines, smoke E2E, and full E2E.
 
 ## In progress
 
-- F117 (CSV import) is implemented on `feature/F117-csv-import`. The new product contract fixes a
-  10 MiB/10,000-row/256-column multipart boundary, three server modes (`inspect`, `validate`,
-  `import`), scalar coercion from real introspected metadata, source-line errors, and exact engine
-  semantics: Postgres/MySQL/SQLite insert in 250-row native-transaction batches through
-  `commitBatch`; standalone MongoDB uses its native atomic unit, one document through `insertRow`.
-  The parser streams with no temporary files and retains only the 20-row preview, current batch,
-  and bounded row-error report.
-
-  The Tables toolbar exposes Import CSV only for insert-capable tables/collections. The shared
-  `CsvImportDialog` uploads for inspection, defaults exact-name mappings, invalidates a dry run when
-  mappings change, previews server-coerced values, and imports valid rows with a final
-  inserted/failed summary. Read-only and view/materialized-view targets hide the action; the server
-  independently enforces the same kind/permission/read-only gates. Added 2 core validation, 11
-  server route/service, 5 web model, and 4 UI render tests; the standing read-only E2E canary now
-  includes Import CSV. `pnpm check:quiet` and `CI=1 pnpm verify:pr` are green on Node 22 against all
-  local engines, smoke E2E, and full E2E.
+- No implementation slice is active. F117 is awaiting user review/merge; F118 is next after merge.
 
 ## Known issues / blockers
 
@@ -76,5 +65,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Review and deliver F117: commit, push, open the draft PR, wait for both CI jobs, then record its
-  passing state/evidence.
+- Review and merge draft PR #133. After the merge is confirmed, prune passing history and promote
+  F118 (JSON/SQL-INSERT export plus single-pass engine streaming) as the next feature slice.

@@ -6,6 +6,7 @@ import {
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { ServerContext } from "../app.js";
 import { applyReadOnlyOverride } from "../services/read-only-capabilities.js";
+import { permissionRoute } from "../services/permission-denied.js";
 import { requireAdapter } from "../services/require-adapter.js";
 
 /** Database/schema-lifecycle operations landed by F115, per docs/product-specs/schema-editing.md's
@@ -34,6 +35,7 @@ function logAdminFailure(
   startedAt: number,
   error: unknown
 ): void {
+  if (ctx.adapter?.classifyPermissionDenied(error)) return;
   const durationMs = Math.round(performance.now() - startedAt);
   const detail = error instanceof Error ? error.message : String(error);
   ctx.eventLog.log("error", `${operation} failed for ${target}: ${detail}`);
@@ -51,11 +53,13 @@ function adminRejected(
   message: string,
   statusCode: number
 ): Error {
-  ctx.eventLog.log("warn", `${operation} rejected: ${message}`);
-  request.log.warn(
-    { operation, target, durationMs: 0, outcome: "rejected" },
-    `${operation} rejected`
-  );
+  if (statusCode !== 403) {
+    ctx.eventLog.log("warn", `${operation} rejected: ${message}`);
+    request.log.warn(
+      { operation, target, durationMs: 0, outcome: "rejected" },
+      `${operation} rejected`
+    );
+  }
   return Object.assign(new Error(message), { statusCode });
 }
 
@@ -87,7 +91,11 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
   // Create a database. Non-destructive - a plain review-before-submit step, no typed confirmation.
   app.post<{ Body: unknown }>(
     "/api/databases",
-    { config: { mutating: true } },
+    permissionRoute({
+      operation: "create-database",
+      target: "database",
+      likelyMissingGrant: "CREATE DATABASE"
+    }),
     async (request, reply) => {
       const parsedBody = createDatabaseRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -136,7 +144,11 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
   // re-validated server-side, per the spec's typed-confirmation rule.
   app.delete<{ Params: { database: string }; Body: unknown }>(
     "/api/databases/:database",
-    { config: { mutating: true } },
+    permissionRoute({
+      operation: "drop-database",
+      target: "database",
+      likelyMissingGrant: "DROP DATABASE or ownership"
+    }),
     async (request, reply) => {
       const parsedBody = confirmedNameRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -198,7 +210,7 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
   // schema concept below the database). Non-destructive - no typed confirmation.
   app.post<{ Body: unknown }>(
     "/api/schemas",
-    { config: { mutating: true } },
+    permissionRoute({ operation: "create-schema", target: "schema", likelyMissingGrant: "CREATE" }),
     async (request, reply) => {
       const parsedBody = createSchemaRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -236,7 +248,11 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
   // own dependency error rather than silently taking every contained table with it.
   app.delete<{ Params: { schema: string }; Body: unknown }>(
     "/api/schemas/:schema",
-    { config: { mutating: true } },
+    permissionRoute({
+      operation: "drop-schema",
+      target: "schema",
+      likelyMissingGrant: "DROP or ownership"
+    }),
     async (request, reply) => {
       const parsedBody = confirmedNameRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {

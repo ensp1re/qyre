@@ -47,6 +47,7 @@ import {
 } from "./ddl.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
 import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
+import { classifyPostgresPermissionDenied } from "./permission-errors.js";
 import {
   fetchAllTablePermissions,
   fetchConnectionCapabilities,
@@ -185,6 +186,8 @@ export class PostgresAdapter implements DatabaseAdapter {
       return { ...stubReadOnlyCapabilities(true), supportsAccessInspection: true };
     }
   }
+
+  classifyPermissionDenied = classifyPostgresPermissionDenied;
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {
     const [metadata, permissions] = await Promise.all([

@@ -11,6 +11,7 @@ import { OperationCancelledError } from "@qyre/driver-contract";
 import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../app.js";
 import { formatRowExport } from "../services/row-export.js";
+import { permissionRoute } from "../services/permission-denied.js";
 import { requireAdapter } from "../services/require-adapter.js";
 import {
   assertMutable,
@@ -110,7 +111,7 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
   // the database's own real enforcement, per docs/product-specs/permissions-and-capabilities.md.
   app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/rows",
-    { config: { mutating: true } },
+    permissionRoute({ operation: "insert", target: "table", likelyMissingGrant: "INSERT" }),
     async (request, reply) => {
       const parsedBody = insertRowRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -146,7 +147,7 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
   // no-op 200 - the caller may have staged an edit against a row that was already changed/removed.
   app.patch<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/rows",
-    { config: { mutating: true } },
+    permissionRoute({ operation: "update", target: "table", likelyMissingGrant: "UPDATE" }),
     async (request, reply) => {
       const parsedBody = updateRowRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -222,7 +223,7 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
   // reported as 409, same "stale row" treatment F100's update gets, never a silent 200.
   app.delete<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/rows",
-    { config: { mutating: true } },
+    permissionRoute({ operation: "delete", target: "table", likelyMissingGrant: "DELETE" }),
     async (request, reply) => {
       const parsedBody = deleteRowsRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {

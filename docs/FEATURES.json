@@ -120,7 +120,7 @@
       "id": "F120",
       "behavior": "Permission-denied hardening across every mutating path: engine permission errors map to structured, friendly responses (which operation, which object, the likely missing grant) instead of raw engine text; a denial triggers a capabilities/permissions refetch so UI affordances converge with reality when grants change mid-session (the advisory-introspection principle in exec plan 0006); the event log records each denial. Conformance covers a denied insert/update/ddl per engine using the restricted fixtures with grants revoked mid-session where the engine allows. Depends on the write surfaces it protects - schedule after F117.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

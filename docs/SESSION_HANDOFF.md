@@ -5,9 +5,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Current state
 
-- Date: 2026-07-13.
-- Branch: `feature/F119-roles-grants-viewer`, based on `main` through merged PR #134.
-- Queue: F111-F119 are `passing`; F120-F121 and F128 remain `not_started`.
+- Date: 2026-07-14.
+- Branch: `feature/F120-permission-denied-hardening`, based on `main` through merged PR #135.
+- Queue: F111-F119 are `passing`; F120 is `active`; F121 and F128 remain `not_started`.
   `nextIds.F` is 129.
 
 ## Completed
@@ -32,15 +32,16 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   export queries with native streams on all four engines and adds capability-driven CSV,
   JSON/Extended JSON, and SQL-INSERT downloads while preserving selected-row CSV precedence. The
   local and pre-push `CI=1 pnpm verify:pr` gates and explicit four-engine stream conformance passed.
-- F119 is pushed as `ce3a5bc` in PR #135 with both CI jobs green. It adds a secret-safe,
+- F119 merged as PR #135 (`e964310`). It adds a secret-safe,
   read-only access inspection contract and Settings viewer across Postgres, MySQL, SQLite, and
   MongoDB, including partial catalog degradation, bounds/redaction coverage, and a parallel E2E
   fixture-race repair. Local and pre-push `pnpm verify:pr` gates passed on Node 22.
 
 ## In progress
 
-- No implementation slice is active. F119 is awaiting review/merge in PR #135; F120 is next after
-  merge.
+- F120 is active: map authoritative engine permission denials to a structured response, refresh
+  advisory capability/permission caches after a denial, record it in the EventLog, and cover the
+  four engines through conformance where their restricted fixtures apply.
 
 ## Known issues / blockers
 
@@ -75,5 +76,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Review and merge PR #135. After the merge is confirmed, prune passing history and promote F120
-  (permission-denied hardening) as the next feature slice.
+- Implement F120's shared denial contract and engine classifiers, route every mutating path through
+  it, refresh browser permission state on denial, then run the focused and full PR gates.

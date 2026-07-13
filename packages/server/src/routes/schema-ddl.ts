@@ -9,6 +9,7 @@ import {
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { ServerContext } from "../app.js";
 import { applyReadOnlyOverride } from "../services/read-only-capabilities.js";
+import { permissionRoute } from "../services/permission-denied.js";
 import { requireAdapter } from "../services/require-adapter.js";
 import {
   assertColumnExists,
@@ -55,6 +56,9 @@ function logDdlFailure(
   startedAt: number,
   error: unknown
 ): void {
+  // The global handler owns authoritative denials so their raw engine text is never logged and
+  // the EventLog receives exactly one safe denial entry.
+  if (ctx.adapter?.classifyPermissionDenied(error)) return;
   const durationMs = Math.round(performance.now() - startedAt);
   const detail = error instanceof Error ? error.message : String(error);
   ctx.eventLog.log("error", `${operation} failed for ${schema}.${table}: ${detail}`);
@@ -73,7 +77,7 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
   // review-before-submit step in the UI, no typed confirmation.
   app.post<{ Params: { schema: string }; Body: unknown }>(
     "/api/schemas/:schema/tables",
-    { config: { mutating: true } },
+    permissionRoute({ operation: "create-table", target: "table", likelyMissingGrant: "CREATE" }),
     async (request, reply) => {
       const parsedBody = createTableRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -125,7 +129,7 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
   // confirmation.
   app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/rename",
-    { config: { mutating: true } },
+    permissionRoute({ operation: "rename-table", target: "table", likelyMissingGrant: "ALTER" }),
     async (request, reply) => {
       const parsedBody = renameTableRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -175,7 +179,11 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
   // caller to type the table's exact name, re-validated server-side.
   app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/truncate",
-    { config: { mutating: true } },
+    permissionRoute({
+      operation: "truncate-table",
+      target: "table",
+      likelyMissingGrant: "TRUNCATE or DELETE"
+    }),
     async (request, reply) => {
       const parsedBody = confirmedNameRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -237,7 +245,11 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
   // identical precedent for its own DELETE route.
   app.delete<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table",
-    { config: { mutating: true } },
+    permissionRoute({
+      operation: "drop-table",
+      target: "table",
+      likelyMissingGrant: "DROP or ownership"
+    }),
     async (request, reply) => {
       const parsedBody = confirmedNameRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -298,7 +310,7 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
   // Add a column. Non-destructive - a plain review-before-submit step, no typed confirmation.
   app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/columns",
-    { config: { mutating: true } },
+    permissionRoute({ operation: "add-column", target: "column", likelyMissingGrant: "ALTER" }),
     async (request, reply) => {
       const { schema, table } = request.params;
       const db = requireAdapter(ctx.adapter);
@@ -355,7 +367,7 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
   // review-before-submit step, no typed confirmation.
   app.patch<{ Params: { schema: string; table: string; column: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/columns/:column",
-    { config: { mutating: true } },
+    permissionRoute({ operation: "alter-column", target: "column", likelyMissingGrant: "ALTER" }),
     async (request, reply) => {
       const { schema, table, column } = request.params;
       const db = requireAdapter(ctx.adapter);
@@ -452,7 +464,7 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
   // precedent for its own DELETE route.
   app.delete<{ Params: { schema: string; table: string; column: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/columns/:column",
-    { config: { mutating: true } },
+    permissionRoute({ operation: "drop-column", target: "column", likelyMissingGrant: "ALTER" }),
     async (request, reply) => {
       const { schema, table, column } = request.params;
       const db = requireAdapter(ctx.adapter);
@@ -520,7 +532,11 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
   // index grants specifically), per docs/product-specs/schema-editing.md.
   app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/indexes",
-    { config: { mutating: true } },
+    permissionRoute({
+      operation: "create-index",
+      target: "index",
+      likelyMissingGrant: "INDEX, ALTER, or ownership"
+    }),
     async (request, reply) => {
       const { schema, table } = request.params;
       const db = requireAdapter(ctx.adapter);
@@ -575,7 +591,11 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
   // confirmation" section).
   app.delete<{ Params: { schema: string; table: string; indexName: string } }>(
     "/api/tables/:schema/:table/ddl/indexes/:indexName",
-    { config: { mutating: true } },
+    permissionRoute({
+      operation: "drop-index",
+      target: "index",
+      likelyMissingGrant: "INDEX, ALTER, or ownership"
+    }),
     async (request, reply) => {
       const { schema, table, indexName } = request.params;
       const db = requireAdapter(ctx.adapter);

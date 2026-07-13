@@ -46,6 +46,7 @@ import {
 } from "./ddl.js";
 import { introspectAllTables, introspectSchemas, introspectTable } from "./introspection.js";
 import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
+import { classifyMysqlPermissionDenied } from "./permission-errors.js";
 import {
   fetchAllTablePermissions,
   fetchConnectionCapabilities,
@@ -203,6 +204,8 @@ export class MysqlAdapter implements DatabaseAdapter {
       return { ...stubReadOnlyCapabilities(true), supportsAccessInspection: true };
     }
   }
+
+  classifyPermissionDenied = classifyMysqlPermissionDenied;
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {
     const [metadata, permissions] = await Promise.all([

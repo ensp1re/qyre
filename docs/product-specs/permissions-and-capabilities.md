@@ -63,13 +63,9 @@ the final word, never Qyre's guess.
 
 ### Out of scope (for now)
 
-- Automatic re-fetch when grants change mid-session without a reconnect (e.g. an admin revokes a
-  role's `INSERT` while Qyre is open). The advisory-vs-authoritative principle below covers this:
-  a stale `true` flag just means a write attempt reaches the database and gets a real permission
-  error, mapped to a friendly message (F120) - not a security gap, since the database still
-  enforces the real boundary.
-- A capability-refresh button or polling. F120 owns any UX for "your permissions may have
-  changed"; this spec only fixes the shape of the data, not when it's re-read.
+- Polling specifically for grant changes or a manual capability-refresh button. F120 now refetches
+  capabilities and table permissions after a real or advisory write denial; no background grant
+  watcher is required because the database remains authoritative on every attempt.
 
 ## Tier 2: `TablePermissions` (per-table)
 
@@ -138,6 +134,43 @@ the final word, never Qyre's guess.
 - Live, sub-session enforcement of database-side changes (e.g. detecting a `REVOKE` the instant it
   happens). Covered by "advisory, re-checked on every real attempt" above - this spec deliberately
   does not add polling, triggers, or a push mechanism.
+
+## Structured permission denials (F120)
+
+Every database-mutating route declares three pieces of metadata: its operation, its target kind,
+and the engine-appropriate grant the connected role likely needs. Concrete adapters classify only
+their own native errors (Postgres SQLSTATE, MySQL error code/errno, SQLite result code, MongoDB
+code/codeName); routes never branch on engine names. A native denial or a fresh advisory pre-check
+that returns 403 produces one shared response:
+
+```json
+{
+  "error": "Permission denied while attempting to insert on public.users. The connected role likely needs INSERT.",
+  "code": "permission-denied",
+  "operation": "insert",
+  "object": "public.users",
+  "likelyMissingGrant": "INSERT"
+}
+```
+
+- The status is 403. Raw engine text is absent from the HTTP response, EventLog, and structured
+  request log; syntax, constraint, connectivity, and other non-permission failures retain their
+  existing behavior.
+- Owner-only errors replace the grant suggestion with `ownership of <object>`; read-only session
+  errors suggest `write access on the current connection`.
+- The EventLog records exactly one warning per denial, and pino receives only the safe operation,
+  object, likely grant, and `permission-denied` outcome.
+- The browser transport recognizes `code: "permission-denied"` before throwing the friendly
+  message. It invalidates/refetches the `overview`, `allTables`, and individual `table` query
+  families, so session capabilities and visible table permissions converge after a grant changes.
+- Server startup rejects any route registered as `mutating` without denial metadata. This makes
+  coverage of future write routes executable rather than relying on review memory.
+
+Live conformance revokes Postgres table/schema grants in-session; MySQL table grants apply
+in-session while its cached database-level `CREATE` grant requires reconnect before the DDL
+assertion; SQLite uses a read-only file target. MongoDB's shared local/CI fixture runs without
+authorization, so a live restricted-user denial is not applicable there; native code 13 is covered
+by the shared classifier assertion and driver unit test.
 
 ## Per-engine introspection matrix
 

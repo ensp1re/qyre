@@ -22,7 +22,7 @@
  * is cross-engine consistency, not gating whether that one engine's own suite ran.
  */
 import { randomUUID } from "node:crypto";
-import { mkdtempSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DatabaseEngine } from "@qyre/core";
@@ -50,6 +50,14 @@ interface ConformanceFixture {
   viewTable: string;
 }
 
+interface PermissionDenialFixture {
+  /** A separate adapter target whose writes can be denied without affecting the main fixture. */
+  raw: string;
+  /** Revokes grants after connect where the engine supports live grants. */
+  revoke?: () => Promise<void>;
+  expectedKind: "permission" | "read-only";
+}
+
 interface EngineCase {
   name: string;
   envVar: string;
@@ -57,7 +65,13 @@ interface EngineCase {
   engine: DatabaseEngine;
   /** Creates the populated/empty fixtures and returns their identifiers, or undefined to skip. */
   setup: () => Promise<
-    { raw: string; fixture: ConformanceFixture; teardown: () => Promise<void> } | undefined
+    | {
+        raw: string;
+        fixture: ConformanceFixture;
+        permissionDenial?: PermissionDenialFixture;
+        teardown: () => Promise<void>;
+      }
+    | undefined
   >;
 }
 
@@ -84,13 +98,40 @@ const cases: EngineCase[] = [
       );
       await pool.query(`CREATE TABLE ${emptyTable} (id serial PRIMARY KEY, n int, label text)`);
       await pool.query(`CREATE VIEW ${viewTable} AS SELECT * FROM ${populatedTable}`);
+      const deniedUser = `qyre_f120_${suffix}`;
+      const deniedPassword = randomUUID();
+      const database = decodeURIComponent(new URL(raw).pathname.slice(1));
+      await pool.query(`CREATE ROLE ${deniedUser} LOGIN PASSWORD '${deniedPassword}'`);
+      await pool.query(
+        `GRANT CONNECT ON DATABASE "${database.replace(/"/g, '""')}" TO ${deniedUser}`
+      );
+      await pool.query(`GRANT USAGE, CREATE ON SCHEMA public TO ${deniedUser}`);
+      await pool.query(
+        `GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ${populatedTable} TO ${deniedUser}`
+      );
+      await pool.query(`GRANT USAGE, SELECT ON SEQUENCE ${populatedTable}_id_seq TO ${deniedUser}`);
+      const deniedUrl = new URL(raw);
+      deniedUrl.username = deniedUser;
+      deniedUrl.password = deniedPassword;
       return {
         raw,
         fixture: { schema: "public", populatedTable, populatedRowCount: 3, emptyTable, viewTable },
+        permissionDenial: {
+          raw: deniedUrl.toString(),
+          expectedKind: "permission",
+          revoke: async () => {
+            await pool.query(
+              `REVOKE INSERT, UPDATE, DELETE ON TABLE ${populatedTable} FROM ${deniedUser}`
+            );
+            await pool.query(`REVOKE CREATE ON SCHEMA public FROM ${deniedUser}`);
+          }
+        },
         teardown: async () => {
           await pool.query(`DROP VIEW IF EXISTS ${viewTable}`);
           await pool.query(`DROP TABLE IF EXISTS ${populatedTable}`);
           await pool.query(`DROP TABLE IF EXISTS ${emptyTable}`);
+          await pool.query(`DROP OWNED BY ${deniedUser}`);
+          await pool.query(`DROP ROLE IF EXISTS ${deniedUser}`);
           await pool.end();
         }
       };
@@ -116,6 +157,17 @@ const cases: EngineCase[] = [
         `CREATE TABLE ${emptyTable} (id INT AUTO_INCREMENT PRIMARY KEY, n INT, label VARCHAR(50))`
       );
       await pool.query(`CREATE VIEW ${viewTable} AS SELECT * FROM ${populatedTable}`);
+      const deniedUser = `qyre_f120_${suffix}`;
+      const deniedPassword = randomUUID();
+      const databaseIdent = `\`${databaseName.replace(/`/g, "``")}\``;
+      await pool.query(`CREATE USER '${deniedUser}'@'%' IDENTIFIED BY '${deniedPassword}'`);
+      await pool.query(
+        `GRANT SELECT, INSERT, UPDATE, DELETE ON ${databaseIdent}.\`${populatedTable}\` TO '${deniedUser}'@'%'`
+      );
+      await pool.query(`GRANT CREATE ON ${databaseIdent}.* TO '${deniedUser}'@'%'`);
+      const deniedUrl = new URL(raw);
+      deniedUrl.username = deniedUser;
+      deniedUrl.password = deniedPassword;
       return {
         raw,
         fixture: {
@@ -125,10 +177,21 @@ const cases: EngineCase[] = [
           emptyTable,
           viewTable
         },
+        permissionDenial: {
+          raw: deniedUrl.toString(),
+          expectedKind: "permission",
+          revoke: async () => {
+            await pool.query(
+              `REVOKE INSERT, UPDATE, DELETE ON ${databaseIdent}.\`${populatedTable}\` FROM '${deniedUser}'@'%'`
+            );
+            await pool.query(`REVOKE CREATE ON ${databaseIdent}.* FROM '${deniedUser}'@'%'`);
+          }
+        },
         teardown: async () => {
           await pool.query(`DROP VIEW IF EXISTS ${viewTable}`);
           await pool.query(`DROP TABLE IF EXISTS ${populatedTable}`);
           await pool.query(`DROP TABLE IF EXISTS ${emptyTable}`);
+          await pool.query(`DROP USER IF EXISTS '${deniedUser}'@'%'`);
           await pool.end();
         }
       };
@@ -150,10 +213,26 @@ const cases: EngineCase[] = [
       db.exec(`CREATE TABLE ${emptyTable} (id INTEGER PRIMARY KEY, n INTEGER, label TEXT)`);
       db.exec(`CREATE VIEW ${viewTable} AS SELECT * FROM ${populatedTable}`);
       db.close();
+      const deniedDir = mkdtempSync(join(tmpdir(), "qyre-conformance-readonly-"));
+      const deniedPath = join(deniedDir, "fixture.db");
+      const deniedDb = new Database(deniedPath);
+      deniedDb.exec(
+        `CREATE TABLE ${populatedTable} (id INTEGER PRIMARY KEY, n INTEGER, label TEXT)`
+      );
+      deniedDb.exec(`INSERT INTO ${populatedTable} (id, n, label) VALUES (1, 1, 'apple')`);
+      deniedDb.close();
+      chmodSync(deniedPath, 0o444);
+      chmodSync(deniedDir, 0o555);
       return {
         raw: dbPath,
         fixture: { schema: "main", populatedTable, populatedRowCount: 3, emptyTable, viewTable },
-        teardown: async () => {}
+        permissionDenial: { raw: deniedPath, expectedKind: "read-only" },
+        teardown: async () => {
+          chmodSync(deniedDir, 0o755);
+          chmodSync(deniedPath, 0o644);
+          rmSync(dir, { recursive: true, force: true });
+          rmSync(deniedDir, { recursive: true, force: true });
+        }
       };
     }
   },
@@ -206,6 +285,8 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
   }
 
   let adapter: DatabaseAdapter;
+  let permissionDeniedAdapter: DatabaseAdapter | undefined;
+  let permissionDenial: PermissionDenialFixture | undefined;
   let fixture: ConformanceFixture;
   let teardown: () => Promise<void>;
 
@@ -214,13 +295,19 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     const result = await setup();
     if (!result) throw new Error(`${name}: setup() unexpectedly returned undefined`);
     fixture = result.fixture;
+    permissionDenial = result.permissionDenial;
     teardown = result.teardown;
     adapter = factory.create({ engine, raw: result.raw });
     await adapter.connect();
+    if (permissionDenial) {
+      permissionDeniedAdapter = factory.create({ engine, raw: permissionDenial.raw });
+      await permissionDeniedAdapter.connect();
+    }
   });
 
   afterAll(async () => {
     await adapter?.disconnect();
+    await permissionDeniedAdapter?.disconnect();
     await teardown?.();
   });
 
@@ -286,6 +373,86 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     expect(Array.isArray(overview?.facts)).toBe(true);
     const serialized = JSON.stringify(overview);
     expect(serialized).not.toMatch(/"(?:password|credentials|authenticationString)":/i);
+  });
+
+  // MongoDB is explicitly not applicable for the live-revocation half: the shared local/CI
+  // mongod runs with authorization disabled, so there is no restricted role to revoke. Its native
+  // code-13 classifier remains covered by the shared assertion below and its driver unit test.
+  it.skipIf(!configured || engine === "mongodb")(
+    "classifies denied insert, update, and DDL after grants change (F120)",
+    async () => {
+      const denial = permissionDenial;
+      const deniedAdapter = permissionDeniedAdapter;
+      if (!denial || !deniedAdapter) {
+        throw new Error(`${name}: permission-denial fixture is missing`);
+      }
+      if (denial.revoke) {
+        const before = await deniedAdapter.getCapabilities();
+        expect(before.supportsRowMutations).toBe(true);
+        expect(before.supportsDdl).toBe(true);
+        await denial.revoke();
+      }
+
+      const expectDenied = async (run: () => Promise<unknown>): Promise<void> => {
+        let caught: unknown;
+        try {
+          await run();
+        } catch (error) {
+          caught = error;
+        }
+        const detail = caught as { code?: unknown; errno?: unknown; message?: unknown } | undefined;
+        expect(
+          deniedAdapter.classifyPermissionDenied(caught),
+          `native denial was code=${String(detail?.code)} errno=${String(detail?.errno)} message=${String(detail?.message)}`
+        ).toBe(denial.expectedKind);
+      };
+
+      await expectDenied(() =>
+        deniedAdapter.mutations!.insertRow!(fixture.schema, fixture.populatedTable, {
+          n: 9,
+          label: "denied-insert"
+        })
+      );
+      await expectDenied(() =>
+        deniedAdapter.mutations!.updateRowByKey!(
+          fixture.schema,
+          fixture.populatedTable,
+          { id: 1 },
+          { label: "denied-update" }
+        )
+      );
+      // MySQL applies revoked table privileges to subsequent requests, but database-level grants
+      // such as CREATE can remain cached on already-pooled sessions until reconnect. Reconnect only
+      // for the DDL assertion; insert/update above still prove live mid-session revocation.
+      if (engine === "mysql") {
+        await deniedAdapter.disconnect();
+        await deniedAdapter.connect();
+      }
+      await expectDenied(() =>
+        deniedAdapter.ddl!.createTable!(fixture.schema, `${emptyTable}_denied`, [
+          {
+            name: "id",
+            dataType: engine === "mysql" ? "INT" : "INTEGER",
+            nullable: false,
+            default: null
+          }
+        ])
+      );
+    }
+  );
+
+  it.skipIf(!configured)("classifies the engine's native denial shape (F120)", () => {
+    const nativeError =
+      engine === "postgres"
+        ? { code: "42501" }
+        : engine === "mysql"
+          ? { code: "ER_TABLEACCESS_DENIED_ERROR" }
+          : engine === "sqlite"
+            ? { code: "SQLITE_READONLY" }
+            : { code: 13, codeName: "Unauthorized" };
+    expect(adapter.classifyPermissionDenied(nativeError)).toBe(
+      engine === "sqlite" ? "read-only" : "permission"
+    );
   });
 
   it.skipIf(!configured)(

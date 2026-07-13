@@ -229,6 +229,10 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     async () => {
       const capabilities = await adapter.getCapabilities();
       expect(capabilities.supportsSql).toBe(engine !== "mongodb");
+      expect(capabilities.rowExportFormats).toEqual(
+        engine === "mongodb" ? ["csv", "json"] : ["csv", "json", "sql"]
+      );
+      expect(capabilities.jsonExportMode).toBe(engine === "mongodb" ? "extended-json" : "json");
       if (engine === "postgres" || engine === "mysql") {
         // The conformance Postgres/MySQL fixtures connect as the Docker/CI superuser/root. F092/F093
         // replace their F091 stubs with real session facts, so every capability is available here.
@@ -411,6 +415,45 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     );
     expect(notNullPage.rows).toHaveLength(2);
   });
+
+  it.skipIf(!configured)(
+    "streams one sorted and filtered result through the native export iterator (F118)",
+    async () => {
+      const populatedMetadata = await adapter.getTable(fixture.schema, fixture.populatedTable);
+      const values: number[] = [];
+      for await (const row of adapter.streamRows(
+        fixture.schema,
+        fixture.populatedTable,
+        populatedMetadata.columns,
+        { column: "n", direction: "desc" },
+        [{ column: "n", op: "gt", value: "1" }]
+      )) {
+        values.push(Number(row.n));
+      }
+      expect(values).toEqual([3, 2]);
+
+      const emptyRows: Array<Record<string, unknown>> = [];
+      const emptyMetadata = await adapter.getTable(fixture.schema, fixture.emptyTable);
+      for await (const row of adapter.streamRows(
+        fixture.schema,
+        fixture.emptyTable,
+        emptyMetadata.columns
+      )) {
+        emptyRows.push(row);
+      }
+      expect(emptyRows).toEqual([]);
+
+      const interruptedRows = adapter.streamRows(
+        fixture.schema,
+        fixture.populatedTable,
+        populatedMetadata.columns
+      );
+      const interrupted = interruptedRows[Symbol.asyncIterator]();
+      expect((await interrupted.next()).done).toBe(false);
+      await interrupted.return?.();
+      expect(await adapter.ping()).toBe(true);
+    }
+  );
 
   // Declared last in the block deliberately: it permanently adds a row to fixture.populatedTable,
   // which every row-count-sensitive assertion above (clamping, sorting, filtering) depends on

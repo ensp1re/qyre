@@ -107,12 +107,35 @@ describe("RowsTable header type badges (component rendering, F081)", () => {
   });
 });
 
-describe("RowsTable whole-table export (component rendering, F066)", () => {
+describe("RowsTable whole-result export (component rendering, F118)", () => {
   it("shows the export button and calls onExportAllRows when clicked", () => {
     const onExportAllRows = vi.fn();
     renderTable({ onExportAllRows });
     fireEvent.click(screen.getByLabelText("Export all rows as CSV"));
-    expect(onExportAllRows).toHaveBeenCalledOnce();
+    expect(onExportAllRows).toHaveBeenCalledWith("csv");
+  });
+
+  it("offers only adapter-supported formats and exports the selected whole-result format", () => {
+    const onExportAllRows = vi.fn();
+    renderTable({ exportFormats: ["csv", "json"], onExportAllRows });
+
+    expect(screen.getByRole("option", { name: "CSV" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "JSON" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "SQL INSERT" })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Export format"), { target: { value: "json" } });
+    fireEvent.click(screen.getByLabelText("Export all rows as JSON"));
+    expect(onExportAllRows).toHaveBeenCalledWith("json");
+  });
+
+  it("labels MongoDB JSON export as Extended JSON", () => {
+    renderTable({
+      exportFormats: ["csv", "json"],
+      jsonExportMode: "extended-json",
+      onExportAllRows: vi.fn()
+    });
+
+    expect(screen.getByRole("option", { name: "Extended JSON" })).toBeInTheDocument();
   });
 
   it("hides the export button when onExportAllRows is omitted", () => {

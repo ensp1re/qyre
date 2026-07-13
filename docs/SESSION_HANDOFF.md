@@ -6,8 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-13.
-- Branch: `feature/F117-csv-import`, based on `main` through merged PR #132.
-- Queue: F110-F117 are `passing`; F118-F121 and F128 remain `not_started`. `nextIds.F` is 129.
+- Branch: `feature/F118-row-export-streaming`, based on `main` through merged PR #133.
+- Queue: F110-F117 are `passing`; F118 is `active`; F119-F121 and F128 remain `not_started`.
+  `nextIds.F` is 129.
 
 ## Completed
 
@@ -22,7 +23,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   (F110), column ops (F111, incl. SQLite's 12-step rebuild), index ops (F112), the table designer
   UI (F113), the Structure view (F114), database/schema lifecycle (F115), and its management UI
   (F116) - all gated server-side on F096 + the relevant capability flag.
-- F117 (CSV import) is pushed as `817f746` in PR #133 with both GitHub CI jobs green. Its
+- F117 (CSV import) merged as PR #133 (`35c29ce`). Its
   capped streaming inspect/validate/import API, typed mapping/coercion, bounded SQL transactions,
   one-document MongoDB batches, permission/kind gates, mapping/dry-run/result UI, product contract,
   and read-only E2E canary are complete. The local and pre-push `CI=1 pnpm verify:pr` gates passed
@@ -30,7 +31,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- No implementation slice is active. F117 is awaiting user review/merge; F118 is next after merge.
+- F118 is implemented locally: native single-pass adapter streams now feed capability-driven CSV,
+  JSON/Extended JSON, and SQL-INSERT downloads while preserving F083 selected-row CSV behavior.
+  The cross-engine conformance case and `CI=1 pnpm verify:pr` pass; commit/PR delivery is pending.
 
 ## Known issues / blockers
 
@@ -65,5 +68,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Review and merge PR #133. After the merge is confirmed, prune passing history and promote
-  F118 (JSON/SQL-INSERT export plus single-pass engine streaming) as the next feature slice.
+- Review and commit F118, push its feature branch, open a draft PR, wait for both CI jobs, then
+  record the PR/commit evidence and move F118 to `passing`.

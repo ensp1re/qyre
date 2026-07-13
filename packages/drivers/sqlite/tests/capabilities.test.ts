@@ -36,6 +36,8 @@ describe("computeCapabilities (F094)", () => {
 
     expect(computeCapabilities(dbPath, db)).toEqual({
       supportsSql: true,
+      rowExportFormats: ["csv", "json", "sql"],
+      jsonExportMode: "json",
       supportsRowMutations: true,
       supportsDdl: true,
       supportsIndexManagement: true,
@@ -107,6 +109,8 @@ describe("tablePermissionsFromCapabilities (F094)", () => {
     expect(
       tablePermissionsFromCapabilities({
         supportsSql: true,
+        rowExportFormats: ["csv", "json", "sql"],
+        jsonExportMode: "json",
         supportsRowMutations: true,
         supportsDdl: true,
         supportsIndexManagement: true,
@@ -121,6 +125,8 @@ describe("tablePermissionsFromCapabilities (F094)", () => {
     expect(
       tablePermissionsFromCapabilities({
         supportsSql: true,
+        rowExportFormats: ["csv", "json", "sql"],
+        jsonExportMode: "json",
         supportsRowMutations: false,
         supportsDdl: false,
         supportsIndexManagement: false,

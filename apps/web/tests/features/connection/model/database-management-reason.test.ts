@@ -4,6 +4,8 @@ import { databaseManagementReason } from "../../../../src/features/connection/mo
 
 const WRITABLE: ConnectionCapabilities = {
   supportsSql: true,
+  rowExportFormats: ["csv", "json", "sql"],
+  jsonExportMode: "json",
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: true,

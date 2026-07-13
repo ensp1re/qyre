@@ -1,6 +1,7 @@
 /** SQLite adapter composition and lifecycle. */
 import { resolve } from "node:path";
 import type {
+  ColumnMetadata,
   ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
@@ -35,6 +36,7 @@ import {
 import { fetchAllTableTargets, introspectTable, MAIN_SCHEMA } from "./introspection.js";
 import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
 import { normalizeRow } from "./row-values.js";
+import { formatSqlInsert, streamRows } from "./row-export.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
 /**
@@ -84,6 +86,25 @@ export class SqliteAdapter implements DatabaseAdapter {
       throw new Error("SqliteAdapter is not connected. Call connect() first.");
     }
     return this.db;
+  }
+
+  streamRows(
+    _schema: string,
+    table: string,
+    _columns: readonly ColumnMetadata[],
+    sort?: RowSort,
+    filters?: RowFilter[]
+  ): AsyncIterable<Record<string, unknown>> {
+    return streamRows(this.getDb(), table, sort, filters);
+  }
+
+  formatSqlInsert(
+    _schema: string,
+    table: string,
+    columns: readonly string[],
+    row: Record<string, unknown>
+  ): string {
+    return formatSqlInsert(table, columns, row);
   }
 
   async connect(): Promise<void> {

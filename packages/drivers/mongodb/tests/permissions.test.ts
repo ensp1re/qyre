@@ -18,6 +18,8 @@ describe("capabilitiesFromConnectionStatus (F095)", () => {
     // authenticatedUserPrivileges is an empty array (not omitted).
     expect(capabilitiesFromConnectionStatus(status([], []))).toEqual({
       supportsSql: false,
+      rowExportFormats: ["csv", "json"],
+      jsonExportMode: "extended-json",
       supportsRowMutations: true,
       supportsDdl: true,
       supportsIndexManagement: true,
@@ -40,6 +42,8 @@ describe("capabilitiesFromConnectionStatus (F095)", () => {
     );
     expect(capabilitiesFromConnectionStatus(readRoleStatus)).toEqual({
       supportsSql: false,
+      rowExportFormats: ["csv", "json"],
+      jsonExportMode: "extended-json",
       supportsRowMutations: false,
       supportsDdl: false,
       supportsIndexManagement: false,

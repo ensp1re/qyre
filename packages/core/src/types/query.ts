@@ -71,3 +71,12 @@ export interface RowFilter {
   readonly op: FilterOp;
   readonly value?: string;
 }
+
+/** Download formats offered by the Tables tab's whole-result export (F118). Adapters advertise
+ * their supported subset through `AdapterCapabilities.rowExportFormats`; callers never infer
+ * availability from an engine name. */
+export const ROW_EXPORT_FORMATS = ["csv", "json", "sql"] as const;
+export type RowExportFormat = (typeof ROW_EXPORT_FORMATS)[number];
+
+/** Whether JSON export uses ordinary JSON serialization or MongoDB's relaxed Extended JSON. */
+export type JsonExportMode = "json" | "extended-json";

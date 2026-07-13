@@ -31,6 +31,8 @@ describe("postgresAdapterFactory", () => {
 
     await expect(adapter.getCapabilities()).resolves.toEqual({
       supportsSql: true,
+      rowExportFormats: ["csv", "json", "sql"],
+      jsonExportMode: "json",
       supportsRowMutations: false,
       supportsDdl: false,
       supportsIndexManagement: false,

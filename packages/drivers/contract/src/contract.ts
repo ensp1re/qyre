@@ -1,5 +1,6 @@
 import type {
   ColumnDefinition,
+  ColumnMetadata,
   CommitMutationsResult,
   ConnectionCapabilities,
   ConnectionTarget,
@@ -193,6 +194,31 @@ export interface DatabaseAdapter {
     filters?: RowFilter[],
     operationId?: string
   ): Promise<RowPage>;
+  /**
+   * Streams every row matching one validated sort/filter request in a single database execution
+   * (F118). Implementations use their native cursor/query iterator and release it in `finally` so
+   * response aborts do not leak a checked-out connection. `columns` is the route's already-fetched
+   * metadata, used by adapters that need type-aware filter coercion without introspecting twice.
+   * The iterable yields raw engine values; the server formats one row at a time without buffering.
+   */
+  streamRows(
+    schema: string,
+    table: string,
+    columns: readonly ColumnMetadata[],
+    sort?: RowSort,
+    filters?: RowFilter[]
+  ): AsyncIterable<Record<string, unknown>>;
+  /** Adapter-owned SQL INSERT formatter. Present only when `rowExportFormats` contains `sql`, so
+   * identifier and literal escaping never leaks into the server layer. */
+  formatSqlInsert?(
+    schema: string,
+    table: string,
+    columns: readonly string[],
+    row: Record<string, unknown>
+  ): string;
+  /** Adapter-owned JSON row serialization. MongoDB uses relaxed Extended JSON; other adapters
+   * omit this and use the server's ordinary JSON serializer. */
+  serializeJsonRow?(row: Record<string, unknown>): string;
   /** Execute a read-only (SELECT-style) query. Implementations must reject mutations.
    * `operationId` - see {@link DatabaseAdapter.getRows}. */
   runReadOnlyQuery(sql: string, operationId?: string): Promise<RowPage>;

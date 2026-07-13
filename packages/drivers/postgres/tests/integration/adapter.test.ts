@@ -44,6 +44,8 @@ describe("PostgresAdapter integration", () => {
   it("reports writable-session capabilities and table permissions for the fixture owner (F092)", async () => {
     await expect(adapter.getCapabilities()).resolves.toEqual({
       supportsSql: true,
+      rowExportFormats: ["csv", "json", "sql"],
+      jsonExportMode: "json",
       supportsRowMutations: true,
       supportsDdl: true,
       supportsIndexManagement: true,
@@ -66,6 +68,8 @@ describe("PostgresAdapter integration", () => {
       await readOnlyAdapter.connect();
       await expect(readOnlyAdapter.getCapabilities()).resolves.toEqual({
         supportsSql: true,
+        rowExportFormats: ["csv", "json", "sql"],
+        jsonExportMode: "json",
         supportsRowMutations: false,
         supportsDdl: false,
         supportsIndexManagement: false,

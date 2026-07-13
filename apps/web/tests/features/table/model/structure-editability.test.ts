@@ -4,6 +4,8 @@ import { computeTableStructureEditability } from "../../../../src/features/table
 
 const FULL_CAPABILITIES: ConnectionCapabilities = {
   supportsSql: true,
+  rowExportFormats: ["csv", "json", "sql"],
+  jsonExportMode: "json",
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: true,

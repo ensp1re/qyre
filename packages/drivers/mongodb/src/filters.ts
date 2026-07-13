@@ -46,7 +46,7 @@ function buildMongoCondition(
 /** Build a MongoDB find document from validated row filters. */
 export function buildMongoFilter(
   filters: RowFilter[] | undefined,
-  columns: ColumnMetadata[]
+  columns: readonly ColumnMetadata[]
 ): Record<string, unknown> {
   if (!filters || filters.length === 0) return {};
   const dataTypeByColumn = new Map(columns.map((column) => [column.name, column.dataType]));

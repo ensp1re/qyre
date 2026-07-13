@@ -146,6 +146,8 @@ describe("fetchConnectionCapabilities (F093)", () => {
       )
     ).resolves.toEqual({
       supportsSql: true,
+      rowExportFormats: ["csv", "json", "sql"],
+      jsonExportMode: "json",
       supportsRowMutations: true,
       supportsDdl: true,
       supportsIndexManagement: true,
@@ -162,6 +164,8 @@ describe("fetchConnectionCapabilities (F093)", () => {
       )
     ).resolves.toEqual({
       supportsSql: true,
+      rowExportFormats: ["csv", "json", "sql"],
+      jsonExportMode: "json",
       supportsRowMutations: false,
       supportsDdl: false,
       supportsIndexManagement: false,

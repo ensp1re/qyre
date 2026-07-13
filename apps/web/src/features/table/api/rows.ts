@@ -1,4 +1,4 @@
-import type { RowFilter, RowPage, RowSort } from "@qyre/core";
+import type { RowExportFormat, RowFilter, RowPage, RowSort } from "@qyre/core";
 import { getAuthToken } from "../../../shared/api/auth-token.js";
 import { fetchJson } from "../../../shared/api/fetch-json.js";
 
@@ -40,7 +40,7 @@ export function fetchRows(
 }
 
 /**
- * URL for streaming a whole-table CSV export (F066), honoring the given sort/filters if any.
+ * URL for streaming a whole-table export (F118), honoring the given sort/filters if any.
  * Deliberately not fetched via `fetchJson` - the caller triggers a real browser navigation/download
  * to this URL instead, so the download streams straight to disk rather than buffering the whole
  * table in a JS Blob (which would defeat the point of the server streaming it in bounded batches).
@@ -50,6 +50,7 @@ export function fetchRows(
 export function exportRowsUrl(
   schema: string,
   table: string,
+  format: RowExportFormat,
   sort?: RowSort,
   filters?: RowFilter[]
 ): string {
@@ -58,6 +59,6 @@ export function exportRowsUrl(
   const token = getAuthToken();
   if (token) params.set("token", token);
   const query = params.toString();
-  const path = `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/export.csv`;
+  const path = `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/export.${format}`;
   return query ? `${path}?${query}` : path;
 }

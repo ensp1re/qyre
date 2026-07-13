@@ -2,15 +2,15 @@ import { Readable } from "node:stream";
 import {
   deleteRowsRequestSchema,
   insertRowRequestSchema,
-  MAX_PAGE_SIZE,
+  ROW_EXPORT_FORMATS,
   rowsQuerySchema,
   updateRowRequestSchema
 } from "@qyre/core";
-import type { AllTablesResponse } from "@qyre/core";
+import type { AllTablesResponse, RowExportFormat } from "@qyre/core";
 import { OperationCancelledError } from "@qyre/driver-contract";
 import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../app.js";
-import { csvLine } from "../services/csv.js";
+import { formatRowExport } from "../services/row-export.js";
 import { requireAdapter } from "../services/require-adapter.js";
 import {
   assertMutable,
@@ -19,7 +19,18 @@ import {
   resolveKeys,
   resolveUpdateChanges
 } from "../services/row-mutation-validation.js";
-import { resolveRowQuery } from "../services/row-query.js";
+import { resolveRowFilters, resolveRowQuery, resolveRowSort } from "../services/row-query.js";
+
+const EXPORT_CONTENT_TYPES: Record<RowExportFormat, string> = {
+  csv: "text/csv; charset=utf-8",
+  json: "application/json; charset=utf-8",
+  sql: "application/sql; charset=utf-8"
+};
+
+function exportFilename(table: string, format: RowExportFormat): string {
+  const safeTable = table.replace(/[^\p{L}\p{N}._-]+/gu, "_").slice(0, 120) || "export";
+  return `${safeTable}.${format}`;
+}
 
 export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): void {
   app.get<{ Params: { schema: string; table: string } }>(
@@ -269,64 +280,44 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  // F066: streams every row of the table as CSV (honoring the sort/filters above, if any) rather
-  // than capping at runReadOnlyQuery's 1,000-row limit (F050) - exporting the whole table is the
-  // point.
-  app.get<{ Params: { schema: string; table: string }; Querystring: Record<string, string> }>(
-    "/api/tables/:schema/:table/export.csv",
-    async (request, reply) => {
-      const parsed = rowsQuerySchema
-        .pick({ sortColumn: true, sortDirection: true, filters: true })
-        .safeParse(request.query);
-      if (!parsed.success) {
-        return reply
-          .status(400)
-          .send({ error: "Invalid sortColumn/sortDirection/filters query parameters." });
-      }
-      const { schema, table } = request.params;
-      const db = requireAdapter(ctx.adapter);
-      const resolved = await resolveRowQuery(
-        db,
-        schema,
-        table,
-        parsed.data.sortColumn,
-        parsed.data.sortDirection,
-        parsed.data.filters
-      );
-      const sort = resolved.sort;
-      const filters = resolved.filters;
-
-      reply.header("Content-Type", "text/csv; charset=utf-8");
-      reply.header("Content-Disposition", `attachment; filename="${table}.csv"`);
-
-      const stream = new Readable({ read() {} });
-      // Fetches and pushes in bounded MAX_PAGE_SIZE batches rather than materializing the whole
-      // table in memory (F066) - mirrors capResultRows's philosophy (F050) for a path that must
-      // NOT be capped, since exporting the whole table is the entire point of this endpoint.
-      // Not awaited: the response has already started streaming (status/headers committed the
-      // moment the first chunk is pushed) once this handler returns the stream below, so a
-      // mid-export failure can only end the connection abruptly, not change the status code.
-      void (async () => {
-        let page = 0;
-        let wroteHeader = false;
-        for (;;) {
-          const rowPage = await db.getRows(schema, table, page, MAX_PAGE_SIZE, sort, filters);
-          if (!wroteHeader) {
-            stream.push(`${csvLine(rowPage.columns)}\n`);
-            wroteHeader = true;
-          }
-          for (const row of rowPage.rows) {
-            stream.push(`${csvLine(rowPage.columns.map((column) => row[column]))}\n`);
-          }
-          if (rowPage.rows.length < MAX_PAGE_SIZE) break;
-          page += 1;
-        }
-        stream.push(null);
-      })().catch((error: unknown) => {
-        stream.destroy(error instanceof Error ? error : new Error(String(error)));
-      });
-
-      return stream;
+  // F118: one native adapter cursor/query stream per whole-result export. Readable.from propagates
+  // response backpressure and closes the adapter iterator if the client disconnects.
+  app.get<{
+    Params: { schema: string; table: string; format: string };
+    Querystring: Record<string, string>;
+  }>("/api/tables/:schema/:table/export.:format", async (request, reply) => {
+    const format = request.params.format as RowExportFormat;
+    if (!ROW_EXPORT_FORMATS.includes(format)) {
+      return reply.status(400).send({ error: "Export format must be csv, json, or sql." });
     }
-  );
+    const parsed = rowsQuerySchema
+      .pick({ sortColumn: true, sortDirection: true, filters: true })
+      .safeParse(request.query);
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send({ error: "Invalid sortColumn/sortDirection/filters query parameters." });
+    }
+    const { schema, table } = request.params;
+    const db = requireAdapter(ctx.adapter);
+    const [metadata, capabilities] = await Promise.all([
+      db.getTable(schema, table),
+      db.getCapabilities()
+    ]);
+    if (!capabilities.rowExportFormats.includes(format)) {
+      return reply.status(400).send({ error: `This engine does not support ${format} export.` });
+    }
+    if (format === "sql" && !db.formatSqlInsert) {
+      return reply.status(400).send({ error: "This engine does not support SQL INSERT export." });
+    }
+
+    const sort = resolveRowSort(metadata, parsed.data.sortColumn, parsed.data.sortDirection);
+    const filters = resolveRowFilters(metadata, parsed.data.filters, db.engine);
+    const columns = metadata.columns.map((column) => column.name);
+    const rows = db.streamRows(schema, table, metadata.columns, sort, filters);
+
+    reply.header("Content-Type", EXPORT_CONTENT_TYPES[format]);
+    reply.header("Content-Disposition", `attachment; filename="${exportFilename(table, format)}"`);
+    return Readable.from(formatRowExport(db, format, schema, table, columns, rows));
+  });
 }

@@ -632,6 +632,8 @@ describe("SqliteAdapter integration", () => {
   it("reports full writability and permissions for a normal writable fixture (F094)", async () => {
     await expect(adapter.getCapabilities()).resolves.toEqual({
       supportsSql: true,
+      rowExportFormats: ["csv", "json", "sql"],
+      jsonExportMode: "json",
       supportsRowMutations: true,
       supportsDdl: true,
       supportsIndexManagement: true,
@@ -664,6 +666,8 @@ describe("SqliteAdapter integration", () => {
       await readOnlyAdapter.connect();
       await expect(readOnlyAdapter.getCapabilities()).resolves.toEqual({
         supportsSql: true,
+        rowExportFormats: ["csv", "json", "sql"],
+        jsonExportMode: "json",
         supportsRowMutations: false,
         supportsDdl: false,
         supportsIndexManagement: false,

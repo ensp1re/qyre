@@ -7,6 +7,7 @@ import type {
 } from "@qyre/core";
 import {
   CommitBar,
+  CsvImportDialog,
   DocumentEditorDrawer,
   ErrorState,
   RowsTable,
@@ -23,9 +24,11 @@ import {
   saveDocument
 } from "../api/document.js";
 import { commitMutations } from "../api/mutations.js";
+import { importCsv, inspectCsvImport, validateCsvImport } from "../api/csv-import.js";
 import { exportRowsUrl } from "../api/rows.js";
 import { buildMutationOps, buildPreviewLine } from "../model/commit-preview.js";
 import { computeDocumentEditability } from "../model/document-editability.js";
+import { computeCsvImportability } from "../model/csv-importability.js";
 import { computeTableEditability } from "../model/editability.js";
 import { computeTableStructureEditability } from "../model/structure-editability.js";
 import { usePendingChanges } from "../model/pending-changes.js";
@@ -112,6 +115,7 @@ export function TablesTab({
   const [documentSaving, setDocumentSaving] = useState(false);
   const [documentDeleting, setDocumentDeleting] = useState(false);
   const [documentError, setDocumentError] = useState<string | undefined>(undefined);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   if (!selected) {
     return <p className="text-[13px] text-muted-foreground">Select a table from the sidebar.</p>;
@@ -232,6 +236,7 @@ export function TablesTab({
 
   const editability = computeTableEditability(table.data, capabilities, engine);
   const documentEditability = computeDocumentEditability(table.data, capabilities, engine);
+  const csvImportability = computeCsvImportability(table.data, capabilities, engine);
   const primaryKeyColumns = (table.data?.columns ?? [])
     .filter((column) => column.isPrimaryKey)
     .map((column) => column.name);
@@ -370,6 +375,8 @@ export function TablesTab({
             downloadExport(exportRowsUrl(selected.schema, selected.table, sort, filters))
           }
           onExportSelectedRows={(csv) => downloadCsv(`${selected.table}-selected.csv`, csv)}
+          canImportCsv={csvImportability.canImport && ops.length === 0}
+          onImportCsv={() => setCsvImportOpen(true)}
           filters={filters}
           onFiltersChange={onFiltersChange}
           editable={editability.editable}
@@ -410,6 +417,21 @@ export function TablesTab({
           onSave={(text) => void handleSaveDocument(text)}
           onDelete={documentEditor.mode === "edit" ? () => void handleDeleteDocument() : undefined}
           onClose={closeDocumentEditor}
+        />
+      )}
+      {csvImportOpen && (
+        <CsvImportDialog
+          tableName={selected.table}
+          columns={csvImportability.columns}
+          onInspect={(file) => inspectCsvImport(selectedTable.schema, selectedTable.table, file)}
+          onValidate={(file, nextMapping) =>
+            validateCsvImport(selectedTable.schema, selectedTable.table, file, nextMapping)
+          }
+          onImport={(file, nextMapping) =>
+            importCsv(selectedTable.schema, selectedTable.table, file, nextMapping)
+          }
+          onImported={() => rows.refetch()}
+          onClose={() => setCsvImportOpen(false)}
         />
       )}
     </div>

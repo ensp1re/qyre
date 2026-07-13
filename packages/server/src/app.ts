@@ -7,6 +7,7 @@
 import { DEFAULT_PORT } from "@qyre/core";
 import type { ConnectionTarget, HealthResponse } from "@qyre/core";
 import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
+import multipart from "@fastify/multipart";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 import { registerAuthGuard } from "./plugins/auth-guard.js";
@@ -17,6 +18,7 @@ import { registerSecurityHeaders } from "./plugins/security-headers.js";
 import { registerStaticWeb } from "./plugins/static-web.js";
 import { registerConnectRoute } from "./routes/connect.js";
 import { registerConsoleRoutes } from "./routes/console.js";
+import { CSV_IMPORT_MULTIPART_LIMITS, registerCsvImportRoutes } from "./routes/csv-import.js";
 import { registerDatabaseAdminRoutes } from "./routes/database-admin.js";
 import { registerFilesRoutes } from "./routes/files.js";
 import { registerHealthRoute } from "./routes/health.js";
@@ -139,11 +141,16 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   registerAuthGuard(app, authToken);
   registerReadOnlyGuard(app, ctx);
   registerErrorHandler(app, ctx.eventLog);
+  app.register(multipart, {
+    throwFileSizeLimit: true,
+    limits: CSV_IMPORT_MULTIPART_LIMITS
+  });
 
   registerHealthRoute(app, ctx);
   registerConnectRoute(app, ctx);
   registerOverviewRoute(app, ctx);
   registerTablesRoutes(app, ctx);
+  registerCsvImportRoutes(app, ctx);
   registerMutationsRoutes(app, ctx);
   registerSchemaDdlRoutes(app, ctx);
   registerDatabaseAdminRoutes(app, ctx);

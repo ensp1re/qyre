@@ -319,17 +319,18 @@
       "id": "F112",
       "behavior": "Index management per docs/product-specs/schema-editing.md: createIndex (columns, unique flag) and dropIndex in the ddl namespace across all four engines (MongoDB native createIndex/dropIndex), building on the existing IndexMetadata listing from getTable; server routes gated + audited; conformance: create-list-drop roundtrip on every engine, unique-index constraint behavior, restricted-user rejection. Depends on F110.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "16b44e6",
+      "evidence": "PR #128 (https://github.com/ensp1re/qyre/pull/128), merged as 16b44e6. createIndex/dropIndex added to SchemaDdlApi and implemented across all four engines, including MongoDB (unlike F111's column ops, which are entirely absent there) - MongoDB maps onto its own collection.createIndex()/dropIndex() with a plain top-level/dotted-field key spec built from IndexDefinition.columns. Postgres/SQLite index names are unique per schema/database (table param unused in dropIndex); MySQL's DROP INDEX requires the table per its own grammar. Server routes: POST /api/tables/:schema/:table/ddl/indexes (create), DELETE .../ddl/indexes/:indexName (drop) - gated on the session's real supportsIndexManagement capability (a distinct flag from supportsDdl, per F090's reservation), index columns validated against the table's real introspected columns (skipped for MongoDB - best-effort field sampling, not an authoritative catalog, and index columns can be dotted nested-field paths never sampled as top-level fields), index existence validated for drop. dropIndex uses a plain confirming click, not typed confirmation, per the spec's lower-risk treatment of index drops versus table/column drops. A real pre-existing gap was found and fixed along the way: MongoDB's introspectCollection hardcoded indexes: [] and never actually listed real indexes - now calls collection.indexes(), so getTable correctly reports the default _id_ index (primary: true) plus any created ones, which F112's own conformance/integration tests needed to verify against. Conformance: a create-list-drop roundtrip with a unique-index-rejects-a-duplicate-value assertion in the shared testing-conformance suite (all four engines, unlike F111's SQL-only column-op test) and each engine's own integration tests, incl. restricted-user/read-only rejection for Postgres/MySQL/SQLite (MongoDB's shared docker-compose container has no auth enabled, matching the pre-existing, documented limitation every other MongoDB restricted-role case in this codebase already has); 10 new packages/server/tests/routes/schema-ddl.test.ts route tests cover the create/drop success paths, unknown-column/unknown-index rejection, invalid-identifier rejection, view-target rejection (F124), the supportsDdl-true-but-supportsIndexManagement-false case proving the two capabilities gate independently, and --read-only 403 (F096). Verified: pnpm check:quiet:run and pnpm verify:pr (full local gate incl. Docker-backed Postgres/MySQL/MongoDB integration tests, the shared conformance suite, and full E2E, all green).",
       "blockedReason": null,
-      "spec": "docs/product-specs/schema-editing.md"
+      "spec": "docs/product-specs/schema-editing.md",
+      "completedAt": "2026-07-13T05:47:52.000Z"
     },
     {
       "id": "F113",
       "behavior": "Permission-gated New-table flow per docs/product-specs/schema-editing.md: a table designer in the sidebar/Schema surface for name + columns (type picked from the engine's type catalog exposed by F110, nullability, default, PK incl. composite), a preview of the exact DDL/ops before creation, per-engine validation, and engine errors mapped to clear messages; the MongoDB variant degrades to a new-collection dialog (name only). Hidden without ddl capability. Depends on F110.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

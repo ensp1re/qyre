@@ -28,13 +28,23 @@ test("@full a --read-only session shows the read-only badge and renders zero wri
 
   // No write-affording control exists anywhere in the app yet (Qyre is read-only pre-F099) - this
   // canary keeps that true specifically *in a read-only session* as write features land, forcing
-  // each one to prove it's gated rather than merely noticing the regression after the fact.
-  await expect(
-    page.getByRole("button", { name: /add row|new row|edit row|delete row|save changes|insert/i })
-  ).toHaveCount(0);
+  // each one to prove it's gated rather than merely noticing the regression after the fact. F114's
+  // Structure view added a second wave of DDL control names, so this regex covers both waves.
+  const writeControlPattern =
+    /add row|new row|edit row|delete row|save changes|insert|new table|add column|edit column|drop column|create index|drop index|rename table|truncate table|drop table/i;
+  await expect(page.getByRole("button", { name: writeControlPattern })).toHaveCount(0);
 
   // Reading still works normally - --read-only blocks writes, not reads.
   await page.getByRole("tab", { name: "Schema" }).click();
   await expect(page.getByTestId("schema-graph")).toBeVisible();
   await expect(page.locator(".react-flow__node").filter({ hasText: FIXTURE.table })).toBeVisible();
+  await expect(page.getByRole("button", { name: writeControlPattern })).toHaveCount(0);
+
+  // F114: the Structure view specifically must also render zero DDL controls - it's the surface
+  // most of this test's new control names actually belong to.
+  await page.getByRole("tab", { name: "Tables" }).click();
+  await page.getByRole("treeitem", { name: FIXTURE.table }).click();
+  await page.getByRole("button", { name: "Structure" }).click();
+  await expect(page.getByTestId("table-detail")).toBeVisible();
+  await expect(page.getByRole("button", { name: writeControlPattern })).toHaveCount(0);
 });

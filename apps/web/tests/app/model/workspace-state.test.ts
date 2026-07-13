@@ -84,4 +84,38 @@ describe("workspaceReducer", () => {
     const closed = workspaceReducer(opened, { type: "settingsChanged", open: false });
     expect(closed.settingsOpen).toBe(false);
   });
+
+  it("keeps the selected table's schema when a Structure-view rename lands (F114)", () => {
+    const initial = {
+      ...createInitialWorkspaceState(1200),
+      selected: { schema: "public", table: "orders" }
+    };
+
+    const next = workspaceReducer(initial, { type: "tableRenamed", newName: "purchases" });
+    expect(next.selected).toEqual({ schema: "public", table: "purchases" });
+  });
+
+  it("is a no-op renaming with nothing selected", () => {
+    const initial = createInitialWorkspaceState(1200);
+    expect(workspaceReducer(initial, { type: "tableRenamed", newName: "purchases" }).selected).toBe(
+      undefined
+    );
+  });
+
+  it("clears the selection and table navigation after a Structure-view drop (F114)", () => {
+    const initial = {
+      ...createInitialWorkspaceState(1200),
+      selected: { schema: "public", table: "orders" },
+      page: 3,
+      sort: { column: "name", direction: "asc" as const },
+      filters: [{ column: "id", op: "eq" as const, value: "1" }]
+    };
+
+    expect(workspaceReducer(initial, { type: "tableDropped" })).toMatchObject({
+      selected: undefined,
+      page: 0,
+      sort: undefined,
+      filters: undefined
+    });
+  });
 });

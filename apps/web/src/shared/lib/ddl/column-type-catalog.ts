@@ -1,6 +1,8 @@
 /**
  * The curated per-engine column type catalog (F110/F113, docs/product-specs/schema-editing.md's
- * "Column type catalog") - empty for MongoDB, which has no column DDL at all.
+ * "Column type catalog") - empty for MongoDB, which has no column DDL at all. Lives under `shared`
+ * (not a single feature) since both the Schema tab's New-table dialog (F113) and the Tables tab's
+ * Structure view (F114) need it.
  *
  * Duplicated from `packages/core/src/types/ddl.ts`'s `POSTGRES_COLUMN_TYPES`/`MYSQL_COLUMN_TYPES`/
  * `SQLITE_COLUMN_TYPES` rather than imported at runtime: `@qyre/core` is tsup-bundled into one

@@ -327,6 +327,8 @@ export function App(): ReactNode {
                     onFiltersChange={(nextFilters) =>
                       dispatch({ type: "filtersChanged", filters: nextFilters })
                     }
+                    onTableRenamed={(newName) => dispatch({ type: "tableRenamed", newName })}
+                    onTableDropped={() => dispatch({ type: "tableDropped" })}
                   />
                 ) : tab === "schema" ? (
                   <SchemaTab

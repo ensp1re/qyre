@@ -5,7 +5,15 @@ import type {
   RowFilter,
   RowSort
 } from "@qyre/core";
-import { CommitBar, DocumentEditorDrawer, ErrorState, RowsTable, Spinner } from "@qyre/ui";
+import {
+  CommitBar,
+  DocumentEditorDrawer,
+  ErrorState,
+  RowsTable,
+  Spinner,
+  TableStructure
+} from "@qyre/ui";
+import { Rows3, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import {
@@ -19,9 +27,14 @@ import { exportRowsUrl } from "../api/rows.js";
 import { buildMutationOps, buildPreviewLine } from "../model/commit-preview.js";
 import { computeDocumentEditability } from "../model/document-editability.js";
 import { computeTableEditability } from "../model/editability.js";
+import { computeTableStructureEditability } from "../model/structure-editability.js";
 import { usePendingChanges } from "../model/pending-changes.js";
+import { useTableDdlMutations } from "../model/use-table-ddl.js";
+import { useTableView } from "../model/use-table-view.js";
 import type { useRows } from "../model/use-rows.js";
 import type { useTable } from "../model/use-table.js";
+import { columnTypeCatalogForEngine } from "../../../shared/lib/ddl/column-type-catalog.js";
+import { ViewButton } from "../../../shared/ui/view-button.js";
 
 type DocumentEditorState = { mode: "edit"; id: string } | { mode: "insert" } | undefined;
 
@@ -38,6 +51,10 @@ export interface TablesTabProps {
   onSortChange: (sort: RowSort | undefined) => void;
   filters: RowFilter[] | undefined;
   onFiltersChange: (filters: RowFilter[] | undefined) => void;
+  /** F114: keeps the workspace's selected table in sync after a rename/drop in the Structure view -
+   * `TablesTab` has no reach into `App.tsx`'s selection state on its own. */
+  onTableRenamed?: (newName: string) => void;
+  onTableDropped?: () => void;
 }
 
 /** Triggers a real browser download of the streamed export - not a fetch+Blob, so the download
@@ -58,12 +75,13 @@ function downloadCsv(filename: string, csv: string): void {
 }
 
 /**
- * Tables tab content - the selected table's paginated row browser, editable inline on SQL engines
- * when session/table permissions allow (F103). `usePendingChanges` is called unconditionally (React
- * hooks rules) even before `selected` is known - the caller keys this whole component by the
- * selected table (see App.tsx) so switching tables remounts it, discarding any staged edits along
- * with every other piece of this component's state, per docs/product-specs/row-editing.md's
- * "switching tables doesn't carry the buffer over" scoping.
+ * Tables tab content - either the selected table's paginated row browser, editable inline on SQL
+ * engines when session/table permissions allow (F103), or F114's Structure view (column/index
+ * management, table-lifecycle actions), toggled and persisted via `useTableView`. `usePendingChanges`
+ * is called unconditionally (React hooks rules) even before `selected` is known - the caller keys
+ * this whole component by the selected table (see App.tsx) so switching tables remounts it,
+ * discarding any staged edits along with every other piece of this component's state, per
+ * docs/product-specs/row-editing.md's "switching tables doesn't carry the buffer over" scoping.
  */
 export function TablesTab({
   selected,
@@ -77,9 +95,13 @@ export function TablesTab({
   sort,
   onSortChange,
   filters,
-  onFiltersChange
+  onFiltersChange,
+  onTableRenamed,
+  onTableDropped
 }: TablesTabProps): ReactNode {
   const pendingChanges = usePendingChanges();
+  const { view, setView } = useTableView();
+  const ddl = useTableDdlMutations(selected?.schema ?? "", selected?.table ?? "");
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<
     { message: string; failedIndex?: number } | undefined
@@ -100,27 +122,109 @@ export function TablesTab({
   // need this to use `.schema`/`.table` without a redundant `selected &&` check each time.
   const selectedTable = selected;
 
+  const viewToggle = (
+    <div className="flex shrink-0 items-center gap-1 pb-3">
+      <div className="flex items-center gap-0.5 rounded-[3px] border border-border bg-card p-0.5">
+        <ViewButton
+          active={view === "rows"}
+          onClick={() => setView("rows")}
+          icon={<Rows3 className="h-3 w-3" />}
+          label="Rows"
+        />
+        <ViewButton
+          active={view === "structure"}
+          onClick={() => setView("structure")}
+          icon={<Table2 className="h-3 w-3" />}
+          label="Structure"
+        />
+      </div>
+    </div>
+  );
+
+  if (view === "structure") {
+    if (table.isLoading) {
+      return (
+        <div className="flex h-full flex-col">
+          {viewToggle}
+          <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+            <Spinner /> Loading table...
+          </p>
+        </div>
+      );
+    }
+    if (table.isError) {
+      return (
+        <div className="flex h-full flex-col">
+          {viewToggle}
+          <ErrorState
+            message={table.error instanceof Error ? table.error.message : "Failed to load table."}
+            onRetry={() => table.refetch()}
+          />
+        </div>
+      );
+    }
+    if (!table.data) return null;
+
+    const structureEditability = computeTableStructureEditability(table.data, capabilities, engine);
+
+    return (
+      <div className="flex h-full flex-col">
+        {viewToggle}
+        <div className="min-h-0 flex-1 overflow-auto">
+          <TableStructure
+            table={table.data}
+            engine={engine}
+            columnTypes={columnTypeCatalogForEngine(engine)}
+            canEditColumns={structureEditability.canEditColumns}
+            canManageIndexes={structureEditability.canManageIndexes}
+            canEditTable={structureEditability.canEditTable}
+            onAddColumn={ddl.addColumn}
+            onEditColumn={ddl.editColumn}
+            onDropColumn={ddl.dropColumn}
+            onCreateIndex={ddl.createIndex}
+            onDropIndex={ddl.dropIndex}
+            onRenameTable={async (newName) => {
+              await ddl.renameTable(newName);
+              onTableRenamed?.(newName);
+            }}
+            onTruncateTable={ddl.truncateTable}
+            onDropTable={async () => {
+              await ddl.dropTable();
+              onTableDropped?.();
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (rows.isLoading) {
     return (
-      <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-        <Spinner /> Loading rows...
-        <button
-          type="button"
-          onClick={rows.cancel}
-          className="ml-1 rounded-[3px] border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-        >
-          Cancel
-        </button>
-      </p>
+      <div className="flex h-full flex-col">
+        {viewToggle}
+        <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+          <Spinner /> Loading rows...
+          <button
+            type="button"
+            onClick={rows.cancel}
+            className="ml-1 rounded-[3px] border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          >
+            Cancel
+          </button>
+        </p>
+      </div>
     );
   }
 
   if (rows.isError) {
     return (
-      <ErrorState
-        message={rows.error instanceof Error ? rows.error.message : "Failed to load rows."}
-        onRetry={() => rows.refetch()}
-      />
+      <div className="flex h-full flex-col">
+        {viewToggle}
+        <ErrorState
+          message={rows.error instanceof Error ? rows.error.message : "Failed to load rows."}
+          onRetry={() => rows.refetch()}
+        />
+      </div>
     );
   }
 
@@ -244,6 +348,7 @@ export function TablesTab({
 
   return (
     <div className="flex h-full flex-col">
+      {viewToggle}
       <div className="min-h-0 flex-1">
         <RowsTable
           rowPage={rows.data.rowPage}

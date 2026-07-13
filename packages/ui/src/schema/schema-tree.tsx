@@ -1,5 +1,5 @@
 import type { SchemaMetadata } from "@qyre/core";
-import { FolderOpen, Table2 } from "lucide-react";
+import { FolderOpen, Plus, Table2, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { cn } from "../cn.js";
@@ -13,6 +13,13 @@ export interface SchemaTreeProps {
   schemas: SchemaMetadata[];
   selected?: SelectedTable;
   onSelect: (schema: string, table: string) => void;
+  /** Whether schema create/drop controls render at all (F116, Postgres only - MySQL's "schema" IS
+   * its database, SQLite/MongoDB have no schema concept below the database). */
+  canManageSchemas?: boolean;
+  /** Opens the caller's create-schema flow - a "+ New schema" row above the search box. */
+  onRequestCreateSchema?: () => void;
+  /** Opens the caller's drop-schema flow for one schema - a trash icon on that schema's row. */
+  onRequestDropSchema?: (schema: string) => void;
 }
 
 type NodeType = "schema" | "table";
@@ -72,7 +79,9 @@ function TreeRow({
   query,
   matchIds,
   selected,
-  onSelect
+  onSelect,
+  canManageSchemas,
+  onRequestDropSchema
 }: {
   node: Node;
   depth: number;
@@ -80,6 +89,8 @@ function TreeRow({
   matchIds: Set<string>;
   selected?: SelectedTable;
   onSelect: (schema: string, table: string) => void;
+  canManageSchemas?: boolean;
+  onRequestDropSchema?: (schema: string) => void;
 }): ReactNode {
   // Only the schema level (depth 0) has children, so it's the only row whose default-open state
   // matters - tables are leaves and always render once their parent schema is expanded.
@@ -161,6 +172,21 @@ function TreeRow({
             {node.children.length}
           </span>
         )}
+
+        {node.type === "schema" && canManageSchemas && onRequestDropSchema && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onRequestDropSchema(node.name);
+            }}
+            aria-label={`Drop schema ${node.name}`}
+            className="shrink-0 rounded-[2px] p-0.5 text-muted-foreground hover:bg-sidebar-accent"
+            style={{ color: "var(--c-red)" }}
+          >
+            <Trash2 className="h-2.5 w-2.5" />
+          </button>
+        )}
       </div>
 
       {hasChildren && open && (
@@ -174,6 +200,8 @@ function TreeRow({
               matchIds={matchIds}
               selected={selected}
               onSelect={onSelect}
+              canManageSchemas={canManageSchemas}
+              onRequestDropSchema={onRequestDropSchema}
             />
           ))}
         </div>
@@ -191,7 +219,14 @@ function TreeRow({
  * available (Settings' Connection section, the switch-database drawer, the footer's database
  * name) without repeating the full connection string in this always-visible rail (F087).
  */
-export function SchemaTree({ schemas, selected, onSelect }: SchemaTreeProps): ReactNode {
+export function SchemaTree({
+  schemas,
+  selected,
+  onSelect,
+  canManageSchemas,
+  onRequestCreateSchema,
+  onRequestDropSchema
+}: SchemaTreeProps): ReactNode {
   const [query, setQuery] = useState("");
   const schemaNodes = useMemo(() => buildSchemaNodes(schemas), [schemas]);
   const matchIds = useMemo(() => {
@@ -228,6 +263,15 @@ export function SchemaTree({ schemas, selected, onSelect }: SchemaTreeProps): Re
             className="w-full min-w-0 bg-transparent font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40"
           />
         </div>
+        {canManageSchemas && onRequestCreateSchema && (
+          <button
+            type="button"
+            onClick={onRequestCreateSchema}
+            className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-[2px] py-1 font-mono text-[10px] text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+          >
+            <Plus className="h-3 w-3" /> New schema
+          </button>
+        )}
       </div>
 
       {(() => {
@@ -263,6 +307,8 @@ export function SchemaTree({ schemas, selected, onSelect }: SchemaTreeProps): Re
                   matchIds={matchIds}
                   selected={selected}
                   onSelect={onSelect}
+                  canManageSchemas={canManageSchemas}
+                  onRequestDropSchema={onRequestDropSchema}
                 />
               ))
             )}

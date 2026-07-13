@@ -99,17 +99,18 @@
       "id": "F115",
       "behavior": "Database/schema lifecycle where the engine supports it: adapters gain the admin namespace with listDatabases (Postgres/MySQL/MongoDB; SQLite not-applicable - one file is one database and must report that cleanly), createDatabase/dropDatabase, and Postgres schema create/drop; capabilities report supportsDatabaseManagement from the real F092-F095 introspection. Server routes gated + audited; drop requires the typed-confirmation token server-side. Conformance: list/create/drop roundtrip on the three applicable engines, restricted-user rejection, SQLite clean not-applicable. Needs a short spec section added to docs/product-specs/permissions-and-capabilities.md or schema-editing.md (decide during implementation, following F109's patterns). Depends on F096, F110.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "8ba44c3",
+      "evidence": "PR #131 (https://github.com/ensp1re/qyre/pull/131), merged as 8ba44c3. Adapters gain the DatabaseAdminApi admin namespace (mirroring mutations/ddl's optional-namespace pattern): Postgres gets listDatabases/createDatabase/dropDatabase plus createSchema/dropSchema (no CASCADE on drop - a non-empty schema surfaces Postgres's own dependency error rather than silently taking every contained table with it, confirmed live); MySQL the database trio only (its \"schema\" IS its database); MongoDB listDatabases/dropDatabase only (databases exist implicitly on first write, so there is no create to model - the route responds 400 explaining that); SQLite has no namespace at all (one file is one database, routes reply a clean 400, never a bare 404). supportsDatabaseManagement was already introspected for real on Postgres (CREATEDB/superuser) and MySQL (global CREATE/SUPER) from F092/F093; MongoDB now derives it from the dropDatabase privilege action (the only database-management action its privilege model has), replacing its F095 always-false placeholder incl. the unauthenticated full-access default. New routes: GET /api/databases (a read, no gate), POST /api/databases, DELETE /api/databases/:database, POST /api/schemas, DELETE /api/schemas/:schema - mutating routes two-tier gated (F096 + supportsDatabaseManagement), both drops behind server-side typed confirmation, all audited with operation+target structured fields. Design decision documented in the spec's new \"Database and schema lifecycle\" section: DELETE /api/schemas/:schema deliberately has no exists-first 404, since getOverview() derives schemas from tables and an empty schema never appears in it. MongoDB's WRITE_METHODS lint-scan gained admin.ts as a third trusted write-path file. Verified: 16 new server route tests, 4 new conformance tests (create/list/drop roundtrip on Postgres/MySQL/MongoDB incl. MongoDB's implicit-creation path, SQLite absent-namespace, Postgres schema roundtrip, capability reporting), restricted-role rejection tests for Postgres/MySQL, updated MongoDB permission-shape unit tests - all green against live databases, pnpm check:quiet:run and pnpm verify:pr all green.",
       "blockedReason": null,
-      "spec": null
+      "spec": "docs/product-specs/schema-editing.md",
+      "completedAt": "2026-07-13T20:15:00.000Z"
     },
     {
       "id": "F116",
       "behavior": "Database-level management UI: the connection/database switcher (F064/F085 flow) lists databases on the current server with switch-in-place, permission-gated create-database (name plus minimal engine-appropriate options), and drop-database behind typed confirmation; Postgres schema create/drop appears in the sidebar. Read-only or ungranted sessions see the list only, with the affordances hidden and the reason available. Depends on F115.",
       "verification": "pnpm --filter @qyre/web test && pnpm test:e2e",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

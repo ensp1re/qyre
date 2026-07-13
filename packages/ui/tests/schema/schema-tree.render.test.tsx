@@ -52,3 +52,42 @@ describe("SchemaTree (component rendering, F055)", () => {
     expect(screen.queryByRole("tree")).not.toBeInTheDocument();
   });
 });
+
+describe("SchemaTree schema management (F116)", () => {
+  it("hides New schema and per-schema drop buttons when canManageSchemas is false", () => {
+    render(<SchemaTree schemas={schemas} onSelect={vi.fn()} canManageSchemas={false} />);
+    expect(screen.queryByText("New schema")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Drop schema public")).not.toBeInTheDocument();
+  });
+
+  it("shows New schema and calls onRequestCreateSchema when clicked", () => {
+    const onRequestCreateSchema = vi.fn();
+    render(
+      <SchemaTree
+        schemas={schemas}
+        onSelect={vi.fn()}
+        canManageSchemas
+        onRequestCreateSchema={onRequestCreateSchema}
+      />
+    );
+    fireEvent.click(screen.getByText("New schema"));
+    expect(onRequestCreateSchema).toHaveBeenCalledOnce();
+  });
+
+  it("calls onRequestDropSchema for the clicked schema without toggling its expand state", () => {
+    const onRequestDropSchema = vi.fn();
+    render(
+      <SchemaTree
+        schemas={schemas}
+        onSelect={vi.fn()}
+        canManageSchemas
+        onRequestDropSchema={onRequestDropSchema}
+      />
+    );
+    fireEvent.click(screen.getByLabelText("Drop schema public"));
+    expect(onRequestDropSchema).toHaveBeenCalledWith("public");
+    // The schema was expanded by default (depth 0) and stays that way - the drop click didn't
+    // also toggle collapse via the row's own activate() handler.
+    expect(screen.getByText("users")).toBeInTheDocument();
+  });
+});

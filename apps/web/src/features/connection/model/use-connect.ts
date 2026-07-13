@@ -1,7 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { connectToTarget } from "../api/connect.js";
 
-const DATABASE_QUERY_KEYS = [
+/** Exported so `useSwitchDatabase` (F116) can apply the identical reset - switching to a sibling
+ * database on the same server invalidates the same database-owned caches a full reconnect does. */
+export const DATABASE_QUERY_KEYS = [
   ["overview"],
   ["allTables"],
   ["table"],

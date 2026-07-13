@@ -5,6 +5,7 @@
  * per file. See FRONTEND.md and docs/CODE_ORGANIZATION.md.
  */
 export * from "./connection/connect-drawer.js";
+export * from "./connection/database-panel.js";
 export * from "./connection/files-browser.js";
 export * from "./data-grid/cell-value-drawer.js";
 export * from "./data-grid/cell-value.js";
@@ -16,6 +17,7 @@ export * from "./feedback/error-boundary.js";
 export * from "./feedback/error-state.js";
 export * from "./feedback/spinner.js";
 export * from "./primitives/confirm-typed-name-dialog.js";
+export * from "./primitives/create-named-dialog.js";
 export * from "./primitives/date-time-input.js";
 export * from "./primitives/resize-handle.js";
 export * from "./primitives/segmented.js";

@@ -101,3 +101,17 @@ export function parseConnectionTarget(input: string | undefined): ConnectionTarg
   // Not URL-shaped at all (e.g. `./app.db`, `data.sqlite`) - treat as a candidate SQLite file path.
   return resolveSqliteTarget(trimmed, trimmed);
 }
+
+/**
+ * Swaps the database segment of a raw connection string (F116's "switch in place" within the
+ * connection/database switcher) - `raw` must already be a URL-shaped target (Postgres/MySQL/
+ * MongoDB; SQLite has no database segment to swap and never reaches this, per
+ * docs/product-specs/schema-editing.md's "Database and schema lifecycle" section). Used
+ * server-side only, against the currently connected target's own `raw` string - the client never
+ * sees or supplies credentials for this, it only names the sibling database to switch to.
+ */
+export function withDatabase(raw: string, database: string): string {
+  const url = new URL(raw);
+  url.pathname = `/${encodeURIComponent(database)}`;
+  return url.toString();
+}

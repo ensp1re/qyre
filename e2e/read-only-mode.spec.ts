@@ -29,9 +29,12 @@ test("@full a --read-only session shows the read-only badge and renders zero wri
   // No write-affording control exists anywhere in the app yet (Qyre is read-only pre-F099) - this
   // canary keeps that true specifically *in a read-only session* as write features land, forcing
   // each one to prove it's gated rather than merely noticing the regression after the fact. F114's
-  // Structure view added a second wave of DDL control names, so this regex covers both waves.
+  // Structure view and F116's database/schema admin UI each added a wave of DDL control names, so
+  // this regex covers all three waves. Deliberately excludes "switch" - switching to a sibling
+  // database stays available in a read-only session (F116's "list only, affordances hidden" rule
+  // means create/drop are gated, not the list/switch themselves).
   const writeControlPattern =
-    /add row|new row|edit row|delete row|save changes|insert|new table|add column|edit column|drop column|create index|drop index|rename table|truncate table|drop table/i;
+    /add row|new row|edit row|delete row|save changes|insert|new table|add column|edit column|drop column|create index|drop index|rename table|truncate table|drop table|new database|drop database|new schema|drop schema/i;
   await expect(page.getByRole("button", { name: writeControlPattern })).toHaveCount(0);
 
   // Reading still works normally - --read-only blocks writes, not reads.
@@ -46,5 +49,12 @@ test("@full a --read-only session shows the read-only badge and renders zero wri
   await page.getByRole("treeitem", { name: FIXTURE.table }).click();
   await page.getByRole("button", { name: "Structure" }).click();
   await expect(page.getByTestId("table-detail")).toBeVisible();
+  await expect(page.getByRole("button", { name: writeControlPattern })).toHaveCount(0);
+
+  // F116: the connection switcher's database panel keeps the list available (not a write) while
+  // hiding create/drop entirely - a stricter check than the blanket regex above, since it also
+  // confirms the section itself still renders instead of merely lacking forbidden buttons.
+  await page.getByRole("button", { name: "Switch database connection" }).click();
+  await expect(page.getByText("Databases on this server")).toBeVisible();
   await expect(page.getByRole("button", { name: writeControlPattern })).toHaveCount(0);
 });

@@ -7,8 +7,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 - Date: 2026-07-13.
 - Branch: `feature/F118-row-export-streaming`, based on `main` through merged PR #133.
-- Queue: F110-F117 are `passing`; F118 is `active`; F119-F121 and F128 remain `not_started`.
-  `nextIds.F` is 129.
+- Queue: F111-F118 are `passing`; F119-F121 and F128 remain `not_started`. `nextIds.F` is 129.
 
 ## Completed
 
@@ -28,12 +27,14 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   one-document MongoDB batches, permission/kind gates, mapping/dry-run/result UI, product contract,
   and read-only E2E canary are complete. The local and pre-push `CI=1 pnpm verify:pr` gates passed
   against all four engines, smoke E2E, and full E2E.
+- F118 is pushed as `a56c238` in draft PR #134 with both CI jobs green. It replaces paginated
+  export queries with native streams on all four engines and adds capability-driven CSV,
+  JSON/Extended JSON, and SQL-INSERT downloads while preserving selected-row CSV precedence. The
+  local and pre-push `CI=1 pnpm verify:pr` gates and explicit four-engine stream conformance passed.
 
 ## In progress
 
-- F118 is implemented locally: native single-pass adapter streams now feed capability-driven CSV,
-  JSON/Extended JSON, and SQL-INSERT downloads while preserving F083 selected-row CSV behavior.
-  The cross-engine conformance case and `CI=1 pnpm verify:pr` pass; commit/PR delivery is pending.
+- No implementation slice is active. F118 is awaiting user review/merge; F119 is next after merge.
 
 ## Known issues / blockers
 
@@ -68,5 +69,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Review and commit F118, push its feature branch, open a draft PR, wait for both CI jobs, then
-  record the PR/commit evidence and move F118 to `passing`.
+- Review and merge PR #134. After the merge is confirmed, prune passing history and promote F119
+  (the read-only Roles & grants viewer) as the next feature slice.

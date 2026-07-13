@@ -5,6 +5,8 @@ import { StatusBar } from "../../src/shell/status-bar.js";
 
 const WRITABLE: ConnectionCapabilities = {
   supportsSql: true,
+  rowExportFormats: ["csv", "json", "sql"],
+  jsonExportMode: "json",
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: true,
@@ -15,6 +17,8 @@ const WRITABLE: ConnectionCapabilities = {
 
 const READ_ONLY_GRANTS: ConnectionCapabilities = {
   supportsSql: true,
+  rowExportFormats: ["csv", "json", "sql"],
+  jsonExportMode: "json",
   supportsRowMutations: false,
   supportsDdl: false,
   supportsIndexManagement: false,

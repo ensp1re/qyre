@@ -10,8 +10,8 @@ be on screen.
 ## One-sentence promise
 
 Sorting a table by a column reflects that column's order across the _entire_ table, not just the
-loaded page, and exporting to CSV exports every row in the table, not just the ones currently on
-screen.
+loaded page, and whole-result export streams every matching row as CSV, JSON, or engine-appropriate
+SQL without materializing or re-querying the result.
 
 ## Server-side sort
 
@@ -61,40 +61,77 @@ screen.
 - All 4 engines (Postgres, MySQL, SQLite, MongoDB) sort identically for the same logical request
   (ascending/descending by a given column name).
 
-## Whole-table CSV export
+## Whole-result export
 
 ### Behavior
 
-- A new endpoint, `GET /api/tables/:schema/:table/export.csv`, streams every row of the table as
-  `text/csv` - honoring the current sort (if any) from the query params above, using the same
-  `toCsv`-equivalent escaping `RowsTable` already applies (leading `=`/`+`/`-`/`@` prefixed with an
-  apostrophe to block spreadsheet formula injection - F035).
-- The server fetches and streams the table in bounded batches (e.g. `MAX_PAGE_SIZE`-sized chunks via
-  repeated internal `getRows` calls, or an engine-native streaming cursor where available) rather
-  than materializing the whole table in memory before responding - mirrors F050's `capResultRows`
-  philosophy of never holding an unbounded result set in memory, but for the export path, which by
-  definition must not be capped at `runReadOnlyQuery`'s 1,000-row limit (F050) since exporting the
-  whole table is the entire point of this feature.
-- The existing "Export this page as CSV" button becomes "Export all rows as CSV," calling this new
-  endpoint and downloading the streamed response - replacing the page-only export rather than
-  keeping both, since page-only export was the compromise this spec exists to fix, not a mode worth
-  preserving alongside the fix. The selected-rows "Copy as CSV" action (checkbox multi-select) is
-  unrelated and unaffected - it explicitly means "copy these specific rows I picked," which only
-  makes sense for currently-loaded/selected rows.
+- `GET /api/tables/:schema/:table/export.:format` streams every row matching the current validated
+  `sortColumn`/`sortDirection`/`filters` query, where `format` is `csv`, `json`, or `sql`.
+- CSV remains `text/csv` with a header and the existing formula-injection defense: text beginning
+  with `=`/`+`/`-`/`@` is prefixed with an apostrophe before RFC-4180 quoting.
+- JSON is one streamed array of objects (`application/json`), not NDJSON. SQL engines use normal
+  JSON serialization. MongoDB uses relaxed Extended JSON so BSON values such as ObjectId, Date,
+  Decimal128, Long, Binary, and Timestamp retain their type instead of being flattened to the
+  grid's display representation.
+- SQL export is a sequence of complete `INSERT INTO ... VALUES (...);` statements. It is available
+  only when the adapter reports it. Each SQL adapter owns its identifier and literal formatting:
+  Postgres and SQLite use their double-quote identifier rules, MySQL uses backticks and mysql2's
+  value escaping, and binary/structured values use an engine-valid literal form. MongoDB never
+  advertises SQL export, so the UI hides it and a direct `.sql` request receives `400`.
+
+### Capability contract
+
+`AdapterCapabilities` reports `rowExportFormats` and `jsonExportMode` (`json` or
+`extended-json`). The UI renders only advertised formats and labels MongoDB's JSON choice
+"Extended JSON". The server independently rejects a format the current adapter does not
+advertise. Neither layer checks the engine name to decide format support.
+
+### Single-pass streaming
+
+- `DatabaseAdapter.streamRows` returns an async iterable for one validated table/sort/filter
+  request. Export never loops over `getRows`, never applies OFFSET pagination, and never reruns the
+  query.
+- Postgres uses a cursor/query stream on one checked-out pool client; MySQL uses mysql2's native
+  query stream; SQLite uses `better-sqlite3`'s statement iterator; MongoDB consumes its native find
+  cursor as an async iterable.
+- The server formats one row at a time through `Readable.from`, so Node stream backpressure reaches
+  the adapter iterator. Ending or aborting the response closes the cursor/query stream and releases
+  its client/connection in `finally`.
+- Export is intentionally uncapped, because complete export is the feature. Memory remains bounded
+  by the current driver batch/high-water mark plus one formatted row; no whole-result array or
+  temporary file is created.
+- Metadata is introspected once before streaming. Its ordered columns provide the CSV header and SQL
+  target list, including for an empty table. MongoDB's CSV header uses its documented sampled
+  top-level metadata; Extended JSON keeps every field present in each raw document.
+
+### Selection behavior
+
+F083's precedence remains exact: when any currently loaded rows are selected, the toolbar export
+action exports only those selected rows as CSV from the browser. The whole-result format selector
+is shown only when no rows are selected. This preserves the selected objects exactly as displayed
+without pretending the browser's deliberately normalized MongoDB grid values are lossless Extended
+JSON or sending display values back to the server as trusted database literals. Clearing selection
+restores capability-driven whole-result CSV/JSON/SQL export.
 
 ### Out of scope (for now)
 
-- Export formats other than CSV (e.g. JSON, SQL `INSERT` statements).
 - Exporting the SQL Editor's query result set beyond its existing 1,000-row cap - same reasoning as
   server-side sort's scope note above (no stable "whole result set" concept for an ad hoc query).
 - Progress indication for very large exports beyond a basic loading spinner (a progress bar tied to
   row count would need a total-row-count-in-advance guarantee this spec doesn't require).
+- JSON Lines, compressed archives, custom delimiters/encodings, SQL transaction wrappers, batched
+  multi-row INSERT syntax, and selected-row JSON/SQL export.
 
 ### Acceptance criteria
 
-- "Export all rows as CSV" downloads a CSV containing every row in the table (verified against a
-  table with more rows than one page), honoring the current sort if one is active.
-- The exported CSV applies the same formula-injection escaping as today's page-only export.
-- Exporting a large table does not require holding the entire result set in server memory at once
-  (verified via a table with a large row count not causing a memory spike server-side, and the
-  download starting before the whole table has been read from the database).
+- CSV, JSON, and SQL downloads contain every filtered row in the current server sort order; SQL is
+  absent for MongoDB and MongoDB JSON is relaxed Extended JSON.
+- CSV applies formula-injection escaping. SQL quotes adversarial identifiers and string values with
+  the connected adapter's own rules rather than interpolating untrusted names or display strings.
+- A table larger than one page executes one database query/cursor with no OFFSET loop, begins the
+  download before the full result is read, and keeps process memory bounded.
+- An active page selection still exports only the selected rows as CSV; clearing it restores the
+  whole-result format selector.
+- All four engines have shared contract coverage for sort/filter propagation, single-pass
+  iteration, cleanup, format availability, and empty-result output. SQL output is verified for
+  Postgres/MySQL/SQLite; MongoDB SQL is explicitly not applicable.

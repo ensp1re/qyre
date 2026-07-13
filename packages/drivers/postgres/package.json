@@ -25,7 +25,8 @@
   "dependencies": {
     "@qyre/core": "workspace:*",
     "@qyre/driver-contract": "workspace:*",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "pg-query-stream": "^4.16.0"
   },
   "devDependencies": {
     "@qyre/config": "workspace:*",

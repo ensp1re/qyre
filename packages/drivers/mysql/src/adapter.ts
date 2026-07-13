@@ -1,5 +1,6 @@
 /** MySQL adapter composition and lifecycle. */
 import type {
+  ColumnMetadata,
   ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
@@ -50,6 +51,7 @@ import {
   fetchTablePermissions,
   READ_ONLY_TABLE_PERMISSIONS
 } from "./permissions.js";
+import { formatSqlInsert, streamRows } from "./row-export.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
@@ -98,6 +100,25 @@ export class MysqlAdapter implements DatabaseAdapter {
   private getPool(): mysql.Pool {
     if (!this.pool) throw new Error("MysqlAdapter is not connected. Call connect() first.");
     return this.pool;
+  }
+
+  streamRows(
+    schema: string,
+    table: string,
+    _columns: readonly ColumnMetadata[],
+    sort?: RowSort,
+    filters?: RowFilter[]
+  ): AsyncIterable<Record<string, unknown>> {
+    return streamRows(this.getPool(), schema, table, this.statementTimeoutMs, sort, filters);
+  }
+
+  formatSqlInsert(
+    schema: string,
+    table: string,
+    columns: readonly string[],
+    row: Record<string, unknown>
+  ): string {
+    return formatSqlInsert(this.getPool(), schema, table, columns, row);
   }
 
   async connect(): Promise<void> {

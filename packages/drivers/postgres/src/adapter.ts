@@ -1,5 +1,6 @@
 /** Postgres adapter composition and lifecycle. */
 import type {
+  ColumnMetadata,
   ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
@@ -52,6 +53,7 @@ import {
   READ_ONLY_TABLE_PERMISSIONS
 } from "./permissions.js";
 import { coerceUnknownQuotedIdentifiers, fetchKnownIdentifiers } from "./quoted-identifiers.js";
+import { formatSqlInsert, streamRows } from "./row-export.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
 export class PostgresAdapter implements DatabaseAdapter {
@@ -94,6 +96,25 @@ export class PostgresAdapter implements DatabaseAdapter {
   private getPool(): Pool {
     if (!this.pool) throw new Error("PostgresAdapter is not connected. Call connect() first.");
     return this.pool;
+  }
+
+  streamRows(
+    schema: string,
+    table: string,
+    _columns: readonly ColumnMetadata[],
+    sort?: RowSort,
+    filters?: RowFilter[]
+  ): AsyncIterable<Record<string, unknown>> {
+    return streamRows(this.getPool(), schema, table, sort, filters);
+  }
+
+  formatSqlInsert(
+    schema: string,
+    table: string,
+    columns: readonly string[],
+    row: Record<string, unknown>
+  ): string {
+    return formatSqlInsert(schema, table, columns, row);
   }
 
   async connect(): Promise<void> {

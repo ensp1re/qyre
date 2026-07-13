@@ -29,6 +29,8 @@ describe("GET /api/overview", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().capabilities).toEqual({
       supportsSql: true,
+      rowExportFormats: ["csv", "json", "sql"],
+      jsonExportMode: "json",
       supportsRowMutations: false,
       supportsDdl: false,
       supportsIndexManagement: false,

@@ -4,6 +4,8 @@ import { applyReadOnlyOverride } from "../../src/services/read-only-capabilities
 
 const writable: ConnectionCapabilities = {
   supportsSql: true,
+  rowExportFormats: ["csv", "json", "sql"],
+  jsonExportMode: "json",
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: true,
@@ -20,6 +22,8 @@ describe("applyReadOnlyOverride (F096)", () => {
   it("forces every capability false and readOnlyReason to 'qyre-flag' when read-only", () => {
     expect(applyReadOnlyOverride(writable, true)).toEqual({
       supportsSql: true,
+      rowExportFormats: ["csv", "json", "sql"],
+      jsonExportMode: "json",
       supportsRowMutations: false,
       supportsDdl: false,
       supportsIndexManagement: false,
@@ -34,8 +38,17 @@ describe("applyReadOnlyOverride (F096)", () => {
     expect(applyReadOnlyOverride(grantsRestricted, true).readOnlyReason).toBe("qyre-flag");
   });
 
-  it("preserves supportsSql - an engine fact, not a session write-permission fact", () => {
-    const mongoLike: ConnectionCapabilities = { ...writable, supportsSql: false };
-    expect(applyReadOnlyOverride(mongoLike, true).supportsSql).toBe(false);
+  it("preserves engine-level SQL and export facts", () => {
+    const mongoLike: ConnectionCapabilities = {
+      ...writable,
+      supportsSql: false,
+      rowExportFormats: ["csv", "json"],
+      jsonExportMode: "extended-json"
+    };
+    expect(applyReadOnlyOverride(mongoLike, true)).toMatchObject({
+      supportsSql: false,
+      rowExportFormats: ["csv", "json"],
+      jsonExportMode: "extended-json"
+    });
   });
 });

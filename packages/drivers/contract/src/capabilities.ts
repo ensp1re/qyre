@@ -12,6 +12,8 @@ import type { ConnectionCapabilities } from "@qyre/core";
 export function stubReadOnlyCapabilities(supportsSql: boolean): ConnectionCapabilities {
   return {
     supportsSql,
+    rowExportFormats: supportsSql ? ["csv", "json", "sql"] : ["csv", "json"],
+    jsonExportMode: supportsSql ? "json" : "extended-json",
     supportsRowMutations: false,
     supportsDdl: false,
     supportsIndexManagement: false,

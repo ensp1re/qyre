@@ -1,5 +1,5 @@
 /**
- * CSV line formatting for `GET /api/tables/:schema/:table/export.csv` (F066). Deliberately
+ * CSV line formatting for `GET /api/tables/:schema/:table/export.csv` (F118). Deliberately
  * independent from `packages/ui`'s `toCsv`/`formatCell` (used by RowsTable's "Copy as CSV") rather
  * than shared via `@qyre/core` - this package can't depend on `packages/ui` (see
  * ARCHITECTURE.md's layer model), and a real (non-type) shared export from `@qyre/core`'s barrel
@@ -23,6 +23,6 @@ function escapeCsvField(value: unknown): string {
 }
 
 /** One escaped, comma-joined CSV line (no trailing newline) for the given values. */
-export function csvLine(values: unknown[]): string {
+export function csvLine(values: readonly unknown[]): string {
   return values.map(escapeCsvField).join(",");
 }

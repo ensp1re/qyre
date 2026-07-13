@@ -4,6 +4,8 @@ import { computeCsvImportability } from "../../../../src/features/table/model/cs
 
 const capabilities: ConnectionCapabilities = {
   supportsSql: true,
+  rowExportFormats: ["csv", "json", "sql"],
+  jsonExportMode: "json",
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: true,

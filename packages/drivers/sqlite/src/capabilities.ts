@@ -14,6 +14,8 @@ function isWritable(path: string): boolean {
 
 const READ_ONLY_CAPABILITIES: ConnectionCapabilities = {
   supportsSql: true,
+  rowExportFormats: ["csv", "json", "sql"],
+  jsonExportMode: "json",
   supportsRowMutations: false,
   supportsDdl: false,
   supportsIndexManagement: false,
@@ -49,6 +51,8 @@ export function computeCapabilities(
 
   return {
     supportsSql: true,
+    rowExportFormats: ["csv", "json", "sql"],
+    jsonExportMode: "json",
     supportsRowMutations: true,
     supportsDdl: true,
     supportsIndexManagement: true,

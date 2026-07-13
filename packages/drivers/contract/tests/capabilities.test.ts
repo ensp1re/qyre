@@ -5,6 +5,8 @@ describe("stubReadOnlyCapabilities", () => {
   it("reports every write flag false and readOnlyReason grants", () => {
     expect(stubReadOnlyCapabilities(true)).toEqual({
       supportsSql: true,
+      rowExportFormats: ["csv", "json", "sql"],
+      jsonExportMode: "json",
       supportsRowMutations: false,
       supportsDdl: false,
       supportsIndexManagement: false,
@@ -15,6 +17,10 @@ describe("stubReadOnlyCapabilities", () => {
   });
 
   it("passes supportsSql through unchanged", () => {
-    expect(stubReadOnlyCapabilities(false).supportsSql).toBe(false);
+    expect(stubReadOnlyCapabilities(false)).toMatchObject({
+      supportsSql: false,
+      rowExportFormats: ["csv", "json"],
+      jsonExportMode: "extended-json"
+    });
   });
 });

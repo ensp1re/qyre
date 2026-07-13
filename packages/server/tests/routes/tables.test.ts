@@ -25,6 +25,7 @@ describe("/api/tables", () => {
         { schema: "public", name: "b", kind: "table", columns: [] }
       ],
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
+      streamRows: async function* () {},
       runReadOnlyQuery: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 })
     };
     const app = createServer({ adapter });
@@ -945,67 +946,128 @@ describe("DELETE /api/tables/:schema/:table/rows (F101)", () => {
   });
 });
 
-describe("Whole-table CSV export (F066)", () => {
-  it("streams a header line plus every row across multiple batches", async () => {
-    let callCount = 0;
+describe("Whole-result export (F118)", () => {
+  it("streams CSV through one adapter iterator without paginated getRows calls", async () => {
+    let streamCalls = 0;
     const adapter = makeFakeAdapter({
-      getRows: async (_schema, _table, page, pageSize) => {
-        callCount += 1;
-        // The first batch comes back exactly full (pageSize rows) so the endpoint's loop knows
-        // to fetch another page; the second comes back short, signaling the real end of the
-        // table - proves the streaming loop paginates instead of assuming one batch is everything.
-        if (page === 0) {
-          return {
-            columns: ["id"],
-            rows: Array.from({ length: pageSize }, (_, i) => ({ id: i })),
-            page: 0,
-            pageSize
-          };
-        }
-        return { columns: ["id"], rows: [{ id: "last" }], page, pageSize };
+      getTable: async () => ({
+        schema: "public",
+        name: "x",
+        kind: "table",
+        columns: [
+          { name: "id", dataType: "int4", nullable: false, isPrimaryKey: true, isForeignKey: false }
+        ]
+      }),
+      getRows: async () => {
+        throw new Error("export must not paginate through getRows");
+      },
+      streamRows: async function* (_schema, _table, columns, sort, filters) {
+        streamCalls += 1;
+        expect(columns.map((column) => column.name)).toEqual(["id"]);
+        expect(sort).toEqual({ column: "id", direction: "desc" });
+        expect(filters).toEqual([{ column: "id", op: "gte", value: "1" }]);
+        yield { id: 2 };
+        yield { id: "=cmd()" };
       }
     });
     const app = createServer({ adapter });
 
-    // Exercised via a `?token=` query param, not an Authorization header - this route is the one
-    // apps/web triggers with a plain <a href> navigation (real browser download), which can't set
-    // headers (F122).
     const response = await app.inject({
       method: "GET",
-      url: `/api/tables/public/x/export.csv?token=${app.authToken}`
+      url: `/api/tables/public/x/export.csv?sortColumn=id&sortDirection=desc&filters=${encodeURIComponent(
+        JSON.stringify([{ column: "id", op: "gte", value: "1" }])
+      )}&token=${app.authToken}`
     });
     expect(response.statusCode).toBe(200);
     expect(response.headers["content-type"]).toContain("text/csv");
     expect(response.headers["content-disposition"]).toBe('attachment; filename="x.csv"');
-
-    const lines = response.payload.trim().split("\n");
-    expect(lines[0]).toBe("id");
-    expect(lines).toHaveLength(1 + 200 + 1); // header + full first batch + the short second batch
-    expect(lines.at(-1)).toBe("last");
-    expect(callCount).toBe(2);
+    expect(response.payload).toBe("id\n2\n'=cmd()\n");
+    expect(streamCalls).toBe(1);
     await app.close();
   });
 
-  it("applies the same formula-injection escaping as the page-only export (F035)", async () => {
+  it("streams ordinary JSON and adapter-owned SQL INSERT output", async () => {
     const adapter = makeFakeAdapter({
-      getRows: async (_schema, _table, page) => {
-        if (page > 0) return { columns: ["formula"], rows: [], page, pageSize: 200 };
-        return {
-          columns: ["formula"],
-          rows: [{ formula: "=cmd()" }],
-          page: 0,
-          pageSize: 200
-        };
+      getTable: async () => ({
+        schema: "public",
+        name: "x",
+        kind: "table",
+        columns: [
+          {
+            name: "name",
+            dataType: "text",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]
+      }),
+      streamRows: async function* () {
+        yield { name: "Ada" };
+      },
+      formatSqlInsert: (_schema, _table, _columns, row) => `SAFE ${String(row.name)}`
+    });
+    const app = createServer({ adapter });
+
+    const json = await app.inject({
+      method: "GET",
+      url: `/api/tables/public/x/export.json?token=${app.authToken}`
+    });
+    expect(json.headers["content-type"]).toContain("application/json");
+    expect(json.payload).toBe('[\n{"name":"Ada"}\n]\n');
+
+    const sql = await app.inject({
+      method: "GET",
+      url: `/api/tables/public/x/export.sql?token=${app.authToken}`
+    });
+    expect(sql.headers["content-type"]).toContain("application/sql");
+    expect(sql.payload).toBe("SAFE Ada\n");
+    await app.close();
+  });
+
+  it("uses an adapter JSON serializer for Extended JSON", async () => {
+    const adapter = makeFakeAdapter({
+      engine: "mongodb",
+      getCapabilities: async () => stubReadOnlyCapabilities(false),
+      getTable: async () => ({
+        schema: "app",
+        name: "docs",
+        kind: "collection",
+        columns: []
+      }),
+      streamRows: async function* () {
+        yield { _id: "raw" };
+      },
+      serializeJsonRow: () => '{"_id":{"$oid":"abc"}}'
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/tables/app/docs/export.json?token=${app.authToken}`
+    });
+    expect(response.payload).toBe('[\n{"_id":{"$oid":"abc"}}\n]\n');
+    await app.close();
+  });
+
+  it("rejects a format the adapter does not advertise before streaming", async () => {
+    let streamed = false;
+    const adapter = makeFakeAdapter({
+      engine: "mongodb",
+      getCapabilities: async () => stubReadOnlyCapabilities(false),
+      streamRows: () => {
+        streamed = true;
+        throw new Error("unsupported export must not start streaming");
       }
     });
     const app = createServer({ adapter });
 
     const response = await app.inject({
       method: "GET",
-      url: `/api/tables/public/x/export.csv?token=${app.authToken}`
+      url: `/api/tables/app/docs/export.sql?token=${app.authToken}`
     });
-    const lines = response.payload.trim().split("\n");
-    expect(lines).toEqual(["formula", "'=cmd()"]);
+    expect(response.statusCode).toBe(400);
+    expect(streamed).toBe(false);
     await app.close();
   });
 
@@ -1023,7 +1085,7 @@ describe("Whole-table CSV export (F066)", () => {
     await app.close();
   });
 
-  it("rejects export.csv without a valid token (F122)", async () => {
+  it("rejects export without a valid token (F122)", async () => {
     const adapter = makeFakeAdapter();
     const app = createServer({ adapter });
 

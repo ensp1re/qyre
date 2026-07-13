@@ -2,7 +2,9 @@ import type {
   ColumnMetadata,
   DatabaseEngine,
   ForeignKeyReference,
+  JsonExportMode,
   RowFilter,
+  RowExportFormat,
   RowPage
 } from "@qyre/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -60,10 +62,15 @@ export interface RowsTableProps {
    * component no longer reorders rows itself. Omitted disables the sort affordance (headers render
    * as plain, non-interactive labels). */
   onSortChange?: (sort: { column: string; direction: "asc" | "desc" } | undefined) => void;
-  /** Triggers a whole-table CSV export (F066), replacing the old page-only export. Omitted hides
-   * the export button - this component doesn't fetch data itself (see FRONTEND.md), so the actual
-   * request is the caller's responsibility. */
-  onExportAllRows?: () => void;
+  /** Whole-result formats the connected adapter supports (F118). Defaults to CSV for callers that
+   * haven't loaded capabilities yet. */
+  exportFormats?: readonly RowExportFormat[];
+  /** Distinguishes MongoDB's relaxed Extended JSON label from ordinary JSON. */
+  jsonExportMode?: JsonExportMode;
+  /** Triggers a whole-table export in the chosen format (F118), replacing the old page-only CSV
+   * export. Omitted hides the whole-result control - this component doesn't fetch data itself (see
+   * FRONTEND.md), so the actual request is the caller's responsibility. */
+  onExportAllRows?: (format: RowExportFormat) => void;
   /** Downloads a CSV generated from the selected rows currently loaded in this component. The
    * caller owns the actual browser download so packages/ui stays presentation-oriented. */
   onExportSelectedRows?: (csv: string) => void;
@@ -139,6 +146,13 @@ export interface RowsTableProps {
 const ROW_HEIGHT_ESTIMATE = 30;
 
 const FORMULA_LEADING_CHARS = /^[=+\-@]/;
+const DEFAULT_EXPORT_FORMATS: readonly RowExportFormat[] = ["csv"];
+
+function exportFormatLabel(format: RowExportFormat, jsonMode: JsonExportMode): string {
+  if (format === "csv") return "CSV";
+  if (format === "json") return jsonMode === "extended-json" ? "Extended JSON" : "JSON";
+  return "SQL INSERT";
+}
 
 /** Used by the selected-rows "Copy as CSV" action only (F066 moved the whole-table export
  * server-side - see onExportAllRows) - copying a hand-picked subset of currently-loaded rows still
@@ -183,6 +197,8 @@ export function RowsTable({
   sortColumn,
   sortDirection,
   onSortChange,
+  exportFormats = DEFAULT_EXPORT_FORMATS,
+  jsonExportMode = "json",
   onExportAllRows,
   onExportSelectedRows,
   canImportCsv,
@@ -204,6 +220,7 @@ export function RowsTable({
 }: RowsTableProps): ReactNode {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [selectedExportFormat, setSelectedExportFormat] = useState<RowExportFormat>("csv");
   const [inspected, setInspected] = useState<{
     column: string;
     value: InspectableValue;
@@ -342,10 +359,14 @@ export function RowsTable({
   }
 
   const canExportSelectedRows = selected.size > 0 && Boolean(onExportSelectedRows);
+  const defaultExportFormat = exportFormats.includes("csv") ? "csv" : exportFormats[0];
+  const activeExportFormat = exportFormats.includes(selectedExportFormat)
+    ? selectedExportFormat
+    : defaultExportFormat;
 
   function exportRows(): void {
     if (!canExportSelectedRows) {
-      onExportAllRows?.();
+      if (activeExportFormat) onExportAllRows?.(activeExportFormat);
       return;
     }
     const rows = filtered.filter(({ index }) => selected.has(index)).map(({ row }) => row);
@@ -485,18 +506,41 @@ export function RowsTable({
               )}
             </>
           )}
-          {(onExportAllRows || canExportSelectedRows) && (
+          {!canExportSelectedRows && onExportAllRows && activeExportFormat && (
+            <div className="flex items-center gap-1">
+              {exportFormats.length > 1 && (
+                <select
+                  value={activeExportFormat}
+                  onChange={(event) =>
+                    setSelectedExportFormat(event.target.value as RowExportFormat)
+                  }
+                  aria-label="Export format"
+                  className="rounded-[3px] border border-border bg-card px-1.5 py-1 font-mono text-[10px] text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus:border-ring"
+                >
+                  {exportFormats.map((format) => (
+                    <option key={format} value={format}>
+                      {exportFormatLabel(format, jsonExportMode)}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="button"
+                onClick={exportRows}
+                aria-label={`Export all rows as ${exportFormatLabel(activeExportFormat, jsonExportMode)}`}
+                title="Exports every row matching the current sort and filters"
+                className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <Download className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          {canExportSelectedRows && (
             <button
               type="button"
               onClick={exportRows}
-              aria-label={
-                canExportSelectedRows ? "Export selected rows as CSV" : "Export all rows as CSV"
-              }
-              title={
-                canExportSelectedRows
-                  ? "Exports the selected rows on this page"
-                  : "Exports every row matching the current sort and filters"
-              }
+              aria-label="Export selected rows as CSV"
+              title="Exports the selected rows on this page"
               className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <Download className="h-3 w-3" />

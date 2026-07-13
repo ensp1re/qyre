@@ -32,6 +32,8 @@ export interface ConnectionStatusResult {
 
 const FULL_ACCESS_CAPABILITIES: ConnectionCapabilities = {
   supportsSql: false,
+  rowExportFormats: ["csv", "json"],
+  jsonExportMode: "extended-json",
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: true,
@@ -110,6 +112,8 @@ function capabilitiesFromPrivileges(privileges: Privilege[]): ConnectionCapabili
 
   return {
     supportsSql: false,
+    rowExportFormats: ["csv", "json"],
+    jsonExportMode: "extended-json",
     supportsRowMutations,
     supportsDdl,
     supportsIndexManagement,

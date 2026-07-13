@@ -6,8 +6,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-13.
-- Branch: `feature/F117-csv-import`, based on `main` through merged PR #132.
-- Queue: F110-F117 are `passing`; F118-F121 and F128 remain `not_started`. `nextIds.F` is 129.
+- Branch: `feature/F118-row-export-streaming`, based on `main` through merged PR #133.
+- Queue: F111-F118 are `passing`; F119-F121 and F128 remain `not_started`. `nextIds.F` is 129.
 
 ## Completed
 
@@ -22,15 +22,19 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   (F110), column ops (F111, incl. SQLite's 12-step rebuild), index ops (F112), the table designer
   UI (F113), the Structure view (F114), database/schema lifecycle (F115), and its management UI
   (F116) - all gated server-side on F096 + the relevant capability flag.
-- F117 (CSV import) is pushed as `817f746` in PR #133 with both GitHub CI jobs green. Its
+- F117 (CSV import) merged as PR #133 (`35c29ce`). Its
   capped streaming inspect/validate/import API, typed mapping/coercion, bounded SQL transactions,
   one-document MongoDB batches, permission/kind gates, mapping/dry-run/result UI, product contract,
   and read-only E2E canary are complete. The local and pre-push `CI=1 pnpm verify:pr` gates passed
   against all four engines, smoke E2E, and full E2E.
+- F118 is pushed as `a56c238` in draft PR #134 with both CI jobs green. It replaces paginated
+  export queries with native streams on all four engines and adds capability-driven CSV,
+  JSON/Extended JSON, and SQL-INSERT downloads while preserving selected-row CSV precedence. The
+  local and pre-push `CI=1 pnpm verify:pr` gates and explicit four-engine stream conformance passed.
 
 ## In progress
 
-- No implementation slice is active. F117 is awaiting user review/merge; F118 is next after merge.
+- No implementation slice is active. F118 is awaiting user review/merge; F119 is next after merge.
 
 ## Known issues / blockers
 
@@ -65,5 +69,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Review and merge PR #133. After the merge is confirmed, prune passing history and promote
-  F118 (JSON/SQL-INSERT export plus single-pass engine streaming) as the next feature slice.
+- Review and merge PR #134. After the merge is confirmed, prune passing history and promote F119
+  (the read-only Roles & grants viewer) as the next feature slice.

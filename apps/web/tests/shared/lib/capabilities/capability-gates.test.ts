@@ -7,6 +7,8 @@ import {
 
 const WRITABLE: ConnectionCapabilities = {
   supportsSql: true,
+  rowExportFormats: ["csv", "json", "sql"],
+  jsonExportMode: "json",
   supportsRowMutations: true,
   supportsDdl: false,
   supportsIndexManagement: false,

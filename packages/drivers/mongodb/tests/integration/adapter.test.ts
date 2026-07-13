@@ -156,6 +156,8 @@ describe("MongodbAdapter integration", () => {
     // that case against real, live-verified connectionStatus response shapes instead).
     await expect(adapter.getCapabilities()).resolves.toEqual({
       supportsSql: false,
+      rowExportFormats: ["csv", "json"],
+      jsonExportMode: "extended-json",
       supportsRowMutations: true,
       supportsDdl: true,
       supportsIndexManagement: true,

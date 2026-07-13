@@ -5,7 +5,7 @@ const BEARER_PREFIX = "Bearer ";
 
 /**
  * Extracts the session token from a request: the `Authorization: Bearer <token>` header (used by
- * every `fetchJson` call from the SPA), or a `token` query param (used by the CSV export's plain
+ * every `fetchJson` call from the SPA), or a `token` query param (used by export downloads' plain
  * `<a href>` download, which triggers a real browser navigation and can't set headers). Reads the
  * query string straight off the raw URL rather than `request.query`, so this doesn't depend on
  * where in Fastify's request lifecycle query parsing happens relative to `onRequest` hooks.

@@ -1,4 +1,5 @@
 import type { DatabaseEngine } from "./connection.js";
+import type { JsonExportMode, RowExportFormat } from "./query.js";
 
 /** A schema and the tables it contains. */
 export interface SchemaMetadata {
@@ -15,6 +16,10 @@ export interface AdapterCapabilities {
   /** Whether `runReadOnlyQuery` accepts real SQL text - false disables the SQL Editor tab and the
    * Files tab's "Run in editor" action, which both submit raw SQL. */
   readonly supportsSql: boolean;
+  /** Whole-result export formats implemented by the adapter (F118). */
+  readonly rowExportFormats: readonly RowExportFormat[];
+  /** The JSON dialect used when `rowExportFormats` contains `json`. */
+  readonly jsonExportMode: JsonExportMode;
 }
 
 /** Why every `supports*` write flag on {@link ConnectionCapabilities} is false; `null` once any

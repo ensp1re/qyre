@@ -194,6 +194,8 @@ export async function fetchConnectionCapabilities(
 
   return {
     supportsSql: true,
+    rowExportFormats: ["csv", "json", "sql"],
+    jsonExportMode: "json",
     supportsRowMutations,
     supportsDdl,
     supportsIndexManagement,

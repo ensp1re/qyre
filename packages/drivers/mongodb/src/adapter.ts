@@ -1,5 +1,6 @@
 /** MongoDB adapter composition and lifecycle. */
 import type {
+  ColumnMetadata,
   ConnectionCapabilities,
   ConnectionTarget,
   DatabaseOverview,
@@ -45,6 +46,7 @@ import {
   READ_ONLY_TABLE_PERMISSIONS,
   tablePermissionsFromConnectionStatus
 } from "./permissions.js";
+import { serializeJsonRow, streamRows } from "./row-export.js";
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
 
@@ -90,6 +92,21 @@ export class MongodbAdapter implements DatabaseAdapter {
       throw new Error("MongodbAdapter is not connected. Call connect() first.");
     }
     return this.client;
+  }
+
+  async *streamRows(
+    schema: string,
+    table: string,
+    columns: readonly ColumnMetadata[],
+    sort?: RowSort,
+    filters?: RowFilter[]
+  ): AsyncIterable<Record<string, unknown>> {
+    const filter = buildMongoFilter(filters, columns);
+    yield* streamRows(this.getClient(), schema, table, filter, this.statementTimeoutMs, sort);
+  }
+
+  serializeJsonRow(row: Record<string, unknown>): string {
+    return serializeJsonRow(row);
   }
 
   async connect(): Promise<void> {

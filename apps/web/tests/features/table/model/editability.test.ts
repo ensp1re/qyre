@@ -4,6 +4,8 @@ import { computeTableEditability } from "../../../../src/features/table/model/ed
 
 const WRITABLE_CAPABILITIES: ConnectionCapabilities = {
   supportsSql: true,
+  rowExportFormats: ["csv", "json", "sql"],
+  jsonExportMode: "json",
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: true,

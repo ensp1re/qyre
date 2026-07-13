@@ -371,8 +371,10 @@ export function TablesTab({
           sortColumn={sort?.column}
           sortDirection={sort?.direction}
           onSortChange={onSortChange}
-          onExportAllRows={() =>
-            downloadExport(exportRowsUrl(selected.schema, selected.table, sort, filters))
+          exportFormats={capabilities?.rowExportFormats}
+          jsonExportMode={capabilities?.jsonExportMode}
+          onExportAllRows={(format) =>
+            downloadExport(exportRowsUrl(selected.schema, selected.table, format, sort, filters))
           }
           onExportSelectedRows={(csv) => downloadCsv(`${selected.table}-selected.csv`, csv)}
           canImportCsv={csvImportability.canImport && ops.length === 0}

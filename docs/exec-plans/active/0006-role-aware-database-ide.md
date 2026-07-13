@@ -661,3 +661,9 @@ tables` (create, no existing `:table` to scope under yet) plus `/api/tables/:sch
   the read-only E2E canary, `pnpm check:quiet`, and the complete CI-semantics `pnpm verify:pr` gate
   are green. Pushed as `817f746` in PR #133; both GitHub CI jobs passed and F117 moved to
   `passing` pending user review/merge.
+- 2026-07-14: F118-F119 are merged. F120 implemented in draft PR #136 (`dd3bde0`): engine-native
+  write denials normalize to one redacted structured 403 across every mutating route, exactly one
+  safe audit entry is emitted, and the browser invalidates advisory capability/table-permission
+  caches. Restricted Postgres/MySQL grant revocation and read-only SQLite conformance pass;
+  MongoDB live restricted auth is not applicable in the shared unauthenticated fixture. Local,
+  pre-push, and both GitHub CI gates passed. F121 is the remaining exit gate.

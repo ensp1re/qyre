@@ -37,6 +37,7 @@ import {
 } from "./ddl.js";
 import { fetchAllTableTargets, introspectTable, MAIN_SCHEMA } from "./introspection.js";
 import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "./mutations.js";
+import { classifySqlitePermissionDenied } from "./permission-errors.js";
 import { normalizeRow } from "./row-values.js";
 import { formatSqlInsert, streamRows } from "./row-export.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
@@ -156,6 +157,8 @@ export class SqliteAdapter implements DatabaseAdapter {
     const resolvedPath = this.resolvedPath ?? resolve(this.target.raw);
     return computeCapabilities(resolvedPath, this.getDb());
   }
+
+  classifyPermissionDenied = classifySqlitePermissionDenied;
 
   async getTable(schema: string, table: string): Promise<TableMetadata> {
     const permissions = tablePermissionsFromCapabilities(await this.getCapabilities());

@@ -39,6 +39,7 @@ import {
 import { buildMongoFilter } from "./filters.js";
 import { introspectCollection, introspectSchemas } from "./introspection.js";
 import { deleteRowsByKey, getDocumentText, insertRow, updateRowByKey } from "./mutations.js";
+import { classifyMongodbPermissionDenied } from "./permission-errors.js";
 import type { ConnectionStatusResult } from "./permissions.js";
 import {
   fetchConnectionCapabilities,
@@ -155,6 +156,8 @@ export class MongodbAdapter implements DatabaseAdapter {
       return { ...stubReadOnlyCapabilities(false), supportsAccessInspection: true };
     }
   }
+
+  classifyPermissionDenied = classifyMongodbPermissionDenied;
 
   private async getTablePermissions(schema: string, table: string): Promise<TablePermissions> {
     try {

@@ -8,6 +8,7 @@ import type { CsvImportMapping, CsvImportResponse } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../app.js";
 import { processCsvImport } from "../services/csv-import.js";
+import { permissionRoute } from "../services/permission-denied.js";
 import { requireAdapter } from "../services/require-adapter.js";
 
 function badRequest(message: string): Error {
@@ -25,7 +26,7 @@ export const CSV_IMPORT_MULTIPART_LIMITS = {
 export function registerCsvImportRoutes(app: FastifyInstance, ctx: ServerContext): void {
   app.post<{ Params: { schema: string; table: string } }>(
     "/api/tables/:schema/:table/import.csv",
-    { config: { mutating: true } },
+    permissionRoute({ operation: "csv-import", target: "table", likelyMissingGrant: "INSERT" }),
     async (request, reply) => {
       if (!request.isMultipart()) throw badRequest("CSV import requires multipart/form-data.");
 

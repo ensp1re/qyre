@@ -277,7 +277,11 @@ export async function processCsvImport(
         try {
           await db.mutations.insertRow(schema, tableName, values);
           insertedRows += 1;
-        } catch {
+        } catch (error) {
+          // Authoritative permission denials abort the import so the route's global F120 mapping
+          // can return one structured 403 and refresh browser permissions. Ordinary row-level
+          // validation/constraint failures remain bounded per-row import errors.
+          if (db.classifyPermissionDenied(error)) throw error;
           errors.push({ line, message: "The database rejected this row." });
         }
         continue;

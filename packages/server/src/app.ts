@@ -141,7 +141,7 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   registerSecurityHeaders(app);
   registerAuthGuard(app, authToken);
   registerReadOnlyGuard(app, ctx);
-  registerErrorHandler(app, ctx.eventLog);
+  registerErrorHandler(app, ctx);
   app.register(multipart, {
     throwFileSizeLimit: true,
     limits: CSV_IMPORT_MULTIPART_LIMITS

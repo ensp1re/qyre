@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
+import { permissionRoute } from "../../src/services/permission-denied.js";
 import { authHeaders } from "../helpers/auth.js";
 
 /**
  * No mutating route exists yet (F096 lands before any write feature), so these tests register a
- * throwaway route directly on the built app to exercise the guard the same way a real future write
- * route will: opting in via `config: { mutating: true }`.
+ * These tests register a throwaway route directly on the built app to exercise the guard the same
+ * way a real write route does: opting into both mutating and permission-denial metadata.
  */
 describe("read-only guard (F096)", () => {
   it("rejects a route marked mutating when the session is read-only", async () => {
     const app = createServer({ readOnly: true });
-    app.post("/api/__test-mutation", { config: { mutating: true } }, async () => ({ ok: true }));
+    app.post(
+      "/api/__test-mutation",
+      permissionRoute({ operation: "insert", target: "table", likelyMissingGrant: "INSERT" }),
+      async () => ({ ok: true })
+    );
     await app.ready();
 
     const response = await app.inject({
@@ -27,7 +32,11 @@ describe("read-only guard (F096)", () => {
 
   it("allows a route marked mutating when the session is not read-only", async () => {
     const app = createServer({ readOnly: false });
-    app.post("/api/__test-mutation", { config: { mutating: true } }, async () => ({ ok: true }));
+    app.post(
+      "/api/__test-mutation",
+      permissionRoute({ operation: "insert", target: "table", likelyMissingGrant: "INSERT" }),
+      async () => ({ ok: true })
+    );
     await app.ready();
 
     const response = await app.inject({
@@ -55,7 +64,11 @@ describe("read-only guard (F096)", () => {
 
   it("defaults to not read-only when the option is omitted", async () => {
     const app = createServer();
-    app.post("/api/__test-mutation", { config: { mutating: true } }, async () => ({ ok: true }));
+    app.post(
+      "/api/__test-mutation",
+      permissionRoute({ operation: "insert", target: "table", likelyMissingGrant: "INSERT" }),
+      async () => ({ ok: true })
+    );
     await app.ready();
 
     const response = await app.inject({

@@ -125,10 +125,14 @@ export function ddlRejected(
   message: string,
   statusCode: number
 ): Error {
-  ctx.eventLog.log("warn", `${operation} rejected: ${message}`);
-  request.log.warn(
-    { operation, schema, table, durationMs: 0, outcome: "rejected" },
-    `${operation} rejected`
-  );
+  // F120's global handler owns capability/permission 403s so it can emit the structured denial and
+  // one safe audit entry. Confirmation/validation 400s remain ordinary rejected DDL outcomes.
+  if (statusCode !== 403) {
+    ctx.eventLog.log("warn", `${operation} rejected: ${message}`);
+    request.log.warn(
+      { operation, schema, table, durationMs: 0, outcome: "rejected" },
+      `${operation} rejected`
+    );
+  }
   return Object.assign(new Error(message), { statusCode });
 }

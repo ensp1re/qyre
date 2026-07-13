@@ -6,6 +6,7 @@ import type {
   UpdateRowResult
 } from "@qyre/core";
 import type Database from "better-sqlite3";
+import { classifySqlitePermissionDenied } from "./permission-errors.js";
 import { normalizeRow } from "./row-values.js";
 import { quoteIdent } from "./sql.js";
 
@@ -135,7 +136,8 @@ export function commitBatch(db: Database.Database, ops: MutationOp[]): CommitMut
   try {
     runAll(ops);
     return { committed: true, results };
-  } catch {
+  } catch (error) {
+    if (classifySqlitePermissionDenied(error)) throw error;
     return { committed: false, failedIndex: failedIndex ?? results.length };
   }
 }

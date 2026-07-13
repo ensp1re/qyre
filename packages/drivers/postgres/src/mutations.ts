@@ -6,6 +6,7 @@ import type {
   UpdateRowResult
 } from "@qyre/core";
 import type { Pool, PoolClient } from "pg";
+import { classifyPostgresPermissionDenied } from "./permission-errors.js";
 import { quoteIdent } from "./sql.js";
 
 /** Either the pool (single-op routes) or a transaction-scoped client (F102's batch commit) - both
@@ -130,8 +131,9 @@ export async function commitBatch(pool: Pool, ops: MutationOp[]): Promise<Commit
     }
     await client.query("COMMIT");
     return { committed: true, results };
-  } catch {
+  } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
+    if (classifyPostgresPermissionDenied(error)) throw error;
     return { committed: false, failedIndex: results.length };
   } finally {
     client.release();

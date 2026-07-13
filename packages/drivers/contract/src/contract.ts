@@ -21,6 +21,10 @@ import type {
 /** Severity of an adapter's asynchronous connection event - see {@link DatabaseAdapter.onConnectionEvent}. */
 export type ConnectionEventLevel = "warn" | "error";
 
+/** Safe classification of an engine-native permission error. The server supplies the operation,
+ * object, and likely grant from route metadata; adapters never expose raw engine text. */
+export type PermissionDenialKind = "permission" | "ownership" | "read-only";
+
 /**
  * The server-side registry a cancellable adapter method (`getRows`/`runReadOnlyQuery`/`runQuery`,
  * F126) registers a cancel callback with, keyed by the client-supplied `operationId` that request
@@ -170,6 +174,9 @@ export interface DatabaseAdapter {
    * this method's result, not computed separately - callers needing just the capabilities (without
    * a full structure introspection) can call this directly. */
   getCapabilities(): Promise<ConnectionCapabilities>;
+  /** Classify an engine-native error as an authoritative write denial, or return undefined for
+   * syntax, constraint, connectivity, and every other unrelated failure. */
+  classifyPermissionDenied(error: unknown): PermissionDenialKind | undefined;
   /** Introspect a single table's columns and metadata. */
   getTable(schema: string, table: string): Promise<TableMetadata>;
   /** Every table's metadata across every schema, in the shape N sequential `getTable` calls would

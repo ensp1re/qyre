@@ -8,6 +8,7 @@ import type { DatabaseAdapter, StatementClassification } from "@qyre/driver-cont
 import type { FastifyInstance, FastifyReply } from "fastify";
 import type { ServerContext } from "../app.js";
 import { applyReadOnlyOverride } from "../services/read-only-capabilities.js";
+import { permissionRoute } from "../services/permission-denied.js";
 import { requireAdapter } from "../services/require-adapter.js";
 
 /** The existing, unchanged read-only path: `runReadOnlyQuery` classifies/enforces read-only-ness
@@ -58,66 +59,77 @@ async function runReadOnlyPath(
 }
 
 export function registerQueryRoute(app: FastifyInstance, ctx: ServerContext): void {
-  app.post<{ Body: unknown }>("/api/query", async (request, reply) => {
-    const parsed = runQuerySchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply
-        .status(400)
-        .send({ error: "Request body must be { sql: string, confirmed?: boolean }." });
-    }
-    const { sql, confirmed, operationId } = parsed.data;
-    const db = requireAdapter(ctx.adapter);
-
-    const capabilities = applyReadOnlyOverride(await db.getCapabilities(), ctx.readOnly);
-    // Bound, not a bare `db.runQuery` reference - every adapter's `runQuery` is a plain class
-    // method relying on `this` (unlike `mutations`, which is a readonly object of already-bound
-    // arrow functions), so calling it detached from `db` throws inside the method itself (e.g.
-    // Postgres's `this.getPool()`).
-    const runQuery = db.runQuery?.bind(db);
-    if (!capabilities.supportsRowMutations || !runQuery) {
-      return runReadOnlyPath(db, ctx, sql, reply, undefined, operationId);
-    }
-
-    let classification: StatementClassification;
-    try {
-      classification = classifyStatement(sql);
-    } catch (error) {
-      if (error instanceof ReadOnlyViolationError) {
-        ctx.eventLog.log("warn", `Query rejected: ${error.message}`);
-        return reply.status(400).send({ error: error.message });
+  app.post<{ Body: unknown }>(
+    "/api/query",
+    permissionRoute(
+      {
+        operation: "execute-query",
+        target: "query",
+        likelyMissingGrant: "the privilege required by this SQL statement"
+      },
+      false
+    ),
+    async (request, reply) => {
+      const parsed = runQuerySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: "Request body must be { sql: string, confirmed?: boolean }." });
       }
-      throw error;
-    }
+      const { sql, confirmed, operationId } = parsed.data;
+      const db = requireAdapter(ctx.adapter);
 
-    if (classification === "read") {
-      return runReadOnlyPath(db, ctx, sql, reply, classification, operationId);
-    }
-
-    if (classification === "destructive" && !confirmed) {
-      ctx.eventLog.log(
-        "warn",
-        "Destructive statement rejected pending confirmation - resubmit with confirmed: true."
-      );
-      return reply.status(409).send({
-        error: "This statement is destructive and requires explicit confirmation to run.",
-        classification
-      });
-    }
-
-    const start = Date.now();
-    try {
-      const result = await runQuery(sql, operationId);
-      ctx.eventLog.log(
-        "info",
-        `Executed a ${classification} statement in ${Date.now() - start}ms - ${result.rowsAffected} row(s) affected.`
-      );
-      return { ...result, classification };
-    } catch (error) {
-      if (error instanceof OperationCancelledError) {
-        ctx.eventLog.log("info", "Query cancelled.");
-        return reply.status(499).send({ error: error.message, cancelled: true });
+      const capabilities = applyReadOnlyOverride(await db.getCapabilities(), ctx.readOnly);
+      // Bound, not a bare `db.runQuery` reference - every adapter's `runQuery` is a plain class
+      // method relying on `this` (unlike `mutations`, which is a readonly object of already-bound
+      // arrow functions), so calling it detached from `db` throws inside the method itself (e.g.
+      // Postgres's `this.getPool()`).
+      const runQuery = db.runQuery?.bind(db);
+      if (!capabilities.supportsRowMutations || !runQuery) {
+        return runReadOnlyPath(db, ctx, sql, reply, undefined, operationId);
       }
-      throw error;
+
+      let classification: StatementClassification;
+      try {
+        classification = classifyStatement(sql);
+      } catch (error) {
+        if (error instanceof ReadOnlyViolationError) {
+          ctx.eventLog.log("warn", `Query rejected: ${error.message}`);
+          return reply.status(400).send({ error: error.message });
+        }
+        throw error;
+      }
+
+      if (classification === "read") {
+        return runReadOnlyPath(db, ctx, sql, reply, classification, operationId);
+      }
+
+      if (classification === "destructive" && !confirmed) {
+        ctx.eventLog.log(
+          "warn",
+          "Destructive statement rejected pending confirmation - resubmit with confirmed: true."
+        );
+        return reply.status(409).send({
+          error: "This statement is destructive and requires explicit confirmation to run.",
+          classification
+        });
+      }
+
+      const start = Date.now();
+      try {
+        const result = await runQuery(sql, operationId);
+        ctx.eventLog.log(
+          "info",
+          `Executed a ${classification} statement in ${Date.now() - start}ms - ${result.rowsAffected} row(s) affected.`
+        );
+        return { ...result, classification };
+      } catch (error) {
+        if (error instanceof OperationCancelledError) {
+          ctx.eventLog.log("info", "Query cancelled.");
+          return reply.status(499).send({ error: error.message, cancelled: true });
+        }
+        throw error;
+      }
     }
-  });
+  );
 }

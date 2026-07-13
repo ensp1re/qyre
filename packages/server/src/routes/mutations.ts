@@ -3,6 +3,7 @@ import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/c
 import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../app.js";
 import { requireAdapter } from "../services/require-adapter.js";
+import { permissionRoute } from "../services/permission-denied.js";
 import { resolveBatchOp } from "../services/row-mutation-validation.js";
 
 function rowCountFor(result: InsertRowResult | UpdateRowResult | DeleteRowsResult): number {
@@ -23,7 +24,11 @@ export function registerMutationsRoutes(app: FastifyInstance, ctx: ServerContext
   // own validation but applied up front across the whole array.
   app.post<{ Body: unknown }>(
     "/api/mutations/commit",
-    { config: { mutating: true } },
+    permissionRoute({
+      operation: "batch-commit",
+      target: "batch",
+      likelyMissingGrant: "the operation-specific INSERT, UPDATE, or DELETE privilege"
+    }),
     async (request, reply) => {
       const parsedBody = commitMutationsRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {

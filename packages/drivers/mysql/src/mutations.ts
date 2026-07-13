@@ -6,6 +6,7 @@ import type {
   UpdateRowResult
 } from "@qyre/core";
 import type mysql from "mysql2/promise";
+import { classifyMysqlPermissionDenied } from "./permission-errors.js";
 import { quoteIdent } from "./sql.js";
 
 /** Either the pool (single-op routes) or a transaction-scoped connection (F102's batch commit) -
@@ -161,8 +162,9 @@ export async function commitBatch(
     }
     await connection.commit();
     return { committed: true, results };
-  } catch {
+  } catch (error) {
     await connection.rollback().catch(() => {});
+    if (classifyMysqlPermissionDenied(error)) throw error;
     return { committed: false, failedIndex: results.length };
   } finally {
     connection.release();

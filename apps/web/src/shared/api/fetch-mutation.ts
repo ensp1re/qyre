@@ -1,4 +1,5 @@
 import { getAuthToken } from "./auth-token.js";
+import { apiResponseError } from "./permission-denied.js";
 
 /**
  * Fetch wrapper for a mutation route whose `409 Conflict` is a normal, typed outcome the caller
@@ -25,8 +26,8 @@ export async function fetchMutation<T>(input: RequestInfo, init?: RequestInit): 
   }
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => undefined)) as { error?: string } | undefined;
-    throw new Error(body?.error ?? `Request failed (status ${response.status}).`);
+    const body = await response.json().catch(() => undefined);
+    throw apiResponseError(body, response.status);
   }
 
   return (await response.json()) as T;

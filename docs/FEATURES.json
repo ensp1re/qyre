@@ -120,11 +120,12 @@
       "id": "F120",
       "behavior": "Permission-denied hardening across every mutating path: engine permission errors map to structured, friendly responses (which operation, which object, the likely missing grant) instead of raw engine text; a denial triggers a capabilities/permissions refetch so UI affordances converge with reality when grants change mid-session (the advisory-introspection principle in exec plan 0006); the event log records each denial. Conformance covers a denied insert/update/ddl per engine using the restricted fixtures with grants revoked mid-session where the engine allows. Depends on the write surfaces it protects - schedule after F117.",
       "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "dd3bde0",
+      "evidence": "PR #136 (https://github.com/ensp1re/qyre/pull/136), pushed as dd3bde0. Added a shared permission-denied response contract and engine-native classifiers for Postgres SQLSTATE, MySQL code/errno, SQLite result code, and MongoDB code 13. Every mutating route now declares operation/object/grant metadata; startup rejects uncovered future routes, authoritative denials return one redacted structured 403 and produce exactly one safe EventLog/request-log entry, while non-permission failures retain their existing behavior. Batch and CSV paths preserve native denials for boundary classification. The browser recognizes the structured denial and invalidates overview, all-tables, and table query families so advisory capabilities and table permissions refetch. Restricted conformance revokes Postgres/MySQL grants and uses a read-only SQLite target; MongoDB live restricted auth is not applicable because the shared fixture has authorization disabled, with its native shape covered by shared and driver tests. Verified on Node 22 with the focused server suite (267 passed), live conformance (120 passed, 20 not-applicable/skipped), pnpm verify:pr locally and through pre-push (34/34 package tasks, 11 smoke E2E, 19 full E2E), and both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": null
+      "spec": "docs/product-specs/permissions-and-capabilities.md",
+      "completedAt": "2026-07-13T21:54:02.000Z"
     },
     {
       "id": "F121",

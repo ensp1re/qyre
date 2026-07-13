@@ -10,6 +10,7 @@ export function makeFakeAdapter(overrides: Partial<DatabaseAdapter> = {}): Datab
     ping: async () => true,
     getVersion: async () => "PostgreSQL 16.0",
     getCapabilities: async () => stubReadOnlyCapabilities(true),
+    classifyPermissionDenied: () => undefined,
     getOverview: async () => ({
       engine: "postgres",
       schemas: [],

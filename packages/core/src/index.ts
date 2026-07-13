@@ -18,6 +18,7 @@ export * from "./types/files.js";
 export * from "./types/console.js";
 export * from "./types/connect.js";
 export * from "./types/csv-import.js";
+export * from "./types/permission-denied.js";
 export * from "./errors.js";
 export * from "./connection-target.js";
 export * from "./pagination.js";

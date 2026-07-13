@@ -1,4 +1,5 @@
 import { getAuthToken } from "./auth-token.js";
+import { apiResponseError } from "./permission-denied.js";
 
 /**
  * Shared fetch wrapper for every `api/*.ts` fetcher (F017). Attaches the session bearer token
@@ -26,8 +27,8 @@ export async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Prom
   }
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => undefined)) as { error?: string } | undefined;
-    throw new Error(body?.error ?? `Request failed (status ${response.status}).`);
+    const body = await response.json().catch(() => undefined);
+    throw apiResponseError(body, response.status);
   }
 
   // A 204 has no body to parse (F110's dropTable/dropColumn/dropIndex routes reply this way) -

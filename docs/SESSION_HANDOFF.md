@@ -7,7 +7,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 - Date: 2026-07-14.
 - Branch: `feature/F120-permission-denied-hardening`, based on `main` through merged PR #135.
-- Queue: F111-F119 are `passing`; F120 is `active`; F121 and F128 remain `not_started`.
+- Queue: F111-F120 are `passing`; F121 and F128 remain `not_started`.
   `nextIds.F` is 129.
 
 ## Completed
@@ -36,12 +36,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   read-only access inspection contract and Settings viewer across Postgres, MySQL, SQLite, and
   MongoDB, including partial catalog degradation, bounds/redaction coverage, and a parallel E2E
   fixture-race repair. Local and pre-push `pnpm verify:pr` gates passed on Node 22.
+- F120 is pushed in draft PR #136 (`dd3bde0`). Native permission errors now map to one redacted
+  structured 403 across every mutating path, route metadata coverage is enforced at startup, the
+  browser refreshes capability/table-permission caches after denial, and restricted conformance
+  covers Postgres, MySQL, and SQLite (MongoDB auth is not applicable in the shared fixture). Local,
+  pre-push, and both GitHub CI jobs passed on Node 22.
 
 ## In progress
 
-- F120 is active: map authoritative engine permission denials to a structured response, refresh
-  advisory capability/permission caches after a denial, record it in the EventLog, and cover the
-  four engines through conformance where their restricted fixtures apply.
+- No active feature. F121 is the next plan slice and the plan 0006 exit gate.
 
 ## Known issues / blockers
 
@@ -76,5 +79,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Implement F120's shared denial contract and engine classifiers, route every mutating path through
-  it, refresh browser permission state on denial, then run the focused and full PR gates.
+- After PR #136 merges, promote F121 and implement the per-engine read-only/writable role-matrix E2E
+  exit gate plus README, architecture, and security-document consolidation; then complete plan 0006.

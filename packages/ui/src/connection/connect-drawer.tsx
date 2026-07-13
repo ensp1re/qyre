@@ -5,6 +5,7 @@ import { cn } from "../cn.js";
 import { Spinner } from "../feedback/spinner.js";
 import { Segmented } from "../primitives/segmented.js";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
+import { DatabasePanel } from "./database-panel.js";
 
 /** One previously-connected target (F064), most recent first. Persisted by the caller (apps/web),
  * not this package - packages/ui stays presentation-only per FRONTEND.md. */
@@ -107,6 +108,19 @@ export interface ConnectDrawerProps {
   /** Attempts to connect to `raw`. Resolves/rejects; a rejection's message is shown inline. */
   onConnect: (raw: string) => Promise<void>;
   isConnecting: boolean;
+  /** Sibling databases on the current server (F115/F116) - omit the whole "Databases on this
+   * server" section (e.g. SQLite, which has no database-list concept, or no connection yet) by
+   * leaving `databases` undefined and `onSwitchDatabase`/`onCreateDatabase`/`onDropDatabase` unset. */
+  databases?: string[];
+  databasesLoading?: boolean;
+  databasesError?: string;
+  currentDatabase?: string;
+  canManageDatabases?: boolean;
+  /** Why `canManageDatabases` is false, e.g. "Qyre was started with --read-only." */
+  databaseManagementReason?: string;
+  onSwitchDatabase?: (database: string) => Promise<void>;
+  onCreateDatabase?: (database: string) => Promise<void>;
+  onDropDatabase?: (database: string) => Promise<void>;
 }
 
 /**
@@ -148,7 +162,16 @@ export function ConnectDrawer({
   currentTarget,
   recentTargets,
   onConnect,
-  isConnecting
+  isConnecting,
+  databases,
+  databasesLoading,
+  databasesError,
+  currentDatabase,
+  canManageDatabases,
+  databaseManagementReason,
+  onSwitchDatabase,
+  onCreateDatabase,
+  onDropDatabase
 }: ConnectDrawerProps): ReactNode {
   const asideRef = useRef<HTMLElement | null>(null);
   useFocusTrap(asideRef, open);
@@ -251,6 +274,20 @@ export function ConnectDrawer({
               {currentTarget ?? "Not connected"}
             </p>
           </div>
+
+          {databases !== undefined && onSwitchDatabase && onCreateDatabase && onDropDatabase && (
+            <DatabasePanel
+              databases={databases}
+              loading={databasesLoading ?? false}
+              loadError={databasesError}
+              currentDatabase={currentDatabase}
+              canManage={canManageDatabases ?? false}
+              hiddenReason={databaseManagementReason}
+              onSwitch={onSwitchDatabase}
+              onCreate={onCreateDatabase}
+              onDrop={onDropDatabase}
+            />
+          )}
 
           <div className="mt-5 flex items-center justify-between gap-3">
             <h3 className="m-0 text-[12px] font-medium text-foreground">New connection</h3>

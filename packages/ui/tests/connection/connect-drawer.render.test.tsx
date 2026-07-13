@@ -202,4 +202,27 @@ describe("ConnectDrawer", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Connection refused");
   });
+
+  it("omits the Databases section when databases is undefined", () => {
+    render(<ConnectDrawer {...baseProps} onConnect={vi.fn()} />);
+    expect(screen.queryByText("Databases on this server")).not.toBeInTheDocument();
+  });
+
+  it("renders the Databases section when the required props are supplied (F116)", () => {
+    render(
+      <ConnectDrawer
+        {...baseProps}
+        onConnect={vi.fn()}
+        databases={["app", "analytics"]}
+        currentDatabase="app"
+        canManageDatabases
+        onSwitchDatabase={vi.fn().mockResolvedValue(undefined)}
+        onCreateDatabase={vi.fn().mockResolvedValue(undefined)}
+        onDropDatabase={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+    expect(screen.getByText("Databases on this server")).toBeInTheDocument();
+    expect(screen.getByText("analytics")).toBeInTheDocument();
+    expect(screen.getByLabelText("Switch to analytics")).toBeInTheDocument();
+  });
 });

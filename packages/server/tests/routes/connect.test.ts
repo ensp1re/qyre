@@ -186,3 +186,154 @@ describe("Database switching (F064)", () => {
     await app.close();
   });
 });
+
+describe("POST /api/connect/database (F116)", () => {
+  it("switches to a sibling database using the current target's own credentials", async () => {
+    let requestedRaw: string | undefined;
+    const oldAdapter = makeFakeAdapter();
+    const factory: AdapterFactory = {
+      engine: "postgres",
+      supports: () => true,
+      create: (target) => {
+        requestedRaw = target.raw;
+        return makeFakeAdapter({ getVersion: async () => "PostgreSQL 17.0" });
+      }
+    };
+    const app = createServer({
+      adapter: oldAdapter,
+      target: { engine: "postgres", raw: "postgres://user:pass@localhost:5432/old" },
+      adapterFactories: [factory]
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/connect/database",
+      payload: { database: "sibling" },
+      headers: authHeaders(app)
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ target: "postgres://user:***@localhost:5432/sibling" });
+    expect(requestedRaw).toBe("postgres://user:pass@localhost:5432/sibling");
+    await app.close();
+  });
+
+  it("percent-encodes a database name with special characters", async () => {
+    let requestedRaw: string | undefined;
+    const factory: AdapterFactory = {
+      engine: "postgres",
+      supports: () => true,
+      create: (target) => {
+        requestedRaw = target.raw;
+        return makeFakeAdapter();
+      }
+    };
+    const app = createServer({
+      adapter: makeFakeAdapter(),
+      target: { engine: "postgres", raw: "postgres://user:pass@localhost:5432/old" },
+      adapterFactories: [factory]
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/connect/database",
+      payload: { database: "my db" },
+      headers: authHeaders(app)
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(requestedRaw).toBe("postgres://user:pass@localhost:5432/my%20db");
+    await app.close();
+  });
+
+  it("returns 400 when not connected to anything yet", async () => {
+    const factory: AdapterFactory = {
+      engine: "postgres",
+      supports: () => true,
+      create: () => makeFakeAdapter()
+    };
+    const app = createServer({ adapterFactories: [factory] }); // no `target`
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/connect/database",
+      payload: { database: "sibling" },
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("returns 404 when adapterFactories is not configured", async () => {
+    const app = createServer();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/connect/database",
+      payload: { database: "sibling" },
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(404);
+    await app.close();
+  });
+
+  it("rejects an invalid request body with 400", async () => {
+    const factory: AdapterFactory = {
+      engine: "postgres",
+      supports: () => true,
+      create: () => makeFakeAdapter()
+    };
+    const app = createServer({
+      adapter: makeFakeAdapter(),
+      target: { engine: "postgres", raw: "postgres://user:pass@localhost:5432/old" },
+      adapterFactories: [factory]
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/connect/database",
+      payload: {},
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("leaves the old connection fully working when the sibling database fails to connect", async () => {
+    const oldAdapter = makeFakeAdapter();
+    const factory: AdapterFactory = {
+      engine: "postgres",
+      supports: () => true,
+      create: () =>
+        makeFakeAdapter({
+          connect: async () => {
+            throw new Error("database does not exist");
+          }
+        })
+    };
+    const app = createServer({
+      adapter: oldAdapter,
+      target: { engine: "postgres", raw: "postgres://user:pass@localhost:5432/old" },
+      adapterFactories: [factory]
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/connect/database",
+      payload: { database: "missing" },
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: "database does not exist" });
+
+    const healthResponse = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: authHeaders(app)
+    });
+    expect(healthResponse.json()).toMatchObject({
+      database: "connected",
+      target: "postgres://user:***@localhost:5432/old"
+    });
+    await app.close();
+  });
+});

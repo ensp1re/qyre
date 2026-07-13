@@ -17,8 +17,14 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { cancelOperation } from "../shared/api/operations.js";
 import { useCapabilities } from "../features/connection/model/use-capabilities.js";
 import { useConnect } from "../features/connection/model/use-connect.js";
+import { databaseManagementReason } from "../features/connection/model/database-management-reason.js";
+import { useDatabaseAdminMutations } from "../features/connection/model/use-database-admin.js";
+import { useDatabases } from "../features/connection/model/use-databases.js";
 import { useHealth } from "../features/connection/model/use-health.js";
+import { parseTargetDatabase } from "../features/connection/model/parse-target-database.js";
 import { useRecentTargets } from "../features/connection/model/use-recent-targets.js";
+import { useSwitchDatabase } from "../features/connection/model/use-switch-database.js";
+import { sessionAllows } from "../shared/lib/capabilities/capability-gates.js";
 import { useClearConsole, useConsoleEvents } from "../features/console/model/use-console.js";
 import { ConsoleTab } from "../features/console/ui/console-tab.js";
 import { useFileContent, useFilesOverview } from "../features/files/model/use-files.js";
@@ -77,6 +83,8 @@ export function App(): ReactNode {
   const queryHistory = useQueryHistory();
   const recentTargets = useRecentTargets();
   const connect = useConnect();
+  const switchDatabase = useSwitchDatabase();
+  const databaseAdmin = useDatabaseAdminMutations();
 
   // F073: `npx qyre` with no target starts the server unconnected - jump straight into the connect
   // UI instead of leaving the developer looking at a passive "no database connected" message with
@@ -93,6 +101,14 @@ export function App(): ReactNode {
   // canonical entry point every write-affordance gates on, per
   // docs/product-specs/permissions-and-capabilities.md.
   const capabilities = useCapabilities({ enabled: status === "connected" });
+  // F116: the connection switcher's "Databases on this server" list - SQLite has no database-list
+  // concept at all (GET /api/databases 400s there per F115's "one file is one database" rule), so
+  // this never fires for it.
+  const databases = useDatabases(status === "connected" && overview.data?.engine !== "sqlite");
+  const canManageDatabases = sessionAllows(capabilities.data, "supportsDatabaseManagement");
+  // Postgres only - MySQL's "schema" IS its database, SQLite/MongoDB have no schema concept below
+  // the database (F116).
+  const canManageSchemas = overview.data?.engine === "postgres" && canManageDatabases;
   // F063: some engines (MongoDB today) have no read-only SQL query runner - no SQL dialect for a
   // read-only backstop to run inside (see docs/product-specs/connect-and-inspect-mongodb.md's "Why
   // this engine is scoped differently"). Read from the adapter's declared capabilities instead of
@@ -221,6 +237,15 @@ export function App(): ReactNode {
     dispatch({ type: "connectionChanged" });
   }
 
+  // F116: switches to a sibling database on the same server - the same local-navigation reset
+  // connectToNewTarget applies, since the new database likely doesn't have the same tables either.
+  // Unlike connectToNewTarget, there's no raw connection string to record as a recent target - the
+  // client never learns one for an in-place switch.
+  async function switchToDatabase(database: string): Promise<void> {
+    await switchDatabase.mutateAsync(database);
+    dispatch({ type: "connectionChanged" });
+  }
+
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <TitleBar
@@ -261,6 +286,9 @@ export function App(): ReactNode {
             onOpenChange={(open) => dispatch({ type: "sidebarChanged", open })}
             width={sidebarWidth}
             onWidthChange={setSidebarWidth}
+            canManageSchemas={canManageSchemas}
+            onCreateSchema={canManageSchemas ? databaseAdmin.createSchema : undefined}
+            onDropSchema={canManageSchemas ? databaseAdmin.dropSchema : undefined}
           />
 
           <div className="flex min-w-0 flex-1 flex-col">
@@ -387,6 +415,15 @@ export function App(): ReactNode {
         recentTargets={recentTargets.entries}
         onConnect={connectToNewTarget}
         isConnecting={connect.isPending}
+        databases={status === "connected" ? databases.data : undefined}
+        databasesLoading={databases.isLoading}
+        databasesError={databases.isError ? "Failed to load databases." : undefined}
+        currentDatabase={parseTargetDatabase(health?.target)}
+        canManageDatabases={canManageDatabases}
+        databaseManagementReason={databaseManagementReason(capabilities.data)}
+        onSwitchDatabase={switchToDatabase}
+        onCreateDatabase={databaseAdmin.createDatabase}
+        onDropDatabase={databaseAdmin.dropDatabase}
       />
     </div>
   );

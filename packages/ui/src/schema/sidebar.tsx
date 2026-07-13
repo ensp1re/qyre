@@ -1,10 +1,15 @@
 import type { SchemaMetadata } from "@qyre/core";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { cn } from "../cn.js";
 import { Spinner } from "../feedback/spinner.js";
+import { ConfirmTypedNameDialog } from "../primitives/confirm-typed-name-dialog.js";
+import { CreateNamedDialog } from "../primitives/create-named-dialog.js";
 import { ResizeHandle } from "../primitives/resize-handle.js";
 import { SchemaTree, type SelectedTable } from "./schema-tree.js";
+
+type SchemaDialogState = { kind: "create" } | { kind: "drop"; schema: string } | undefined;
 
 /** The default/min/max are exported so the caller owning persistence (F071's `usePanelSize`) can
  * seed and clamp against the same numbers this component uses, instead of duplicating them. */
@@ -25,6 +30,10 @@ export interface SidebarProps {
    * and `onWidthChange` must be supplied together for the resize handle to appear. */
   width?: number;
   onWidthChange?: (width: number) => void;
+  /** Whether schema create/drop controls render at all (F116, Postgres only). */
+  canManageSchemas?: boolean;
+  onCreateSchema?: (name: string) => Promise<void>;
+  onDropSchema?: (name: string) => Promise<void>;
 }
 
 /**
@@ -42,9 +51,44 @@ export function Sidebar({
   open,
   onOpenChange,
   width,
-  onWidthChange
+  onWidthChange,
+  canManageSchemas,
+  onCreateSchema,
+  onDropSchema
 }: SidebarProps): ReactNode {
   const resizable = open && width !== undefined && onWidthChange !== undefined;
+  const [dialog, setDialog] = useState<SchemaDialogState>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  async function handleCreateSchema(name: string): Promise<void> {
+    if (!onCreateSchema) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await onCreateSchema(name);
+      setDialog(undefined);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create schema.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDropSchema(): Promise<void> {
+    if (!onDropSchema || dialog?.kind !== "drop") return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await onDropSchema(dialog.schema);
+      setDialog(undefined);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to drop schema.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       {open && (
@@ -104,6 +148,23 @@ export function Sidebar({
                     // opposite of useful there.
                     if (window.innerWidth < 768) onOpenChange(false);
                   }}
+                  canManageSchemas={canManageSchemas}
+                  onRequestCreateSchema={
+                    onCreateSchema
+                      ? () => {
+                          setDialog({ kind: "create" });
+                          setError(undefined);
+                        }
+                      : undefined
+                  }
+                  onRequestDropSchema={
+                    onDropSchema
+                      ? (schema) => {
+                          setDialog({ kind: "drop", schema });
+                          setError(undefined);
+                        }
+                      : undefined
+                  }
                 />
               )}
             </div>
@@ -133,6 +194,29 @@ export function Sidebar({
             aria-label="Resize sidebar"
           />
         </div>
+      )}
+
+      {dialog?.kind === "create" && (
+        <CreateNamedDialog
+          title="New schema"
+          label="Schema name"
+          creating={busy}
+          error={error}
+          onCreate={(name) => void handleCreateSchema(name)}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "drop" && (
+        <ConfirmTypedNameDialog
+          title={`Drop schema ${dialog.schema}`}
+          description={`Type the schema's name to confirm dropping "${dialog.schema}". This can't be undone.`}
+          targetName={dialog.schema}
+          confirmLabel="Drop schema"
+          busy={busy}
+          error={error}
+          onConfirm={() => void handleDropSchema()}
+          onClose={() => setDialog(undefined)}
+        />
       )}
     </>
   );

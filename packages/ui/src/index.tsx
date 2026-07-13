@@ -24,6 +24,7 @@ export * from "./query/console-log.js";
 export * from "./query/query-history-drawer.js";
 export * from "./query/query-runner.js";
 export * from "./query/sql-completion.js";
+export * from "./schema/create-table-dialog.js";
 export * from "./schema/schema-grid.js";
 export * from "./schema/schema-tree.js";
 export * from "./schema/sidebar.js";

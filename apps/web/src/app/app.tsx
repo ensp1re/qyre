@@ -329,7 +329,13 @@ export function App(): ReactNode {
                     }
                   />
                 ) : tab === "schema" ? (
-                  <SchemaTab allTables={allTables} databaseKey={health?.target ?? null} />
+                  <SchemaTab
+                    allTables={allTables}
+                    databaseKey={health?.target ?? null}
+                    schemas={overview.data?.schemas ?? []}
+                    engine={overview.data?.engine}
+                    capabilities={capabilities.data}
+                  />
                 ) : tab === "files" ? (
                   <FilesTab
                     filesOverview={filesOverview}

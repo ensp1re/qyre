@@ -6,8 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-13.
-- Branch: `feature/F118-row-export-streaming`, based on `main` through merged PR #133.
-- Queue: F111-F118 are `passing`; F119-F121 and F128 remain `not_started`. `nextIds.F` is 129.
+- Branch: `feature/F119-roles-grants-viewer`, based on `main` through merged PR #134.
+- Queue: F111-F118 are `passing`; F119 is `active`; F120-F121 and F128 remain `not_started`.
+  `nextIds.F` is 129.
 
 ## Completed
 
@@ -27,14 +28,16 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   one-document MongoDB batches, permission/kind gates, mapping/dry-run/result UI, product contract,
   and read-only E2E canary are complete. The local and pre-push `CI=1 pnpm verify:pr` gates passed
   against all four engines, smoke E2E, and full E2E.
-- F118 is pushed as `a56c238` in draft PR #134 with both CI jobs green. It replaces paginated
+- F118 merged as PR #134 (`a944d73`). It replaces paginated
   export queries with native streams on all four engines and adds capability-driven CSV,
   JSON/Extended JSON, and SQL-INSERT downloads while preserving selected-row CSV precedence. The
   local and pre-push `CI=1 pnpm verify:pr` gates and explicit four-engine stream conformance passed.
 
 ## In progress
 
-- No implementation slice is active. F118 is awaiting user review/merge; F119 is next after merge.
+- F119 is implemented locally: the secret-safe access summary, capability and admin contract,
+  Postgres/MySQL/SQLite/MongoDB inspection, read-only server route, and Settings viewer are complete.
+  The full Node 22 `pnpm verify:pr` gate passes; delivery commit/PR state remains to be recorded.
 
 ## Known issues / blockers
 
@@ -69,5 +72,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Review and merge PR #134. After the merge is confirmed, prune passing history and promote F119
-  (the read-only Roles & grants viewer) as the next feature slice.
+- Review and commit F119, push it through the pre-push gate, open the draft PR, wait for both CI
+  jobs, then record the PR/commit evidence and move F119 to `passing`.

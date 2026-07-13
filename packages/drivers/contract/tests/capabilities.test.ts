@@ -7,6 +7,7 @@ describe("stubReadOnlyCapabilities", () => {
       supportsSql: true,
       rowExportFormats: ["csv", "json", "sql"],
       jsonExportMode: "json",
+      supportsAccessInspection: false,
       supportsRowMutations: false,
       supportsDdl: false,
       supportsIndexManagement: false,
@@ -20,7 +21,8 @@ describe("stubReadOnlyCapabilities", () => {
     expect(stubReadOnlyCapabilities(false)).toMatchObject({
       supportsSql: false,
       rowExportFormats: ["csv", "json"],
-      jsonExportMode: "extended-json"
+      jsonExportMode: "extended-json",
+      supportsAccessInspection: false
     });
   });
 });

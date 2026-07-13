@@ -16,10 +16,12 @@ import { assertReadOnly, capResultRows, resolvePageRequest } from "@qyre/driver-
 import type {
   AdapterFactory,
   DatabaseAdapter,
+  DatabaseAdminApi,
   RowMutationApi,
   SchemaDdlApi
 } from "@qyre/driver-contract";
 import Database from "better-sqlite3";
+import { inspectAccess } from "./access.js";
 import { computeCapabilities, tablePermissionsFromCapabilities } from "./capabilities.js";
 import {
   addColumn,
@@ -52,6 +54,9 @@ import { buildFilterClause, quoteIdent } from "./sql.js";
  */
 export class SqliteAdapter implements DatabaseAdapter {
   public readonly engine = "sqlite";
+  public readonly admin: DatabaseAdminApi = {
+    inspectAccess: () => inspectAccess(this.resolvedPath ?? resolve(this.target.raw), this.getDb())
+  };
   public readonly mutations: RowMutationApi = {
     // async, not a plain arrow returning Promise.resolve(...) - insertRow() throws synchronously
     // on a readonly database, and only an async function body converts that into a rejection

@@ -10,7 +10,8 @@ export const DATABASE_QUERY_KEYS = [
   ["rows"],
   ["console"],
   ["files"],
-  ["file-content"]
+  ["file-content"],
+  ["access"]
 ] as const;
 
 /**

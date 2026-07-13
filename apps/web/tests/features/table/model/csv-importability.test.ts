@@ -6,6 +6,7 @@ const capabilities: ConnectionCapabilities = {
   supportsSql: true,
   rowExportFormats: ["csv", "json", "sql"],
   jsonExportMode: "json",
+  supportsAccessInspection: true,
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: true,

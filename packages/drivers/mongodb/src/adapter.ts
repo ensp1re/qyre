@@ -25,6 +25,7 @@ import type {
 } from "@qyre/driver-contract";
 import { MongoClient } from "mongodb";
 import { dropDatabase, listDatabases } from "./admin.js";
+import { inspectAccess } from "./access.js";
 import { normalizeDocument } from "./bson-values.js";
 import { isMongoCancelError, registerMongoCancellation } from "./cancellation.js";
 import {
@@ -79,6 +80,7 @@ export class MongodbAdapter implements DatabaseAdapter {
   /** No `createDatabase` - MongoDB databases come into existence implicitly on first write; see
    * admin.ts's doc comment. */
   public readonly admin: DatabaseAdminApi = {
+    inspectAccess: () => inspectAccess(this.getClient()),
     listDatabases: () => listDatabases(this.getClient()),
     dropDatabase: (name) => dropDatabase(this.getClient(), name)
   };
@@ -150,7 +152,7 @@ export class MongodbAdapter implements DatabaseAdapter {
       return await fetchConnectionCapabilities(this.getClient());
     } catch (error) {
       this.reportPermissionIntrospectionFailure(error);
-      return stubReadOnlyCapabilities(false);
+      return { ...stubReadOnlyCapabilities(false), supportsAccessInspection: true };
     }
   }
 

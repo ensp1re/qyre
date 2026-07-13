@@ -14,6 +14,7 @@ export function stubReadOnlyCapabilities(supportsSql: boolean): ConnectionCapabi
     supportsSql,
     rowExportFormats: supportsSql ? ["csv", "json", "sql"] : ["csv", "json"],
     jsonExportMode: supportsSql ? "json" : "extended-json",
+    supportsAccessInspection: false,
     supportsRowMutations: false,
     supportsDdl: false,
     supportsIndexManagement: false,

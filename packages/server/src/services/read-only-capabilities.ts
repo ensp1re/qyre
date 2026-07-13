@@ -2,7 +2,7 @@ import type { ConnectionCapabilities } from "@qyre/core";
 
 const QYRE_FLAG_CAPABILITIES: Omit<
   ConnectionCapabilities,
-  "supportsSql" | "rowExportFormats" | "jsonExportMode"
+  "supportsSql" | "rowExportFormats" | "jsonExportMode" | "supportsAccessInspection"
 > = {
   supportsRowMutations: false,
   supportsDdl: false,
@@ -29,6 +29,7 @@ export function applyReadOnlyOverride(
     supportsSql: capabilities.supportsSql,
     rowExportFormats: capabilities.rowExportFormats,
     jsonExportMode: capabilities.jsonExportMode,
+    supportsAccessInspection: capabilities.supportsAccessInspection,
     ...QYRE_FLAG_CAPABILITIES
   };
 }

@@ -1,7 +1,8 @@
-import type { ConnectionStatus } from "@qyre/core";
+import type { AccessOverview, ConnectionStatus } from "@qyre/core";
 import { Database, History, Moon, Sun, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
+import { AccessViewer } from "../access/access-viewer.js";
 import { Segmented } from "../primitives/segmented.js";
 
 export interface SettingsScreenProps {
@@ -16,6 +17,11 @@ export interface SettingsScreenProps {
   onClearQueryHistory: () => void;
   recentConnectionsCount: number;
   onClearRecentConnections: () => void;
+  accessSupported?: boolean;
+  accessOverview?: AccessOverview;
+  accessLoading: boolean;
+  accessError: boolean;
+  onRetryAccess: () => void;
 }
 
 const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
@@ -46,7 +52,12 @@ export function SettingsScreen({
   queryHistoryCount,
   onClearQueryHistory,
   recentConnectionsCount,
-  onClearRecentConnections
+  onClearRecentConnections,
+  accessSupported,
+  accessOverview,
+  accessLoading,
+  accessError,
+  onRetryAccess
 }: SettingsScreenProps): ReactNode {
   return (
     <div data-testid="settings-screen" className="flex min-h-0 flex-1 flex-col bg-background">
@@ -86,6 +97,20 @@ export function SettingsScreen({
                 Switch
               </ActionButton>
             </Row>
+          </Section>
+
+          <Section
+            title="Access"
+            description="Current identity, active roles, effective grants, and read-only access facts."
+          >
+            <AccessViewer
+              connectionStatus={connectionStatus}
+              supported={accessSupported}
+              overview={accessOverview}
+              isLoading={accessLoading}
+              isError={accessError}
+              onRetry={onRetryAccess}
+            />
           </Section>
 
           <Section title="Appearance" description="How the workspace looks.">

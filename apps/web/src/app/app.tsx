@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { cancelOperation } from "../shared/api/operations.js";
 import { useCapabilities } from "../features/connection/model/use-capabilities.js";
+import { useAccessOverview } from "../features/connection/model/use-access-overview.js";
 import { useConnect } from "../features/connection/model/use-connect.js";
 import { databaseManagementReason } from "../features/connection/model/database-management-reason.js";
 import { useDatabaseAdminMutations } from "../features/connection/model/use-database-admin.js";
@@ -101,6 +102,10 @@ export function App(): ReactNode {
   // canonical entry point every write-affordance gates on, per
   // docs/product-specs/permissions-and-capabilities.md.
   const capabilities = useCapabilities({ enabled: status === "connected" });
+  const accessSupported = capabilities.data?.supportsAccessInspection;
+  const access = useAccessOverview(
+    settingsOpen && status === "connected" && accessSupported === true
+  );
   // F116: the connection switcher's "Databases on this server" list - SQLite has no database-list
   // concept at all (GET /api/databases 400s there per F115's "one file is one database" rule), so
   // this never fires for it.
@@ -272,6 +277,11 @@ export function App(): ReactNode {
           onClearQueryHistory={queryHistory.clear}
           recentConnectionsCount={recentTargets.entries.length}
           onClearRecentConnections={recentTargets.clear}
+          accessSupported={accessSupported}
+          accessOverview={access.data}
+          accessLoading={access.isLoading}
+          accessError={access.isError}
+          onRetryAccess={() => void access.refetch()}
         />
       ) : (
         <div className="flex min-h-0 flex-1">

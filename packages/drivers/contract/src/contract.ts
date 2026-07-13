@@ -1,4 +1,5 @@
 import type {
+  AccessOverview,
   ColumnDefinition,
   ColumnMetadata,
   CommitMutationsResult,
@@ -137,6 +138,8 @@ export interface SchemaDdlApi {
  * ever invoked - see packages/server/src/services/schema-ddl-validation.ts.
  */
 export interface DatabaseAdminApi {
+  /** Read-only, secret-safe identity, roles, grants, and engine facts for the current session. */
+  inspectAccess?(): Promise<AccessOverview>;
   /** Every non-template/non-system database on the connected server, sorted by name. */
   listDatabases?(): Promise<string[]>;
   createDatabase?(name: string): Promise<void>;

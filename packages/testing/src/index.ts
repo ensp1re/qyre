@@ -161,13 +161,10 @@ const FIXTURE_LOCK_KEY = 958312;
 
 /**
  * Create a small, deterministic fixture table in the target database.
- * Idempotent: safe to run repeatedly - including concurrently, from multiple Playwright workers
- * running different @full specs against the same live database at once. The DROP+CREATE isn't
- * naturally race-safe (two concurrent CREATE TABLEs can violate pg_class's uniqueness constraint
- * before either commits), so the whole operation runs on one session under a Postgres advisory
- * lock (pg_advisory_lock must run on the same connection as its matching unlock, hence checking out
- * a single Client via pool.connect() rather than pool.query(), which may hand different calls to
- * different pooled connections) - concurrent callers simply queue up instead of racing.
+ * Idempotent under concurrent Playwright workers. The table stays present after its first creation;
+ * each reset uses transactional TRUNCATE+INSERT, so a browser introspecting in parallel sees either
+ * the previous complete fixture or the next one, never the old DROP+CREATE gap. The advisory lock
+ * serializes writers and must be acquired/released on the same checked-out client.
  */
 export async function setupFixture(connectionString: string): Promise<void> {
   const pool = new Pool({ connectionString });
@@ -194,21 +191,28 @@ export async function setupFixture(connectionString: string): Promise<void> {
       await client.query(
         `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ${READONLY_POSTGRES_ROLE}`
       );
-      await client.query(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
       // `profile` is jsonb, nullable, only populated for one row - exercises F016's expandable
       // cell viewer (nested three levels deep: object -> object -> array) without needing a
       // second table, which would make the Schema tab show 2 table-detail cards and break
       // connect-and-inspect.spec.ts's singular assertion under concurrent @full specs.
-      await client.query(`CREATE TABLE ${FIXTURE.table} (
+      await client.query(`CREATE TABLE IF NOT EXISTS ${FIXTURE.table} (
          id serial PRIMARY KEY,
          name text NOT NULL,
          email text NOT NULL,
          profile jsonb
        )`);
-      await client.query(`INSERT INTO ${FIXTURE.table} (name, email, profile) VALUES
-         ('Ada Lovelace', 'ada@example.com', '{"account":{"tags":["admin","beta"]}}'),
-         ('Alan Turing', 'alan@example.com', NULL),
-         ('Grace Hopper', 'grace@example.com', NULL)`);
+      await client.query("BEGIN");
+      try {
+        await client.query(`TRUNCATE TABLE ${FIXTURE.table} RESTART IDENTITY`);
+        await client.query(`INSERT INTO ${FIXTURE.table} (name, email, profile) VALUES
+           ('Ada Lovelace', 'ada@example.com', '{"account":{"tags":["admin","beta"]}}'),
+           ('Alan Turing', 'alan@example.com', NULL),
+           ('Grace Hopper', 'grace@example.com', NULL)`);
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [FIXTURE_LOCK_KEY]);
     }
@@ -323,9 +327,9 @@ function quoteMysqlDatabaseIdentifier(connectionString: string): string {
 
 /**
  * Create the same fixture table/rows as {@link setupFixture}'s Postgres version, in MySQL.
- * Idempotent and safe under concurrent Playwright workers, matching setupFixture's Postgres
- * advisory-lock precedent - MySQL's equivalent is a named lock (`GET_LOCK`/`RELEASE_LOCK`), which
- * likewise must run on one held connection (`pool.getConnection()`, not `pool.query()`).
+ * Idempotent and safe under concurrent Playwright workers. Tables stay present after first
+ * creation and row replacement is transactional, so catalog readers never observe a DROP/CREATE
+ * gap. MySQL's named lock (`GET_LOCK`/`RELEASE_LOCK`) serializes writers on one held connection.
  */
 export async function setupMysqlFixture(connectionString: string): Promise<void> {
   const pool = mysql.createPool(connectionString);
@@ -361,26 +365,35 @@ export async function setupMysqlFixture(connectionString: string): Promise<void>
         `SET DEFAULT ROLE '${MYSQL_WRITER_ROLE}' TO '${MYSQL_ROLE_WRITER_USER}'@'%'`
       );
 
-      await connection.query(`DROP TABLE IF EXISTS ${MYSQL_RELATIONSHIP_FIXTURE.table}`);
-      await connection.query(`DROP TABLE IF EXISTS ${FIXTURE.table}`);
-      await connection.query(`CREATE TABLE ${FIXTURE.table} (
+      await connection.query(`CREATE TABLE IF NOT EXISTS ${FIXTURE.table} (
          id INT AUTO_INCREMENT PRIMARY KEY,
          name VARCHAR(255) NOT NULL,
          email VARCHAR(255) NOT NULL
        )`);
-      await connection.query(`CREATE TABLE ${MYSQL_RELATIONSHIP_FIXTURE.table} (
+      await connection.query(`CREATE TABLE IF NOT EXISTS ${MYSQL_RELATIONSHIP_FIXTURE.table} (
          id INT AUTO_INCREMENT PRIMARY KEY,
          user_id INT NOT NULL,
          total DECIMAL(10,2) NOT NULL,
          FOREIGN KEY (user_id) REFERENCES ${FIXTURE.table}(id)
        )`);
-      await connection.query(`INSERT INTO ${FIXTURE.table} (name, email) VALUES
-         ('Ada Lovelace', 'ada@example.com'),
-         ('Alan Turing', 'alan@example.com'),
-         ('Grace Hopper', 'grace@example.com')`);
-      await connection.query(`INSERT INTO ${MYSQL_RELATIONSHIP_FIXTURE.table} (user_id, total) VALUES
-         (1, 42.50),
-         (2, 13.99)`);
+      await connection.beginTransaction();
+      try {
+        await connection.query(`DELETE FROM ${MYSQL_RELATIONSHIP_FIXTURE.table}`);
+        await connection.query(`DELETE FROM ${FIXTURE.table}`);
+        await connection.query(`INSERT INTO ${FIXTURE.table} (id, name, email) VALUES
+           (1, 'Ada Lovelace', 'ada@example.com'),
+           (2, 'Alan Turing', 'alan@example.com'),
+           (3, 'Grace Hopper', 'grace@example.com')`);
+        await connection.query(
+          `INSERT INTO ${MYSQL_RELATIONSHIP_FIXTURE.table} (id, user_id, total) VALUES
+           (1, 1, 42.50),
+           (2, 2, 13.99)`
+        );
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      }
     } finally {
       await connection.query("SELECT RELEASE_LOCK(?)", [MYSQL_FIXTURE_LOCK_NAME]);
     }

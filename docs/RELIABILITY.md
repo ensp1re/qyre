@@ -49,6 +49,9 @@ Each journey has a repeatable verification path and clear failure signals.
   generated fixture locally.
 - Every project uses `e2e/server.ts`, which starts the real Qyre server (API + built web app), not a
   separate `vite preview` process. SQL-only specs skip MongoDB explicitly.
+- SQL fixture setup keeps tables present after their first creation and replaces rows inside a
+  transaction while holding the engine's fixture lock. Parallel browser workers therefore see a
+  complete previous or next fixture, never a transient `DROP TABLE` catalog gap.
 
 ## Required runtime signals
 

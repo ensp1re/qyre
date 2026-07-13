@@ -1,8 +1,8 @@
 # Plan 0006: Role-Aware Database IDE (read-only MVP -> full IDE)
 
-Status: In progress - F121 exit-matrix work is active, but F128 remains `not_started`, so the plan
-cannot move to completed yet. Revised 2026-07-10 after a second-pass adversarial review (code audit
-and market research); see "Second-pass revisions" below.
+Status: In progress - F121's exit matrix passed in draft PR #137, but F128 remains `not_started`,
+so the plan cannot move to completed yet. Revised 2026-07-10 after a second-pass adversarial review
+(code audit and market research); see "Second-pass revisions" below.
 Owner: unassigned
 Linked features: F090-F128 (`docs/FEATURES.json`)
 
@@ -668,3 +668,8 @@ tables` (create, no existing `:table` to scope under yet) plus `/api/tables/:sch
   caches. Restricted Postgres/MySQL grant revocation and read-only SQLite conformance pass;
   MongoDB live restricted auth is not applicable in the shared unauthenticated fixture. Local,
   pre-push, and both GitHub CI gates passed. F121 is the remaining exit gate.
+- 2026-07-14: F120 merged as PR #136. F121 passed in draft PR #137 (`9bd0c8d`): the Playwright
+  matrix covers writable and read-only sessions across all four engines, every mutating API path
+  with and without a session token, and the consolidated role-aware product/security docs. The
+  exact feature command, local and pre-push `pnpm verify:pr`, and both GitHub CI jobs passed. Plan
+  0006 remains active because F128's SQL EXPLAIN viewer is still `not_started`.

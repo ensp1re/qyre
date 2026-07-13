@@ -131,11 +131,12 @@
       "id": "F121",
       "behavior": "Plan 0006's exit gate: a Playwright role-matrix suite runs per engine - a read-only session (restricted fixture user and --read-only flag) shows zero write affordances, keeps every pre-plan read-only workflow green, and receives clean structured rejections from every mutating API route both with a valid session token and (401) without one (F122); a writable session edits and commits a row (SQL grid on one engine, MongoDB document editor), runs a write statement through the destructive-confirmation flow, and creates + drops a table (where the engine supports it) end-to-end. Docs consolidation lands with it: README feature matrix, ARCHITECTURE.md's adding-an-engine recipe gains the capabilities/mutations/ddl/admin steps, and docs/SECURITY.md's write rules are updated from aspirational to implemented contract. Move plan 0006 to exec-plans/completed with evidence. Depends on all prior plan slices.",
       "verification": "pnpm test:e2e:full && pnpm check:state",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9bd0c8d",
+      "evidence": "Draft PR #137 (https://github.com/ensp1re/qyre/pull/137), pushed as 9bd0c8d. Added Playwright role-matrix projects for restricted Postgres/MySQL roles, a filesystem-read-only SQLite fixture, and forced-read-only Postgres/MongoDB sessions. Read-only coverage proves normal schema/table reads, zero write controls, structured authenticated denials, and 401 responses without the session token across all 19 mutating API paths; writable Postgres/MySQL/SQLite/MongoDB sessions create and drop a table or collection through the real UI, alongside the existing row-grid, SQL destructive-confirmation, and MongoDB document-editor journeys. The matrix exposed and fixed a missing qyre-flag denial discriminator and MySQL's invalid bare VARCHAR table-designer default. Consolidated README, architecture, security, connection, driver, and harness documentation. Verified on Node 22 with the exact feature command, local pnpm verify:pr, the pre-push gate, and both GitHub CI jobs: 34/34 package tasks, 11 smoke E2E passes, and 29 full E2E passes (43 explicit engine/project skips). MongoDB restricted authentication remains not applicable because the shared fixture has auth disabled; its hard read-only override is covered. Plan 0006 remains active because F128 is still not_started.",
       "blockedReason": null,
-      "spec": null
+      "spec": null,
+      "completedAt": "2026-07-13T22:21:15.000Z"
     }
   ]
 }

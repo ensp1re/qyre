@@ -109,11 +109,12 @@
       "id": "F119",
       "behavior": "A read-only Roles & grants viewer so users understand why affordances are hidden: Postgres shows pg_roles plus a grants summary for the current user, MySQL shows SHOW GRANTS/information_schema privileges (including granted roles), MongoDB shows rolesInfo/usersInfo where permitted, SQLite shows file-permission facts instead; strictly a viewer - no role management mutations anywhere in plan 0006. Surfaces through the admin namespace with a capability flag; degrades cleanly when the connected user may not read role catalogs. Depends on F092-F095.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "ce3a5bc",
+      "evidence": "PR #135 (https://github.com/ensp1re/qyre/pull/135), pushed as ce3a5bc. Added the shared secret-safe AccessOverview contract, supportsAccessInspection capability, read-only DatabaseAdminApi.inspectAccess method, and authenticated GET /api/access route that remains available under --read-only. Postgres reports explicit pg_roles attributes plus enabled-role table grants; MySQL reports CURRENT_USER/USER/CURRENT_ROLE and redacted SHOW GRANTS; MongoDB uses connectionStatus with best-effort usersInfo/rolesInfo; SQLite reports file, directory, connection, and PRAGMA facts. The capability-driven Settings Access viewer covers disconnected, unsupported, capability-loading, data-loading, empty, degraded-notice, error, retry, and success states without engine-name branches or mutations. Added bounds, degradation, redaction, route, browser API, UI, and live four-engine conformance coverage. Repaired the repeated parallel E2E catalog race by keeping SQL fixture tables present with transactional row replacement and waiting for completion metadata explicitly. Verified on Node 22 with pnpm verify:pr locally and through the pre-push hook: 34/34 package tasks, 11 smoke E2E, and 19 full E2E passed; both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": "docs/product-specs/roles-and-grants-viewer.md"
+      "spec": "docs/product-specs/roles-and-grants-viewer.md",
+      "completedAt": "2026-07-13T21:15:35.000Z"
     },
     {
       "id": "F120",

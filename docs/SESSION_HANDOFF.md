@@ -7,7 +7,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 - Date: 2026-07-13.
 - Branch: `feature/F119-roles-grants-viewer`, based on `main` through merged PR #134.
-- Queue: F111-F118 are `passing`; F119 is `active`; F120-F121 and F128 remain `not_started`.
+- Queue: F111-F119 are `passing`; F120-F121 and F128 remain `not_started`.
   `nextIds.F` is 129.
 
 ## Completed
@@ -32,12 +32,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   export queries with native streams on all four engines and adds capability-driven CSV,
   JSON/Extended JSON, and SQL-INSERT downloads while preserving selected-row CSV precedence. The
   local and pre-push `CI=1 pnpm verify:pr` gates and explicit four-engine stream conformance passed.
+- F119 is pushed as `ce3a5bc` in PR #135 with both CI jobs green. It adds a secret-safe,
+  read-only access inspection contract and Settings viewer across Postgres, MySQL, SQLite, and
+  MongoDB, including partial catalog degradation, bounds/redaction coverage, and a parallel E2E
+  fixture-race repair. Local and pre-push `pnpm verify:pr` gates passed on Node 22.
 
 ## In progress
 
-- F119 is implemented locally: the secret-safe access summary, capability and admin contract,
-  Postgres/MySQL/SQLite/MongoDB inspection, read-only server route, and Settings viewer are complete.
-  The full Node 22 `pnpm verify:pr` gate passes; delivery commit/PR state remains to be recorded.
+- No implementation slice is active. F119 is awaiting review/merge in PR #135; F120 is next after
+  merge.
 
 ## Known issues / blockers
 
@@ -72,5 +75,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Review and commit F119, push it through the pre-push gate, open the draft PR, wait for both CI
-  jobs, then record the PR/commit evidence and move F119 to `passing`.
+- Review and merge PR #135. After the merge is confirmed, prune passing history and promote F120
+  (permission-denied hardening) as the next feature slice.

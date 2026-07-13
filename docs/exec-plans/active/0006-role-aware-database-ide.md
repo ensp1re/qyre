@@ -1,7 +1,8 @@
 # Plan 0006: Role-Aware Database IDE (read-only MVP -> full IDE)
 
-Status: Planned - no slice started. Revised 2026-07-10 after a second-pass adversarial
-review (code audit + market research); see "Second-pass revisions" below.
+Status: In progress - F121 exit-matrix work is active, but F128 remains `not_started`, so the plan
+cannot move to completed yet. Revised 2026-07-10 after a second-pass adversarial review (code audit
+and market research); see "Second-pass revisions" below.
 Owner: unassigned
 Linked features: F090-F128 (`docs/FEATURES.json`)
 

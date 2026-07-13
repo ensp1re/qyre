@@ -1,7 +1,8 @@
 # AGENTS.md
 
-Qyre is a CLI-launched, local-first database management UI. It supports Postgres, MySQL, SQLite,
-and MongoDB behind one adapter contract and is read-only. This file is the mandatory contract and
+Qyre is a CLI-launched, local-first, role-aware database management UI. It supports Postgres,
+MySQL, SQLite, and MongoDB behind one adapter contract, with writes gated by connected-user grants
+and a hard `--read-only` override. This file is the mandatory contract and
 router; load deeper documents only when the task requires them.
 
 ## Start with compact context

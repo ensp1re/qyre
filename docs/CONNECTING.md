@@ -38,25 +38,27 @@ you're running `qyre` (e.g. a database only listening on `127.0.0.1` inside a co
 reachable from your host without a published port).
 
 **Authentication failed** - the username/password in the connection string are wrong, or the user
-doesn't have permission to connect to that database/schema. Qyre only ever runs read-only queries
-(see below), so the connecting user needs at least `SELECT` privileges - nothing more.
+doesn't have permission to connect to that database/schema. The connecting user needs at least
+read access; write and schema-editing affordances appear only for grants Qyre can introspect, while
+the database rechecks the real permission on every attempt.
 
 **The status bar says "disconnected" but I just connected fine** - Qyre polls the connection every
 few seconds and will recover automatically once the database is reachable again; a transient
 network blip doesn't need a restart. If it stays disconnected, check the database is still running.
 
-**A specific query fails with "Only read-only statements are allowed"** - see the next section;
-this is enforced deliberately, not a bug.
+**A write query is rejected as read-only** - see the next section. The connected role, database
+state, connection mode, or Qyre's `--read-only` flag can all deliberately make a session read-only.
 
-## The read-only / local-first security model
+## The role-aware / local-first security model
 
-Qyre is strictly read-only today, enforced in two layers:
+Qyre shows write features only when the connected role and engine report support for them. Those
+capabilities are advisory; the database remains authoritative, and a native denial is returned as
+a redacted structured error.
 
-1. Every query is scanned and rejected up front if it isn't `SELECT`/`WITH`/`EXPLAIN`/`SHOW`/
-   `TABLE`/`VALUES`.
-2. The database connection itself is the authoritative backstop: Postgres and MySQL queries run
-   inside a real `READ ONLY` transaction, and SQLite's connection is opened read-only. Even a
-   disguised write (e.g. a writable CTE) is refused by the database, not just Qyre's own scan.
+Read statements always use the engine's read-only execution path. Write-capable SQL sessions
+classify mutation/DDL/destructive statements separately, with destructive statements requiring an
+explicit confirmation round-trip. Launching with `--read-only` overrides all grants and rejects
+every mutating route before its handler runs.
 
 Qyre binds to `127.0.0.1` only and never transmits your database's contents, schema, or credentials
 anywhere off your machine - there's no telemetry and no external network calls. See

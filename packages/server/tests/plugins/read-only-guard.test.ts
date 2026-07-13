@@ -25,7 +25,8 @@ describe("read-only guard (F096)", () => {
     });
     expect(response.statusCode).toBe(403);
     expect(response.json()).toMatchObject({
-      error: "Qyre is running in read-only mode (--read-only). This action is disabled."
+      error: "Qyre is running in read-only mode (--read-only). This action is disabled.",
+      reason: "qyre-flag"
     });
     await app.close();
   });

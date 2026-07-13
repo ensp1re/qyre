@@ -35,7 +35,7 @@ export const POSTGRES_COLUMN_TYPES = [
 
 /** MySQL's curated column type catalog - see {@link POSTGRES_COLUMN_TYPES}. */
 export const MYSQL_COLUMN_TYPES = [
-  "VARCHAR",
+  "VARCHAR(255)",
   "TEXT",
   "INT",
   "BIGINT",

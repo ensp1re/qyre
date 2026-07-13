@@ -36,22 +36,36 @@ rules are first-class.
   memory for the current local session; persisted recent targets must be credential-free.
 - Real credentials never go in the repo. Use `.env` (gitignored) and `.env.example` for templates.
 
-## Database safety (read-only)
+## Database safety and writes
 
-- Qyre is strictly read-only for now. The query runner must reject non-SELECT/mutating statements.
-- Use parameterized queries / safe identifier quoting in adapters. Never build SQL by naive string
-  concatenation of untrusted input.
-- When write features are eventually added, destructive actions (DROP, DELETE, TRUNCATE, UPDATE
-  without WHERE, schema changes) require explicit, unambiguous user confirmation and must never be
-  the default path.
+- Qyre is role-aware. `ConnectionCapabilities` and per-table permissions drive visible
+  affordances and server pre-checks, but they are advisory; the connected database is the
+  authoritative enforcer on every operation. Missing or failed introspection gates closed.
 - The CLI's `--read-only` flag (F096) is a hard, Qyre-level ceiling that always wins over whatever
   the connected database role would otherwise allow - `ConnectionCapabilities` reports every
   `supports*` flag `false` and `readOnlyReason: "qyre-flag"` regardless of grants
   (`packages/server/src/services/read-only-capabilities.ts`), and the read-only guard plugin
-  (`packages/server/src/plugins/read-only-guard.ts`) rejects any route registered with `config: {
-mutating: true }` before its handler runs. Every future write route must register under this
+  (`packages/server/src/plugins/read-only-guard.ts`) rejects any route registered as mutating before
+  its handler runs. Every future write route must register under this
   choke point - it is the single place session read-only mode is enforced server-side, not
-  something each write route may reimplement or bypass.
+  something each write route may reimplement or bypass. Its stable 403 response carries
+  `reason: "qyre-flag"`.
+- Every database-mutating route also declares permission-denial metadata through
+  `permissionRoute`; server startup rejects an uncovered mutating route. Concrete adapters classify
+  stable native permission codes, and the global handler returns the shared redacted
+  `permission-denied` 403 plus one safe audit entry - raw engine text is never returned or logged
+  for a denial.
+- Read statements still use the adapter's authoritative read-only path (Postgres/MySQL read-only
+  transactions and SQLite `PRAGMA query_only`). A write-capable SQL session classifies other
+  statements separately; destructive classes require a confirmed second request.
+- Structured row mutations and DDL use parameterized values and safe identifier quoting inside
+  adapters. Never build SQL by naive string concatenation of untrusted input.
+- Staged SQL-grid writes commit in one native transaction on Postgres, MySQL, and SQLite. MongoDB
+  document writes use explicit whole-document Extended JSON operations because the standalone test
+  topology cannot promise multi-document transactions.
+- Destructive actions (DROP, DELETE, TRUNCATE, UPDATE without WHERE, destructive schema changes)
+  require explicit, unambiguous confirmation and must never be the default path. Every mutation is
+  audited in the in-app EventLog and structured server log.
 
 ## Untrusted input
 

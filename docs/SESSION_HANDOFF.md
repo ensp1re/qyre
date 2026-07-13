@@ -6,8 +6,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-14.
-- Branch: `feature/F120-permission-denied-hardening`, based on `main` through merged PR #135.
-- Queue: F111-F120 are `passing`; F121 and F128 remain `not_started`.
+- Branch: `feature/F121-role-matrix-exit-gate`, based on `main` through merged PR #136.
+- Queue: F111-F120 are `passing`; F121 is `active`; F128 remains `not_started`.
   `nextIds.F` is 129.
 
 ## Completed
@@ -36,7 +36,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   read-only access inspection contract and Settings viewer across Postgres, MySQL, SQLite, and
   MongoDB, including partial catalog degradation, bounds/redaction coverage, and a parallel E2E
   fixture-race repair. Local and pre-push `pnpm verify:pr` gates passed on Node 22.
-- F120 is pushed in draft PR #136 (`dd3bde0`). Native permission errors now map to one redacted
+- F120 merged as PR #136 (`2764a97`). Native permission errors now map to one redacted
   structured 403 across every mutating path, route metadata coverage is enforced at startup, the
   browser refreshes capability/table-permission caches after denial, and restricted conformance
   covers Postgres, MySQL, and SQLite (MongoDB auth is not applicable in the shared fixture). Local,
@@ -44,7 +44,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- No active feature. F121 is the next plan slice and the plan 0006 exit gate.
+- F121 is active: add the per-engine read-only/writable role-matrix E2E exit gate and consolidate
+  README, architecture, and security documentation before completing plan 0006.
 
 ## Known issues / blockers
 
@@ -79,5 +80,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- After PR #136 merges, promote F121 and implement the per-engine read-only/writable role-matrix E2E
-  exit gate plus README, architecture, and security-document consolidation; then complete plan 0006.
+- Map the existing Playwright projects, restricted fixtures, mutating API routes, and documented
+  exit criteria; implement the smallest complete F121 matrix and run its focused/full gates.

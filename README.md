@@ -32,7 +32,8 @@ row browser, a full-database schema overview, and more - all served from your ow
   tab; nothing to install, nothing tied to a specific engine's tooling.
 - **`psql` / a database's own CLI** - great for scripting, not for visually scanning a schema,
   browsing rows, or spotting a foreign key at a glance. Qyre complements the CLI rather than
-  replacing it: same read-only safety, a UI built for looking, not just querying.
+  replacing it: role-aware safety, explicit write workflows, and a UI built for looking as well as
+  changing data.
 - **A cloud-hosted database GUI** - your connection string and query results leave your machine.
   Qyre binds to `localhost` only and never phones home (see "Security" below) - your data never
   leaves your machine.
@@ -50,34 +51,33 @@ pnpm dev          # run packages in watch mode
 
 ## Status
 
-Postgres, MySQL, and SQLite are all fully supported engines today: connect, browse the schema
-(tables, columns, indexes, primary/foreign keys, row counts), page through rows, run read-only SQL
-queries, browse `.sql` files near the launch target, and watch a live log of recent connection/query
-activity. MongoDB is also supported for basic read-only browsing (schemas/collections, documents,
-pagination) - no SQL dialect, so it has no query runner (browse collections directly instead). New
-engines plug in as independent `packages/drivers/<engine>` adapter packages and are picked up by the
-same detection path - no changes to the CLI, server, or UI.
+Qyre is role-aware: it introspects the connected user's grants, shows only allowed write
+affordances, and still lets the database make the authoritative decision on every operation.
 
-## Security: read-only today, enforced by the database itself
+| Capability                 | Postgres                 | MySQL                    | SQLite                   | MongoDB                        |
+| -------------------------- | ------------------------ | ------------------------ | ------------------------ | ------------------------------ |
+| Schema and row inspection  | Yes                      | Yes                      | Yes                      | Collections and documents      |
+| Query editor               | Read and write SQL       | Read and write SQL       | Read and write SQL       | Not applicable                 |
+| Data editing               | Transactional grid batch | Transactional grid batch | Transactional grid batch | Whole-document Extended JSON   |
+| Schema editing             | Tables, columns, indexes | Tables, columns, indexes | Tables, columns, indexes | Collections and indexes        |
+| Database/schema management | Databases and schemas    | Databases                | Not applicable           | List and drop databases        |
+| CSV import and data export | Yes                      | Yes                      | Yes                      | Yes                            |
+| Access/grants viewer       | Roles and grants         | Grants and active role   | File/connection facts    | Authenticated roles/privileges |
+| Forced `--read-only` mode  | Yes                      | Yes                      | Yes                      | Yes                            |
 
-Today, Qyre is strictly read-only, and that's not enforced by just an app-level string check you
-could work around with a clever query:
+New engines plug in as independent `packages/drivers/<engine>` adapter packages and are picked up
+by the same detection path - no engine selector and no engine-specific branches in the UI.
 
-- Every query is scanned and rejected up front if it isn't `SELECT`/`WITH`/`EXPLAIN`/`SHOW`/
-  `TABLE`/`VALUES` - but that scan is only the first layer.
-- The authoritative backstop is the database connection itself. Postgres and MySQL queries run
-  inside a real `READ ONLY` transaction; SQLite's connection is opened with `readonly: true`. Even
-  a disguised write - a writable CTE, a stored function that hides a `DELETE` behind an innocuous
-  `SELECT` - gets refused by the database, not by Qyre's string check.
-- Qyre binds to `127.0.0.1` only and never transmits your database's contents, schema, or
-  credentials anywhere off your machine.
+## Security: role-aware writes, database-enforced boundaries
 
-Read-only is a deliberate first phase, not a permanent ceiling: inspection has to be rock-solid
-before any write/mutation feature is even considered (see
-[`docs/PRODUCT_SENSE.md`](docs/PRODUCT_SENSE.md)'s "Read before write" rule). A future full
-IDE-style write experience - creating tables, managing users/roles, and the like - is on the
-roadmap, but it'll ship as its own carefully-scoped feature with explicit confirmation and
-permission scoping, not a quiet loosening of what's described above.
+- Every API request requires a per-session bearer token, and the server binds to `127.0.0.1` only.
+- Capabilities and table permissions control affordances but are advisory. The database remains the
+  final authority; native denials become safe, structured errors without leaking engine text.
+- `--read-only` is a hard session ceiling across every mutating route, regardless of database
+  grants. Read queries keep their engine-level read-only backstops.
+- Row mutations use structured, parameterized adapter operations. Destructive SQL and DDL require
+  explicit confirmation, and transactional engines commit staged grid changes atomically.
+- Qyre never transmits database contents, schemas, or credentials off the local machine.
 
 See [`docs/SECURITY.md`](docs/SECURITY.md) for the full set of rules this project holds itself to,
 or [`docs/CONNECTING.md`](docs/CONNECTING.md) for per-engine connection-string formats and

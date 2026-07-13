@@ -659,5 +659,5 @@ tables` (create, no existing `:table` to scope under yet) plus `/api/tables/:sch
   batches, and honest one-document atomic batches for standalone MongoDB. The Tables toolbar now
   opens a permission/kind-gated mapping + dry-run + result-summary dialog. Core/server/UI/web tests,
   the read-only E2E canary, `pnpm check:quiet`, and the complete CI-semantics `pnpm verify:pr` gate
-  are green. Pushed as `817f746` in draft PR #133; both GitHub CI jobs passed and F117 moved to
+  are green. Pushed as `817f746` in PR #133; both GitHub CI jobs passed and F117 moved to
   `passing` pending user review/merge.

@@ -22,7 +22,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   (F110), column ops (F111, incl. SQLite's 12-step rebuild), index ops (F112), the table designer
   UI (F113), the Structure view (F114), database/schema lifecycle (F115), and its management UI
   (F116) - all gated server-side on F096 + the relevant capability flag.
-- F117 (CSV import) is pushed as `817f746` in draft PR #133 with both GitHub CI jobs green. Its
+- F117 (CSV import) is pushed as `817f746` in PR #133 with both GitHub CI jobs green. Its
   capped streaming inspect/validate/import API, typed mapping/coercion, bounded SQL transactions,
   one-document MongoDB batches, permission/kind gates, mapping/dry-run/result UI, product contract,
   and read-only E2E canary are complete. The local and pre-push `CI=1 pnpm verify:pr` gates passed
@@ -65,5 +65,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Review and merge draft PR #133. After the merge is confirmed, prune passing history and promote
+- Review and merge PR #133. After the merge is confirmed, prune passing history and promote
   F118 (JSON/SQL-INSERT export plus single-pass engine streaming) as the next feature slice.

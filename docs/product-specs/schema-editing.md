@@ -344,6 +344,57 @@ immediate and irreversible the instant it's confirmed:
   not a batch of changes staged together the way row edits are - revisit only if F113's real UX
   needs multi-op batching.
 
+## Database and schema lifecycle (F115)
+
+### Behavior
+
+- Adapters gain the `admin` namespace (`DatabaseAdminApi`), mirroring `mutations`/`ddl`'s
+  optional-namespace pattern, with `listDatabases`/`createDatabase`/`dropDatabase` and - Postgres
+  only - `createSchema`/`dropSchema`. Per-engine membership follows what each engine genuinely has:
+  - **Postgres**: all five. `listDatabases` reads `pg_database` (non-template databases);
+    `dropSchema` never adds `CASCADE` - dropping a non-empty schema surfaces Postgres's own
+    dependency error rather than silently taking every contained table with it.
+  - **MySQL**: `listDatabases`/`createDatabase`/`dropDatabase` only - a MySQL "schema" IS its
+    database (`CREATE SCHEMA` is a literal synonym), so modeling the schema pair would offer the
+    same operation twice.
+  - **MongoDB**: `listDatabases`/`dropDatabase` only - databases come into existence implicitly on
+    the first write into them, so there is no create operation to model; the create route responds
+    `400` explaining that. System databases (`admin`/`local`/`config`) are filtered from the list.
+  - **SQLite**: no `admin` namespace at all - one file is one database; the routes respond `400`
+    with a clean "one database per connection" message, never a bare `404`.
+- `supportsDatabaseManagement` comes from the real F092-F095 permission introspection: Postgres
+  (superuser or `CREATEDB`/database `CREATE` privilege) and MySQL (SUPER or global `CREATE`)
+  already computed it; MongoDB now derives it from the `dropDatabase` privilege action (the only
+  database-management action its privilege model has); SQLite stays engine-level false.
+- Routes: `GET /api/databases` (a read - no mutating gate or capability check; the underlying
+  catalogs are readable regardless of write grants), `POST /api/databases` - body
+  `{ database: string }`, `DELETE /api/databases/:database` - body `{ confirmedName: string }`,
+  `POST /api/schemas` - body `{ schema: string }`, `DELETE /api/schemas/:schema` - body
+  `{ confirmedName: string }`. Mutating routes carry the same two-tier gate as every DDL route
+  (F096 central guard + `supportsDatabaseManagement`); both drops require the typed-confirmation
+  token re-validated server-side. `DELETE .../databases/:database` validates the target exists via
+  `listDatabases` first (`404` otherwise); `DELETE .../schemas/:schema` deliberately does not -
+  `getOverview()` derives schemas from tables, so a legitimately empty schema (the most common drop
+  target) never appears in it; a nonexistent schema surfaces Postgres's own error instead.
+- Audit events follow the "Audit-event contract" below with
+  `operation: "createDatabase" | "dropDatabase" | "createSchema" | "dropSchema"` and a `target`
+  field (a database/schema name - there is no `schema.table` pair at this level). `listDatabases`
+  is a read, never audited.
+- No guard against dropping the currently connected database beyond what the engine itself
+  enforces - Postgres rejects it natively ("cannot drop the currently open database");
+  MySQL/MongoDB allow it. The typed confirmation is the deliberate-action gate.
+
+### Out of scope (for now)
+
+- A database/schema-management UI - this slice is the adapter/route surface only, matching
+  F110-F112's backend-first split; the UI slice decides its own affordances later.
+- Cross-database introspection or switching the connected database server-side -
+  `POST /api/connect` (F064) already covers moving the whole session to another database.
+- MongoDB database creation via an implicit first write (e.g. auto-creating a collection) - a
+  create that works by side effect would surprise more than it helps; Compass's own "create
+  database" requires naming an initial collection, which is F113's create-collection flow, not a
+  database operation.
+
 ## Audit-event contract
 
 ### Behavior

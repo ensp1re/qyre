@@ -53,8 +53,8 @@ export function computeCapabilities(
     supportsDdl: true,
     supportsIndexManagement: true,
     // SQLite has no separate database-creation concept in Qyre's model - the file itself is "the
-    // database", and the UI never exposes ATTACH DATABASE. Always false, the same way MongoDB's
-    // supportsDdl is always false: an engine-level absence, not a grant check.
+    // database", and the UI never exposes ATTACH DATABASE. Always false, and the adapter has no
+    // F115 admin namespace at all: an engine-level absence, not a grant check.
     supportsDatabaseManagement: false,
     supportsTransactions: true,
     readOnlyReason: null

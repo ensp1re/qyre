@@ -35,7 +35,7 @@ const FULL_ACCESS_CAPABILITIES: ConnectionCapabilities = {
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: true,
-  supportsDatabaseManagement: false,
+  supportsDatabaseManagement: true,
   supportsTransactions: false,
   readOnlyReason: null
 };
@@ -91,22 +91,29 @@ function anyNonSystemResourceGrants(privileges: Privilege[], actionNames: string
 const ROW_MUTATION_ACTIONS = ["insert", "update", "remove"];
 const DDL_ACTIONS = ["createCollection", "dropCollection"];
 const INDEX_ACTIONS = ["createIndex", "dropIndex"];
+const DATABASE_MANAGEMENT_ACTIONS = ["dropDatabase"];
 
 function capabilitiesFromPrivileges(privileges: Privilege[]): ConnectionCapabilities {
   const supportsRowMutations = anyNonSystemResourceGrants(privileges, ROW_MUTATION_ACTIONS);
   const supportsDdl = anyNonSystemResourceGrants(privileges, DDL_ACTIONS);
   const supportsIndexManagement = anyNonSystemResourceGrants(privileges, INDEX_ACTIONS);
-  const canWrite = supportsRowMutations || supportsDdl || supportsIndexManagement;
+  // MongoDB has no explicit "create database" privilege at all (databases come into existence
+  // implicitly on first write), so "dropDatabase" is the only action database management can be
+  // introspected from - F115's admin namespace models exactly that pair (listDatabases +
+  // dropDatabase, no createDatabase).
+  const supportsDatabaseManagement = anyNonSystemResourceGrants(
+    privileges,
+    DATABASE_MANAGEMENT_ACTIONS
+  );
+  const canWrite =
+    supportsRowMutations || supportsDdl || supportsIndexManagement || supportsDatabaseManagement;
 
   return {
     supportsSql: false,
     supportsRowMutations,
     supportsDdl,
     supportsIndexManagement,
-    // MongoDB has no explicit "create database" privilege (databases come into existence
-    // implicitly on first write) and only a loose "dropDatabase" action with no matching create
-    // counterpart to pair it with - not modeled by this slice, same as SQLite's always-false.
-    supportsDatabaseManagement: false,
+    supportsDatabaseManagement,
     // Real multi-document transactions additionally require replica-set topology, not privileges
     // alone (a standalone mongod - Qyre's common local-dev target - can't run them regardless of
     // grants) - topology detection is out of scope for a permission-introspection slice.

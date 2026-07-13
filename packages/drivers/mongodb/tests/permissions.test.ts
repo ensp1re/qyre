@@ -21,7 +21,7 @@ describe("capabilitiesFromConnectionStatus (F095)", () => {
       supportsRowMutations: true,
       supportsDdl: true,
       supportsIndexManagement: true,
-      supportsDatabaseManagement: false,
+      supportsDatabaseManagement: true,
       supportsTransactions: false,
       readOnlyReason: null
     });
@@ -64,6 +64,25 @@ describe("capabilitiesFromConnectionStatus (F095)", () => {
       supportsDdl: true,
       supportsIndexManagement: true,
       readOnlyReason: null
+    });
+  });
+
+  it("derives supportsDatabaseManagement from the dropDatabase action (F115)", () => {
+    const dbAdminStatus = status(
+      [{ user: "dbadmin", db: "qyre_test" }],
+      [{ resource: { db: "qyre_test", collection: "" }, actions: ["find", "dropDatabase"] }]
+    );
+    expect(capabilitiesFromConnectionStatus(dbAdminStatus)).toMatchObject({
+      supportsDatabaseManagement: true,
+      readOnlyReason: null
+    });
+    // The readWrite-role shape (no dropDatabase) stays false.
+    const readWriteStatus = status(
+      [{ user: "writer", db: "qyre_test" }],
+      [{ resource: { db: "qyre_test", collection: "" }, actions: ["find", "insert"] }]
+    );
+    expect(capabilitiesFromConnectionStatus(readWriteStatus)).toMatchObject({
+      supportsDatabaseManagement: false
     });
   });
 

@@ -206,16 +206,17 @@ describe("read-only enforcement", () => {
     const sourceDirectory = join(here, "../src");
     const source = readdirSync(sourceDirectory)
       // permissions.ts (F095) legitimately contains MongoDB's own privilege *action-name*
-      // vocabulary as string literals (e.g. "createCollection", "createIndex" in an actions array
-      // read from connectionStatus{showPrivileges:true}) - the same words as real write methods,
-      // but never called as one; it only ever reads via client.db().command(...). mutations.ts
-      // (F099) and ddl.ts (F110/F112) are the two deliberate, gated write paths - see the next
-      // tests. adapter.ts's own SchemaDdlApi wiring imports and calls ddl.ts's `createIndex`/
-      // `dropIndex` functions by their own names (F112) - the same identifiers as the real
+      // vocabulary as string literals (e.g. "createCollection", "createIndex", "dropDatabase" in
+      // an actions array read from connectionStatus{showPrivileges:true}) - the same words as real
+      // write methods, but never called as one; it only ever reads via client.db().command(...).
+      // mutations.ts (F099), ddl.ts (F110/F112), and admin.ts (F115) are the three deliberate,
+      // gated write paths - see the next tests. adapter.ts's own SchemaDdlApi/DatabaseAdminApi
+      // wiring imports and calls ddl.ts's `createIndex`/`dropIndex` (F112) and admin.ts's
+      // `dropDatabase` (F115) functions by their own names - the same identifiers as the real
       // MongoDB driver methods they wrap, so the string scan can't tell "calls our own reviewed
       // wrapper" from "calls the raw driver method" there; excluded for that reason, verified
       // instead by grepping adapter.ts for the raw MongoDB write methods (never found - it only
-      // ever delegates to mutations.ts/ddl.ts). All four excluded here so this scan keeps
+      // ever delegates to mutations.ts/ddl.ts/admin.ts). All five excluded here so this scan keeps
       // catching an actual *accidental* write call elsewhere.
       .filter(
         (name) =>
@@ -223,6 +224,7 @@ describe("read-only enforcement", () => {
           name !== "permissions.ts" &&
           name !== "mutations.ts" &&
           name !== "ddl.ts" &&
+          name !== "admin.ts" &&
           name !== "adapter.ts"
       )
       .map((name) => readFileSync(join(sourceDirectory, name), "utf-8"))
@@ -277,6 +279,18 @@ describe("read-only enforcement", () => {
     for (const method of WRITE_METHODS.filter((candidate) => !shipped.includes(candidate))) {
       const callPattern = method.endsWith("(") ? method : `${method}(`;
       expect(source, `ddl.ts must not yet call ${method}`).not.toContain(callPattern);
+    }
+  });
+
+  it("admin.ts only calls the write method database lifecycle has actually shipped (F115: dropDatabase)", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(join(here, "../src/admin.ts"), "utf-8");
+    expect(source, "admin.ts must call dropDatabase").toContain("dropDatabase(");
+    // Every other write method stays absent - notably no createCollection-style implicit
+    // database creation: MongoDB has no createDatabase member at all (see admin.ts's doc comment).
+    for (const method of WRITE_METHODS.filter((candidate) => candidate !== "dropDatabase")) {
+      const callPattern = method.endsWith("(") ? method : `${method}(`;
+      expect(source, `admin.ts must not yet call ${method}`).not.toContain(callPattern);
     }
   });
 });

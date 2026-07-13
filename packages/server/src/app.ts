@@ -17,6 +17,7 @@ import { registerSecurityHeaders } from "./plugins/security-headers.js";
 import { registerStaticWeb } from "./plugins/static-web.js";
 import { registerConnectRoute } from "./routes/connect.js";
 import { registerConsoleRoutes } from "./routes/console.js";
+import { registerDatabaseAdminRoutes } from "./routes/database-admin.js";
 import { registerFilesRoutes } from "./routes/files.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerMutationsRoutes } from "./routes/mutations.js";
@@ -145,6 +146,7 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   registerTablesRoutes(app, ctx);
   registerMutationsRoutes(app, ctx);
   registerSchemaDdlRoutes(app, ctx);
+  registerDatabaseAdminRoutes(app, ctx);
   registerQueryRoute(app, ctx);
   registerConsoleRoutes(app, ctx);
   registerFilesRoutes(app, ctx);

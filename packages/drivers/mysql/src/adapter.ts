@@ -22,10 +22,12 @@ import type {
   AdapterFactory,
   CancellationRegistry,
   DatabaseAdapter,
+  DatabaseAdminApi,
   RowMutationApi,
   SchemaDdlApi
 } from "@qyre/driver-contract";
 import mysql from "mysql2/promise";
+import { createDatabase, dropDatabase, listDatabases } from "./admin.js";
 import { tableKey } from "./catalog.js";
 import { isMysqlCancelError, withCancellableConnection } from "./cancellation.js";
 import {
@@ -82,6 +84,11 @@ export class MysqlAdapter implements DatabaseAdapter {
     createIndex: (schema, table, definition) =>
       createIndex(this.getPool(), schema, table, definition),
     dropIndex: (schema, table, indexName) => dropIndex(this.getPool(), schema, table, indexName)
+  };
+  public readonly admin: DatabaseAdminApi = {
+    listDatabases: () => listDatabases(this.getPool()),
+    createDatabase: (name) => createDatabase(this.getPool(), name),
+    dropDatabase: (name) => dropDatabase(this.getPool(), name)
   };
   private pool: mysql.Pool | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;

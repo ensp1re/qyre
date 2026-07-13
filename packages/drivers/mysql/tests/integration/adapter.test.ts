@@ -305,6 +305,21 @@ describe("MysqlAdapter integration", () => {
     }
   });
 
+  it("rejects createDatabase as a SELECT-only fixture user, which also reports supportsDatabaseManagement false (F115)", async () => {
+    const readOnlyAdapter = new MysqlAdapter({
+      engine: "mysql",
+      raw: requireReadOnlyTestMysqlUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      const capabilities = await readOnlyAdapter.getCapabilities();
+      expect(capabilities.supportsDatabaseManagement).toBe(false);
+      await expect(readOnlyAdapter.admin.createDatabase?.("qyre_denied_db")).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("createTable/renameTable/truncateTable/dropTable roundtrip (F110)", async () => {
     const table = "qyre_test_ddl";
     const renamed = "qyre_test_ddl_renamed";

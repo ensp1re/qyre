@@ -22,10 +22,12 @@ import type {
   AdapterFactory,
   CancellationRegistry,
   DatabaseAdapter,
+  DatabaseAdminApi,
   RowMutationApi,
   SchemaDdlApi
 } from "@qyre/driver-contract";
 import type { Pool } from "pg";
+import { createDatabase, createSchema, dropDatabase, dropSchema, listDatabases } from "./admin.js";
 import { tableKey } from "./catalog.js";
 import { isPgCancelError, withCancellableClient } from "./cancellation.js";
 import { createPostgresPool } from "./connection.js";
@@ -77,6 +79,13 @@ export class PostgresAdapter implements DatabaseAdapter {
     createIndex: (schema, table, definition) =>
       createIndex(this.getPool(), schema, table, definition),
     dropIndex: (schema, _table, indexName) => dropIndex(this.getPool(), schema, indexName)
+  };
+  public readonly admin: DatabaseAdminApi = {
+    listDatabases: () => listDatabases(this.getPool()),
+    createDatabase: (name) => createDatabase(this.getPool(), name),
+    dropDatabase: (name) => dropDatabase(this.getPool(), name),
+    createSchema: (name) => createSchema(this.getPool(), name),
+    dropSchema: (name) => dropSchema(this.getPool(), name)
   };
   private pool: Pool | undefined;
 

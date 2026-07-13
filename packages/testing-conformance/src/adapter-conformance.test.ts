@@ -257,13 +257,14 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
         // The conformance MongoDB fixture connects with no authentication - the docker-compose/CI
         // container runs with no authorization enabled at all, so F095's real introspection reports
         // full access too (an unauthenticated connection has no access control applied, matching
-        // mongod's own default) - except supportsDatabaseManagement/supportsTransactions, which
-        // this slice doesn't model (see packages/drivers/mongodb/src/permissions.ts's top comment).
+        // mongod's own default), including supportsDatabaseManagement since F115 models the
+        // dropDatabase action - except supportsTransactions, which needs replica-set topology
+        // detection this slice doesn't model (see packages/drivers/mongodb/src/permissions.ts).
         expect(capabilities).toMatchObject({
           supportsRowMutations: true,
           supportsDdl: true,
           supportsIndexManagement: true,
-          supportsDatabaseManagement: false,
+          supportsDatabaseManagement: true,
           supportsTransactions: false,
           readOnlyReason: null
         });
@@ -800,6 +801,65 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(withoutIndex.indexes?.some((index) => index.name === indexName)).toBe(false);
 
       await adapter.ddl?.dropTable?.(fixture.schema, table);
+    }
+  );
+
+  it.skipIf(!configured || engine === "sqlite")(
+    "create/list/drop database roundtrip (F115)",
+    async () => {
+      const databaseName = `qyre_admin_${suffix}`;
+      // MongoDB has no createDatabase member - databases come into existence implicitly on the
+      // first write (docs/product-specs/schema-editing.md's "Database and schema lifecycle"), so
+      // its creation path here is createTable, the same way a real user would create one.
+      if (engine === "mongodb") {
+        await adapter.ddl?.createTable?.(databaseName, "seed", []);
+      } else {
+        await adapter.admin?.createDatabase?.(databaseName);
+      }
+      const withDatabase = await adapter.admin?.listDatabases?.();
+      expect(withDatabase).toContain(databaseName);
+
+      await adapter.admin?.dropDatabase?.(databaseName);
+      const withoutDatabase = await adapter.admin?.listDatabases?.();
+      expect(withoutDatabase).not.toContain(databaseName);
+    }
+  );
+
+  it.skipIf(!configured || engine !== "sqlite")(
+    "database management is not offered on SQLite - one file is one database (F115)",
+    () => {
+      expect(adapter.admin).toBeUndefined();
+    }
+  );
+
+  it.skipIf(!configured || engine !== "postgres")(
+    "createSchema/dropSchema roundtrip on Postgres (F115)",
+    async () => {
+      const schemaName = `qyre_admin_schema_${suffix}`;
+      await adapter.admin?.createSchema?.(schemaName);
+      // getOverview() derives schemas from tables, so an empty schema never appears in it - a
+      // table inside the new schema is what proves the schema really exists.
+      await adapter.ddl?.createTable?.(schemaName, "probe", [
+        { name: "id", dataType: "integer", nullable: true, default: null }
+      ]);
+      const withSchema = await adapter.getOverview();
+      expect(withSchema.schemas.some((schema) => schema.name === schemaName)).toBe(true);
+
+      await adapter.ddl?.dropTable?.(schemaName, "probe");
+      await adapter.admin?.dropSchema?.(schemaName);
+      const withoutSchema = await adapter.getOverview();
+      expect(withoutSchema.schemas.some((schema) => schema.name === schemaName)).toBe(false);
+      // Dropping the now-nonexistent schema again surfaces Postgres's own error - the route layer
+      // deliberately has no exists-first 404 for schemas (see routes/database-admin.ts).
+      await expect(adapter.admin?.dropSchema?.(schemaName)).rejects.toThrow();
+    }
+  );
+
+  it.skipIf(!configured || engine === "sqlite")(
+    "capabilities report supportsDatabaseManagement for the unrestricted test role (F115)",
+    async () => {
+      const capabilities = await adapter.getCapabilities();
+      expect(capabilities.supportsDatabaseManagement).toBe(true);
     }
   );
 });

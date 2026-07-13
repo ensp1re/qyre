@@ -18,10 +18,12 @@ import type {
   AdapterFactory,
   CancellationRegistry,
   DatabaseAdapter,
+  DatabaseAdminApi,
   RowMutationApi,
   SchemaDdlApi
 } from "@qyre/driver-contract";
 import { MongoClient } from "mongodb";
+import { dropDatabase, listDatabases } from "./admin.js";
 import { normalizeDocument } from "./bson-values.js";
 import { isMongoCancelError, registerMongoCancellation } from "./cancellation.js";
 import {
@@ -71,6 +73,12 @@ export class MongodbAdapter implements DatabaseAdapter {
     createIndex: (schema, table, definition) =>
       createIndex(this.getClient(), schema, table, definition),
     dropIndex: (schema, table, indexName) => dropIndex(this.getClient(), schema, table, indexName)
+  };
+  /** No `createDatabase` - MongoDB databases come into existence implicitly on first write; see
+   * admin.ts's doc comment. */
+  public readonly admin: DatabaseAdminApi = {
+    listDatabases: () => listDatabases(this.getClient()),
+    dropDatabase: (name) => dropDatabase(this.getClient(), name)
   };
   private client: MongoClient | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;

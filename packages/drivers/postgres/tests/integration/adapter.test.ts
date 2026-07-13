@@ -365,6 +365,21 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
+  it("rejects createDatabase as a SELECT-only fixture role, which also reports supportsDatabaseManagement false (F115)", async () => {
+    const readOnlyAdapter = new PostgresAdapter({
+      engine: "postgres",
+      raw: requireReadOnlyTestDatabaseUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      const capabilities = await readOnlyAdapter.getCapabilities();
+      expect(capabilities.supportsDatabaseManagement).toBe(false);
+      await expect(readOnlyAdapter.admin.createDatabase?.("qyre_denied_db")).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("updates a row by primary key and reports matched: 1 (F100)", async () => {
     await runStatements(databaseUrl, [
       `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('Update Test', 'update-test@example.com')`

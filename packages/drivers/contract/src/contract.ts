@@ -125,6 +125,28 @@ export interface SchemaDdlApi {
   dropIndex?(schema: string, table: string, indexName: string): Promise<void>;
 }
 
+/**
+ * Database/schema-lifecycle operations (F115), per docs/product-specs/schema-editing.md's
+ * "Database and schema lifecycle" section. Each member is independently optional, mirroring
+ * {@link RowMutationApi}/{@link SchemaDdlApi}'s pattern - MongoDB has `listDatabases`/`dropDatabase`
+ * but no `createDatabase` (databases come into existence implicitly on the first write into them;
+ * there is no create operation to model), and only Postgres has the schema pair (MySQL's "schema"
+ * IS its database; SQLite and MongoDB have no schema concept below the database at all). `name` is
+ * already validated (conservative identifier pattern) by the caller before an adapter method is
+ * ever invoked - see packages/server/src/services/schema-ddl-validation.ts.
+ */
+export interface DatabaseAdminApi {
+  /** Every non-template/non-system database on the connected server, sorted by name. */
+  listDatabases?(): Promise<string[]>;
+  createDatabase?(name: string): Promise<void>;
+  /** No guard against dropping the currently connected database beyond what the engine itself
+   * enforces (Postgres rejects it natively; MySQL/MongoDB allow it) - the route's typed
+   * confirmation is the deliberate-action gate, per the spec. */
+  dropDatabase?(name: string): Promise<void>;
+  createSchema?(name: string): Promise<void>;
+  dropSchema?(name: string): Promise<void>;
+}
+
 /** A live, engine-specific connection to a single database. */
 export interface DatabaseAdapter {
   /** The engine identifier, e.g. "postgres". */
@@ -194,6 +216,10 @@ export interface DatabaseAdapter {
    * mechanism Qyre models at all (none do today); present-but-grants-insufficient is a normal
    * per-call rejection, not a missing namespace. See {@link SchemaDdlApi}. */
   ddl?: SchemaDdlApi;
+  /** Database/schema-lifecycle operations (F115) - absent means the engine has no multi-database
+   * concept to manage at all (SQLite: one file is one database); present-but-grants-insufficient
+   * is a normal per-call rejection, not a missing namespace. See {@link DatabaseAdminApi}. */
+  admin?: DatabaseAdminApi;
   /**
    * Optional hook for adapters whose underlying client emits connection events asynchronously,
    * outside of any single request - e.g. Postgres/MySQL's pool "error" event when an idle

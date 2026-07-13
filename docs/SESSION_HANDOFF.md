@@ -6,54 +6,51 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-13.
-- Branch: `main`. F106-F113, F126, F127 merged (PR #129 merged F113). F114 (Structure view)
-  implemented and fully verified on `feature/F114-column-index-designer-ui`, not yet pushed/PR'd.
-- Queue: F092-F113 and F125-F127 are `passing`; F114 is `active` (implemented, pending its own
-  PR/merge - its passing state + evidence will be recorded in F115's delivery commit, per this
-  session's established bundling convention); F115-F121 and F128 remain `not_started`. `nextIds.F`
-  is 129.
+- Branch: `main`. F106-F114, F126, F127 merged (PR #130 merged F114 + a FEATURES.json prune of 23
+  long-merged entries). F115 (database/schema lifecycle) implemented and fully verified on
+  `feature/F115-database-lifecycle`, not yet pushed/PR'd.
+- Queue: F106-F114 and F125-F127 are `passing` (older passing entries pruned); F115 is `active`
+  (implemented, pending its own PR/merge - its passing state + evidence will be recorded in the
+  next feature's delivery commit, per this session's established bundling convention); F116-F121
+  and F128 remain `not_started`. `nextIds.F` is 129.
 
 ## Completed
 
 - All read-only MVP work through F089 is merged and passing; see product specs and Git/PR history.
 - Exec plan 0006 (`docs/exec-plans/active/0006-role-aware-database-ide.md`) queued the full
   read-only-to-write-capable-IDE plan as F090-F128; see the plan's own progress log and
-  `docs/FEATURES.json` for full per-feature evidence. F090-F113, F122-F127, F129 are merged to
-  `main` (PRs #94-#129): permission/capability foundation (F090-F098, F122-F124), the row-mutation
+  `docs/FEATURES.json` for full per-feature evidence. F090-F114, F122-F127, F129 are merged to
+  `main` (PRs #94-#130): permission/capability foundation (F090-F098, F122-F124), the row-mutation
   write path (F099-F102), the full row-editing UI (F103-F105, F125), Phase C -
   `classifyStatement`/`runQuery` classification (F106-F107), the write-capable SQL Editor
   (F108, F126-F127) - and Phase D's `SchemaDdlApi` slices: table lifecycle (F110), column ops
-  (F111, incl. SQLite's 12-step rebuild), index ops (F112), and the table designer UI (F113) -
-  all gated server-side on F096 + the relevant capability flag.
+  (F111, incl. SQLite's 12-step rebuild), index ops (F112), the table designer UI (F113), and the
+  Structure view (F114) - all gated server-side on F096 + the relevant capability flag.
 
 ## In progress
 
-- F114 (Structure view), on `feature/F114-column-index-designer-ui`. Per `docs/product-specs/
-schema-editing.md`: a Rows/Structure toggle on the Tables tab (`useTableView`, localStorage-backed
-  like the Schema tab's graph/grid choice). `packages/ui`'s new `TableStructure` lists columns with
-  Edit/Drop controls (`EditColumnDialog`, `ConfirmTypedNameDialog` - a new shared typed-confirm
-  primitive reused for dropColumn/truncateTable/dropTable), an Add-column dialog, indexes with an
-  immediate Drop button (no confirmation, per the spec) and a Create-index dialog, and
-  table-lifecycle actions (inline rename; typed-confirm Truncate/Drop table). Three independent
-  gates: `canEditColumns` (supportsDdl, false for MongoDB), `canManageIndexes`
-  (supportsIndexManagement), `canEditTable` (supportsDdl). Views/matviews or zero-capability
-  sessions render the existing read-only `TableDetail` instead; `e2e/read-only-mode.spec.ts`'s F097
-  guard was extended to visit the Structure view with the new control names. `apps/web`'s
-  `useTableDdlMutations` wraps all 8 API calls as plain async functions (not `useMutation`) since
-  `TableStructure` awaits each one to know when to close its own dialog; rename/drop updates
-  `App.tsx`'s selected-table state via two new reducer actions. `columnTypeCatalogForEngine` (F113)
-  moved `features/schema/model/` -> `shared/lib/ddl/` since F114 is a second feature needing it and
-  cross-feature imports are lint-forbidden.
-
-  Found and fixed a real bug: `dropTable`/`dropColumn`/`dropIndex` (F110-F112) reply `204 No
-Content`, but shared `fetchJson` unconditionally called `response.json()` on every 2xx - throwing
-  on the empty body, silently swallowed by the caller's catch-all. Latent since no UI had called
-  those three DELETE routes before F114; found via manual browser testing (network tab showed 204
-  success but the UI never refreshed), not a passing test suite. Fixed `fetchJson` to return `null`
-  on 204; covered by new `apps/web/tests/shared/api/fetch-json.test.ts`. Verified:
-  `pnpm check:quiet:run` all green, plus manual browser verification of all 8 operations against a
-  live Postgres connection, including re-verifying dropIndex/dropColumn after the fix. Not yet
-  pushed/PR'd.
+- F115 (database/schema lifecycle), on `feature/F115-database-lifecycle`. Adapters gain the `admin`
+  namespace (`DatabaseAdminApi`, mirroring `mutations`/`ddl`'s optional-namespace pattern):
+  Postgres has all five members (`listDatabases`/`createDatabase`/`dropDatabase`/`createSchema`/
+  `dropSchema`); MySQL the database trio (its "schema" IS its database); MongoDB
+  `listDatabases`/`dropDatabase` only (databases exist implicitly on first write - no create to
+  model; the route 400s explaining that); SQLite no namespace at all (one file is one database).
+  `supportsDatabaseManagement` was already real for Postgres/MySQL (F092/F093); MongoDB now derives
+  it from the `dropDatabase` privilege action (the only database-management action its model has) -
+  its F095 always-false placeholder replaced, incl. the unauthenticated full-access default.
+  Routes: `GET/POST /api/databases`, `DELETE /api/databases/:database`, `POST /api/schemas`,
+  `DELETE /api/schemas/:schema` - mutating ones two-tier gated (F096 + supportsDatabaseManagement),
+  drops behind server-side typed confirmation, audited with `operation`+`target` structured fields.
+  Design note found while testing: `getOverview()` derives schemas from tables, so an empty schema
+  never appears in it - `DELETE /api/schemas/:schema` therefore deliberately has NO exists-first
+  404 (a freshly created empty schema is the most common drop target); Postgres's own "schema does
+  not exist" error surfaces instead, documented in the spec's new "Database and schema lifecycle"
+  section (added to schema-editing.md). MongoDB's WRITE_METHODS lint-scan gained `admin.ts` as the
+  third trusted write-path file with its own shipped-methods test. Verified: 16 new server route
+  tests, 4 new conformance tests (create/list/drop roundtrip on Postgres/MySQL/MongoDB incl.
+  MongoDB's implicit-creation path, SQLite absent-namespace, Postgres schema roundtrip, capability
+  reporting), restricted-role rejection tests for Postgres/MySQL, and the updated MongoDB
+  permission-shape unit tests - all green against live databases. Not yet pushed/PR'd.
 
 ## Known issues / blockers
 
@@ -85,5 +82,5 @@ Content`, but shared `fetchJson` unconditionally called `response.json()` on eve
 
 ## Next steps
 
-- Finish delivering F114 (commit, push, PR, wait for CI green, then wait for the user to say it's
-  merged - never merge it here), then F115 per the exec plan's Phase D order.
+- Finish delivering F115 (commit, push, PR, wait for CI green, then wait for the user to say it's
+  merged - never merge it here), then F116 per the exec plan's Phase D order.

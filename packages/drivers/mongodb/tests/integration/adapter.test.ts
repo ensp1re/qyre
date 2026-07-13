@@ -159,7 +159,7 @@ describe("MongodbAdapter integration", () => {
       supportsRowMutations: true,
       supportsDdl: true,
       supportsIndexManagement: true,
-      supportsDatabaseManagement: false,
+      supportsDatabaseManagement: true,
       supportsTransactions: false,
       readOnlyReason: null
     });

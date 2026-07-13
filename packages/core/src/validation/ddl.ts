@@ -93,3 +93,17 @@ export const indexDefinitionSchema = z.object({
   unique: z.boolean()
 }) satisfies z.ZodType<IndexDefinition>;
 export type CreateIndexRequest = z.infer<typeof indexDefinitionSchema>;
+
+/**
+ * Request body for `POST /api/databases` (F115) - `database` is a genuinely new name the operation
+ * itself introduces (conservative identifier pattern, same reasoning as `createTable`'s `table`).
+ * The pattern is also compatible with MongoDB's own database-name restrictions, so one schema
+ * serves every engine.
+ */
+export const createDatabaseRequestSchema = z.object({ database: identifierSchema });
+export type CreateDatabaseRequest = z.infer<typeof createDatabaseRequestSchema>;
+
+/** Request body for `POST /api/schemas` (F115, Postgres only) - see
+ * {@link createDatabaseRequestSchema}. */
+export const createSchemaRequestSchema = z.object({ schema: identifierSchema });
+export type CreateSchemaRequest = z.infer<typeof createSchemaRequestSchema>;

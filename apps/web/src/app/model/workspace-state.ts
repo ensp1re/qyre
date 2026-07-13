@@ -39,7 +39,9 @@ export type WorkspaceAction =
   | { type: "connectAutoOpened" }
   | { type: "connectionChanged" }
   | { type: "settingsChanged"; open: boolean }
-  | { type: "sqlUnavailableForConnection" };
+  | { type: "sqlUnavailableForConnection" }
+  | { type: "tableRenamed"; newName: string }
+  | { type: "tableDropped" };
 
 export function createInitialWorkspaceState(viewportWidth: number): WorkspaceState {
   return {
@@ -106,5 +108,11 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
       };
     case "sqlUnavailableForConnection":
       return state.tab === "sql-editor" ? { ...state, tab: "tables" } : state;
+    case "tableRenamed":
+      return state.selected
+        ? { ...state, selected: { ...state.selected, table: action.newName } }
+        : state;
+    case "tableDropped":
+      return { ...state, selected: undefined, page: 0, sort: undefined, filters: undefined };
   }
 }

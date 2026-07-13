@@ -4,11 +4,12 @@ import { LayoutGrid, Network, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { SchemaGraph } from "./graph/schema-graph.js";
-import { columnTypeCatalogForEngine } from "../model/column-type-catalog.js";
 import type { useAllTables } from "../model/use-all-tables.js";
 import { useCreateTable } from "../model/use-create-table.js";
 import { useSchemaView } from "../model/use-schema-view.js";
 import { sessionAllows } from "../../../shared/lib/capabilities/capability-gates.js";
+import { columnTypeCatalogForEngine } from "../../../shared/lib/ddl/column-type-catalog.js";
+import { ViewButton } from "../../../shared/ui/view-button.js";
 
 export interface SchemaTabProps {
   allTables: ReturnType<typeof useAllTables>;
@@ -122,34 +123,5 @@ export function SchemaTab({
       </div>
       {dialog}
     </div>
-  );
-}
-
-function ViewButton({
-  active,
-  onClick,
-  icon,
-  label
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: ReactNode;
-  label: string;
-}): ReactNode {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={
-        "flex items-center gap-1 rounded-[2px] px-2 py-1 font-mono text-[11px] transition-colors " +
-        (active
-          ? "bg-accent text-foreground"
-          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground")
-      }
-    >
-      {icon}
-      {label}
-    </button>
   );
 }

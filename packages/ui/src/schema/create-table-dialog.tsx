@@ -39,7 +39,12 @@ export interface CreateTableDialogProps {
   onClose: () => void;
 }
 
-function coerceDefaultValue(text: string, dataType: string): string | number | boolean | null {
+/** Coerces a raw default-value draft to `ColumnDefinition["default"]`'s shape based on the column's
+ * type - shared with F114's `AddColumnDialog`, which collects a single column the same way. */
+export function coerceDefaultValue(
+  text: string,
+  dataType: string
+): string | number | boolean | null {
   const trimmed = text.trim();
   if (trimmed === "") return null;
   const kind = classifyColumnKind(dataType);

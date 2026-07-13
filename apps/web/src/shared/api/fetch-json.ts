@@ -30,5 +30,9 @@ export async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Prom
     throw new Error(body?.error ?? `Request failed (status ${response.status}).`);
   }
 
+  // A 204 has no body to parse (F110's dropTable/dropColumn/dropIndex routes reply this way) -
+  // calling response.json() on it throws "Unexpected end of JSON input".
+  if (response.status === 204) return null as T;
+
   return (await response.json()) as T;
 }

@@ -1,9 +1,27 @@
-import type { ColumnMetadata, SchemaMetadata, TableKind, TableMetadata } from "@qyre/core";
-import type { MongoClient } from "mongodb";
+import type {
+  ColumnMetadata,
+  IndexMetadata,
+  SchemaMetadata,
+  TableKind,
+  TableMetadata
+} from "@qyre/core";
+import type { Collection, MongoClient } from "mongodb";
 import { inferColumns } from "./bson-values.js";
 import { isSystemCollection, SYSTEM_DATABASES } from "./catalog.js";
 
 const FIELD_SAMPLE_SIZE = 100;
+
+/** MongoDB's own default index on `_id`, present on every collection - reported the same way a
+ * SQL engine's primary-key index is (F112). A view has no indexes of its own. */
+async function fetchIndexes(collection: Collection): Promise<IndexMetadata[]> {
+  const indexes = await collection.indexes();
+  return indexes.map((index) => ({
+    name: index.name as string,
+    columns: Object.keys(index.key as Record<string, unknown>),
+    unique: index.unique === true,
+    primary: index.name === "_id_"
+  }));
+}
 
 /** List user databases and collections in Qyre's schema shape. */
 export async function introspectSchemas(client: MongoClient): Promise<SchemaMetadata[]> {
@@ -50,5 +68,6 @@ export async function introspectCollection(
     ...inferColumns(sample).filter((column) => column.name !== "_id")
   ];
   const rowCount = kind === "view" ? undefined : await collection.estimatedDocumentCount();
-  return { schema, name: table, kind, columns, indexes: [], rowCount };
+  const indexes = kind === "view" ? [] : await fetchIndexes(collection);
+  return { schema, name: table, kind, columns, indexes, rowCount };
 }

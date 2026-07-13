@@ -50,7 +50,7 @@ describe("MongodbAdapter integration", () => {
     );
   });
 
-  it("introspects best-effort fields (including a nested one), flags _id as the primary key, and reports no indexes", async () => {
+  it("introspects best-effort fields (including a nested one), flags _id as the primary key, and reports the default _id index (F112)", async () => {
     const table = await adapter.getTable(databaseName, FIXTURE.table);
 
     expect(table.columns.map((column) => column.name)).toEqual(
@@ -60,7 +60,9 @@ describe("MongodbAdapter integration", () => {
     expect(idColumn?.isPrimaryKey).toBe(true);
     expect(idColumn?.isForeignKey).toBe(false);
 
-    expect(table.indexes).toEqual([]);
+    expect(table.indexes).toEqual([
+      { name: "_id_", columns: ["_id"], unique: false, primary: true }
+    ]);
     expect(table.rowCount).toBe(FIXTURE.rowCount);
   });
 
@@ -247,6 +249,32 @@ describe("MongodbAdapter integration", () => {
     const overview = await adapter.getOverview();
     const schema = overview.schemas.find((candidate) => candidate.name === databaseName);
     expect(schema?.tables).not.toContain(renamed);
+  });
+
+  it("createIndex/dropIndex roundtrip - maps onto MongoDB's own index API (F112)", async () => {
+    const table = "qyre_test_ddl_index";
+    const indexName = "idx_qyre_test_ddl_index_code";
+    await adapter.ddl?.createTable?.(databaseName, table, []);
+    await adapter.ddl?.createIndex?.(databaseName, table, {
+      name: indexName,
+      columns: ["code"],
+      unique: true
+    });
+
+    const withIndex = await adapter.getTable(databaseName, table);
+    expect(withIndex.indexes?.find((index) => index.name === indexName)).toMatchObject({
+      columns: ["code"],
+      unique: true
+    });
+
+    await adapter.mutations.insertRow?.(databaseName, table, { code: 1 });
+    await expect(adapter.mutations.insertRow?.(databaseName, table, { code: 1 })).rejects.toThrow();
+
+    await adapter.ddl?.dropIndex?.(databaseName, table, indexName);
+    const withoutIndex = await adapter.getTable(databaseName, table);
+    expect(withoutIndex.indexes?.some((index) => index.name === indexName)).toBe(false);
+
+    await adapter.ddl?.dropTable?.(databaseName, table);
   });
 
   it("replaces a whole document by _id, deserializing relaxed EJSON, and reports matched: 1 (F100)", async () => {

@@ -766,4 +766,40 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(adapter.ddl?.dropColumn).toBeUndefined();
     }
   );
+
+  it.skipIf(!configured)(
+    "createIndex/dropIndex roundtrip; a unique index rejects a duplicate value (F112)",
+    async () => {
+      const table = `qyre_ddl_index_${suffix}`;
+      const intType = engine === "postgres" ? "integer" : engine === "mysql" ? "INT" : "INTEGER";
+      const columns =
+        engine === "mongodb"
+          ? []
+          : [{ name: "code", dataType: intType, nullable: true, default: null }];
+      const indexName = `idx_${table}_code`;
+
+      await adapter.ddl?.createTable?.(fixture.schema, table, columns);
+      await adapter.ddl?.createIndex?.(fixture.schema, table, {
+        name: indexName,
+        columns: ["code"],
+        unique: true
+      });
+
+      const withIndex = await adapter.getTable(fixture.schema, table);
+      expect(withIndex.indexes?.find((index) => index.name === indexName)).toMatchObject({
+        unique: true
+      });
+
+      await adapter.mutations?.insertRow?.(fixture.schema, table, { code: 1 });
+      await expect(
+        adapter.mutations?.insertRow?.(fixture.schema, table, { code: 1 })
+      ).rejects.toThrow();
+
+      await adapter.ddl?.dropIndex?.(fixture.schema, table, indexName);
+      const withoutIndex = await adapter.getTable(fixture.schema, table);
+      expect(withoutIndex.indexes?.some((index) => index.name === indexName)).toBe(false);
+
+      await adapter.ddl?.dropTable?.(fixture.schema, table);
+    }
+  );
 });

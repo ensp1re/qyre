@@ -31,8 +31,10 @@ import { isMysqlCancelError, withCancellableConnection } from "./cancellation.js
 import {
   addColumn,
   alterColumn,
+  createIndex,
   createTable,
   dropColumn,
+  dropIndex,
   dropTable,
   renameColumn,
   renameTable,
@@ -76,7 +78,10 @@ export class MysqlAdapter implements DatabaseAdapter {
       renameColumn(this.getPool(), schema, table, column, newName),
     alterColumn: (schema, table, column, changes) =>
       alterColumn(this.getPool(), schema, table, column, changes),
-    dropColumn: (schema, table, column) => dropColumn(this.getPool(), schema, table, column)
+    dropColumn: (schema, table, column) => dropColumn(this.getPool(), schema, table, column),
+    createIndex: (schema, table, definition) =>
+      createIndex(this.getPool(), schema, table, definition),
+    dropIndex: (schema, table, indexName) => dropIndex(this.getPool(), schema, table, indexName)
   };
   private pool: mysql.Pool | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;

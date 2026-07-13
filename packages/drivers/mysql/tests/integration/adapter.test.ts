@@ -254,6 +254,57 @@ describe("MysqlAdapter integration", () => {
     }
   });
 
+  it("createIndex/dropIndex roundtrip, a unique index rejects a duplicate value (F112)", async () => {
+    const table = "qyre_test_ddl_index";
+    const indexName = "idx_qyre_test_ddl_index_code";
+    const pool = mysql.createPool(databaseUrl);
+    try {
+      await adapter.ddl?.createTable?.(databaseName, table, [
+        { name: "code", dataType: "INT", nullable: true, default: null }
+      ]);
+      await adapter.ddl?.createIndex?.(databaseName, table, {
+        name: indexName,
+        columns: ["code"],
+        unique: true
+      });
+
+      const withIndex = await adapter.getTable(databaseName, table);
+      expect(withIndex.indexes?.find((index) => index.name === indexName)).toMatchObject({
+        columns: ["code"],
+        unique: true
+      });
+
+      await pool.query(`INSERT INTO ${table} (code) VALUES (1)`);
+      await expect(pool.query(`INSERT INTO ${table} (code) VALUES (1)`)).rejects.toThrow();
+
+      await adapter.ddl?.dropIndex?.(databaseName, table, indexName);
+      const withoutIndex = await adapter.getTable(databaseName, table);
+      expect(withoutIndex.indexes?.some((index) => index.name === indexName)).toBe(false);
+    } finally {
+      await pool.query(`DROP TABLE IF EXISTS ${table}`);
+      await pool.end();
+    }
+  });
+
+  it("rejects createIndex as a SELECT-only fixture user (F112)", async () => {
+    const readOnlyAdapter = new MysqlAdapter({
+      engine: "mysql",
+      raw: requireReadOnlyTestMysqlUrl(databaseUrl)
+    });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.ddl?.createIndex?.(databaseName, FIXTURE.table, {
+          name: "idx_denied",
+          columns: ["name"],
+          unique: false
+        })
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+    }
+  });
+
   it("createTable/renameTable/truncateTable/dropTable roundtrip (F110)", async () => {
     const table = "qyre_test_ddl";
     const renamed = "qyre_test_ddl_renamed";

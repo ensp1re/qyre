@@ -1,4 +1,4 @@
-import type { ColumnDefinition } from "@qyre/core";
+import type { ColumnDefinition, IndexDefinition } from "@qyre/core";
 import type { Pool } from "pg";
 import { quoteIdent } from "./sql.js";
 
@@ -126,4 +126,23 @@ export async function dropColumn(
   await pool.query(
     `ALTER TABLE ${quoteIdent(schema)}.${quoteIdent(table)} DROP COLUMN ${quoteIdent(column)}`
   );
+}
+
+export async function createIndex(
+  pool: Pool,
+  schema: string,
+  table: string,
+  definition: IndexDefinition
+): Promise<void> {
+  const unique = definition.unique ? "UNIQUE " : "";
+  const columns = definition.columns.map(quoteIdent).join(", ");
+  await pool.query(
+    `CREATE ${unique}INDEX ${quoteIdent(definition.name)} ON ${quoteIdent(schema)}.${quoteIdent(table)} (${columns})`
+  );
+}
+
+/** Postgres index names are unique per schema, not per table - `table` isn't needed to target the
+ * drop, matching `DROP INDEX`'s own grammar. */
+export async function dropIndex(pool: Pool, schema: string, indexName: string): Promise<void> {
+  await pool.query(`DROP INDEX ${quoteIdent(schema)}.${quoteIdent(indexName)}`);
 }

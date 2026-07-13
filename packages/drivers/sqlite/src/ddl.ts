@@ -1,4 +1,4 @@
-import type { ColumnDefinition } from "@qyre/core";
+import type { ColumnDefinition, IndexDefinition } from "@qyre/core";
 import type Database from "better-sqlite3";
 import { fetchForeignKeyList, fetchTableInfo, type TableInfoRow } from "./introspection.js";
 import { quoteIdent } from "./sql.js";
@@ -191,4 +191,22 @@ export function alterColumn(
   changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
 ): void {
   rebuildTable(db, table, column, changes);
+}
+
+export function createIndex(
+  db: Database.Database,
+  table: string,
+  definition: IndexDefinition
+): void {
+  const unique = definition.unique ? "UNIQUE " : "";
+  const columns = definition.columns.map(quoteIdent).join(", ");
+  db.exec(
+    `CREATE ${unique}INDEX ${quoteIdent(definition.name)} ON ${quoteIdent(table)} (${columns})`
+  );
+}
+
+/** SQLite index names are unique per database, not per table - `table` isn't needed to target the
+ * drop, matching `DROP INDEX`'s own grammar. */
+export function dropIndex(db: Database.Database, indexName: string): void {
+  db.exec(`DROP INDEX ${quoteIdent(indexName)}`);
 }

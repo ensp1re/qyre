@@ -23,8 +23,10 @@ import { computeCapabilities, tablePermissionsFromCapabilities } from "./capabil
 import {
   addColumn,
   alterColumn,
+  createIndex,
   createTable,
   dropColumn,
+  dropIndex,
   dropTable,
   renameColumn,
   renameTable,
@@ -68,7 +70,9 @@ export class SqliteAdapter implements DatabaseAdapter {
       renameColumn(this.getDb(), table, column, newName),
     alterColumn: async (_schema, table, column, changes) =>
       alterColumn(this.getDb(), table, column, changes),
-    dropColumn: async (_schema, table, column) => dropColumn(this.getDb(), table, column)
+    dropColumn: async (_schema, table, column) => dropColumn(this.getDb(), table, column),
+    createIndex: async (_schema, table, definition) => createIndex(this.getDb(), table, definition),
+    dropIndex: async (_schema, _table, indexName) => dropIndex(this.getDb(), indexName)
   };
   private db: Database.Database | undefined;
   private resolvedPath: string | undefined;

@@ -5,6 +5,7 @@ import type {
   ConnectionTarget,
   DatabaseOverview,
   DeleteRowsResult,
+  IndexDefinition,
   InsertRowResult,
   MutationOp,
   QueryExecutionResult,
@@ -118,6 +119,10 @@ export interface SchemaDdlApi {
     changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
   ): Promise<void>;
   dropColumn?(schema: string, table: string, column: string): Promise<void>;
+
+  // --- Index operations (F112, all four engines - MongoDB maps onto its own native index API) ---
+  createIndex?(schema: string, table: string, definition: IndexDefinition): Promise<void>;
+  dropIndex?(schema: string, table: string, indexName: string): Promise<void>;
 }
 
 /** A live, engine-specific connection to a single database. */

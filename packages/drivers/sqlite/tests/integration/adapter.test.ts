@@ -312,6 +312,58 @@ describe("SqliteAdapter integration", () => {
     }
   });
 
+  it("createIndex/dropIndex roundtrip, a unique index rejects a duplicate value (F112)", async () => {
+    const table = "qyre_test_ddl_index";
+    const indexName = "idx_qyre_test_ddl_index_code";
+    await adapter.ddl?.createTable?.("main", table, [
+      { name: "code", dataType: "INTEGER", nullable: true, default: null }
+    ]);
+    await adapter.ddl?.createIndex?.("main", table, {
+      name: indexName,
+      columns: ["code"],
+      unique: true
+    });
+
+    const withIndex = await adapter.getTable("main", table);
+    expect(withIndex.indexes?.find((index) => index.name === indexName)).toMatchObject({
+      columns: ["code"],
+      unique: true
+    });
+
+    const seed = new Database(dbPath);
+    seed.exec(`INSERT INTO ${table} (code) VALUES (1)`);
+    expect(() => seed.exec(`INSERT INTO ${table} (code) VALUES (1)`)).toThrow();
+    seed.close();
+
+    await adapter.ddl?.dropIndex?.("main", table, indexName);
+    const withoutIndex = await adapter.getTable("main", table);
+    expect(withoutIndex.indexes?.some((index) => index.name === indexName)).toBe(false);
+
+    await adapter.ddl?.dropTable?.("main", table);
+  });
+
+  it("rejects createIndex against a chmod-read-only file copy (F112)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "qyre-sqlite-readonly-ddl-index-"));
+    const readOnlyPath = join(dir, "readonly.db");
+    copyFileSync(dbPath, readOnlyPath);
+    chmodSync(readOnlyPath, 0o444);
+
+    const readOnlyAdapter = new SqliteAdapter({ engine: "sqlite", raw: readOnlyPath });
+    try {
+      await readOnlyAdapter.connect();
+      await expect(
+        readOnlyAdapter.ddl?.createIndex?.("main", "qyre_demo_users", {
+          name: "idx_denied",
+          columns: ["name"],
+          unique: false
+        })
+      ).rejects.toThrow();
+    } finally {
+      await readOnlyAdapter.disconnect();
+      chmodSync(readOnlyPath, 0o644);
+    }
+  });
+
   it("updates a row by primary key and reports matched: 1, even when the value is unchanged (F100)", async () => {
     const seed = new Database(dbPath);
     seed.exec(

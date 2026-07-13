@@ -24,7 +24,14 @@ import type {
 import { MongoClient } from "mongodb";
 import { normalizeDocument } from "./bson-values.js";
 import { isMongoCancelError, registerMongoCancellation } from "./cancellation.js";
-import { createTable, dropTable, renameTable, truncateTable } from "./ddl.js";
+import {
+  createIndex,
+  createTable,
+  dropIndex,
+  dropTable,
+  renameTable,
+  truncateTable
+} from "./ddl.js";
 import { buildMongoFilter } from "./filters.js";
 import { introspectCollection, introspectSchemas } from "./introspection.js";
 import { deleteRowsByKey, getDocumentText, insertRow, updateRowByKey } from "./mutations.js";
@@ -60,7 +67,10 @@ export class MongodbAdapter implements DatabaseAdapter {
     createTable: (schema, table, columns) => createTable(this.getClient(), schema, table, columns),
     renameTable: (schema, table, newName) => renameTable(this.getClient(), schema, table, newName),
     truncateTable: (schema, table) => truncateTable(this.getClient(), schema, table),
-    dropTable: (schema, table) => dropTable(this.getClient(), schema, table)
+    dropTable: (schema, table) => dropTable(this.getClient(), schema, table),
+    createIndex: (schema, table, definition) =>
+      createIndex(this.getClient(), schema, table, definition),
+    dropIndex: (schema, table, indexName) => dropIndex(this.getClient(), schema, table, indexName)
   };
   private client: MongoClient | undefined;
   private statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;

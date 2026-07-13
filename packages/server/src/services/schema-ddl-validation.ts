@@ -4,8 +4,8 @@ import type { DatabaseAdapter } from "@qyre/driver-contract";
 import type { FastifyRequest } from "fastify";
 import type { ServerContext } from "../app.js";
 
-/** DDL operations landed so far (F110's table lifecycle, F111's column ops) - grows as F112
- * (indexes) lands, per docs/product-specs/schema-editing.md's audit-event contract. */
+/** DDL operations landed so far (F110's table lifecycle, F111's column ops, F112's index ops),
+ * per docs/product-specs/schema-editing.md's audit-event contract. */
 export type DdlOperation =
   | "createTable"
   | "renameTable"
@@ -14,7 +14,9 @@ export type DdlOperation =
   | "addColumn"
   | "renameColumn"
   | "alterColumn"
-  | "dropColumn";
+  | "dropColumn"
+  | "createIndex"
+  | "dropIndex";
 
 function badRequest(message: string): Error {
   return Object.assign(new Error(message), { statusCode: 400 });
@@ -42,6 +44,36 @@ export function assertDdlTarget(tableMetadata: TableMetadata): void {
 export function assertColumnExists(tableMetadata: TableMetadata, column: string): void {
   if (!tableMetadata.columns.some((candidate) => candidate.name === column)) {
     throw badRequest(`Unknown column "${column}".`);
+  }
+}
+
+/**
+ * Validates an `IndexDefinition.columns` list against the table's real, freshly introspected
+ * columns (F112) - same pattern as {@link assertColumnExists}. MongoDB is exempt: its introspected
+ * columns are a best-effort field sample (F094), not an authoritative catalog, and an index
+ * column can be a dotted nested-field path that would never appear as a top-level sampled field -
+ * Qyre doesn't invent a structure constraint MongoDB itself doesn't enforce, the same reasoning
+ * `resolveInsertValues` already applies to MongoDB's row-mutation body.
+ */
+export function assertIndexColumnsExist(
+  tableMetadata: TableMetadata,
+  columns: string[],
+  engine: DatabaseAdapter["engine"]
+): void {
+  if (engine === "mongodb") return;
+  for (const column of columns) {
+    if (!tableMetadata.columns.some((candidate) => candidate.name === column)) {
+      throw badRequest(`Unknown column "${column}".`);
+    }
+  }
+}
+
+/** Validates an `:indexName` route param against the table's real, freshly introspected indexes
+ * (F112) - same "an unrecognized target is 400, not a database-level error" pattern as
+ * {@link assertColumnExists}. */
+export function assertIndexExists(tableMetadata: TableMetadata, indexName: string): void {
+  if (!tableMetadata.indexes?.some((candidate) => candidate.name === indexName)) {
+    throw badRequest(`Unknown index "${indexName}".`);
   }
 }
 

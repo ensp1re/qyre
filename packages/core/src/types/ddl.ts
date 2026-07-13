@@ -50,3 +50,16 @@ export const MYSQL_COLUMN_TYPES = [
 /** SQLite's curated column type catalog, one per storage class/type affinity - see
  * {@link POSTGRES_COLUMN_TYPES}. */
 export const SQLITE_COLUMN_TYPES = ["TEXT", "INTEGER", "REAL", "BLOB", "NUMERIC"] as const;
+
+/**
+ * An index to create (F112), per docs/product-specs/schema-editing.md. MongoDB expresses `unique`
+ * the same way SQL engines do; a MongoDB `columns` entry is a top-level or dotted field path, not
+ * a SQL column name, but the shape is otherwise identical - deliberately one type, not an
+ * engine-specific pair, since every engine here already returns index metadata in this same shape
+ * ({@link IndexMetadata}, reads) for reads.
+ */
+export interface IndexDefinition {
+  readonly name: string;
+  readonly columns: string[];
+  readonly unique: boolean;
+}

@@ -6,55 +6,42 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-13.
-- Branch: `main`. F106-F115, F126, F127 merged (PR #131 merged F115). F116 (database-level
-  management UI) implemented and fully verified on `feature/F116-database-admin-ui`, not yet
-  pushed/PR'd.
-- Queue: F106-F115 and F125-F127 are `passing`; F116 is `active` (implemented, pending its own
-  PR/merge - its passing state + evidence will be recorded in the next feature's delivery commit,
-  per this session's established bundling convention); F117-F121 and F128 remain `not_started`.
-  `nextIds.F` is 129.
+- Branch: `feature/F117-csv-import`, based on `main` through merged PR #132.
+- Queue: F106-F116 and F125-F127 are `passing`; F117 is `active`; F118-F121 and F128 remain
+  `not_started`. `nextIds.F` is 129.
 
 ## Completed
 
 - All read-only MVP work through F089 is merged and passing; see product specs and Git/PR history.
 - Exec plan 0006 (`docs/exec-plans/active/0006-role-aware-database-ide.md`) queued the full
   read-only-to-write-capable-IDE plan as F090-F128; see the plan's own progress log and
-  `docs/FEATURES.json` for full per-feature evidence. F090-F115, F122-F127, F129 are merged to
-  `main` (PRs #94-#131): permission/capability foundation (F090-F098, F122-F124), the row-mutation
+  `docs/FEATURES.json` for full per-feature evidence. F090-F116, F122-F127, F129 are merged to
+  `main` (PRs #94-#132): permission/capability foundation (F090-F098, F122-F124), the row-mutation
   write path (F099-F102), the full row-editing UI (F103-F105, F125), Phase C -
   `classifyStatement`/`runQuery` classification (F106-F107), the write-capable SQL Editor
   (F108, F126-F127) - and Phase D's `SchemaDdlApi`/`DatabaseAdminApi` slices: table lifecycle
   (F110), column ops (F111, incl. SQLite's 12-step rebuild), index ops (F112), the table designer
-  UI (F113), the Structure view (F114), and database/schema lifecycle (F115) - all gated
-  server-side on F096 + the relevant capability flag.
+  UI (F113), the Structure view (F114), database/schema lifecycle (F115), and its management UI
+  (F116) - all gated server-side on F096 + the relevant capability flag.
 
 ## In progress
 
-- F116 (database-level management UI), on `feature/F116-database-admin-ui`. `ConnectDrawer` gains a
-  "Databases on this server" section (`packages/ui`'s new `DatabasePanel`): lists sibling databases
-  via F115's `GET /api/databases`, switch-in-place with no re-entered credentials, permission-gated
-  create (`CreateNamedDialog`, a new shared "name only" modal reused for both database and schema
-  creation) and drop (`ConfirmTypedNameDialog`, F114's shared typed-confirm primitive). The
-  sidebar's `SchemaTree` gained the same create/drop pair for Postgres schemas, gated on
-  `engine === "postgres" && supportsDatabaseManagement`. List+switch stay available in a
-  read-only/ungranted session; only create/drop hide, per the spec's "list only, affordances
-  hidden" rule - `databaseManagementReason` (new) surfaces why, reusing `READ_ONLY_REASON_LABEL`
-  and falling back to a database-management-specific reason when only that one capability is
-  missing.
+- F117 (CSV import) is implemented on `feature/F117-csv-import`. The new product contract fixes a
+  10 MiB/10,000-row/256-column multipart boundary, three server modes (`inspect`, `validate`,
+  `import`), scalar coercion from real introspected metadata, source-line errors, and exact engine
+  semantics: Postgres/MySQL/SQLite insert in 250-row native-transaction batches through
+  `commitBatch`; standalone MongoDB uses its native atomic unit, one document through `insertRow`.
+  The parser streams with no temporary files and retains only the 20-row preview, current batch,
+  and bounded row-error report.
 
-  Switch-in-place needed a small backend slice: `POST /api/connect/database` (in `connect.ts`,
-  sharing a `connectAndSwap` helper factored out of `/api/connect`) rebuilds the current target's
-  raw connection string with just the database segment swapped (`withDatabase`, new in
-  `@qyre/core`'s `connection-target.ts`) - the client only ever names the sibling database, never
-  sees or re-supplies credentials. Ungated (matches `GET /api/databases`' own ungated read -
-  switching to a visible database isn't itself an admin action).
-
-  Verified live against Postgres end to end: create/switch/drop database with zero credential
-  re-entry; `DROP SCHEMA` without `CASCADE` correctly surfaces Postgres's real dependency error
-  inline while the schema still has a table, then succeeds once it's empty. `e2e/read-only-mode
-.spec.ts` extended with the new control names (deliberately excluding "switch", which must stay
-  visible) plus an assertion the database panel itself still renders read-only. 36 new/updated unit
-  tests; full `pnpm check:quiet:run` and the full E2E suite all green. Not yet pushed/PR'd.
+  The Tables toolbar exposes Import CSV only for insert-capable tables/collections. The shared
+  `CsvImportDialog` uploads for inspection, defaults exact-name mappings, invalidates a dry run when
+  mappings change, previews server-coerced values, and imports valid rows with a final
+  inserted/failed summary. Read-only and view/materialized-view targets hide the action; the server
+  independently enforces the same kind/permission/read-only gates. Added 2 core validation, 11
+  server route/service, 5 web model, and 4 UI render tests; the standing read-only E2E canary now
+  includes Import CSV. `pnpm check:quiet` and `CI=1 pnpm verify:pr` are green on Node 22 against all
+  local engines, smoke E2E, and full E2E.
 
 ## Known issues / blockers
 
@@ -83,8 +70,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   Node version you intend to test with (this repo's Docker/CI stack matches Node 22,
   `NODE_MODULE_VERSION` 127) to rebuild the prebuilt binary; a `node-gyp rebuild` against a too-new
   Node (e.g. 26) can fail to compile against that Node's V8 headers.
+- Local full E2E is fixture-contention-prone under Playwright's `fullyParallel: true`: repeated
+  no-retry runs moved transient missing-table/schema/autocomplete failures among unrelated engines;
+  the CI configuration's one retry passed the entire gate. Tracked in the tech-debt tracker.
 
 ## Next steps
 
-- Finish delivering F116 (commit, push, PR, wait for CI green, then wait for the user to say it's
-  merged - never merge it here), then F117 per the exec plan's Phase D order.
+- Review and deliver F117: commit, push, open the draft PR, wait for both CI jobs, then record its
+  passing state/evidence.

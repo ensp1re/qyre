@@ -12,6 +12,10 @@
     "./filter-capabilities": {
       "types": "./dist/filter-capabilities.d.ts",
       "import": "./dist/filter-capabilities.js"
+    },
+    "./csv-import": {
+      "types": "./dist/csv-import.d.ts",
+      "import": "./dist/csv-import.js"
     }
   },
   "main": "./dist/index.js",

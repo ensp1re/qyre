@@ -653,3 +653,10 @@ tables` (create, no existing `:table` to scope under yet) plus `/api/tables/:sch
   operation/outcome vocabulary. Also records F127's passing state and evidence in
   `docs/FEATURES.json` (merged as PR #124, left unrecorded from the previous turn). F109 is Phase
   D's first slice; F110 (table lifecycle implementation) is next.
+- 2026-07-13: F116 merged as PR #132 (`94987a4`). F117 implemented on
+  `feature/F117-csv-import`: the product contract fixes multipart/file/row/column limits, server
+  inspect/validate/import modes, scalar coercion, per-source-line errors, 250-row transactional SQL
+  batches, and honest one-document atomic batches for standalone MongoDB. The Tables toolbar now
+  opens a permission/kind-gated mapping + dry-run + result-summary dialog. Core/server/UI/web tests,
+  the read-only E2E canary, `pnpm check:quiet`, and the complete CI-semantics `pnpm verify:pr` gate
+  are green; delivery (commit/push/draft PR/CI evidence) remains.

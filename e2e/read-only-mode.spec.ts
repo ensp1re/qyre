@@ -29,12 +29,12 @@ test("@full a --read-only session shows the read-only badge and renders zero wri
   // No write-affording control exists anywhere in the app yet (Qyre is read-only pre-F099) - this
   // canary keeps that true specifically *in a read-only session* as write features land, forcing
   // each one to prove it's gated rather than merely noticing the regression after the fact. F114's
-  // Structure view and F116's database/schema admin UI each added a wave of DDL control names, so
-  // this regex covers all three waves. Deliberately excludes "switch" - switching to a sibling
+  // Structure view, F116's database/schema admin UI, and F117's CSV import each added write-control
+  // names, so this regex covers every wave. Deliberately excludes "switch" - switching to a sibling
   // database stays available in a read-only session (F116's "list only, affordances hidden" rule
   // means create/drop are gated, not the list/switch themselves).
   const writeControlPattern =
-    /add row|new row|edit row|delete row|save changes|insert|new table|add column|edit column|drop column|create index|drop index|rename table|truncate table|drop table|new database|drop database|new schema|drop schema/i;
+    /add row|new row|edit row|delete row|save changes|insert|import csv|new table|add column|edit column|drop column|create index|drop index|rename table|truncate table|drop table|new database|drop database|new schema|drop schema/i;
   await expect(page.getByRole("button", { name: writeControlPattern })).toHaveCount(0);
 
   // Reading still works normally - --read-only blocks writes, not reads.
@@ -47,6 +47,7 @@ test("@full a --read-only session shows the read-only badge and renders zero wri
   // most of this test's new control names actually belong to.
   await page.getByRole("tab", { name: "Tables" }).click();
   await page.getByRole("treeitem", { name: FIXTURE.table }).click();
+  await expect(page.getByRole("button", { name: writeControlPattern })).toHaveCount(0);
   await page.getByRole("button", { name: "Structure" }).click();
   await expect(page.getByTestId("table-detail")).toBeVisible();
   await expect(page.getByRole("button", { name: writeControlPattern })).toHaveCount(0);

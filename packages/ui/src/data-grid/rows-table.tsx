@@ -13,6 +13,7 @@ import {
   Copy,
   CopyPlus,
   Download,
+  FileUp,
   Lock,
   Pencil,
   Plus,
@@ -66,6 +67,10 @@ export interface RowsTableProps {
   /** Downloads a CSV generated from the selected rows currently loaded in this component. The
    * caller owns the actual browser download so packages/ui stays presentation-oriented. */
   onExportSelectedRows?: (csv: string) => void;
+  /** Opens F117's CSV import flow. Both props are required so a write-shaped control is hidden
+   * entirely when the session or target lacks insert permission. */
+  canImportCsv?: boolean;
+  onImportCsv?: () => void;
   /** The structured filters currently applied server-side (F072), or undefined/empty when none.
    * Omitted (along with `onFiltersChange`) disables the filter bar and primary-key click-to-filter
    * entirely. */
@@ -180,6 +185,8 @@ export function RowsTable({
   onSortChange,
   onExportAllRows,
   onExportSelectedRows,
+  canImportCsv,
+  onImportCsv,
   filters,
   onFiltersChange,
   editable,
@@ -434,6 +441,15 @@ export function RowsTable({
               className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <Plus className="h-3 w-3" /> Insert document
+            </button>
+          )}
+          {canImportCsv && onImportCsv && (
+            <button
+              type="button"
+              onClick={onImportCsv}
+              className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <FileUp className="h-3 w-3" /> Import CSV
             </button>
           )}
           {selected.size > 0 && (

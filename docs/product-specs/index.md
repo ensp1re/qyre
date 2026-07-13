@@ -79,6 +79,9 @@ single engine's behavior, not the whole product.
   `ALTER TABLE` and its 12-step rebuild fallback), the static per-engine column type catalog,
   kind/session-capability gating, typed-confirmation for destructive DDL, and the API routes - plan
   0006 Phase D's foundation. A spec-only slice - F110 onward implement it. Tracked as F109.
+- [`csv-import.md`](csv-import.md) - permission-gated CSV import into an existing table/collection:
+  capped streaming multipart parsing, explicit mapping and dry-run coercion, bounded atomic
+  batches, source-line errors, and Postgres/MySQL/SQLite/MongoDB parity. Tracked as F117.
 
 ## Rules
 

@@ -20,6 +20,7 @@
     "esModuleInterop": true,
     "paths": {
       "@qyre/core": ["./packages/core/src/index.ts"],
+      "@qyre/core/csv-import": ["./packages/core/src/csv-import.ts"],
       "@qyre/core/filter-capabilities": ["./packages/core/src/filter-capabilities.ts"],
       "@qyre/driver-contract": ["./packages/drivers/contract/src/index.ts"],
       "@qyre/postgres": ["./packages/drivers/postgres/src/index.ts"],

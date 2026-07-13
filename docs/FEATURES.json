@@ -76,7 +76,7 @@
     {
       "id": "F117",
       "behavior": "Permission-gated CSV import into an existing table: a server endpoint streams and parses the upload (with an explicit request-size/row-count cap and multipart limits so a huge or malicious file cannot exhaust memory or disk - the F066 streaming-export philosophy in reverse), validates and coerces values per column type against introspected metadata, and inserts in bounded batches through the mutations namespace (transactional per batch, per-row error report with line numbers); the UI wizard maps CSV columns to table columns with a dry-run preview of the first rows and a clear success/failure summary. Kind-gated (tables/collections only) and permission-gated. Needs a short product-spec pass (docs/product-specs/csv-import.md) before implementation, following the F063-F066 pattern. Depends on F099, F102.",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web test",
+      "verification": "pnpm --filter @qyre/testing-conformance test && pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
       "state": "passing",
       "commitHash": "35c29ce",
       "evidence": "PR #133 (https://github.com/ensp1re/qyre/pull/133), merged as 35c29ce. Added the capped streaming multipart POST /api/tables/:schema/:table/import.csv contract with inspect/validate/import modes, scalar coercion against introspected metadata, physical source-line errors, a 20-row preview, and server-side kind/insert-permission/read-only enforcement. Postgres/MySQL/SQLite use existing commitBatch transactions in bounded 250-row batches; standalone MongoDB uses one-document atomic insertRow calls. The Tables toolbar and shared CsvImportDialog provide exact-name mapping defaults, dry-run invalidation, coerced preview, and inserted/failed result reporting while hiding the action for unavailable targets. Added the browser-safe @qyre/core/csv-import export plus 2 core, 11 server, 5 web, and 4 UI tests, and extended the standing read-only E2E canary. Verified on Node 22 with CI=1 pnpm verify:pr locally and again through the pre-push hook: 34/34 package tasks, smoke E2E, and full E2E passed against Postgres, MySQL, SQLite, and MongoDB; both GitHub CI jobs passed.",
@@ -109,11 +109,12 @@
       "id": "F119",
       "behavior": "A read-only Roles & grants viewer so users understand why affordances are hidden: Postgres shows pg_roles plus a grants summary for the current user, MySQL shows SHOW GRANTS/information_schema privileges (including granted roles), MongoDB shows rolesInfo/usersInfo where permitted, SQLite shows file-permission facts instead; strictly a viewer - no role management mutations anywhere in plan 0006. Surfaces through the admin namespace with a capability flag; degrades cleanly when the connected user may not read role catalogs. Depends on F092-F095.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "ce3a5bc",
+      "evidence": "PR #135 (https://github.com/ensp1re/qyre/pull/135), pushed as ce3a5bc. Added the shared secret-safe AccessOverview contract, supportsAccessInspection capability, read-only DatabaseAdminApi.inspectAccess method, and authenticated GET /api/access route that remains available under --read-only. Postgres reports explicit pg_roles attributes plus enabled-role table grants; MySQL reports CURRENT_USER/USER/CURRENT_ROLE and redacted SHOW GRANTS; MongoDB uses connectionStatus with best-effort usersInfo/rolesInfo; SQLite reports file, directory, connection, and PRAGMA facts. The capability-driven Settings Access viewer covers disconnected, unsupported, capability-loading, data-loading, empty, degraded-notice, error, retry, and success states without engine-name branches or mutations. Added bounds, degradation, redaction, route, browser API, UI, and live four-engine conformance coverage. Repaired the repeated parallel E2E catalog race by keeping SQL fixture tables present with transactional row replacement and waiting for completion metadata explicitly. Verified on Node 22 with pnpm verify:pr locally and through the pre-push hook: 34/34 package tasks, 11 smoke E2E, and 19 full E2E passed; both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": null
+      "spec": "docs/product-specs/roles-and-grants-viewer.md",
+      "completedAt": "2026-07-13T21:15:35.000Z"
     },
     {
       "id": "F120",

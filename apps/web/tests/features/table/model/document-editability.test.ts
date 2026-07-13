@@ -6,6 +6,7 @@ const WRITABLE_CAPABILITIES: ConnectionCapabilities = {
   supportsSql: false,
   rowExportFormats: ["csv", "json"],
   jsonExportMode: "extended-json",
+  supportsAccessInspection: true,
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: false,

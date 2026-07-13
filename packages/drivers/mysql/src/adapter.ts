@@ -29,6 +29,7 @@ import type {
 } from "@qyre/driver-contract";
 import mysql from "mysql2/promise";
 import { createDatabase, dropDatabase, listDatabases } from "./admin.js";
+import { inspectAccess } from "./access.js";
 import { tableKey } from "./catalog.js";
 import { isMysqlCancelError, withCancellableConnection } from "./cancellation.js";
 import {
@@ -88,6 +89,7 @@ export class MysqlAdapter implements DatabaseAdapter {
     dropIndex: (schema, table, indexName) => dropIndex(this.getPool(), schema, table, indexName)
   };
   public readonly admin: DatabaseAdminApi = {
+    inspectAccess: () => inspectAccess(this.getPool()),
     listDatabases: () => listDatabases(this.getPool()),
     createDatabase: (name) => createDatabase(this.getPool(), name),
     dropDatabase: (name) => dropDatabase(this.getPool(), name)
@@ -198,7 +200,7 @@ export class MysqlAdapter implements DatabaseAdapter {
       return await fetchConnectionCapabilities(this.getPool());
     } catch (error) {
       this.reportPermissionIntrospectionFailure(error);
-      return stubReadOnlyCapabilities(true);
+      return { ...stubReadOnlyCapabilities(true), supportsAccessInspection: true };
     }
   }
 

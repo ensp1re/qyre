@@ -14,6 +14,17 @@ function renderScreen(overrides: Partial<Parameters<typeof SettingsScreen>[0]> =
     onClearQueryHistory: vi.fn(),
     recentConnectionsCount: 2,
     onClearRecentConnections: vi.fn(),
+    accessSupported: true,
+    accessOverview: {
+      identity: "app_user",
+      roles: [{ name: "reader", isCurrent: true, attributes: ["login"] }],
+      grants: ["SELECT on public.users"],
+      facts: [{ label: "Session user", value: "app_user" }],
+      notices: []
+    },
+    accessLoading: false,
+    accessError: false,
+    onRetryAccess: vi.fn(),
     ...overrides
   };
   render(<SettingsScreen {...props} />);
@@ -59,5 +70,14 @@ describe("SettingsScreen", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders access identity, roles, grants, and facts", () => {
+    renderScreen();
+
+    expect(screen.getAllByText("app_user")).toHaveLength(2);
+    expect(screen.getByText("reader")).toBeVisible();
+    expect(screen.getByText("SELECT on public.users")).toBeVisible();
+    expect(screen.getByText("Session user")).toBeVisible();
   });
 });

@@ -9,6 +9,7 @@ const WRITABLE: ConnectionCapabilities = {
   supportsSql: true,
   rowExportFormats: ["csv", "json", "sql"],
   jsonExportMode: "json",
+  supportsAccessInspection: true,
   supportsRowMutations: true,
   supportsDdl: false,
   supportsIndexManagement: false,

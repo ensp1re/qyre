@@ -151,6 +151,7 @@ export async function fetchConnectionCapabilities(pool: Pool): Promise<Connectio
     supportsSql: true,
     rowExportFormats: ["csv", "json", "sql"],
     jsonExportMode: "json",
+    supportsAccessInspection: true,
     supportsRowMutations,
     supportsDdl,
     supportsIndexManagement,

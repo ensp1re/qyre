@@ -65,10 +65,14 @@ function parseGrantLine(line: string): ParsedGrant | undefined {
 /** Every grant applicable to the current session - direct privileges plus active default roles',
  * already resolved by MySQL itself. See this file's top comment for why `SHOW GRANTS` rather than
  * the role-grant information_schema views. */
-async function fetchParsedGrants(pool: mysql.Pool): Promise<ParsedGrant[]> {
+export async function fetchGrantLines(pool: mysql.Pool): Promise<string[]> {
   const [rows] = await pool.query<mysql.RowDataPacket[]>("SHOW GRANTS");
-  return rows
-    .map((row) => parseGrantLine(String(Object.values(row)[0])))
+  return rows.map((row) => String(Object.values(row)[0]));
+}
+
+async function fetchParsedGrants(pool: mysql.Pool): Promise<ParsedGrant[]> {
+  return (await fetchGrantLines(pool))
+    .map(parseGrantLine)
     .filter((grant): grant is ParsedGrant => grant !== undefined);
 }
 
@@ -196,6 +200,7 @@ export async function fetchConnectionCapabilities(
     supportsSql: true,
     rowExportFormats: ["csv", "json", "sql"],
     jsonExportMode: "json",
+    supportsAccessInspection: true,
     supportsRowMutations,
     supportsDdl,
     supportsIndexManagement,

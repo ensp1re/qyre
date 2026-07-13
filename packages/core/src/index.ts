@@ -9,6 +9,7 @@
 export * from "./types/connection.js";
 export * from "./types/table.js";
 export * from "./types/schema.js";
+export * from "./types/access.js";
 export * from "./types/query.js";
 export * from "./types/mutation.js";
 export * from "./types/ddl.js";

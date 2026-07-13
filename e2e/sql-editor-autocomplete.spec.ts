@@ -27,7 +27,14 @@ test("@full SQL Editor autocompletes keywords, table names, and columns, and sti
     await setupFixture(requireTestDatabaseUrl());
   }
 
+  // Completion metadata comes from the independent, batched `/api/tables` request. Wait for that
+  // response explicitly before typing: the shell can render from `/api/overview` first, and under
+  // parallel MySQL fixture load an early keystroke otherwise opens a keyword-only completion list.
+  const tablesReady = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/tables" && response.ok()
+  );
   await page.goto("/");
+  await tablesReady;
   await page.getByRole("tab", { name: "SQL Editor" }).click();
 
   const editor = page.getByTestId("query-editor").locator(".cm-content");

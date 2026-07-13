@@ -33,6 +33,7 @@ describe("postgresAdapterFactory", () => {
       supportsSql: true,
       rowExportFormats: ["csv", "json", "sql"],
       jsonExportMode: "json",
+      supportsAccessInspection: true,
       supportsRowMutations: false,
       supportsDdl: false,
       supportsIndexManagement: false,

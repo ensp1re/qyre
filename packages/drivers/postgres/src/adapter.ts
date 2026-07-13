@@ -29,6 +29,7 @@ import type {
 } from "@qyre/driver-contract";
 import type { Pool } from "pg";
 import { createDatabase, createSchema, dropDatabase, dropSchema, listDatabases } from "./admin.js";
+import { inspectAccess } from "./access.js";
 import { tableKey } from "./catalog.js";
 import { isPgCancelError, withCancellableClient } from "./cancellation.js";
 import { createPostgresPool } from "./connection.js";
@@ -83,6 +84,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     dropIndex: (schema, _table, indexName) => dropIndex(this.getPool(), schema, indexName)
   };
   public readonly admin: DatabaseAdminApi = {
+    inspectAccess: () => inspectAccess(this.getPool()),
     listDatabases: () => listDatabases(this.getPool()),
     createDatabase: (name) => createDatabase(this.getPool(), name),
     dropDatabase: (name) => dropDatabase(this.getPool(), name),
@@ -180,7 +182,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       return await fetchConnectionCapabilities(this.getPool());
     } catch (error) {
       this.reportPermissionIntrospectionFailure(error);
-      return stubReadOnlyCapabilities(true);
+      return { ...stubReadOnlyCapabilities(true), supportsAccessInspection: true };
     }
   }
 

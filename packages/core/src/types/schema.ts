@@ -20,6 +20,8 @@ export interface AdapterCapabilities {
   readonly rowExportFormats: readonly RowExportFormat[];
   /** The JSON dialect used when `rowExportFormats` contains `json`. */
   readonly jsonExportMode: JsonExportMode;
+  /** Whether the adapter exposes the read-only roles and grants summary (F119). */
+  readonly supportsAccessInspection: boolean;
 }
 
 /** Why every `supports*` write flag on {@link ConnectionCapabilities} is false; `null` once any

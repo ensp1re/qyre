@@ -11,6 +11,7 @@ import multipart from "@fastify/multipart";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 import { registerAuthGuard } from "./plugins/auth-guard.js";
+import { registerAccessRoute } from "./routes/access.js";
 import { registerErrorHandler } from "./plugins/error-handler.js";
 import { registerHostGuard } from "./plugins/host-guard.js";
 import { registerReadOnlyGuard } from "./plugins/read-only-guard.js";
@@ -149,6 +150,7 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   registerHealthRoute(app, ctx);
   registerConnectRoute(app, ctx);
   registerOverviewRoute(app, ctx);
+  registerAccessRoute(app, ctx);
   registerTablesRoutes(app, ctx);
   registerCsvImportRoutes(app, ctx);
   registerMutationsRoutes(app, ctx);

@@ -158,6 +158,7 @@ describe("MongodbAdapter integration", () => {
       supportsSql: false,
       rowExportFormats: ["csv", "json"],
       jsonExportMode: "extended-json",
+      supportsAccessInspection: true,
       supportsRowMutations: true,
       supportsDdl: true,
       supportsIndexManagement: true,

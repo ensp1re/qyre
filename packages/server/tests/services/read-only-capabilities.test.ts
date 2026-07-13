@@ -6,6 +6,7 @@ const writable: ConnectionCapabilities = {
   supportsSql: true,
   rowExportFormats: ["csv", "json", "sql"],
   jsonExportMode: "json",
+  supportsAccessInspection: true,
   supportsRowMutations: true,
   supportsDdl: true,
   supportsIndexManagement: true,
@@ -24,6 +25,7 @@ describe("applyReadOnlyOverride (F096)", () => {
       supportsSql: true,
       rowExportFormats: ["csv", "json", "sql"],
       jsonExportMode: "json",
+      supportsAccessInspection: true,
       supportsRowMutations: false,
       supportsDdl: false,
       supportsIndexManagement: false,
@@ -43,12 +45,14 @@ describe("applyReadOnlyOverride (F096)", () => {
       ...writable,
       supportsSql: false,
       rowExportFormats: ["csv", "json"],
-      jsonExportMode: "extended-json"
+      jsonExportMode: "extended-json",
+      supportsAccessInspection: true
     };
     expect(applyReadOnlyOverride(mongoLike, true)).toMatchObject({
       supportsSql: false,
       rowExportFormats: ["csv", "json"],
-      jsonExportMode: "extended-json"
+      jsonExportMode: "extended-json",
+      supportsAccessInspection: true
     });
   });
 });

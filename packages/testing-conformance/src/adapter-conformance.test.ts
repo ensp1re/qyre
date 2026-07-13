@@ -233,6 +233,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
         engine === "mongodb" ? ["csv", "json"] : ["csv", "json", "sql"]
       );
       expect(capabilities.jsonExportMode).toBe(engine === "mongodb" ? "extended-json" : "json");
+      expect(capabilities.supportsAccessInspection).toBe(true);
       if (engine === "postgres" || engine === "mysql") {
         // The conformance Postgres/MySQL fixtures connect as the Docker/CI superuser/root. F092/F093
         // replace their F091 stubs with real session facts, so every capability is available here.
@@ -275,6 +276,17 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       }
     }
   );
+
+  it.skipIf(!configured)("inspects access without exposing connection secrets (F119)", async () => {
+    const overview = await adapter.admin?.inspectAccess?.();
+    expect(overview).toBeDefined();
+    expect(overview?.identity.length).toBeGreaterThan(0);
+    expect(Array.isArray(overview?.roles)).toBe(true);
+    expect(Array.isArray(overview?.grants)).toBe(true);
+    expect(Array.isArray(overview?.facts)).toBe(true);
+    const serialized = JSON.stringify(overview);
+    expect(serialized).not.toMatch(/"(?:password|credentials|authenticationString)":/i);
+  });
 
   it.skipIf(!configured)(
     "getAllTables() returns the same shape as N x getTable() (F123)",
@@ -871,7 +883,10 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
   it.skipIf(!configured || engine !== "sqlite")(
     "database management is not offered on SQLite - one file is one database (F115)",
     () => {
-      expect(adapter.admin).toBeUndefined();
+      expect(adapter.admin?.listDatabases).toBeUndefined();
+      expect(adapter.admin?.createDatabase).toBeUndefined();
+      expect(adapter.admin?.dropDatabase).toBeUndefined();
+      expect(adapter.admin?.inspectAccess).toBeTypeOf("function");
     }
   );
 

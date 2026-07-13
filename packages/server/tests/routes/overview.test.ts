@@ -31,6 +31,7 @@ describe("GET /api/overview", () => {
       supportsSql: true,
       rowExportFormats: ["csv", "json", "sql"],
       jsonExportMode: "json",
+      supportsAccessInspection: false,
       supportsRowMutations: false,
       supportsDdl: false,
       supportsIndexManagement: false,

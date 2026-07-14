@@ -17,7 +17,7 @@ flowchart LR
   cli["packages/cli (qyre)"] --> server["packages/server (Fastify)"]
   server --> core["packages/core (contracts)"]
   server --> adapterApi["packages/drivers/contract (interfaces)"]
-  adapterApi --> pg["packages/drivers/postgres (pg)"]
+  adapterApi --> drivers["packages/drivers/* (Postgres, MySQL, SQLite, MongoDB)"]
   server --> static["apps/web build (served static)"]
   browser["Browser SPA (apps/web)"] -->|HTTP /api| server
   web2ui["apps/web"] --> uikit["packages/ui"]
@@ -73,29 +73,42 @@ engine follows the same recipe:
 
 1. Create `packages/drivers/<engine>` implementing the `DatabaseAdapter` contract from
    `@qyre/driver-contract`.
-2. Register it behind the server's adapter resolution, which detects the engine from the connection
+2. Implement `getCapabilities()` and per-table permissions. Introspection drives affordances but
+   must fail closed; the database remains authoritative.
+3. Add only the optional capability namespaces the engine genuinely supports: `mutations` for
+   structured row/document writes, `ddl` for schema objects, and `admin` for database/access
+   operations. An absent namespace means not applicable; grants never change contract shape.
+4. Classify the engine's stable native permission-denial codes through
+   `classifyPermissionDenied()` so the server can return the shared redacted 403 contract.
+5. Register the adapter behind the server's resolution, which detects the engine from the connection
    target (URL scheme, file extension, etc.) rather than requiring the user to name it.
-3. Reuse genuinely engine-agnostic logic from `@qyre/driver-contract` (e.g. pagination clamping).
+6. Reuse genuinely engine-agnostic logic from `@qyre/driver-contract` (e.g. pagination clamping).
    Do not reuse logic that only looks generic but actually differs per engine (e.g. SQL identifier
    quoting - `"..."` in Postgres, `` `...` `` in MySQL); keep that in the engine's own package.
-4. Add a product spec and feature entries.
-5. Add integration + end-to-end (connect-and-inspect) coverage.
-6. If the engine's client library uses a connection pool, attach an error listener to it so a
-   dropped connection (DB restart, network blip) degrades to `/api/health` reporting
-   `"disconnected"` instead of crashing the whole process - see F007's audit of
-   `packages/drivers/postgres`, where a missing `pool.on("error", ...)` listener did exactly that.
+7. Add a product spec and feature entries, including explicit not-applicable behavior.
+8. Add unit/integration tests and shared `@qyre/testing-conformance` cases for reads, capabilities,
+   supported write namespaces, denial classification, and restricted access. State every
+   not-applicable conformance case explicitly.
+9. Add Playwright coverage for connect/inspect plus both writable and read-only role behavior. New
+   write controls must remain absent from read-only sessions, and mutating routes must reject both
+   unauthenticated and authenticated read-only callers cleanly.
+10. If the engine's client library uses a connection pool, attach an error listener to it so a
+    dropped connection (DB restart, network blip) degrades to `/api/health` reporting
+    `"disconnected"` instead of crashing the whole process - see F007's audit of
+    `packages/drivers/postgres`, where a missing `pool.on("error", ...)` listener did exactly that.
 
 This keeps engine-specific logic isolated so adding a database is additive, never a branch inside
 existing packages.
 
 ## Cross-cutting interfaces
 
-| Concern    | Approved boundary              | Notes                                                      |
-| ---------- | ------------------------------ | ---------------------------------------------------------- |
-| Logging    | server logger (Fastify/pino)   | structured logs only, no ad hoc console in product code    |
-| DB access  | `DatabaseAdapter` interface    | UI/server never embed engine-specific SQL outside adapters |
-| Config     | `packages/config`              | shared TS/lint/test/build config                           |
-| Validation | parse at boundaries (e.g. Zod) | validate untrusted input before use                        |
+| Concern     | Approved boundary                    | Notes                                                      |
+| ----------- | ------------------------------------ | ---------------------------------------------------------- |
+| Logging     | server logger (Fastify/pino)         | structured logs only, no ad hoc console in product code    |
+| DB access   | `DatabaseAdapter` interface          | UI/server never embed engine-specific SQL outside adapters |
+| Config      | `packages/config`                    | shared TS/lint/test/build config                           |
+| Validation  | parse at boundaries (e.g. Zod)       | validate untrusted input before use                        |
+| Permissions | adapter classifiers + route metadata | advisory UI, authoritative DB, redacted denials            |
 
 ## Change checklist
 

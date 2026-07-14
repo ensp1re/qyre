@@ -244,7 +244,7 @@ curated, per-engine list**, not one introspected from the engine's own type cata
   a security boundary.
 - Starting catalogs (exact membership refined during F113's implementation, not frozen here):
   Postgres - `text`, `varchar`, `integer`, `bigint`, `numeric`, `boolean`, `date`, `timestamp`,
-  `timestamptz`, `uuid`, `jsonb`. MySQL - `VARCHAR`, `TEXT`, `INT`, `BIGINT`, `DECIMAL`, `BOOLEAN`
+  `timestamptz`, `uuid`, `jsonb`. MySQL - `VARCHAR(255)`, `TEXT`, `INT`, `BIGINT`, `DECIMAL`, `BOOLEAN`
   (`TINYINT(1)`), `DATE`, `DATETIME`, `TIMESTAMP`, `JSON`. SQLite - `TEXT`, `INTEGER`, `REAL`,
   `BLOB`, `NUMERIC`.
 

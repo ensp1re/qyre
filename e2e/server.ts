@@ -24,6 +24,7 @@
  * QYRE_E2E_PORT picks which port this instance listens on (default 4173). Never opens a browser -
  * this is for Playwright's `webServer`, not interactive use.
  */
+import { chmodSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ConnectionTarget } from "@qyre/core";
@@ -35,23 +36,42 @@ import { mysqlAdapterFactory } from "@qyre/mysql";
 import { postgresAdapterFactory } from "@qyre/postgres";
 import { sqliteAdapterFactory } from "@qyre/sqlite";
 import { startServer } from "@qyre/server";
-import { ensureSqliteFile } from "@qyre/testing";
+import {
+  ensureSqliteFile,
+  requireReadOnlyTestDatabaseUrl,
+  requireReadOnlyTestMysqlUrl,
+  setupFixture,
+  setupMysqlFixture,
+  setupSqliteFixture
+} from "@qyre/testing";
 
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/web/dist");
 
 async function main(): Promise<void> {
   const engine = process.env.QYRE_E2E_ENGINE ?? "postgres";
   const port = Number(process.env.QYRE_E2E_PORT ?? 4173);
+  const restricted = process.env.QYRE_E2E_RESTRICTED === "1";
 
   let adapter: DatabaseAdapter | undefined;
   let target: ConnectionTarget | undefined;
   if (engine === "sqlite") {
-    const sqlitePath = process.env.QYRE_TEST_SQLITE_PATH?.trim();
+    const sqlitePath = (
+      restricted ? process.env.QYRE_E2E_READONLY_SQLITE_PATH : process.env.QYRE_TEST_SQLITE_PATH
+    )?.trim();
     if (sqlitePath) {
       // parseConnectionTarget requires the file to already exist (it fails fast otherwise,
       // matching real CLI behavior) - ensureSqliteFile creates an empty valid file first since
       // this is a fresh e2e fixture, not a user-provided one.
-      ensureSqliteFile(sqlitePath);
+      if (restricted) {
+        const fixtureDir = dirname(sqlitePath);
+        if (existsSync(fixtureDir)) chmodSync(fixtureDir, 0o755);
+        if (existsSync(sqlitePath)) chmodSync(sqlitePath, 0o644);
+        setupSqliteFixture(sqlitePath);
+        chmodSync(sqlitePath, 0o444);
+        chmodSync(fixtureDir, 0o555);
+      } else {
+        ensureSqliteFile(sqlitePath);
+      }
       target = parseConnectionTarget(sqlitePath);
       adapter = resolveAdapter([sqliteAdapterFactory], target);
       await adapter.connect();
@@ -59,7 +79,8 @@ async function main(): Promise<void> {
   } else if (engine === "mysql") {
     const mysqlUrl = process.env.QYRE_TEST_MYSQL_URL?.trim();
     if (mysqlUrl) {
-      target = parseConnectionTarget(mysqlUrl);
+      if (restricted) await setupMysqlFixture(mysqlUrl);
+      target = parseConnectionTarget(restricted ? requireReadOnlyTestMysqlUrl(mysqlUrl) : mysqlUrl);
       adapter = resolveAdapter([mysqlAdapterFactory], target);
       await adapter.connect();
     }
@@ -73,7 +94,10 @@ async function main(): Promise<void> {
   } else {
     const databaseUrl = process.env.QYRE_TEST_DATABASE_URL?.trim();
     if (databaseUrl) {
-      target = parseConnectionTarget(databaseUrl);
+      if (restricted) await setupFixture(databaseUrl);
+      target = parseConnectionTarget(
+        restricted ? requireReadOnlyTestDatabaseUrl(databaseUrl) : databaseUrl
+      );
       adapter = resolveAdapter([postgresAdapterFactory], target);
       await adapter.connect();
     }

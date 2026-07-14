@@ -29,7 +29,7 @@ const POSTGRES_COLUMN_TYPES = [
 ] as const;
 
 const MYSQL_COLUMN_TYPES = [
-  "VARCHAR",
+  "VARCHAR(255)",
   "TEXT",
   "INT",
   "BIGINT",

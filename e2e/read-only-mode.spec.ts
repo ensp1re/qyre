@@ -26,9 +26,8 @@ test("@full a --read-only session shows the read-only badge and renders zero wri
   await expect(badge).toHaveAttribute("data-access", "read-only");
   await expect(badge).toHaveAttribute("title", "Read-only: qyre --read-only flag");
 
-  // No write-affording control exists anywhere in the app yet (Qyre is read-only pre-F099) - this
-  // canary keeps that true specifically *in a read-only session* as write features land, forcing
-  // each one to prove it's gated rather than merely noticing the regression after the fact. F114's
+  // No write-affording control may exist in a read-only session. This canary forces every write
+  // feature to prove it is gated rather than merely noticing a regression after the fact. F114's
   // Structure view, F116's database/schema admin UI, and F117's CSV import each added write-control
   // names, so this regex covers every wave. Deliberately excludes "switch" - switching to a sibling
   // database stays available in a read-only session (F116's "list only, affordances hidden" rule

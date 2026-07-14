@@ -224,11 +224,12 @@
       "id": "F140",
       "behavior": "Close SUGGESTIONS.md U2+U4+U5 (EditableCell/NewRowCell fixes, one slice since all live in the same two components): (1) text/number editors can never stage NULL or empty string - an empty draft silently cancels and the promised null button only exists for boolean/date widgets; render the null button for nullable text/number columns and make an empty draft stage '' explicitly; (2) the date/time/datetime editing branch has no cancel path - handle Escape (and blur) like handleTextKeyDown does; (3) numeric drafts round-trip through Number(), silently corrupting integers beyond 2^53 (SQLite safeIntegers / Postgres bigint arrive as strings) - keep the draft as a string when the parsed value is not a safe integer, or reject with a clear message. Per docs/product-specs/row-editing.md.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "214929d",
+      "evidence": "Closed SUGGESTIONS.md U2+U4+U5 in packages/ui/src/data-grid/editable-cell.tsx and new-row-cell.tsx. U2: added a null button to the nullable text/number editor (onMouseDown preventDefault so it doesn't blur-commit and unmount itself before its own click fires) and made an empty text draft commit '' explicitly instead of silently cancelling; an empty number draft still cancels (empty string isn't a valid number), with the null button as the explicit way to clear it. U4: added an Escape handler on the date/time/datetime editor's wrapping container (fires regardless of which internal DateTimeInput segment has focus) - no commit-on-blur counterpart, since DateTimeInput is a compound multi-input widget and Safari doesn't focus a <button> on click by default, making a naive blur check unable to distinguish a real blur from clicking the null button. U5: both components now reject a numeric draft whose integer value exceeds Number.MAX_SAFE_INTEGER instead of silently rounding it (SQLite safeIntegers/Postgres bigint deliver exact large values as strings precisely to avoid this) - red border, draft preserved, stays in edit mode. New unit tests: 9 in editable-cell, 2 in new-row-cell; all existing tests unaffected. Live-verified against a running Postgres preview (rebuilt @qyre/ui and @qyre/web): committed an explicit empty string via the text editor, confirmed the null button appears and commits null, and confirmed a bigint value beyond 2^53 gets the red-border rejection with the draft preserved rather than silently rounding. pnpm --filter @qyre/ui test (359 tests, 11 new) and @qyre/web test (136) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-15T00:35:00.000Z"
     },
     {
       "id": "F141",

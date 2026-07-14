@@ -5,13 +5,13 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Current state
 
-- Date: 2026-07-14.
-- Branch: `feature/F139-sql-editor-permission-refresh` at `0d77b9a`, based on `main` through
-  merged PR #142 (F134).
-- Queue: F114-F121, F128, F129, F130, and F134 are `passing` (merged); F139 is `passing` (pending
-  this branch's PR); F131-F133, F135-F138, and F140-F143 are `not_started` review-fix tasks
-  derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web, packages/ui,
-  packages/server, packages/cli); no active feature. `nextIds.F` is 144.
+- Date: 2026-07-15.
+- Branch: `feature/F140-editable-cell-fixes` at `214929d`, based on `main` through merged PR #143
+  (F139).
+- Queue: F114-F121, F128, F129, F130, F134, and F139 are `passing` (merged); F140 is `passing`
+  (pending this branch's PR); F131-F133, F135-F138, and F141-F143 are `not_started` review-fix
+  tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
+  packages/ui, packages/server, packages/cli); no active feature. `nextIds.F` is 144.
 
 ## Completed
 
@@ -30,10 +30,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   `--verbose` request logs mask the export URL's `?token=` param (S2/C2), and the combined column
   rename+alter DDL route is atomic on Postgres/SQLite with an honest partial-success result on
   MySQL (V1). See each id's evidence in `docs/FEATURES.json` for full reasoning/test detail.
-- F139 (`0d77b9a`, pending PR): closed SUGGESTIONS.md U1 - the SQL Editor's `runQuery`/
+- F139 merged as PR #143 (`d20d99d`). Closed SUGGESTIONS.md U1 - the SQL Editor's `runQuery`/
   `explainQuery` fetchers now route non-2xx bodies through the shared `apiResponseError`, so a
   structured permission denial notifies the F120 capability-cache refresh instead of leaving write
-  affordances stale until the next poll. See `docs/FEATURES.json`'s F139 evidence.
+  affordances stale until the next poll.
+- F140 (`214929d`, pending PR): closed SUGGESTIONS.md U2+U4+U5 in `EditableCell`/`NewRowCell` -
+  a null button now reaches nullable text/number columns and an empty text draft commits `''`
+  instead of silently cancelling (U2), Escape now cancels the date/time/datetime editor (U4), and
+  a numeric draft beyond `Number.MAX_SAFE_INTEGER` is rejected with visible feedback instead of
+  silently rounding (U5). See `docs/FEATURES.json`'s F140 evidence for live-verification detail.
 
 ## In progress
 
@@ -72,7 +77,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Open/merge F139's PR, then promote the next task from the F131-F133/F135-F138/F140-F143
+- Open/merge F140's PR, then promote the next task from the F131-F133/F135-F138/F141-F143
   review-fix queue (see `docs/SUGGESTIONS.md` for each finding's full context). Suggested order:
-  F140 (remaining moderate correctness fix), then minors; F143 (scalable-structure refactor) last
-  so file moves don't conflict with in-flight fixes.
+  minors next (F131-F133, F135-F138, F141, F142); F143 (scalable-structure refactor) last so file
+  moves don't conflict with in-flight fixes.

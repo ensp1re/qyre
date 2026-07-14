@@ -6,11 +6,12 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-14.
-- Branch: `feature/F129-token-handout-doc` at `941612a`, based on `main` through merged PR #139.
-- Queue: F114-F121 and F128 are `passing`; F129 is `passing` (pending this branch's PR); F130-F143
-  are `not_started` review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code
-  review of apps/web, packages/ui, packages/server, packages/cli); no active feature. `nextIds.F`
-  is 144.
+- Branch: `feature/F130-verbose-log-token-redaction` at `4f2f5e6`, based on `main` through merged
+  PR #140 (F129).
+- Queue: F114-F121, F128, and F129 are `passing` (merged); F130 is `passing` (pending this
+  branch's PR); F131-F143 are `not_started` review-fix tasks derived from `docs/SUGGESTIONS.md` (a
+  2026-07-14 deep code review of apps/web, packages/ui, packages/server, packages/cli); no active
+  feature. `nextIds.F` is 144.
 
 ## Completed
 
@@ -24,9 +25,13 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   progress log and PR history; every slice passed local/pre-push `pnpm verify:pr` and GitHub CI.
 - A deep read-only code review of the product workspace (2026-07-14) produced
   `docs/SUGGESTIONS.md` (14 findings: security, server, UI, CLI) and queued F129-F143.
-- F129 (`941612a`, pending PR): closed SUGGESTIONS.md S1 by documenting the unauthenticated
+- F129 merged as PR #140 (`d624bef`). Closed SUGGESTIONS.md S1 by documenting the unauthenticated
   session-token handout as an accepted local-trust limitation rather than building session-claim
   infrastructure - see `docs/FEATURES.json`'s F129 evidence for the tradeoff reasoning.
+- F130 (`4f2f5e6`, pending PR): closed SUGGESTIONS.md S2/C2 - `packages/server/src/services/
+log-redaction.ts` masks the export URL's `?token=` query param before it reaches Fastify's
+  `--verbose` request logger, so a verbose run no longer writes the live session token to the
+  terminal/any captured log. See `docs/FEATURES.json`'s F130 evidence for test coverage.
 
 ## In progress
 
@@ -65,7 +70,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Open/merge F129's PR, then promote the next task from the F130-F143 review-fix queue (see
-  `docs/SUGGESTIONS.md` for each finding's full context). Suggested order: F130 (remaining
-  security fix), then the moderate correctness fixes (F134, F139, F140), then minors; F143
-  (scalable-structure refactor) last so file moves don't conflict with in-flight fixes.
+- Open/merge F130's PR, then promote the next task from the F131-F143 review-fix queue (see
+  `docs/SUGGESTIONS.md` for each finding's full context). Suggested order: the moderate
+  correctness fixes (F134, F139, F140), then minors; F143 (scalable-structure refactor) last so
+  file moves don't conflict with in-flight fixes.

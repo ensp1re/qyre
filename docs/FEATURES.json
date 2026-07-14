@@ -121,11 +121,12 @@
       "id": "F130",
       "behavior": "Close SUGGESTIONS.md S2 (+C2): with --verbose the export download URL's ?token=<session token> is logged verbatim by Fastify's request logging, writing the live bearer token into terminal output/captured logs. Add pino redaction (redact paths or a serializer) for the token query param when packages/cli builds the logger options, so verbose logs never contain the token while query-param auth keeps working. Cover with a server test asserting the logged request line masks the token.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/cli test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "4f2f5e6",
+      "evidence": "Closed SUGGESTIONS.md S2/C2: added packages/server/src/services/log-redaction.ts (redactSensitiveQueryParams masks the export URL's ?token= query param; buildLoggerOptions normalizes every CreateServerOptions.logger form - true, {level}, false - into a Fastify logger config that always attaches the redacting req serializer) and wired it into createServer, so --verbose can no longer bypass it. New tests: log-redaction.test.ts (5 unit tests on the pure masking function) and app-logging.test.ts (3 integration tests against a captured pino stream, asserting a real request through /api/health?token=... never writes the live token while unrelated params and the non-verbose/no-logger path stay unchanged). pnpm --filter @qyre/server test (279 tests) and pnpm --filter @qyre/qyre test (46 tests, CLI unaffected) both green; full pnpm check:quiet (34/34 tasks) and check:state also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-14T20:15:00.000Z"
     },
     {
       "id": "F131",

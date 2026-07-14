@@ -31,6 +31,8 @@ import { registerTablesRoutes } from "./routes/tables.js";
 import { registerOperationsRoutes } from "./routes/operations.js";
 import { generateAuthToken } from "./services/auth-token.js";
 import { EventLog } from "./services/event-log.js";
+import { buildLoggerOptions } from "./services/log-redaction.js";
+import type { ServerLoggerOption } from "./services/log-redaction.js";
 import { OperationRegistry } from "./services/operation-registry.js";
 
 // Ambient augmentation declared here (not a standalone .d.ts) so it's visible in every downstream
@@ -52,9 +54,11 @@ export interface CreateServerOptions {
   /**
    * Enable Fastify's logger. Defaults to false (the CLI configures logging). Pass a pino level
    * object (e.g. `{ level: "warn" }`) instead of `true` to log only warnings/errors, not every
-   * request (F067) - the CLI does this by default, only passing `true` under `--verbose`.
+   * request (F067) - the CLI does this by default, only passing `true` under `--verbose`. Every
+   * value here is normalized through `buildLoggerOptions` so request logging never writes a live
+   * session token to the log (F130) regardless of which form is passed.
    */
-  logger?: boolean | { level: "trace" | "debug" | "info" | "warn" | "error" | "fatal" };
+  logger?: ServerLoggerOption;
   /**
    * Directory containing the built `apps/web` static assets (its `index.html` and bundle).
    * When provided and it exists, the server serves the browser UI itself so `npx qyre <target>`
@@ -122,7 +126,7 @@ export interface ServerContext {
 
 /** Build (but do not start) the Qyre HTTP server. */
 export function createServer(options: CreateServerOptions = {}): FastifyInstance {
-  const app = Fastify({ logger: options.logger ?? false });
+  const app = Fastify({ logger: buildLoggerOptions(options.logger) });
   const authToken = options.authToken ?? generateAuthToken();
   app.decorate("authToken", authToken);
   const ctx: ServerContext = {

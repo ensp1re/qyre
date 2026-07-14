@@ -5,6 +5,7 @@ import type {
   ConnectionTarget,
   DatabaseOverview,
   QueryExecutionResult,
+  QueryPlanResult,
   RowFilter,
   RowPage,
   RowSort,
@@ -14,6 +15,7 @@ import type {
 import {
   assertReadOnly,
   capResultRows,
+  classifyExplainTarget,
   OperationCancelledError,
   resolvePageRequest,
   runInReadOnlyTransaction,
@@ -33,6 +35,7 @@ import { inspectAccess } from "./access.js";
 import { tableKey } from "./catalog.js";
 import { isPgCancelError, withCancellableClient } from "./cancellation.js";
 import { createPostgresPool } from "./connection.js";
+import { buildPostgresExplainSql, postgresPlanLines } from "./explain.js";
 import {
   addColumn,
   alterColumn,
@@ -318,6 +321,39 @@ export class PostgresAdapter implements DatabaseAdapter {
         }
       }
     );
+  }
+
+  async explainQuery(sql: string, analyze = false): Promise<QueryPlanResult> {
+    const classification = classifyExplainTarget(sql, analyze);
+    const page = await withCancellableClient(
+      this.getPool(),
+      this.operationRegistry,
+      undefined,
+      async (client) =>
+        runInReadOnlyTransaction(
+          {
+            begin: async () => {
+              await client.query("BEGIN TRANSACTION READ ONLY");
+            },
+            query: async (querySql) => {
+              const result = await client.query(querySql);
+              return {
+                columns: result.fields.map((field) => field.name),
+                rows: result.rows as Array<Record<string, unknown>>
+              };
+            },
+            commit: async () => {
+              await client.query("COMMIT");
+            },
+            rollback: async () => {
+              await client.query("ROLLBACK");
+            },
+            release: () => {}
+          },
+          buildPostgresExplainSql(sql, analyze)
+        )
+    );
+    return { lines: postgresPlanLines(page.rows), classification, analyzed: analyze };
   }
 }
 

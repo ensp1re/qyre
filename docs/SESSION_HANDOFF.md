@@ -6,15 +6,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-14.
-- Branch: `feature/F121-role-matrix-exit-gate`, draft PR #137 at `9bd0c8d`, based on `main`
-  through merged PR #136.
-- Queue: F111-F121 are `passing`; F128 remains `not_started`.
+- Branch: `feature/F128-explain-viewer`, draft PR #138 at `631510d`, based on `main` through merged
+  PR #137.
+- Queue: F114-F121 and F128 are `passing`; F111-F113 were pruned; no active feature.
   `nextIds.F` is 129.
 
 ## Completed
 
 - All read-only MVP work through F089 is merged and passing; see product specs and Git/PR history.
-- Exec plan 0006 (`docs/exec-plans/active/0006-role-aware-database-ide.md`) queued the full
+- Exec plan 0006 (`docs/exec-plans/completed/0006-role-aware-database-ide.md`) delivered the full
   read-only-to-write-capable-IDE plan as F090-F128; see the plan's own progress log and
   `docs/FEATURES.json` for full per-feature evidence. F090-F116, F122-F127, F129 are merged to
   `main` (PRs #94-#132): permission/capability foundation (F090-F098, F122-F124), the row-mutation
@@ -42,14 +42,19 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   browser refreshes capability/table-permission caches after denial, and restricted conformance
   covers Postgres, MySQL, and SQLite (MongoDB auth is not applicable in the shared fixture). Local,
   pre-push, and both GitHub CI jobs passed on Node 22.
-- F121 is pushed in draft PR #137 (`9bd0c8d`). The role matrix covers writable and read-only
+- F121 merged as PR #137 (`ad8eb35`). The role matrix covers writable and read-only
   behavior across all four engines, every mutating API path with and without a session token, and
   consolidated role-aware product/security documentation. Local, pre-push, and both GitHub CI
   jobs passed on Node 22: 34/34 package tasks, 11 smoke E2E passes, and 29 full E2E passes.
+- F128 is pushed in draft PR #138 (`631510d`). PostgreSQL, MySQL, and SQLite expose native,
+  read-only-safe plans in the SQL Editor's dedicated text/tree panel; PostgreSQL Analyze is warned
+  and read-classified-only, and MongoDB is explicitly not applicable. The exact feature tests,
+  live conformance, local/pre-push PR gates, focused E2E, and both GitHub CI jobs passed.
+  This completes exec plan 0006.
 
 ## In progress
 
-- No active feature. Plan 0006 remains active because F128 is still `not_started`.
+- No active feature. Plan 0006 is complete.
 
 ## Known issues / blockers
 
@@ -84,5 +89,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- After PR #137 merges, promote F128 and implement the read-only-safe SQL EXPLAIN viewer; then run
-  the final plan gate and move plan 0006 to completed.
+- Wait for user review and merge of draft PR #138. Then sync `main` and promote the next chosen
+  feature; the live queue has no active entry.

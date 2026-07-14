@@ -8,6 +8,10 @@ const BASE_PROPS = {
   onRun: vi.fn(),
   onCancel: vi.fn(),
   isRunning: false,
+  onExplain: vi.fn(),
+  isExplaining: false,
+  explainAnalyze: false,
+  onExplainAnalyzeChange: vi.fn(),
   onOpenHistory: vi.fn()
 };
 
@@ -106,5 +110,56 @@ describe("QueryRunner Cancel button (F126)", () => {
     const button = screen.getByRole("button", { name: /cancel/i });
     fireEvent.click(button);
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("QueryRunner query plans (F128)", () => {
+  it("requests a plan from the Explain button", () => {
+    const onExplain = vi.fn();
+    render(<QueryRunner {...BASE_PROPS} onExplain={onExplain} />);
+    fireEvent.click(screen.getByRole("button", { name: "Explain" }));
+    expect(onExplain).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows PostgreSQL ANALYZE as an explicit warned opt-in", () => {
+    const onExplainAnalyzeChange = vi.fn();
+    const { rerender } = render(
+      <QueryRunner
+        {...BASE_PROPS}
+        engine="postgres"
+        onExplainAnalyzeChange={onExplainAnalyzeChange}
+      />
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Run with EXPLAIN ANALYZE" }));
+    expect(onExplainAnalyzeChange).toHaveBeenCalledWith(true);
+
+    rerender(<QueryRunner {...BASE_PROPS} engine="postgres" explainAnalyze />);
+    expect(screen.getByRole("alert")).toHaveTextContent("executes the statement");
+  });
+
+  it("does not offer ANALYZE for MySQL or SQLite", () => {
+    render(<QueryRunner {...BASE_PROPS} engine="mysql" />);
+    expect(screen.queryByRole("checkbox", { name: /ANALYZE/ })).not.toBeInTheDocument();
+  });
+
+  it("renders a normalized plan in the resizable output panel", () => {
+    render(
+      <QueryRunner
+        {...BASE_PROPS}
+        explainResult={{
+          lines: ["Seq Scan on users", "  Filter: active"],
+          classification: "read",
+          analyzed: true
+        }}
+        resultsHeight={300}
+        onResultsHeightChange={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId("query-plan")).toHaveTextContent("Seq Scan on users");
+    expect(screen.getByText("analyzed")).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize query plan panel" })).toHaveAttribute(
+      "aria-valuenow",
+      "300"
+    );
   });
 });

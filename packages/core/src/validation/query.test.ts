@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runQuerySchema } from "./query.js";
+import { explainQuerySchema, runQuerySchema } from "./query.js";
 
 describe("runQuerySchema", () => {
   it("accepts a non-empty sql string", () => {
@@ -23,5 +23,15 @@ describe("runQuerySchema", () => {
   it("defaults confirmed to undefined when omitted", () => {
     const parsed = runQuerySchema.safeParse({ sql: "SELECT 1" });
     expect(parsed.success && parsed.data.confirmed).toBeUndefined();
+  });
+});
+
+describe("explainQuerySchema (F128)", () => {
+  it("accepts a query with an optional analyze flag", () => {
+    expect(explainQuerySchema.safeParse({ sql: "SELECT 1", analyze: true }).success).toBe(true);
+  });
+
+  it("rejects an empty query", () => {
+    expect(explainQuerySchema.safeParse({ sql: "" }).success).toBe(false);
   });
 });

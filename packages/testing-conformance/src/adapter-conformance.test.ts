@@ -455,6 +455,76 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     );
   });
 
+  it.skipIf(!configured)("exposes native SQL planning only for SQL engines (F128)", async () => {
+    if (engine === "mongodb") {
+      expect(adapter.explainQuery).toBeUndefined();
+      return;
+    }
+
+    const result = await adapter.explainQuery?.(
+      `SELECT * FROM ${fixture.populatedTable} WHERE n = 1`
+    );
+    expect(result?.classification).toBe("read");
+    expect(result?.analyzed).toBe(false);
+    expect(result?.lines.length).toBeGreaterThan(0);
+  });
+
+  it.skipIf(!configured || engine === "mongodb")(
+    "plans write-shaped SQL without executing it (F128)",
+    async () => {
+      const before = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "n", op: "eq", value: "1" }]
+      );
+      const explainMutation = () =>
+        adapter.explainQuery?.(`DELETE FROM ${fixture.populatedTable} WHERE n = 1`);
+      if (engine === "mysql") {
+        await expect(explainMutation()).rejects.toThrow("limited to read-classified SQL");
+      } else {
+        const result = await explainMutation();
+        expect(result?.classification).toBe("mutation");
+        expect(result?.analyzed).toBe(false);
+      }
+      const after = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        [{ column: "n", op: "eq", value: "1" }]
+      );
+
+      expect(after.rows).toEqual(before.rows);
+    }
+  );
+
+  it.skipIf(!configured || engine === "mongodb")(
+    "allows ANALYZE only for PostgreSQL read queries (F128)",
+    async () => {
+      if (engine === "postgres") {
+        const result = await adapter.explainQuery?.(
+          `SELECT * FROM ${fixture.populatedTable} WHERE n = 1`,
+          true
+        );
+        expect(result?.analyzed).toBe(true);
+        expect(result?.classification).toBe("read");
+        expect(result?.lines.length).toBeGreaterThan(0);
+        await expect(
+          adapter.explainQuery?.(`DELETE FROM ${fixture.populatedTable} WHERE n = 1`, true)
+        ).rejects.toThrow();
+        return;
+      }
+
+      await expect(
+        adapter.explainQuery?.(`SELECT * FROM ${fixture.populatedTable}`, true)
+      ).rejects.toThrow("only supported for PostgreSQL");
+    }
+  );
+
   it.skipIf(!configured)(
     "getAllTables() returns the same shape as N x getTable() (F123)",
     async () => {

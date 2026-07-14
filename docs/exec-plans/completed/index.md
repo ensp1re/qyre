@@ -10,3 +10,6 @@ Finished plans kept for future agent context. Each should link the evidence that
   doc, also `passing`).
 - [`0005-agent-harness-and-structure.md`](0005-agent-harness-and-structure.md) - F075, compact agent
   context, live feature pruning, tracked skills, scalable organization, and enforced PR delivery.
+- [`0006-role-aware-database-ide.md`](0006-role-aware-database-ide.md) - F090-F128, role-aware
+  capabilities, guarded writes, row/schema/database management, import/export, access inspection,
+  hardening, role-matrix E2E, and the native SQL EXPLAIN viewer; all `passing`.

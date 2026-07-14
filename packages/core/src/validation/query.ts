@@ -16,3 +16,10 @@ export const runQuerySchema = z.object({
   operationId: z.string().min(1).optional()
 });
 export type RunQueryRequest = z.infer<typeof runQuerySchema>;
+
+/** Request body for the non-mutating `POST /api/query/explain` plan endpoint (F128). */
+export const explainQuerySchema = z.object({
+  sql: z.string().min(1),
+  analyze: z.boolean().optional()
+});
+export type ExplainQueryRequest = z.infer<typeof explainQuerySchema>;

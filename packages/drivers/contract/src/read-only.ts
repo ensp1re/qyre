@@ -124,3 +124,21 @@ export function assertReadOnly(sql: string): void {
     );
   }
 }
+
+/**
+ * Validates the target of a database-native EXPLAIN request (F128). Plain EXPLAIN never executes
+ * the target, so the shared boundary allows any single-statement classification; concrete
+ * adapters may narrow this where an engine cannot retain its authoritative read-only backstop.
+ * EXPLAIN ANALYZE does execute the statement and is therefore limited to the existing read
+ * classification; concrete adapters also add an engine-level read-only transaction/query-only
+ * backstop as the authoritative guarantee.
+ */
+export function classifyExplainTarget(sql: string, analyze: boolean): StatementClassification {
+  const classification = classifyStatement(sql);
+  if (analyze && classification !== "read") {
+    throw new ReadOnlyViolationError(
+      "EXPLAIN ANALYZE is limited to read-classified SQL because it executes the statement."
+    );
+  }
+  return classification;
+}

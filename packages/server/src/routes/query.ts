@@ -1,4 +1,4 @@
-import { runQuerySchema } from "@qyre/core";
+import { explainQuerySchema, runQuerySchema } from "@qyre/core";
 import {
   classifyStatement,
   OperationCancelledError,
@@ -127,6 +127,50 @@ export function registerQueryRoute(app: FastifyInstance, ctx: ServerContext): vo
         if (error instanceof OperationCancelledError) {
           ctx.eventLog.log("info", "Query cancelled.");
           return reply.status(499).send({ error: error.message, cancelled: true });
+        }
+        throw error;
+      }
+    }
+  );
+
+  app.post<{ Body: unknown }>(
+    "/api/query/explain",
+    permissionRoute(
+      {
+        operation: "execute-query",
+        target: "query",
+        likelyMissingGrant: "the privilege required to plan this SQL statement"
+      },
+      false
+    ),
+    async (request, reply) => {
+      const parsed = explainQuerySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: "Request body must be { sql: string, analyze?: boolean }." });
+      }
+
+      const db = requireAdapter(ctx.adapter);
+      const explainQuery = db.explainQuery?.bind(db);
+      if (!explainQuery) {
+        return reply.status(400).send({
+          error: "EXPLAIN is not available for this database engine."
+        });
+      }
+
+      const start = Date.now();
+      try {
+        const result = await explainQuery(parsed.data.sql, parsed.data.analyze);
+        ctx.eventLog.log(
+          "info",
+          `Query plan generated in ${Date.now() - start}ms - ${result.lines.length} line(s).`
+        );
+        return result;
+      } catch (error) {
+        if (error instanceof ReadOnlyViolationError) {
+          ctx.eventLog.log("warn", `Query plan rejected: ${error.message}`);
+          return reply.status(400).send({ error: error.message });
         }
         throw error;
       }

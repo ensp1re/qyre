@@ -21,6 +21,13 @@ export interface QueryExecutionResult {
   readonly rowsAffected: number;
 }
 
+/** A database-native SQL execution plan normalized for the editor's text/tree panel (F128). */
+export interface QueryPlanResult {
+  readonly lines: string[];
+  readonly classification: StatementClassification;
+  readonly analyzed: boolean;
+}
+
 /**
  * A single SQL statement's write classification (F106), from `@qyre/driver-contract`'s
  * `classifyStatement` text heuristic. Lives in `@qyre/core` (not `@qyre/driver-contract`, which

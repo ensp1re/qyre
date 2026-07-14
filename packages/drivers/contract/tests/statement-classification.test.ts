@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { classifyStatement, ReadOnlyViolationError } from "../src/read-only.js";
+import {
+  classifyExplainTarget,
+  classifyStatement,
+  ReadOnlyViolationError
+} from "../src/read-only.js";
 
 describe("classifyStatement", () => {
   it("classifies SELECT and other read-leading keywords as read", () => {
@@ -102,5 +106,20 @@ describe("classifyStatement", () => {
 
   it("does not false-positive on a string literal containing a semicolon", () => {
     expect(classifyStatement("SELECT 'a;b' AS x")).toBe("read");
+  });
+});
+
+describe("classifyExplainTarget", () => {
+  it("allows a plain plan for every single-statement classification", () => {
+    expect(classifyExplainTarget("SELECT 1", false)).toBe("read");
+    expect(classifyExplainTarget("DELETE FROM users WHERE id = 1", false)).toBe("mutation");
+    expect(classifyExplainTarget("DROP TABLE users", false)).toBe("destructive");
+  });
+
+  it("allows ANALYZE only for read-classified SQL", () => {
+    expect(classifyExplainTarget("SELECT 1", true)).toBe("read");
+    expect(() => classifyExplainTarget("DELETE FROM users WHERE id = 1", true)).toThrow(
+      ReadOnlyViolationError
+    );
   });
 });

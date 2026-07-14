@@ -6,13 +6,20 @@ import type {
   ConnectionTarget,
   DatabaseOverview,
   QueryExecutionResult,
+  QueryPlanResult,
   RowFilter,
   RowPage,
   RowSort,
   SchemaMetadata,
   TableMetadata
 } from "@qyre/core";
-import { assertReadOnly, capResultRows, resolvePageRequest } from "@qyre/driver-contract";
+import {
+  assertReadOnly,
+  capResultRows,
+  classifyExplainTarget,
+  ReadOnlyViolationError,
+  resolvePageRequest
+} from "@qyre/driver-contract";
 import type {
   AdapterFactory,
   DatabaseAdapter,
@@ -22,6 +29,7 @@ import type {
 } from "@qyre/driver-contract";
 import Database from "better-sqlite3";
 import { inspectAccess } from "./access.js";
+import { buildSqliteExplainSql, sqlitePlanLines } from "./explain.js";
 import { computeCapabilities, tablePermissionsFromCapabilities } from "./capabilities.js";
 import {
   addColumn,
@@ -253,6 +261,25 @@ export class SqliteAdapter implements DatabaseAdapter {
     }
     const info = stmt.run();
     return { columns: [], rows: [], rowsAffected: info.changes };
+  }
+
+  async explainQuery(sql: string, analyze = false): Promise<QueryPlanResult> {
+    if (analyze) {
+      throw new ReadOnlyViolationError("EXPLAIN ANALYZE is only supported for PostgreSQL.");
+    }
+    const classification = classifyExplainTarget(sql, false);
+    const db = this.getDb();
+    db.pragma("query_only = 1");
+    try {
+      const rows = (
+        db.prepare(buildSqliteExplainSql(sql)).safeIntegers(true).all() as Array<
+          Record<string, unknown>
+        >
+      ).map(normalizeRow);
+      return { lines: sqlitePlanLines(rows), classification, analyzed: false };
+    } finally {
+      db.pragma("query_only = 0");
+    }
   }
 }
 

@@ -1,4 +1,9 @@
-import type { QueryExecutionResult, RowPage, StatementClassification } from "@qyre/core";
+import type {
+  QueryExecutionResult,
+  QueryPlanResult,
+  RowPage,
+  StatementClassification
+} from "@qyre/core";
 import { getAuthToken } from "../../../shared/api/auth-token.js";
 
 /** A read query's `RowPage`, or (F108) a write-capable session's `QueryExecutionResult` - both
@@ -78,4 +83,31 @@ export async function runQuery(
     throw new Error(message);
   }
   return body as QueryRunResult;
+}
+
+/** Requests the connected SQL engine's native text/tree plan; ANALYZE may execute a read query. */
+export async function explainQuery(sql: string, analyze: boolean): Promise<QueryPlanResult> {
+  const token = getAuthToken();
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  let response: Response;
+  try {
+    response = await fetch("/api/query/explain", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ sql, ...(analyze ? { analyze: true } : {}) })
+    });
+  } catch {
+    throw new Error("Could not reach the Qyre server. Is it still running?");
+  }
+
+  const body = (await response.json().catch(() => undefined)) as
+    QueryPlanResult | { error?: string } | undefined;
+  if (!response.ok) {
+    throw new Error(
+      body && "error" in body && body.error ? body.error : "Could not explain query."
+    );
+  }
+  return body as QueryPlanResult;
 }

@@ -6,7 +6,10 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 
 /** Injects the session token as a global the SPA's `fetchJson` wrapper reads (F122). A plain
  * inline `<script>` (not a nonce/hash-gated one) works because the CSP already allows
- * 'unsafe-inline' script-src for apps/web's own inline boot script. */
+ * 'unsafe-inline' script-src for apps/web's own inline boot script. This handout is unauthenticated
+ * by design - `GET /` embeds the token for whichever requester asks, including a page refresh, with
+ * no separate login step - so it is only as private as the loopback port itself; see
+ * docs/SECURITY.md's "Accepted limitation" note on the bearer-token bullet. */
 function injectAuthToken(html: string, authToken: string): string {
   return html.replace(
     "<head>",

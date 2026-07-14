@@ -19,10 +19,12 @@ function extractToken(request: FastifyRequest): string | undefined {
 
 /**
  * Rejects any `/api/*` request without a valid session token (F122) - closes the no-auth surface
- * host-guard alone leaves open: any other local process/user, or a cross-origin page's plain
- * request (blocked only incidentally by Fastify's JSON content-type requirement today), could
- * otherwise call every route. Static/HTML routes stay unguarded so the browser can load the page
- * and receive its token in the first place (injected by static-web.ts).
+ * host-guard alone leaves open: a cross-origin page's plain request (blocked only incidentally by
+ * Fastify's JSON content-type requirement today) could otherwise call every route. Static/HTML
+ * routes stay unguarded so the browser can load the page and receive its token in the first place
+ * (injected by static-web.ts) - which means another local OS user/process that can reach this port
+ * can retrieve the token the same way, an accepted limitation documented in docs/SECURITY.md
+ * (this token defends against cross-origin/CSRF-shaped requests, not a genuinely shared machine).
  */
 export function registerAuthGuard(app: FastifyInstance, token: string): void {
   app.addHook("onRequest", async (request, reply) => {

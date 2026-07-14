@@ -5,6 +5,7 @@ import type {
   StatementClassification
 } from "@qyre/core";
 import { getAuthToken } from "../../../shared/api/auth-token.js";
+import { apiResponseError } from "../../../shared/api/permission-denied.js";
 
 /** A read query's `RowPage`, or (F108) a write-capable session's `QueryExecutionResult` - both
  * optionally tagged with `classification` (F106/F107's write routing), present only when the
@@ -80,7 +81,14 @@ export async function runQuery(
     if ((body as { reason?: string } | undefined)?.reason === "read-only") {
       throw new ReadOnlySessionRejectionError(message);
     }
-    throw new Error(message);
+    // F139: routes every other non-2xx body (notably an engine permission denial) through the
+    // shared apiResponseError - a structured `permission-denied` body notifies
+    // subscribePermissionDenied so the F120 capability/table-permission caches refetch instead of
+    // staying stale until the next 30s overview poll, the same way every other fetcher's error
+    // path already does. The SQL Editor still just reads `.message` off whatever this throws
+    // (unchanged rendered text), and this branch is unreachable for the three cases already
+    // handled above.
+    throw apiResponseError(body, response.status);
   }
   return body as QueryRunResult;
 }
@@ -105,9 +113,10 @@ export async function explainQuery(sql: string, analyze: boolean): Promise<Query
   const body = (await response.json().catch(() => undefined)) as
     QueryPlanResult | { error?: string } | undefined;
   if (!response.ok) {
-    throw new Error(
-      body && "error" in body && body.error ? body.error : "Could not explain query."
-    );
+    // F139: see runQuery's identical comment - routes the body through apiResponseError so a
+    // structured permission denial (e.g. the connected role lacks EXPLAIN privilege) triggers the
+    // same F120 capability-cache refresh every other fetcher's error path already gets.
+    throw apiResponseError(body, response.status);
   }
   return body as QueryPlanResult;
 }

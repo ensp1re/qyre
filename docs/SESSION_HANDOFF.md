@@ -6,12 +6,12 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-14.
-- Branch: `feature/F134-atomic-column-rename-alter` at `15d5c2e`, based on `main` through merged
-  PR #141 (F130).
-- Queue: F114-F121, F128, F129, and F130 are `passing` (merged); F134 is `passing` (pending this
-  branch's PR); F131-F133 and F135-F143 are `not_started` review-fix tasks derived from
-  `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web, packages/ui, packages/server,
-  packages/cli); no active feature. `nextIds.F` is 144.
+- Branch: `feature/F139-sql-editor-permission-refresh` at `0d77b9a`, based on `main` through
+  merged PR #142 (F134).
+- Queue: F114-F121, F128, F129, F130, and F134 are `passing` (merged); F139 is `passing` (pending
+  this branch's PR); F131-F133, F135-F138, and F140-F143 are `not_started` review-fix tasks
+  derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web, packages/ui,
+  packages/server, packages/cli); no active feature. `nextIds.F` is 144.
 
 ## Completed
 
@@ -25,18 +25,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   progress log and PR history; every slice passed local/pre-push `pnpm verify:pr` and GitHub CI.
 - A deep read-only code review of the product workspace (2026-07-14) produced
   `docs/SUGGESTIONS.md` (14 findings: security, server, UI, CLI) and queued F129-F143.
-- F129 merged as PR #140 (`d624bef`). Closed SUGGESTIONS.md S1 by documenting the unauthenticated
-  session-token handout as an accepted local-trust limitation rather than building session-claim
-  infrastructure - see `docs/FEATURES.json`'s F129 evidence for the tradeoff reasoning.
-- F130 merged as PR #141 (`b99ef25`). Closed SUGGESTIONS.md S2/C2 - `packages/server/src/services/
-log-redaction.ts` masks the export URL's `?token=` query param before it reaches Fastify's
-  `--verbose` request logger, so a verbose run no longer writes the live session token to the
-  terminal/any captured log. See `docs/FEATURES.json`'s F130 evidence for test coverage.
-- F134 (`15d5c2e`, pending PR): closed SUGGESTIONS.md V1 - `SchemaDdlApi.renameAndAlterColumn`
-  combines a column rename+alter into one atomic transaction on Postgres/SQLite, and an honest
-  partial-success result (`{ renamed, altered, alterError }`) on MySQL, whose DDL can't be rolled
-  back. See `docs/FEATURES.json`'s F134 evidence for the per-engine reasoning and live test
-  verification.
+- F129 (PR #140, `d624bef`), F130 (PR #141, `b99ef25`), and F134 (PR #142, `15d5c2e`) are merged:
+  the session-token handout is now documented as an accepted local-trust limitation (S1),
+  `--verbose` request logs mask the export URL's `?token=` param (S2/C2), and the combined column
+  rename+alter DDL route is atomic on Postgres/SQLite with an honest partial-success result on
+  MySQL (V1). See each id's evidence in `docs/FEATURES.json` for full reasoning/test detail.
+- F139 (`0d77b9a`, pending PR): closed SUGGESTIONS.md U1 - the SQL Editor's `runQuery`/
+  `explainQuery` fetchers now route non-2xx bodies through the shared `apiResponseError`, so a
+  structured permission denial notifies the F120 capability-cache refresh instead of leaving write
+  affordances stale until the next poll. See `docs/FEATURES.json`'s F139 evidence.
 
 ## In progress
 
@@ -75,7 +72,7 @@ log-redaction.ts` masks the export URL's `?token=` query param before it reaches
 
 ## Next steps
 
-- Open/merge F134's PR, then promote the next task from the F131-F133/F135-F143 review-fix queue
-  (see `docs/SUGGESTIONS.md` for each finding's full context). Suggested order: the remaining
-  moderate correctness fixes (F139, F140), then minors; F143 (scalable-structure refactor) last so
-  file moves don't conflict with in-flight fixes.
+- Open/merge F139's PR, then promote the next task from the F131-F133/F135-F138/F140-F143
+  review-fix queue (see `docs/SUGGESTIONS.md` for each finding's full context). Suggested order:
+  F140 (remaining moderate correctness fix), then minors; F143 (scalable-structure refactor) last
+  so file moves don't conflict with in-flight fixes.

@@ -300,6 +300,59 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
+  it("renameAndAlterColumn applies both in one call (F134)", async () => {
+    const table = "qyre_test_ddl_rename_alter";
+    try {
+      await adapter.ddl?.createTable?.(FIXTURE.schema, table, [
+        { name: "id", dataType: "integer", nullable: false, default: null },
+        { name: "note", dataType: "text", nullable: true, default: null }
+      ]);
+
+      const result = await adapter.ddl?.renameAndAlterColumn?.(FIXTURE.schema, table, "note", {
+        newName: "remark",
+        changes: { nullable: false, default: "n/a" }
+      });
+      expect(result).toEqual({ column: "remark", renamed: true, altered: true });
+
+      const metadata = await adapter.getTable(FIXTURE.schema, table);
+      const remark = metadata.columns.find((column) => column.name === "remark");
+      expect(remark).toBeDefined();
+      expect(remark?.nullable).toBe(false);
+      expect(metadata.columns.some((column) => column.name === "note")).toBe(false);
+    } finally {
+      await runStatements(databaseUrl, [`DROP TABLE IF EXISTS ${table}`]);
+    }
+  });
+
+  it("renameAndAlterColumn rolls back a committed rename when the alter fails (F134)", async () => {
+    const table = "qyre_test_ddl_rename_alter_rollback";
+    try {
+      await adapter.ddl?.createTable?.(FIXTURE.schema, table, [
+        { name: "id", dataType: "integer", nullable: false, default: null },
+        { name: "note", dataType: "text", nullable: true, default: null }
+      ]);
+      await runStatements(databaseUrl, [
+        `INSERT INTO ${table} (id, note) VALUES (1, 'not-a-number')`
+      ]);
+
+      // Postgres can't implicitly cast "not-a-number" to integer - this alter must fail, and
+      // since renameAndAlterColumn runs both steps in one transaction, the rename that would
+      // otherwise have already committed must be rolled back with it.
+      await expect(
+        adapter.ddl?.renameAndAlterColumn?.(FIXTURE.schema, table, "note", {
+          newName: "remark",
+          changes: { dataType: "integer" }
+        })
+      ).rejects.toThrow();
+
+      const metadata = await adapter.getTable(FIXTURE.schema, table);
+      expect(metadata.columns.some((column) => column.name === "note")).toBe(true);
+      expect(metadata.columns.some((column) => column.name === "remark")).toBe(false);
+    } finally {
+      await runStatements(databaseUrl, [`DROP TABLE IF EXISTS ${table}`]);
+    }
+  });
+
   it("rejects addColumn as a SELECT-only fixture role (F111)", async () => {
     const readOnlyAdapter = new PostgresAdapter({
       engine: "postgres",

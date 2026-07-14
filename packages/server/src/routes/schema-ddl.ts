@@ -402,60 +402,55 @@ export function registerSchemaDdlRoutes(app: FastifyInstance, ctx: ServerContext
         validateColumnDataType(changes.dataType, db.engine, column);
       }
 
-      let currentName = column;
-
-      if (newName !== undefined) {
-        const renameColumn = db.ddl?.renameColumn;
-        if (!renameColumn) {
-          return reply
-            .status(400)
-            .send({ error: "This engine does not support renaming columns." });
-        }
-        const startedAt = performance.now();
-        try {
-          await renameColumn(schema, table, column, newName);
-        } catch (error) {
-          logDdlFailure(ctx, request, "renameColumn", schema, table, startedAt, error);
-          throw error;
-        }
-        logDdlSuccess(
-          ctx,
-          request,
-          "renameColumn",
-          schema,
-          table,
-          startedAt,
-          `Renamed column ${schema}.${table}.${column} to ${newName}.`
-        );
-        currentName = newName;
+      const renameAndAlterColumn = db.ddl?.renameAndAlterColumn;
+      if (!renameAndAlterColumn) {
+        return reply
+          .status(400)
+          .send({ error: "This engine does not support renaming or altering columns." });
       }
 
-      if (changes !== undefined) {
-        const alterColumn = db.ddl?.alterColumn;
-        if (!alterColumn) {
-          return reply
-            .status(400)
-            .send({ error: "This engine does not support altering columns." });
-        }
-        const startedAt = performance.now();
-        try {
-          await alterColumn(schema, table, currentName, changes);
-        } catch (error) {
-          logDdlFailure(ctx, request, "alterColumn", schema, table, startedAt, error);
-          throw error;
-        }
-        logDdlSuccess(
-          ctx,
-          request,
-          "alterColumn",
-          schema,
-          table,
-          startedAt,
-          `Altered column ${schema}.${table}.${currentName}.`
-        );
+      // F134: one call combining both steps - Postgres/SQLite run it as one transaction (a mid-
+      // request failure rolls back everything, including an already-issued rename, so this only
+      // ever resolves fully applied or throws); MySQL has no transactional DDL to wrap, so a
+      // rename that already committed before a following alter failure is reported back as a
+      // partial result instead of thrown, so the caller never treats a half-applied edit as a
+      // total failure or retries into "Unknown column".
+      const operation = newName !== undefined ? "renameColumn" : "alterColumn";
+      const startedAt = performance.now();
+      let result;
+      try {
+        result = await renameAndAlterColumn(schema, table, column, { newName, changes });
+      } catch (error) {
+        logDdlFailure(ctx, request, operation, schema, table, startedAt, error);
+        throw error;
       }
 
-      return { schema, table, column: currentName };
+      if (result.alterError) {
+        const durationMs = Math.round(performance.now() - startedAt);
+        const message = `Renamed column ${schema}.${table}.${column} to ${result.column}, but the alter failed: ${result.alterError}`;
+        ctx.eventLog.log("warn", message);
+        request.log.warn(
+          { operation: "alterColumn", schema, table, durationMs, outcome: "partial" },
+          message
+        );
+        return reply.status(200).send({ schema, table, ...result });
+      }
+
+      logDdlSuccess(
+        ctx,
+        request,
+        operation,
+        schema,
+        table,
+        startedAt,
+        result.renamed && result.altered
+          ? `Renamed column ${schema}.${table}.${column} to ${result.column} and altered it.`
+          : result.renamed
+            ? `Renamed column ${schema}.${table}.${column} to ${result.column}.`
+            : `Altered column ${schema}.${table}.${result.column}.`
+      );
+
+      return { schema, table, ...result };
     }
   );
 

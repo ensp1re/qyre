@@ -1,4 +1,4 @@
-import type { ColumnDefinition, IndexDefinition } from "@qyre/core";
+import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyre/core";
 import type mysql from "mysql2/promise";
 import { quoteIdent } from "./sql.js";
 
@@ -139,6 +139,51 @@ export async function alterColumn(
     parts.push(`DEFAULT ${pool.escape(defaultValue)}`);
   }
   await pool.query(`ALTER TABLE ${target} MODIFY COLUMN ${parts.join(" ")}`);
+}
+
+/**
+ * Runs a rename and/or alter sequentially (F134) - unlike Postgres/SQLite, MySQL's DDL is not
+ * transactional (`ALTER TABLE` auto-commits immediately regardless of any enclosing `BEGIN`/
+ * `COMMIT`), so a rename that succeeds can never be rolled back if the following alter then fails.
+ * Rather than throw and leave the caller believing nothing happened (the original bug: the rename
+ * is already committed, and a naive retry then hits "Unknown column"), a post-rename alter failure
+ * is caught and reported as a partial {@link ColumnUpdateResult} instead - `renamed: true, altered:
+ * false, alterError`. A failure with nothing yet committed (the alter-only case, or the rename
+ * itself failing) still throws normally, matching every other DDL route. Note this bypasses the
+ * route's permission-denied classification for the alter step specifically - an acceptable
+ * tradeoff for the rare case of "rename allowed, alter forbidden"; the alter's raw message still
+ * reaches `alterError`, just not through that structured 403 path.
+ */
+export async function renameAndAlterColumn(
+  pool: mysql.Pool,
+  schema: string,
+  table: string,
+  column: string,
+  update: {
+    newName?: string;
+    changes?: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>;
+  }
+): Promise<ColumnUpdateResult> {
+  let currentName = column;
+  if (update.newName !== undefined) {
+    await renameColumn(pool, schema, table, column, update.newName);
+    currentName = update.newName;
+  }
+  if (update.changes === undefined) {
+    return { column: currentName, renamed: update.newName !== undefined, altered: false };
+  }
+  try {
+    await alterColumn(pool, schema, table, currentName, update.changes);
+  } catch (error) {
+    if (update.newName === undefined) throw error;
+    return {
+      column: currentName,
+      renamed: true,
+      altered: false,
+      alterError: error instanceof Error ? error.message : String(error)
+    };
+  }
+  return { column: currentName, renamed: update.newName !== undefined, altered: true };
 }
 
 export async function dropColumn(

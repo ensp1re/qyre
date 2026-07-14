@@ -44,6 +44,7 @@ import {
   dropColumn,
   dropIndex,
   dropTable,
+  renameAndAlterColumn,
   renameColumn,
   renameTable,
   truncateTable
@@ -82,6 +83,8 @@ export class PostgresAdapter implements DatabaseAdapter {
       renameColumn(this.getPool(), schema, table, column, newName),
     alterColumn: (schema, table, column, changes) =>
       alterColumn(this.getPool(), schema, table, column, changes),
+    renameAndAlterColumn: (schema, table, column, update) =>
+      renameAndAlterColumn(this.getPool(), schema, table, column, update),
     dropColumn: (schema, table, column) => dropColumn(this.getPool(), schema, table, column),
     createIndex: (schema, table, definition) =>
       createIndex(this.getPool(), schema, table, definition),

@@ -63,3 +63,28 @@ export interface IndexDefinition {
   readonly columns: string[];
   readonly unique: boolean;
 }
+
+/**
+ * Result of a combined column rename+alter (F134's `renameAndAlterColumn`), per docs/product-specs/
+ * schema-editing.md. On Postgres/SQLite (transactional DDL) this only ever describes a fully
+ * applied request - a failure there rolls back everything and throws instead, so `renamed`/
+ * `altered` are never `false` for a step that was actually requested. On MySQL (DDL auto-commits
+ * per statement - no transaction can span two `ALTER TABLE` statements) a rename can succeed while
+ * the following alter fails: `renamed: true, altered: false, alterError` reports that partial
+ * outcome instead of throwing after the rename already committed, so the caller never treats a
+ * half-applied edit as a total failure or retries into "Unknown column".
+ */
+export interface ColumnUpdateResult {
+  /** The column's name after this call - `newName` when a rename was requested and applied,
+   * otherwise the original name. */
+  readonly column: string;
+  /** Whether a rename was requested and applied. `false` only when no rename was requested at
+   * all - a requested rename that failed always throws (nothing committed to report). */
+  readonly renamed: boolean;
+  /** Whether an alter was requested and applied. Can be `false` after a successful rename on an
+   * engine without transactional DDL - see `alterError`. */
+  readonly altered: boolean;
+  /** The alter step's error message, present only when `renamed` is `true` and `altered` is
+   * `false` (MySQL's partial-outcome case above). */
+  readonly alterError?: string;
+}

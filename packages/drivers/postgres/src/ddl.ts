@@ -1,6 +1,11 @@
-import type { ColumnDefinition, IndexDefinition } from "@qyre/core";
-import type { Pool } from "pg";
+import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyre/core";
+import type { Pool, PoolClient } from "pg";
 import { quoteIdent } from "./sql.js";
+
+/** `renameColumn`/`alterColumn` run against either a `Pool` (their own single-statement callers)
+ * or a checked-out `PoolClient` ({@link renameAndAlterColumn}'s shared transaction below) - both
+ * expose the same `.query(sql)` shape. */
+type Queryable = Pool | PoolClient;
 
 /**
  * `column.dataType`/`column.name` are already validated by the caller (identifier shape for new
@@ -68,7 +73,7 @@ export async function addColumn(
 }
 
 export async function renameColumn(
-  pool: Pool,
+  pool: Queryable,
   schema: string,
   table: string,
   column: string,
@@ -89,7 +94,7 @@ export async function renameColumn(
  * surfaces as a real Postgres error, same as typing the statement by hand would.
  */
 export async function alterColumn(
-  pool: Pool,
+  pool: Queryable,
   schema: string,
   table: string,
   column: string,
@@ -115,6 +120,48 @@ export async function alterColumn(
   }
   if (clauses.length === 0) return;
   await pool.query(`ALTER TABLE ${target} ${clauses.join(", ")}`);
+}
+
+/**
+ * Runs a rename and/or alter as one transaction (F134) - Postgres DDL is transactional, so a mid-
+ * request failure (e.g. an incompatible type cast) rolls back the whole thing, including an
+ * already-issued rename, rather than leaving it committed with the alter reported as failed. Only
+ * ever resolves once every requested step actually applied; any failure throws instead (nothing
+ * partial to report), matching {@link ColumnUpdateResult}'s contract for a transactional engine.
+ */
+export async function renameAndAlterColumn(
+  pool: Pool,
+  schema: string,
+  table: string,
+  column: string,
+  update: {
+    newName?: string;
+    changes?: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>;
+  }
+): Promise<ColumnUpdateResult> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    let currentName = column;
+    if (update.newName !== undefined) {
+      await renameColumn(client, schema, table, column, update.newName);
+      currentName = update.newName;
+    }
+    if (update.changes !== undefined) {
+      await alterColumn(client, schema, table, currentName, update.changes);
+    }
+    await client.query("COMMIT");
+    return {
+      column: currentName,
+      renamed: update.newName !== undefined,
+      altered: update.changes !== undefined
+    };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function dropColumn(

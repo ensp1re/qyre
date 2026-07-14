@@ -162,11 +162,12 @@
       "id": "F134",
       "behavior": "Close SUGGESTIONS.md V1: PATCH /api/tables/:schema/:table/ddl/columns/:column (packages/server/src/routes/schema-ddl.ts) runs rename then alter as two independent steps - when alter fails after rename succeeded, the rename silently persists while the route reports total failure, and a retry hits 'Unknown column'. Make the combined request atomic where the engine supports transactional DDL (Postgres, SQLite), or return a structured partial-success body ({ renamed, altered, error }) that EditColumnDialog renders honestly; MySQL (no transactional DDL) takes whichever path fits.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/postgres test && pnpm --filter @qyre/sqlite test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "15d5c2e",
+      "evidence": "Closed SUGGESTIONS.md V1: added SchemaDdlApi.renameAndAlterColumn (one call, ColumnUpdateResult: { column, renamed, altered, alterError? }) per engine. Postgres: one client + BEGIN/COMMIT/ROLLBACK around both statements - any failure rolls back everything (verified live: a forced incompatible-cast alter after a real rename leaves the original column name intact). SQLite: both steps nested inside one db.transaction() (better-sqlite3 uses SAVEPOINTs for nested transaction functions, confirmed live) - same all-or-nothing guarantee around alterColumn's 12-step rebuild. MySQL: DDL auto-commits per statement, so no transaction can span two ALTER TABLE statements - genuinely can't be atomic; runs sequentially and returns { renamed: true, altered: false, alterError } instead of throwing when a post-rename alter fails (verified live against a real strict-mode cast failure). packages/server/src/routes/schema-ddl.ts's PATCH route now makes one combined call and returns the full result at 200, including the partial-outcome case (matching CSV import's precedent for a partial-success body over a special status code). apps/web's editColumn refreshes table metadata before surfacing an alterError as a thrown error, so a dialog retry after a MySQL partial success targets the now-current column name instead of the original bug's stale one. New tests: server route tests for the combined call and the partial-success response; live-DB driver integration tests on all three engines (rollback verification for Postgres/SQLite, partial-success verification for MySQL). pnpm --filter @qyre/server test (280), @qyre/postgres test (70), @qyre/sqlite test (50), @qyre/mysql test (60), @qyre/web test (134), and @qyre/ui test (350) all green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-14T21:00:00.000Z"
     },
     {
       "id": "F135",

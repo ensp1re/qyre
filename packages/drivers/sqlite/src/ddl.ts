@@ -1,4 +1,4 @@
-import type { ColumnDefinition, IndexDefinition } from "@qyre/core";
+import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyre/core";
 import type Database from "better-sqlite3";
 import { fetchForeignKeyList, fetchTableInfo, type TableInfoRow } from "./introspection.js";
 import { quoteIdent } from "./sql.js";
@@ -191,6 +191,41 @@ export function alterColumn(
   changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
 ): void {
   rebuildTable(db, table, column, changes);
+}
+
+/**
+ * Runs a rename and/or alter as one transaction (F134) - `renameColumn`'s `ALTER TABLE ... RENAME
+ * COLUMN` and `alterColumn`'s own internal 12-step rebuild both run inside `db.transaction()`;
+ * better-sqlite3 nests transaction functions as SAVEPOINTs, so wrapping both in an outer
+ * transaction here rolls back a mid-request alter failure - including an already-issued rename -
+ * instead of leaving it committed with the alter reported as failed. Only ever resolves once every
+ * requested step actually applied; any failure throws instead (nothing partial to report),
+ * matching {@link ColumnUpdateResult}'s contract for a transactional engine.
+ */
+export function renameAndAlterColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  update: {
+    newName?: string;
+    changes?: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>;
+  }
+): ColumnUpdateResult {
+  let currentName = column;
+  db.transaction(() => {
+    if (update.newName !== undefined) {
+      renameColumn(db, table, column, update.newName);
+      currentName = update.newName;
+    }
+    if (update.changes !== undefined) {
+      alterColumn(db, table, currentName, update.changes);
+    }
+  })();
+  return {
+    column: currentName,
+    renamed: update.newName !== undefined,
+    altered: update.changes !== undefined
+  };
 }
 
 export function createIndex(

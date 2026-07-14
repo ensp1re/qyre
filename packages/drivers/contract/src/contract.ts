@@ -2,6 +2,7 @@ import type {
   AccessOverview,
   ColumnDefinition,
   ColumnMetadata,
+  ColumnUpdateResult,
   CommitMutationsResult,
   ConnectionCapabilities,
   ConnectionTarget,
@@ -125,6 +126,20 @@ export interface SchemaDdlApi {
     column: string,
     changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
   ): Promise<void>;
+  /** Combines a rename and/or alter into one call (F134) - see {@link ColumnUpdateResult} for why
+   * this exists instead of the route just calling `renameColumn` then `alterColumn` in sequence.
+   * Every SQL engine implements this; `renameColumn`/`alterColumn` above stay as the underlying
+   * single-step primitives (still exercised directly by this method's own implementation and by
+   * driver-level tests), not a parallel path a caller could take instead. */
+  renameAndAlterColumn?(
+    schema: string,
+    table: string,
+    column: string,
+    update: {
+      newName?: string;
+      changes?: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>;
+    }
+  ): Promise<ColumnUpdateResult>;
   dropColumn?(schema: string, table: string, column: string): Promise<void>;
 
   // --- Index operations (F112, all four engines - MongoDB maps onto its own native index API) ---

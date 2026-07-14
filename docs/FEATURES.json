@@ -213,11 +213,12 @@
       "id": "F139",
       "behavior": "Close SUGGESTIONS.md U1: apps/web/src/features/query/api/query.ts's runQuery and explainQuery hand-build their errors and never route non-2xx bodies through apiResponseError, so a structured permission-denied 403 from the SQL Editor never fires subscribePermissionDenied and the F120 capability/table-permission cache refresh is skipped - stale write affordances persist until the 30s overview poll. Route both fetchers' error bodies through apiResponseError (keeping the 409-destructive, cancelled, and reason:'read-only' special cases first) and unit-test that a permission-denied body notifies the listener.",
       "verification": "pnpm --filter @qyre/web test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "0d77b9a",
+      "evidence": "Closed SUGGESTIONS.md U1: apps/web/src/features/query/api/query.ts's runQuery and explainQuery now route every non-2xx body that isn't already special-cased (DestructiveConfirmationRequiredError on 409, QueryCancelledError, ReadOnlySessionRejectionError) through the shared apiResponseError helper, so a structured permission-denied 403 from POST /api/query or /api/query/explain notifies subscribePermissionDenied and triggers the same F120 capability/table-permission cache refresh every other fetcher's error path already gets. Rendered error text is unchanged for every existing case - verified live against a running Postgres preview: a normal query still returns its result, and a genuine SQL error (unknown relation) still shows the same message with Retry. New unit tests assert both fetchers notify the listener with the structured denial and throw PermissionDeniedApiError. pnpm --filter @qyre/web test (136 tests, 2 new) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-14T21:30:00.000Z"
     },
     {
       "id": "F140",

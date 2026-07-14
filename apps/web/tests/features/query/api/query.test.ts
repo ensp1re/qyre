@@ -1,3 +1,4 @@
+import type { PermissionDeniedResponse } from "@qyre/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DestructiveConfirmationRequiredError,
@@ -5,6 +6,18 @@ import {
   ReadOnlySessionRejectionError,
   runQuery
 } from "../../../../src/features/query/api/query.js";
+import {
+  PermissionDeniedApiError,
+  subscribePermissionDenied
+} from "../../../../src/shared/api/permission-denied.js";
+
+const DENIAL: PermissionDeniedResponse = {
+  error: "Permission denied while attempting to execute query on the current database.",
+  code: "permission-denied",
+  operation: "execute-query",
+  object: "the current database",
+  likelyMissingGrant: "the privilege required by this SQL statement"
+};
 
 function mockFetchOnce(status: number, body: unknown): void {
   vi.stubGlobal(
@@ -80,6 +93,20 @@ describe("runQuery (F107/F108)", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
     await expect(runQuery("SELECT 1")).rejects.toThrow("Could not reach the Qyre server");
   });
+
+  it("notifies subscribePermissionDenied on a structured 403, refreshing capability caches (F139)", async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribePermissionDenied(listener);
+    try {
+      mockFetchOnce(403, DENIAL);
+      await expect(runQuery("INSERT INTO users (id) VALUES (1)")).rejects.toBeInstanceOf(
+        PermissionDeniedApiError
+      );
+      expect(listener).toHaveBeenCalledWith(DENIAL);
+    } finally {
+      unsubscribe();
+    }
+  });
 });
 
 describe("explainQuery (F128)", () => {
@@ -122,5 +149,19 @@ describe("explainQuery (F128)", () => {
     await expect(explainQuery("SELECT 1", false)).rejects.toThrow(
       "Could not reach the Qyre server"
     );
+  });
+
+  it("notifies subscribePermissionDenied on a structured 403, refreshing capability caches (F139)", async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribePermissionDenied(listener);
+    try {
+      mockFetchOnce(403, DENIAL);
+      await expect(explainQuery("SELECT * FROM users", false)).rejects.toBeInstanceOf(
+        PermissionDeniedApiError
+      );
+      expect(listener).toHaveBeenCalledWith(DENIAL);
+    } finally {
+      unsubscribe();
+    }
   });
 });

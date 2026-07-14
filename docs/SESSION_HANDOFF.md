@@ -6,9 +6,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-14.
-- Branch: `feature/F121-role-matrix-exit-gate`, draft PR #137 at `9bd0c8d`, based on `main`
-  through merged PR #136.
-- Queue: F111-F121 are `passing`; F128 remains `not_started`.
+- Branch: `feature/F128-explain-viewer`, based on `main` through merged PR #137.
+- Queue: F111-F121 are `passing`; F128 is `active`.
   `nextIds.F` is 129.
 
 ## Completed
@@ -42,14 +41,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   browser refreshes capability/table-permission caches after denial, and restricted conformance
   covers Postgres, MySQL, and SQLite (MongoDB auth is not applicable in the shared fixture). Local,
   pre-push, and both GitHub CI jobs passed on Node 22.
-- F121 is pushed in draft PR #137 (`9bd0c8d`). The role matrix covers writable and read-only
+- F121 merged as PR #137 (`ad8eb35`). The role matrix covers writable and read-only
   behavior across all four engines, every mutating API path with and without a session token, and
   consolidated role-aware product/security documentation. Local, pre-push, and both GitHub CI
   jobs passed on Node 22: 34/34 package tasks, 11 smoke E2E passes, and 29 full E2E passes.
 
 ## In progress
 
-- No active feature. Plan 0006 remains active because F128 is still `not_started`.
+- F128 is implemented and the full local PR gate passes. Delivery and CI evidence remain before it
+  can move to `passing` and close plan 0006.
 
 ## Known issues / blockers
 
@@ -84,5 +84,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- After PR #137 merges, promote F128 and implement the read-only-safe SQL EXPLAIN viewer; then run
-  the final plan gate and move plan 0006 to completed.
+- Commit and push F128, open its draft PR, wait for both CI jobs, then record evidence, move F128 to
+  `passing`, prune the queue, and move plan 0006 to completed.

@@ -1,8 +1,9 @@
 # Plan 0006: Role-Aware Database IDE (read-only MVP -> full IDE)
 
-Status: In progress - F121's exit matrix passed in draft PR #137, but F128 remains `not_started`,
-so the plan cannot move to completed yet. Revised 2026-07-10 after a second-pass adversarial review
-(code audit and market research); see "Second-pass revisions" below.
+Status: In progress - F128 is implemented and its local PR gate passes; delivery and CI evidence
+remain before the final feature can move to `passing` and this plan can move to completed. Revised
+2026-07-10 after a second-pass adversarial review (code audit and market research); see
+"Second-pass revisions" below.
 Owner: unassigned
 Linked features: F090-F128 (`docs/FEATURES.json`)
 
@@ -673,3 +674,10 @@ tables` (create, no existing `:table` to scope under yet) plus `/api/tables/:sch
   with and without a session token, and the consolidated role-aware product/security docs. The
   exact feature command, local and pre-push `pnpm verify:pr`, and both GitHub CI jobs passed. Plan
   0006 remains active because F128's SQL EXPLAIN viewer is still `not_started`.
+- 2026-07-14: F128 implemented on `feature/F128-explain-viewer`: native PostgreSQL/MySQL/SQLite
+  plans normalize into a dedicated SQL Editor text/tree panel; PostgreSQL Analyze is an explicit,
+  warned, read-classified-only opt-in; MongoDB is explicitly not applicable. Live conformance
+  found MySQL rejects DML planning inside `START TRANSACTION READ ONLY`, so Qyre limits MySQL
+  Explain to read-classified SQL instead of removing the authoritative safety backstop. The full
+  local PR gate passed (34 package tasks, 11 smoke E2E passes, 29 full E2E passes); delivery and CI
+  evidence remain.

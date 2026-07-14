@@ -1,4 +1,4 @@
-import type { DatabaseEngine, QueryExecutionResult, RowPage } from "@qyre/core";
+import type { DatabaseEngine, QueryExecutionResult, QueryPlanResult, RowPage } from "@qyre/core";
 import { autocompletion } from "@codemirror/autocomplete";
 import { StandardSQL, sql as sqlLanguage } from "@codemirror/lang-sql";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
@@ -7,7 +7,7 @@ import { EditorView, keymap } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { basicSetup } from "codemirror";
-import { History, Play, X } from "lucide-react";
+import { History, ListTree, Play, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { CellValueDrawer } from "../data-grid/cell-value-drawer.js";
@@ -16,6 +16,7 @@ import { CellValue } from "../data-grid/cell-value.js";
 import { ErrorState } from "../feedback/error-state.js";
 import { Spinner } from "../feedback/spinner.js";
 import { ResizeHandle } from "../primitives/resize-handle.js";
+import { QueryPlanPanel } from "./query-plan-panel.js";
 import type { CompletionTable } from "./sql-completion.js";
 import { createSqlCompletionSource } from "./sql-completion.js";
 
@@ -39,6 +40,12 @@ export interface QueryRunnerProps {
    * as opposed to a writable CTE that also returns rows via RETURNING). */
   result?: RowPage | QueryExecutionResult;
   error?: string;
+  onExplain: () => void;
+  isExplaining: boolean;
+  explainResult?: QueryPlanResult;
+  explainError?: string;
+  explainAnalyze: boolean;
+  onExplainAnalyzeChange: (analyze: boolean) => void;
   /** Opens the query history drawer (F012) - rendered by the caller, not this component. */
   onOpenHistory: () => void;
   /**
@@ -118,6 +125,12 @@ export function QueryRunner({
   isRunning,
   result,
   error,
+  onExplain,
+  isExplaining,
+  explainResult,
+  explainError,
+  explainAnalyze,
+  onExplainAnalyzeChange,
   onOpenHistory,
   tables = [],
   engine = "postgres",
@@ -125,7 +138,10 @@ export function QueryRunner({
   onResultsHeightChange
 }: QueryRunnerProps): ReactNode {
   const resizableResults = resultsHeight !== undefined && onResultsHeightChange !== undefined;
-  const canRun = !isRunning && sql.trim().length > 0;
+  const isBusy = isRunning || isExplaining;
+  const canRun = !isBusy && sql.trim().length > 0;
+  const canExplain = !isBusy && sql.trim().length > 0;
+  const showPlan = isExplaining || explainResult !== undefined || explainError !== undefined;
   const lineCount = sql.split("\n").length;
   const isMac =
     typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform ?? "");
@@ -244,6 +260,20 @@ export function QueryRunner({
           )}
           {isRunning ? "Running..." : "Run"}
         </button>
+        <button
+          type="button"
+          onClick={onExplain}
+          disabled={!canExplain}
+          title="Explain query"
+          className="flex items-center gap-1.5 rounded-[3px] border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-accent/50 disabled:opacity-50"
+        >
+          {isExplaining ? (
+            <Spinner className="h-2.5 w-2.5" />
+          ) : (
+            <ListTree className="h-2.5 w-2.5" />
+          )}
+          {isExplaining ? "Explaining..." : "Explain"}
+        </button>
         {isRunning && (
           <button
             type="button"
@@ -258,6 +288,19 @@ export function QueryRunner({
         <span className="hidden rounded-[2px] border border-border px-1 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
           {shortcutLabel}
         </span>
+        {engine === "postgres" && (
+          <label className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
+            <input
+              type="checkbox"
+              aria-label="Run with EXPLAIN ANALYZE"
+              checked={explainAnalyze}
+              disabled={isBusy}
+              onChange={(event) => onExplainAnalyzeChange(event.target.checked)}
+              className="h-3 w-3 accent-primary"
+            />
+            Analyze
+          </label>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
@@ -273,17 +316,26 @@ export function QueryRunner({
         </div>
       </div>
 
+      {engine === "postgres" && explainAnalyze && (
+        <div
+          role="alert"
+          className="shrink-0 border-b border-[color:var(--c-amber)]/30 bg-[color:var(--c-amber)]/10 px-3 py-1.5 font-mono text-[10px] text-[color:var(--c-amber)]"
+        >
+          EXPLAIN ANALYZE executes the statement and is accepted only for read-classified SQL.
+        </div>
+      )}
+
       <div className="flex min-h-[8rem] flex-1 overflow-hidden">
         <div ref={editorParentRef} data-testid="query-editor" className="min-w-0 flex-1" />
       </div>
 
-      {error && (
+      {!showPlan && error && (
         <div data-testid="query-error" className="h-40 shrink-0 border-t border-border">
           <ErrorState message={error} onRetry={onRun} />
         </div>
       )}
 
-      {result && !error && resizableResults && (
+      {!showPlan && result && !error && resizableResults && (
         <ResizeHandle
           orientation="horizontal"
           value={resultsHeight}
@@ -295,7 +347,7 @@ export function QueryRunner({
         />
       )}
 
-      {result && !error && (
+      {!showPlan && result && !error && (
         <div
           data-testid="query-result"
           ref={resultScrollRef}
@@ -364,6 +416,28 @@ export function QueryRunner({
             </table>
           )}
         </div>
+      )}
+
+      {showPlan && explainResult && !explainError && resizableResults && (
+        <ResizeHandle
+          orientation="horizontal"
+          value={resultsHeight}
+          min={RESULTS_MIN_HEIGHT}
+          max={RESULTS_MAX_HEIGHT}
+          onChange={onResultsHeightChange}
+          invert
+          aria-label="Resize query plan panel"
+        />
+      )}
+
+      {showPlan && (
+        <QueryPlanPanel
+          result={explainResult}
+          loading={isExplaining}
+          error={explainError}
+          onRetry={onExplain}
+          height={resizableResults ? resultsHeight : undefined}
+        />
       )}
 
       {inspected && (

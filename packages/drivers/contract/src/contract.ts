@@ -11,6 +11,7 @@ import type {
   InsertRowResult,
   MutationOp,
   QueryExecutionResult,
+  QueryPlanResult,
   RowFilter,
   RowPage,
   RowSort,
@@ -244,6 +245,13 @@ export interface DatabaseAdapter {
    * a mutation's SQL. `operationId` - see {@link DatabaseAdapter.getRows}.
    */
   runQuery?(sql: string, operationId?: string): Promise<QueryExecutionResult>;
+  /**
+   * Build and execute a database-native plan. Plain planning does not execute the target;
+   * PostgreSQL may opt into ANALYZE, which does execute it, for read-classified SQL only. Other
+   * engines reject that option. Runs inside the same engine-level read-only backstop as normal
+   * reads. Absent on engines without a SQL surface (MongoDB).
+   */
+  explainQuery?(sql: string, analyze?: boolean): Promise<QueryPlanResult>;
   /** Structured row-mutation operations (F099-F101) - absent means the engine has no write
    * mechanism at all; present-but-grants-insufficient is a normal per-call rejection, not a
    * missing namespace. See {@link RowMutationApi}. */

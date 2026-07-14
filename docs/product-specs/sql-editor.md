@@ -332,3 +332,45 @@ affected."` in the results panel, not an empty-rows message.
   badge tooltip uses for that session's `readOnlyReason`, not the raw server rejection message.
 - A read-only session's genuine query failure (e.g. a bad table name) still shows its own real
   error message, never the read-only friendly text.
+
+## Native query-plan viewer (F128)
+
+### Behavior
+
+The SQL Editor exposes an explicit **Explain** action and renders the database's native plan in a
+dedicated monospaced text/tree panel. The adapter contract returns a normalized shape - plan lines,
+the existing statement classification, and whether execution analysis actually ran - while each
+SQL engine owns its native statement and output normalization:
+
+- **PostgreSQL**: `EXPLAIN (FORMAT TEXT)`; an opt-in **Analyze** checkbox uses
+  `EXPLAIN (ANALYZE, FORMAT TEXT)`.
+- **MySQL**: `EXPLAIN FORMAT=TREE` for read-classified SQL. MySQL rejects DML planning inside a
+  `READ ONLY` transaction, so Qyre rejects non-read targets instead of dropping that safety guard.
+- **SQLite**: `EXPLAIN QUERY PLAN`.
+- **MongoDB**: not applicable because the product has no MongoDB SQL editor surface.
+
+Plain Explain never executes the target. PostgreSQL and SQLite may plan any supported single SQL
+statement, including write-shaped SQL; MySQL accepts only read-classified SQL for the native
+constraint above. The adapter still performs planning inside the engine's authoritative read-only
+mode (`READ ONLY` transaction for PostgreSQL/MySQL, `query_only` for SQLite), so a classifier miss
+cannot turn planning into a write.
+
+PostgreSQL Analyze is deliberately narrower: enabling it shows a persistent amber warning that it
+executes the statement, and both the shared contract boundary and the PostgreSQL adapter reject any
+statement not classified `read`. It also runs inside a PostgreSQL `READ ONLY` transaction. MySQL
+and SQLite reject the Analyze option instead of silently downgrading it.
+
+Starting a normal query replaces any previous plan; changing the SQL or engine clears stale plan
+state. The plan panel owns loading, native-error, empty, and success states and shares the existing
+resizable output height with query results.
+
+### Acceptance criteria
+
+- PostgreSQL, MySQL, and SQLite return a non-empty native plan for a representative `SELECT`.
+- PostgreSQL and SQLite can plan write-shaped SQL without changing database rows; MySQL rejects
+  it clearly while retaining the read-only transaction boundary.
+- PostgreSQL Analyze is visibly warned, succeeds for a read query, and is rejected for every
+  non-read classification; MySQL and SQLite do not expose the Analyze control.
+- MongoDB exposes no SQL Explain capability.
+- The SQL Editor renders plan loading, success, empty, and native-error states in the dedicated
+  plan panel; running a query or editing the statement clears stale plan output.

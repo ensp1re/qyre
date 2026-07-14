@@ -5,6 +5,7 @@ import type {
   ConnectionTarget,
   DatabaseOverview,
   QueryExecutionResult,
+  QueryPlanResult,
   RowFilter,
   RowPage,
   RowSort,
@@ -14,7 +15,9 @@ import type {
 import {
   assertReadOnly,
   capResultRows,
+  classifyExplainTarget,
   OperationCancelledError,
+  ReadOnlyViolationError,
   resolvePageRequest,
   runInReadOnlyTransaction,
   stubReadOnlyCapabilities
@@ -31,6 +34,7 @@ import mysql from "mysql2/promise";
 import { createDatabase, dropDatabase, listDatabases } from "./admin.js";
 import { inspectAccess } from "./access.js";
 import { tableKey } from "./catalog.js";
+import { buildMysqlExplainSql, mysqlPlanLines } from "./explain.js";
 import { isMysqlCancelError, withCancellableConnection } from "./cancellation.js";
 import {
   addColumn,
@@ -345,6 +349,50 @@ export class MysqlAdapter implements DatabaseAdapter {
         }
       }
     );
+  }
+
+  async explainQuery(sql: string, analyze = false): Promise<QueryPlanResult> {
+    if (analyze) {
+      throw new ReadOnlyViolationError("EXPLAIN ANALYZE is only supported for PostgreSQL.");
+    }
+    const classification = classifyExplainTarget(sql, false);
+    if (classification !== "read") {
+      throw new ReadOnlyViolationError(
+        "MySQL EXPLAIN is limited to read-classified SQL in Qyre because MySQL rejects DML planning inside a READ ONLY transaction."
+      );
+    }
+    const page = await withCancellableConnection(
+      this.getPool(),
+      this.operationRegistry,
+      undefined,
+      async (connection) =>
+        runInReadOnlyTransaction(
+          {
+            begin: async () => {
+              await connection.query("START TRANSACTION READ ONLY");
+            },
+            query: async (querySql) => {
+              const [rows, fields] = await connection.query<mysql.RowDataPacket[]>({
+                sql: querySql,
+                timeout: this.statementTimeoutMs
+              });
+              return {
+                columns: fields.map((field) => field.name),
+                rows: rows as Array<Record<string, unknown>>
+              };
+            },
+            commit: async () => {
+              await connection.query("COMMIT");
+            },
+            rollback: async () => {
+              await connection.query("ROLLBACK");
+            },
+            release: () => {}
+          },
+          buildMysqlExplainSql(sql)
+        )
+    );
+    return { lines: mysqlPlanLines(page.rows), classification, analyzed: false };
   }
 }
 

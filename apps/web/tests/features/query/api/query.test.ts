@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DestructiveConfirmationRequiredError,
+  explainQuery,
   ReadOnlySessionRejectionError,
   runQuery
 } from "../../../../src/features/query/api/query.js";
@@ -78,5 +79,48 @@ describe("runQuery (F107/F108)", () => {
   it("throws a friendly message when fetch itself fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
     await expect(runQuery("SELECT 1")).rejects.toThrow("Could not reach the Qyre server");
+  });
+});
+
+describe("explainQuery (F128)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns the normalized plan and sends ANALYZE only when enabled", async () => {
+    mockFetchOnce(200, {
+      lines: ["Seq Scan on users"],
+      classification: "read",
+      analyzed: true
+    });
+    await expect(explainQuery("SELECT * FROM users", true)).resolves.toEqual({
+      lines: ["Seq Scan on users"],
+      classification: "read",
+      analyzed: true
+    });
+    const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+    expect(url).toBe("/api/query/explain");
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      sql: "SELECT * FROM users",
+      analyze: true
+    });
+  });
+
+  it("surfaces a native planning error", async () => {
+    mockFetchOnce(400, { error: 'relation "missing" does not exist' });
+    await expect(explainQuery("SELECT * FROM missing", false)).rejects.toThrow(
+      'relation "missing" does not exist'
+    );
+  });
+
+  it("throws a friendly message when fetch itself fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+    await expect(explainQuery("SELECT 1", false)).rejects.toThrow(
+      "Could not reach the Qyre server"
+    );
   });
 });

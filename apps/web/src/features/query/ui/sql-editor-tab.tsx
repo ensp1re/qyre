@@ -2,12 +2,14 @@ import type { ConnectionCapabilities, DatabaseEngine, StatementClassification } 
 import type { CompletionTable } from "@qyre/ui";
 import { ConfirmDestructiveStatementDialog, QueryRunner, READ_ONLY_REASON_LABEL } from "@qyre/ui";
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   DestructiveConfirmationRequiredError,
   QueryCancelledError,
   ReadOnlySessionRejectionError
 } from "../api/query.js";
 import type { useRunQuery } from "../model/use-run-query.js";
+import { useExplainQuery } from "../model/use-explain-query.js";
 
 export interface SqlEditorTabProps {
   /** True when the connected adapter's capabilities.supportsSql is false (F063) - e.g. MongoDB,
@@ -52,6 +54,15 @@ export function SqlEditorTab({
   onConfirmDestructive,
   onCancelDestructive
 }: SqlEditorTabProps): ReactNode {
+  const explainQuery = useExplainQuery();
+  const resetExplainQuery = explainQuery.reset;
+  const [explainAnalyze, setExplainAnalyze] = useState(false);
+
+  useEffect(() => {
+    resetExplainQuery();
+    if (engine !== "postgres") setExplainAnalyze(false);
+  }, [engine, resetExplainQuery, sql]);
+
   if (sqlDisabled) {
     return (
       <p className="text-[13px] text-muted-foreground">
@@ -62,6 +73,7 @@ export function SqlEditorTab({
   }
 
   const rawError = runQuery.error;
+  const explainError = explainQuery.error instanceof Error ? explainQuery.error.message : undefined;
   // A destructive-confirmation rejection isn't shown as a raw error - the confirmation dialog
   // below handles it. A read-only session's rejected write attempt shows the session's own
   // friendly readOnlyReason (F108) instead of the raw "Only read-only statements..." text, mirroring
@@ -84,11 +96,20 @@ export function SqlEditorTab({
       <QueryRunner
         sql={sql}
         onSqlChange={onSqlChange}
-        onRun={onRun}
+        onRun={() => {
+          explainQuery.reset();
+          onRun();
+        }}
         onCancel={onCancel}
         isRunning={runQuery.isPending}
         result={runQuery.data}
         error={error}
+        onExplain={() => explainQuery.mutate({ sql, analyze: explainAnalyze })}
+        isExplaining={explainQuery.isPending}
+        explainResult={explainQuery.data}
+        explainError={explainError}
+        explainAnalyze={explainAnalyze}
+        onExplainAnalyzeChange={setExplainAnalyze}
         onOpenHistory={onOpenHistory}
         tables={tables}
         engine={engine}

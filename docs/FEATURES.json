@@ -99,7 +99,7 @@
       "id": "F128",
       "behavior": "EXPLAIN viewer for the SQL editor (read-only-safe, a standard IDE capability): an Explain action runs the engine-appropriate plan statement for the current query - Postgres EXPLAIN (optionally ANALYZE behind an explicit toggle with a warning that ANALYZE executes the statement, and never for non-SELECT classifications), MySQL EXPLAIN/EXPLAIN FORMAT=TREE, SQLite EXPLAIN QUERY PLAN; MongoDB not-applicable (no SQL surface) - and renders the plan in a readable dedicated panel (text/tree; no graphical layout this slice). assertReadOnly already allows the EXPLAIN keyword, so read-only sessions get this too. Unit tests for the per-engine statement construction; e2e asserts a plan renders for a fixture query on one engine. Depends on F106 (classification decides ANALYZE eligibility); read-only parts schedulable earlier if picked up independently.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

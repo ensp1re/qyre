@@ -2,7 +2,7 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 129,
+    "F": 144,
     "DF": 10
   },
   "states": ["not_started", "active", "blocked", "passing"],
@@ -105,6 +105,156 @@
       "blockedReason": null,
       "spec": null,
       "completedAt": "2026-07-13T22:21:15.000Z"
+    },
+    {
+      "id": "F129",
+      "behavior": "Close SUGGESTIONS.md S1: the F122 session token is currently served unauthenticated to any local requester - GET / (and the SPA fallback) returns index.html with window.__QYRE_TOKEN__ embedded (packages/server/src/plugins/static-web.ts), so any local process or other OS user can curl the port and gain full API access, contradicting SECURITY.md's 'stops any other local process/user' claim. Decide and implement: either harden the handout (e.g. one-time token mint on first page load, subsequent tokenless loads rejected) or explicitly document same-machine trust as an accepted limitation in docs/SECURITY.md so the claim matches the implementation. Either way SECURITY.md, the static-web plugin comment, and tests must end up consistent.",
+      "verification": "pnpm --filter @qyre/server test && pnpm test:e2e:smoke",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F130",
+      "behavior": "Close SUGGESTIONS.md S2 (+C2): with --verbose the export download URL's ?token=<session token> is logged verbatim by Fastify's request logging, writing the live bearer token into terminal output/captured logs. Add pino redaction (redact paths or a serializer) for the token query param when packages/cli builds the logger options, so verbose logs never contain the token while query-param auth keeps working. Cover with a server test asserting the logged request line masks the token.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/cli test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F131",
+      "behavior": "Close SUGGESTIONS.md S3: describeError output (packages/server/src/services/connection-display.ts) flows unredacted into POST /api/connect 400 bodies, /api/health lastError, the EventLog, and the CLI's connect-failure message - driver-generated text (notably MongoDB URI parse errors) can echo connection-string fragments containing credentials. Apply a credential-masking pass (userinfo and credential-named query params anywhere in the string, same pattern family as redactConnectionString) to describeError output before it is returned, logged, or printed.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/cli test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F132",
+      "behavior": "Close SUGGESTIONS.md S4: apps/web/src/features/connection/model/recent-targets.ts's SENSITIVE_PARAMETER regex full-matches bare names only, so compound credential params like sslpassword or access_token pass canPersistTarget and are persisted to localStorage, violating the 'persisted recent targets must be credential-free' rule. Switch to substring matching at least as strict as @qyre/core's CREDENTIAL_QUERY_PARAM_PATTERN and extend the unit tests with sslpassword/access_token/authSecret cases.",
+      "verification": "pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F133",
+      "behavior": "Close SUGGESTIONS.md S5: GET /api/files/content (packages/server/src/routes/files.ts) readFileSync's the whole target with no size cap, so a multi-GB .sql dump inside --files-dir blocks the event loop and ships as one JSON string. Stat first and above a threshold (e.g. 1 MiB) return a truncated preview plus an explicit truncation marker; FilesBrowser renders the marker so the user knows they're seeing a partial file.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F134",
+      "behavior": "Close SUGGESTIONS.md V1: PATCH /api/tables/:schema/:table/ddl/columns/:column (packages/server/src/routes/schema-ddl.ts) runs rename then alter as two independent steps - when alter fails after rename succeeded, the rename silently persists while the route reports total failure, and a retry hits 'Unknown column'. Make the combined request atomic where the engine supports transactional DDL (Postgres, SQLite), or return a structured partial-success body ({ renamed, altered, error }) that EditColumnDialog renders honestly; MySQL (no transactional DDL) takes whichever path fits.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/postgres test && pnpm --filter @qyre/sqlite test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F135",
+      "behavior": "Close SUGGESTIONS.md V2: POST /api/mutations/commit validates staged ops via Promise.all(ops.map(resolveBatchOp)), firing one full getTable introspection per op even though a batch is almost always many ops against one table - 200 staged edits mean 200 concurrent identical introspection query sets before the transaction starts. Group ops by schema.table, introspect each table once, and validate every op against the shared metadata; behavior (including per-op validation failures aborting the whole commit) is unchanged.",
+      "verification": "pnpm --filter @qyre/server test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F136",
+      "behavior": "Close SUGGESTIONS.md V3: packages/server/src/services/csv-import.ts documents a 'bounded error list' but applies no cap - a fully-invalid 10k-row CSV returns a 10,000-entry errors array in one JSON response. Cap stored per-row errors (e.g. first 100) while keeping failedRows as the true total, and surface 'showing first N of M errors' in the CsvImportDialog results step.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F137",
+      "behavior": "Close SUGGESTIONS.md V4: a nullable primary-key value (legal in SQLite non-INTEGER PKs) coerces to null in resolveKey and binds into 'pk = ?' in every SQL adapter, which never matches - the mutation reports matched 0 and the UI shows the misleading 'This row was already changed or removed.' Either generate IS NULL for null key values in the adapters' key clauses, or reject null key values at validation (row-mutation-validation.ts) with an explicit 'rows with a NULL primary key cannot be targeted' message; pick one and cover it with a SQLite-backed test.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/sqlite test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F138",
+      "behavior": "Close SUGGESTIONS.md V5 + C1 (CLI polish pair): (1) --port accepts garbage ('--port 80a0' parses to NaN) and dies with Fastify's raw 'options.port should be >= 0' error - validate the parsed flag via commander's InvalidArgumentError with a friendly message; (2) Ctrl-C during the masked password prompt calls process.exit(130) without input.setRawMode(false) (guided-login-io.ts), plausibly leaving the terminal in raw mode - restore cooked mode before exiting and verify the terminal behaves after Ctrl-C at the Password prompt.",
+      "verification": "pnpm --filter @qyre/cli test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F139",
+      "behavior": "Close SUGGESTIONS.md U1: apps/web/src/features/query/api/query.ts's runQuery and explainQuery hand-build their errors and never route non-2xx bodies through apiResponseError, so a structured permission-denied 403 from the SQL Editor never fires subscribePermissionDenied and the F120 capability/table-permission cache refresh is skipped - stale write affordances persist until the 30s overview poll. Route both fetchers' error bodies through apiResponseError (keeping the 409-destructive, cancelled, and reason:'read-only' special cases first) and unit-test that a permission-denied body notifies the listener.",
+      "verification": "pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F140",
+      "behavior": "Close SUGGESTIONS.md U2+U4+U5 (EditableCell/NewRowCell fixes, one slice since all live in the same two components): (1) text/number editors can never stage NULL or empty string - an empty draft silently cancels and the promised null button only exists for boolean/date widgets; render the null button for nullable text/number columns and make an empty draft stage '' explicitly; (2) the date/time/datetime editing branch has no cancel path - handle Escape (and blur) like handleTextKeyDown does; (3) numeric drafts round-trip through Number(), silently corrupting integers beyond 2^53 (SQLite safeIntegers / Postgres bigint arrive as strings) - keep the draft as a string when the parsed value is not a safe integer, or reject with a clear message. Per docs/product-specs/row-editing.md.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F141",
+      "behavior": "Close SUGGESTIONS.md U3: TablesTab's openEditDocument leaves the previous document's fetch un-cancelled - opening A, closing, quickly opening B can let A's late response overwrite documentText/documentLoading while the drawer shows B's _id (the server's originalDocument check prevents a wrong write, but the user sees and edits the wrong document). Guard the resolution against the current documentEditor.id (sequence ref or AbortController) so stale responses are dropped.",
+      "verification": "pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F142",
+      "behavior": "Close SUGGESTIONS.md U6: SchemaTab hardcodes targetSchema = schemas[0], so on multi-schema Postgres databases 'New table' silently creates in whichever schema sorts first with no way to choose. Add a schema selector to CreateTableDialog (defaulting sensibly, e.g. to the sidebar's current selection when set), thread the choice through useCreateTable to POST /api/schemas/:schema/tables.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
+    },
+    {
+      "id": "F143",
+      "behavior": "Scalable-structure refactor across the ENTIRE workspace (every package and app; product source only, never test files), behavior-preserving - no functional changes. (1) Split every non-test source file over 500 lines into cohesive modules within a folder; as of 2026-07-14 that is packages/ui/src/data-grid/rows-table.tsx (933: extract toolbar, selection/drag logic, and row/cell rendering), packages/server/src/routes/schema-ddl.ts (640: split table-lifecycle, column, and index route groups), packages/ui/src/schema/table-structure.tsx (546: extract columns section, indexes section, table-actions section), and packages/ui/src/data-grid/filter-bar.tsx (517: extract filter-editor pieces) - but re-measure at execution time and split anything else that has crossed 500 lines since. (2) Group every flat folder that has grown past comfortable scanning into related subfolders, applied across the whole workspace (apps/web, packages/ui, packages/server, packages/cli, packages/core, packages/drivers/*, packages/config, packages/testing*): e.g. packages/server/src/routes (13 files) and src/services (14) by domain (rows/ddl/admin/import-export/infra), packages/ui/src/data-grid (11) and src/schema (9) by concern, and each packages/drivers/*/src (12-16 files) into introspection/mutation/admin groupings kept consistent across engines - plus any other folder found at execution time to exceed ~8 flat files. Respect docs/CODE_ORGANIZATION.md and ARCHITECTURE.md layer rules; keep each package's public exports (its index) unchanged so no consumer import breaks; pure moves/renames plus mechanical extraction only. Update docs/CODE_ORGANIZATION.md if the new folder conventions change what it documents.",
+      "verification": "pnpm check:quiet",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/SUGGESTIONS.md"
     }
   ]
 }

@@ -6,51 +6,23 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-14.
-- Branch: `feature/F128-explain-viewer`, draft PR #138 at `631510d`, based on `main` through merged
-  PR #137.
-- Queue: F114-F121 and F128 are `passing`; F111-F113 were pruned; no active feature.
-  `nextIds.F` is 129.
+- Branch: `main` at `90e69c2` (PR #138/F128 merged - exec plan 0006 complete).
+- Queue: F114-F121 and F128 are `passing`; F129-F143 are `not_started` review-fix tasks derived
+  from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web, packages/ui,
+  packages/server, packages/cli); no active feature. `nextIds.F` is 144.
 
 ## Completed
 
 - All read-only MVP work through F089 is merged and passing; see product specs and Git/PR history.
-- Exec plan 0006 (`docs/exec-plans/completed/0006-role-aware-database-ide.md`) delivered the full
-  read-only-to-write-capable-IDE plan as F090-F128; see the plan's own progress log and
-  `docs/FEATURES.json` for full per-feature evidence. F090-F116, F122-F127, F129 are merged to
-  `main` (PRs #94-#132): permission/capability foundation (F090-F098, F122-F124), the row-mutation
-  write path (F099-F102), the full row-editing UI (F103-F105, F125), Phase C -
-  `classifyStatement`/`runQuery` classification (F106-F107), the write-capable SQL Editor
-  (F108, F126-F127) - and Phase D's `SchemaDdlApi`/`DatabaseAdminApi` slices: table lifecycle
-  (F110), column ops (F111, incl. SQLite's 12-step rebuild), index ops (F112), the table designer
-  UI (F113), the Structure view (F114), database/schema lifecycle (F115), and its management UI
-  (F116) - all gated server-side on F096 + the relevant capability flag.
-- F117 (CSV import) merged as PR #133 (`35c29ce`). Its
-  capped streaming inspect/validate/import API, typed mapping/coercion, bounded SQL transactions,
-  one-document MongoDB batches, permission/kind gates, mapping/dry-run/result UI, product contract,
-  and read-only E2E canary are complete. The local and pre-push `CI=1 pnpm verify:pr` gates passed
-  against all four engines, smoke E2E, and full E2E.
-- F118 merged as PR #134 (`a944d73`). It replaces paginated
-  export queries with native streams on all four engines and adds capability-driven CSV,
-  JSON/Extended JSON, and SQL-INSERT downloads while preserving selected-row CSV precedence. The
-  local and pre-push `CI=1 pnpm verify:pr` gates and explicit four-engine stream conformance passed.
-- F119 merged as PR #135 (`e964310`). It adds a secret-safe,
-  read-only access inspection contract and Settings viewer across Postgres, MySQL, SQLite, and
-  MongoDB, including partial catalog degradation, bounds/redaction coverage, and a parallel E2E
-  fixture-race repair. Local and pre-push `pnpm verify:pr` gates passed on Node 22.
-- F120 merged as PR #136 (`2764a97`). Native permission errors now map to one redacted
-  structured 403 across every mutating path, route metadata coverage is enforced at startup, the
-  browser refreshes capability/table-permission caches after denial, and restricted conformance
-  covers Postgres, MySQL, and SQLite (MongoDB auth is not applicable in the shared fixture). Local,
-  pre-push, and both GitHub CI jobs passed on Node 22.
-- F121 merged as PR #137 (`ad8eb35`). The role matrix covers writable and read-only
-  behavior across all four engines, every mutating API path with and without a session token, and
-  consolidated role-aware product/security documentation. Local, pre-push, and both GitHub CI
-  jobs passed on Node 22: 34/34 package tasks, 11 smoke E2E passes, and 29 full E2E passes.
-- F128 is pushed in draft PR #138 (`631510d`). PostgreSQL, MySQL, and SQLite expose native,
-  read-only-safe plans in the SQL Editor's dedicated text/tree panel; PostgreSQL Analyze is warned
-  and read-classified-only, and MongoDB is explicitly not applicable. The exact feature tests,
-  live conformance, local/pre-push PR gates, focused E2E, and both GitHub CI jobs passed.
-  This completes exec plan 0006.
+- Exec plan 0006 (`docs/exec-plans/completed/0006-role-aware-database-ide.md`) is fully merged to
+  `main` as F090-F128 (PRs #94-#138, final commit `90e69c2`): permission/capability foundation,
+  the row-mutation write path and row-editing UI, statement classification and the write-capable
+  SQL Editor, schema/table/column/index DDL and its UI, database/schema lifecycle, CSV import,
+  streamed multi-format export, roles-and-grants viewer, permission-denied hardening, the
+  role-aware E2E matrix, and the SQL EXPLAIN viewer. Per-feature evidence lives in the plan's
+  progress log and PR history; every slice passed local/pre-push `pnpm verify:pr` and GitHub CI.
+- A deep read-only code review of the product workspace (2026-07-14) produced
+  `docs/SUGGESTIONS.md` (14 findings: security, server, UI, CLI) and queued F129-F143.
 
 ## In progress
 
@@ -89,5 +61,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Wait for user review and merge of draft PR #138. Then sync `main` and promote the next chosen
-  feature; the live queue has no active entry.
+- Promote the next chosen task from the F129-F143 review-fix queue (see `docs/SUGGESTIONS.md` for
+  each finding's full context). Suggested order: security decisions first (F129, F130), then the
+  moderate correctness fixes (F134, F139, F140), then minors; F143 (scalable-structure refactor)
+  last so file moves don't conflict with in-flight fixes.

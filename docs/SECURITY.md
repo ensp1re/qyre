@@ -16,9 +16,19 @@ rules are first-class.
   it embedded in `index.html` (`packages/server/src/plugins/static-web.ts`); requests present it as
   an `Authorization: Bearer <token>` header (every `fetchJson` call) or a `token` query param (the
   CSV export's plain `<a href>` download, which can't set headers) -
-  `packages/server/src/plugins/auth-guard.ts`, F122. This is what stops any other local
-  process/user, or a cross-origin page's plain request, from calling the API - the Host guard alone
-  only stops DNS rebinding, not a same-origin-looking request from an unrelated local caller.
+  `packages/server/src/plugins/auth-guard.ts`, F122. This stops a cross-origin page's plain
+  request from calling the API (it can't read the token out of `index.html`'s response to embed in
+  its own requests) - the Host guard alone only stops DNS rebinding, not a same-origin-looking
+  request from an unrelated caller.
+  **Accepted limitation:** the token itself is not access-controlled - `GET /` returns it embedded
+  in `index.html` to any requester that can reach the port, so another local OS user or process on
+  a shared machine can retrieve it the same way the browser does and then call every `/api/*`
+  route. This is a deliberate simplicity/UX tradeoff (the CLI auto-opens the browser with no
+  separate handshake, and a page refresh must keep working) rather than a gap the token is meant to
+  close - the token's actual job is the cross-origin/CSRF-shaped request above, not defending a
+  genuinely shared or multi-tenant machine. Qyre is a single-developer local tool; running it on a
+  host other logins can reach is out of its trust model, the same category of accepted risk as this
+  file's other same-machine notes.
 - Every response carries a CSP plus `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY`
   (`packages/server/src/plugins/security-headers.ts`, F122). `connect-src 'self'` stops the served
   page from ever fetching out to a third-party host; `img-src` stays open to http/https so the F086

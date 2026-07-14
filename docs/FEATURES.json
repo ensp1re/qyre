@@ -110,11 +110,12 @@
       "id": "F129",
       "behavior": "Close SUGGESTIONS.md S1: the F122 session token is currently served unauthenticated to any local requester - GET / (and the SPA fallback) returns index.html with window.__QYRE_TOKEN__ embedded (packages/server/src/plugins/static-web.ts), so any local process or other OS user can curl the port and gain full API access, contradicting SECURITY.md's 'stops any other local process/user' claim. Decide and implement: either harden the handout (e.g. one-time token mint on first page load, subsequent tokenless loads rejected) or explicitly document same-machine trust as an accepted limitation in docs/SECURITY.md so the claim matches the implementation. Either way SECURITY.md, the static-web plugin comment, and tests must end up consistent.",
       "verification": "pnpm --filter @qyre/server test && pnpm test:e2e:smoke",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "941612a",
+      "evidence": "Reviewed the harden-vs-document tradeoff (SUGGESTIONS.md S1) and chose to document: closing the unauthenticated GET / token handout would need session-claim infrastructure (a cookie or one-time handshake) with real UX regressions for a single-developer local tool - page refresh, reopening a closed tab, and multiple tabs must all keep working with no separate login step. docs/SECURITY.md's bearer-token bullet now precisely scopes what the token defends (cross-origin/CSRF-shaped requests) and adds an explicit 'Accepted limitation' note; auth-guard.ts and static-web.ts's comments (which previously claimed the token stops 'any other local process/user') now match. `pnpm --filter @qyre/server test` (271 tests, unchanged - comment/doc-only) and `pnpm test:e2e` smoke suite (11 passed, including auth-token.spec.ts) both green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-14T20:05:00.000Z"
     },
     {
       "id": "F130",

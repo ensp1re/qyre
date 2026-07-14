@@ -6,10 +6,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-14.
-- Branch: `main` at `90e69c2` (PR #138/F128 merged - exec plan 0006 complete).
-- Queue: F114-F121 and F128 are `passing`; F129-F143 are `not_started` review-fix tasks derived
-  from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web, packages/ui,
-  packages/server, packages/cli); no active feature. `nextIds.F` is 144.
+- Branch: `feature/F129-token-handout-doc` at `941612a`, based on `main` through merged PR #139.
+- Queue: F114-F121 and F128 are `passing`; F129 is `passing` (pending this branch's PR); F130-F143
+  are `not_started` review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code
+  review of apps/web, packages/ui, packages/server, packages/cli); no active feature. `nextIds.F`
+  is 144.
 
 ## Completed
 
@@ -23,6 +24,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   progress log and PR history; every slice passed local/pre-push `pnpm verify:pr` and GitHub CI.
 - A deep read-only code review of the product workspace (2026-07-14) produced
   `docs/SUGGESTIONS.md` (14 findings: security, server, UI, CLI) and queued F129-F143.
+- F129 (`941612a`, pending PR): closed SUGGESTIONS.md S1 by documenting the unauthenticated
+  session-token handout as an accepted local-trust limitation rather than building session-claim
+  infrastructure - see `docs/FEATURES.json`'s F129 evidence for the tradeoff reasoning.
 
 ## In progress
 
@@ -61,7 +65,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Promote the next chosen task from the F129-F143 review-fix queue (see `docs/SUGGESTIONS.md` for
-  each finding's full context). Suggested order: security decisions first (F129, F130), then the
-  moderate correctness fixes (F134, F139, F140), then minors; F143 (scalable-structure refactor)
-  last so file moves don't conflict with in-flight fixes.
+- Open/merge F129's PR, then promote the next task from the F130-F143 review-fix queue (see
+  `docs/SUGGESTIONS.md` for each finding's full context). Suggested order: F130 (remaining
+  security fix), then the moderate correctness fixes (F134, F139, F140), then minors; F143
+  (scalable-structure refactor) last so file moves don't conflict with in-flight fixes.

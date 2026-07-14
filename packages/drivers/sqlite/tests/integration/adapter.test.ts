@@ -236,6 +236,62 @@ describe("SqliteAdapter integration", () => {
     await adapter.ddl?.dropTable?.("main", table);
   });
 
+  it("renameAndAlterColumn applies both in one call (F134)", async () => {
+    const table = "qyre_test_ddl_rename_alter";
+    await adapter.ddl?.createTable?.("main", table, [
+      { name: "id", dataType: "INTEGER", nullable: false, default: null },
+      { name: "note", dataType: "TEXT", nullable: true, default: null }
+    ]);
+
+    try {
+      const result = await adapter.ddl?.renameAndAlterColumn?.("main", table, "note", {
+        newName: "remark",
+        changes: { dataType: "TEXT", nullable: false, default: "n/a" }
+      });
+      expect(result).toEqual({ column: "remark", renamed: true, altered: true });
+
+      const metadata = await adapter.getTable("main", table);
+      const remark = metadata.columns.find((column) => column.name === "remark");
+      expect(remark).toBeDefined();
+      expect(remark?.nullable).toBe(false);
+      expect(metadata.columns.some((column) => column.name === "note")).toBe(false);
+    } finally {
+      await adapter.ddl?.dropTable?.("main", table);
+    }
+  });
+
+  it("renameAndAlterColumn rolls back a committed rename when the rebuild's alter step fails (F134)", async () => {
+    const table = "qyre_test_ddl_rename_alter_rollback";
+    const seed = new Database(dbPath);
+    seed.exec(`
+      CREATE TABLE ${table} (id INTEGER PRIMARY KEY, note TEXT);
+      INSERT INTO ${table} (note) VALUES (NULL);
+    `);
+    seed.close();
+
+    try {
+      // The rebuild's INSERT...SELECT copies the existing NULL into a column newly declared NOT
+      // NULL - a genuine SQLite constraint violation. Since renameAndAlterColumn nests the rename
+      // and the rebuild inside one outer transaction (better-sqlite3 uses SAVEPOINTs for nested
+      // transaction functions), the rename that would otherwise have already committed must be
+      // rolled back along with the failed rebuild.
+      await expect(
+        adapter.ddl?.renameAndAlterColumn?.("main", table, "note", {
+          newName: "remark",
+          changes: { dataType: "TEXT", nullable: false }
+        })
+      ).rejects.toThrow();
+
+      const metadata = await adapter.getTable("main", table);
+      expect(metadata.columns.some((column) => column.name === "note")).toBe(true);
+      expect(metadata.columns.some((column) => column.name === "remark")).toBe(false);
+    } finally {
+      const cleanup = new Database(dbPath);
+      cleanup.exec(`DROP TABLE IF EXISTS ${table}`);
+      cleanup.close();
+    }
+  });
+
   it("alterColumn's 12-step rebuild preserves data, indexes, and foreign keys (F111)", async () => {
     const parent = "qyre_test_rebuild_parent";
     const child = "qyre_test_rebuild_child";

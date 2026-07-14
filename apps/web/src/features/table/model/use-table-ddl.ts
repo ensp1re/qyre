@@ -40,8 +40,17 @@ export function useTableDdlMutations(schema: string, table: string) {
       columnName: string,
       update: { newName?: string; changes?: { dataType?: string; nullable?: boolean } }
     ): Promise<void> => {
-      await updateColumn(schema, table, columnName, update);
+      const result = await updateColumn(schema, table, columnName, update);
+      // Refresh before the possible throw below (F134) - a MySQL alterError means the rename
+      // already committed, so the table's metadata (and this column's new name) must be current
+      // before the dialog is retried, or a retry would hit "Unknown column" against the stale
+      // pre-rename name shown while it was still loading.
       await refreshTable();
+      if (result.alterError) {
+        throw new Error(
+          `Renamed to "${result.column}", but the follow-up change failed (${result.alterError}). The rename has already been applied - reopen to retry just that change.`
+        );
+      }
     },
     dropColumn: async (columnName: string): Promise<void> => {
       await dropColumn(schema, table, columnName, columnName);

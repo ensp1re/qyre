@@ -733,8 +733,13 @@ describe("PATCH /api/tables/:schema/:table/ddl/columns/:column (F111)", () => {
         columns: WIDGETS_COLUMNS
       }),
       ddl: {
-        renameColumn: async (schema, table, column, newName) => {
-          received = { schema, table, column, newName };
+        renameAndAlterColumn: async (schema, table, column, update) => {
+          received = { schema, table, column, update };
+          return {
+            column: update.newName ?? column,
+            renamed: update.newName !== undefined,
+            altered: false
+          };
         }
       }
     });
@@ -752,7 +757,14 @@ describe("PATCH /api/tables/:schema/:table/ddl/columns/:column (F111)", () => {
       schema: "public",
       table: "widgets",
       column: "title",
-      newName: "heading"
+      update: { newName: "heading", changes: undefined }
+    });
+    expect(response.json()).toEqual({
+      schema: "public",
+      table: "widgets",
+      column: "heading",
+      renamed: true,
+      altered: false
     });
     await app.close();
   });
@@ -768,8 +780,9 @@ describe("PATCH /api/tables/:schema/:table/ddl/columns/:column (F111)", () => {
         columns: WIDGETS_COLUMNS
       }),
       ddl: {
-        alterColumn: async (schema, table, column, changes) => {
-          received = { schema, table, column, changes };
+        renameAndAlterColumn: async (schema, table, column, update) => {
+          received = { schema, table, column, update };
+          return { column, renamed: false, altered: update.changes !== undefined };
         }
       }
     });
@@ -787,13 +800,20 @@ describe("PATCH /api/tables/:schema/:table/ddl/columns/:column (F111)", () => {
       schema: "public",
       table: "widgets",
       column: "title",
-      changes: { nullable: false }
+      update: { newName: undefined, changes: { nullable: false } }
+    });
+    expect(response.json()).toEqual({
+      schema: "public",
+      table: "widgets",
+      column: "title",
+      renamed: false,
+      altered: true
     });
     await app.close();
   });
 
-  it("renames and alters in one request, alter applied to the new name", async () => {
-    const calls: unknown[] = [];
+  it("renames and alters in one combined adapter call", async () => {
+    let received: unknown;
     const adapter = makeFakeAdapter({
       getCapabilities: async () => writableCapabilities(),
       getTable: async () => ({
@@ -803,11 +823,9 @@ describe("PATCH /api/tables/:schema/:table/ddl/columns/:column (F111)", () => {
         columns: WIDGETS_COLUMNS
       }),
       ddl: {
-        renameColumn: async (schema, table, column, newName) => {
-          calls.push({ op: "rename", schema, table, column, newName });
-        },
-        alterColumn: async (schema, table, column, changes) => {
-          calls.push({ op: "alter", schema, table, column, changes });
+        renameAndAlterColumn: async (schema, table, column, update) => {
+          received = { schema, table, column, update };
+          return { column: update.newName ?? column, renamed: true, altered: true };
         }
       }
     });
@@ -821,16 +839,58 @@ describe("PATCH /api/tables/:schema/:table/ddl/columns/:column (F111)", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(calls).toEqual([
-      { op: "rename", schema: "public", table: "widgets", column: "title", newName: "heading" },
-      {
-        op: "alter",
+    expect(received).toEqual({
+      schema: "public",
+      table: "widgets",
+      column: "title",
+      update: { newName: "heading", changes: { nullable: false } }
+    });
+    expect(response.json()).toEqual({
+      schema: "public",
+      table: "widgets",
+      column: "heading",
+      renamed: true,
+      altered: true
+    });
+    await app.close();
+  });
+
+  it("reports a MySQL-shaped partial success (rename committed, alter failed) as 200, not a thrown error", async () => {
+    const adapter = makeFakeAdapter({
+      getCapabilities: async () => writableCapabilities(),
+      getTable: async () => ({
         schema: "public",
-        table: "widgets",
-        column: "heading",
-        changes: { nullable: false }
+        name: "widgets",
+        kind: "table",
+        columns: WIDGETS_COLUMNS
+      }),
+      ddl: {
+        renameAndAlterColumn: async (_schema, _table, _column, update) => ({
+          column: update.newName ?? "title",
+          renamed: true,
+          altered: false,
+          alterError: "Data truncated for column"
+        })
       }
-    ]);
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/tables/public/widgets/ddl/columns/title",
+      headers: authHeaders(app),
+      payload: { newName: "heading", changes: { dataType: "integer" } }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      schema: "public",
+      table: "widgets",
+      column: "heading",
+      renamed: true,
+      altered: false,
+      alterError: "Data truncated for column"
+    });
     await app.close();
   });
 

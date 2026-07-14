@@ -240,6 +240,64 @@ describe("MysqlAdapter integration", () => {
     }
   });
 
+  it("renameAndAlterColumn applies both in one call (F134)", async () => {
+    const table = "qyre_test_ddl_rename_alter";
+    const pool = mysql.createPool(databaseUrl);
+    try {
+      await adapter.ddl?.createTable?.(databaseName, table, [
+        { name: "id", dataType: "INT", nullable: false, default: null },
+        { name: "note", dataType: "VARCHAR(255)", nullable: true, default: null }
+      ]);
+
+      const result = await adapter.ddl?.renameAndAlterColumn?.(databaseName, table, "note", {
+        newName: "remark",
+        changes: { nullable: false, default: "n/a" }
+      });
+      expect(result).toEqual({ column: "remark", renamed: true, altered: true });
+
+      const metadata = await adapter.getTable(databaseName, table);
+      const remark = metadata.columns.find((column) => column.name === "remark");
+      expect(remark?.nullable).toBe(false);
+      expect(metadata.columns.some((column) => column.name === "note")).toBe(false);
+    } finally {
+      await pool.query(`DROP TABLE IF EXISTS ${table}`);
+      await pool.end();
+    }
+  });
+
+  it("renameAndAlterColumn reports a partial success instead of throwing when the rename commits but the alter fails (F134)", async () => {
+    const table = "qyre_test_ddl_rename_alter_partial";
+    const pool = mysql.createPool(databaseUrl);
+    try {
+      await adapter.ddl?.createTable?.(databaseName, table, [
+        { name: "id", dataType: "INT", nullable: false, default: null },
+        { name: "note", dataType: "VARCHAR(255)", nullable: true, default: null }
+      ]);
+      await pool.query(`INSERT INTO ${table} (id, note) VALUES (1, 'not-a-number')`);
+
+      // MySQL's DDL auto-commits per statement - RENAME COLUMN below has already committed by the
+      // time MODIFY COLUMN's strict-mode cast failure happens, so this can never roll back the
+      // way Postgres/SQLite's single-transaction version does. renameAndAlterColumn must report
+      // that partial outcome instead of throwing and hiding the already-committed rename.
+      const result = await adapter.ddl?.renameAndAlterColumn?.(databaseName, table, "note", {
+        newName: "remark",
+        changes: { dataType: "INT" }
+      });
+      expect(result?.renamed).toBe(true);
+      expect(result?.altered).toBe(false);
+      expect(result?.alterError).toBeTruthy();
+
+      const metadata = await adapter.getTable(databaseName, table);
+      expect(metadata.columns.some((column) => column.name === "remark")).toBe(true);
+      expect(metadata.columns.some((column) => column.name === "note")).toBe(false);
+      const remark = metadata.columns.find((column) => column.name === "remark");
+      expect(remark?.dataType.toLowerCase()).toContain("varchar");
+    } finally {
+      await pool.query(`DROP TABLE IF EXISTS ${table}`);
+      await pool.end();
+    }
+  });
+
   it("rejects addColumn as a SELECT-only fixture user (F111)", async () => {
     const readOnlyAdapter = new MysqlAdapter({
       engine: "mysql",

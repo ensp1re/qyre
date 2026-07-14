@@ -39,6 +39,7 @@ import {
   dropColumn,
   dropIndex,
   dropTable,
+  renameAndAlterColumn,
   renameColumn,
   renameTable,
   truncateTable
@@ -86,6 +87,8 @@ export class SqliteAdapter implements DatabaseAdapter {
       renameColumn(this.getDb(), table, column, newName),
     alterColumn: async (_schema, table, column, changes) =>
       alterColumn(this.getDb(), table, column, changes),
+    renameAndAlterColumn: async (_schema, table, column, update) =>
+      renameAndAlterColumn(this.getDb(), table, column, update),
     dropColumn: async (_schema, table, column) => dropColumn(this.getDb(), table, column),
     createIndex: async (_schema, table, definition) => createIndex(this.getDb(), table, definition),
     dropIndex: async (_schema, _table, indexName) => dropIndex(this.getDb(), indexName)

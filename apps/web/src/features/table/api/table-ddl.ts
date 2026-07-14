@@ -1,4 +1,4 @@
-import type { ColumnDefinition, IndexDefinition } from "@qyre/core";
+import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyre/core";
 import { fetchJson } from "../../../shared/api/fetch-json.js";
 
 /** Renames a table/collection (F110/F114, `POST .../ddl/rename`). Non-destructive. */
@@ -61,13 +61,15 @@ export function addColumn(
 }
 
 /** Renames and/or alters a column in one request (F111/F114, `PATCH .../ddl/columns/:column`) -
- * either or both together. Non-destructive. */
+ * either or both together, atomically on Postgres/SQLite. `alterError` (F134) is present only on
+ * MySQL, whose DDL can't be rolled back: it means the rename already committed while the
+ * following alter failed - see {@link ColumnUpdateResult}'s doc comment. */
 export function updateColumn(
   schema: string,
   table: string,
   column: string,
   update: { newName?: string; changes?: { dataType?: string; nullable?: boolean } }
-): Promise<{ schema: string; table: string; column: string }> {
+): Promise<{ schema: string; table: string } & ColumnUpdateResult> {
   return fetchJson(
     `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/ddl/columns/${encodeURIComponent(column)}`,
     {

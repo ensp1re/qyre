@@ -1,8 +1,9 @@
 import type { DatabaseEngine } from "@qyre/core";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useState } from "react";
+import { cn } from "../cn.js";
 import { DateTimeInput } from "../primitives/date-time-input.js";
-import { widgetFor } from "./editable-cell.js";
+import { isUnsafeIntegerDraft, widgetFor } from "./editable-cell.js";
 
 export interface NewRowCellProps {
   /** The value currently staged for this column on the draft row, or `undefined` when the user
@@ -33,6 +34,9 @@ export function NewRowCell({
   const [text, setText] = useState(() =>
     value === null || value === undefined ? "" : String(value)
   );
+  // Set only when a number draft is rejected for unsafe-integer precision loss (F140/U5) - never
+  // blocks committing, just leaves the draft in place with feedback instead of silently rounding.
+  const [precisionError, setPrecisionError] = useState(false);
 
   function commitText(): void {
     if (text === "") {
@@ -40,6 +44,10 @@ export function NewRowCell({
       return;
     }
     if (widget === "number") {
+      if (isUnsafeIntegerDraft(text)) {
+        setPrecisionError(true);
+        return;
+      }
       const parsed = Number(text);
       if (!Number.isNaN(parsed)) onChange(parsed);
       return;
@@ -112,14 +120,26 @@ export function NewRowCell({
   return (
     <input
       value={text}
-      onChange={(event) => setText(event.target.value)}
+      onChange={(event) => {
+        setText(event.target.value);
+        setPrecisionError(false);
+      }}
       onBlur={commitText}
       onKeyDown={handleKeyDown}
       type={widget === "number" ? "number" : "text"}
       inputMode={widget === "number" ? "decimal" : undefined}
       aria-label="New row value"
+      aria-invalid={precisionError}
+      title={
+        precisionError
+          ? "This number is too large to insert exactly - it would lose precision."
+          : undefined
+      }
       placeholder={nullable ? "Value... (blank = default/null)" : "Value... (blank = default)"}
-      className="w-full min-w-0 rounded-[3px] border border-border bg-secondary px-1.5 py-0.5 text-foreground outline-none focus:border-primary"
+      className={cn(
+        "w-full min-w-0 rounded-[3px] border bg-secondary px-1.5 py-0.5 text-foreground outline-none focus:border-primary",
+        precisionError ? "border-[var(--c-red)]" : "border-border"
+      )}
     />
   );
 }

@@ -64,4 +64,28 @@ describe("NewRowCell (component rendering, F104)", () => {
     render(<NewRowCell value={undefined} dataType="boolean" nullable={false} onChange={vi.fn()} />);
     expect(screen.queryByRole("button", { name: "null" })).not.toBeInTheDocument();
   });
+
+  it("rejects an integer draft beyond Number.MAX_SAFE_INTEGER instead of silently rounding it (F140/U5)", () => {
+    const onChange = vi.fn();
+    render(<NewRowCell value={undefined} dataType="bigint" nullable={false} onChange={onChange} />);
+    const input = screen.getByLabelText("New row value");
+    fireEvent.change(input, { target: { value: "9007199254740993" } });
+    fireEvent.blur(input);
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    // The rejected draft stays visible for the user to fix, not silently discarded. Reads
+    // `.value` directly rather than jest-dom's toHaveValue, which coerces a number-type input's
+    // expectation through Number() and would itself lose the exact precision this test checks.
+    expect((input as HTMLInputElement).value).toBe("9007199254740993");
+  });
+
+  it("commits a safe-integer bigint value normally", () => {
+    const onChange = vi.fn();
+    render(<NewRowCell value={undefined} dataType="bigint" nullable={false} onChange={onChange} />);
+    const input = screen.getByLabelText("New row value");
+    fireEvent.change(input, { target: { value: "42" } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith(42);
+  });
 });

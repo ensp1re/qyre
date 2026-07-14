@@ -168,4 +168,142 @@ describe("EditableCell (component rendering, F103)", () => {
     fireEvent.doubleClick(screen.getByText("true"));
     expect(screen.queryByRole("button", { name: "null" })).not.toBeInTheDocument();
   });
+
+  it("commits an explicit empty string for a nullable text column, instead of cancelling (F140/U2)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={true}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith("");
+  });
+
+  it("shows a null button for a nullable text column and commits null (F140/U2)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={true}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.click(screen.getByRole("button", { name: "null" }));
+    expect(onCommit).toHaveBeenCalledWith(null);
+  });
+
+  it("hides the null button for a non-nullable text column", () => {
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={false}
+        dirty={false}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    expect(screen.queryByRole("button", { name: "null" })).not.toBeInTheDocument();
+  });
+
+  it("shows a null button for a nullable numeric column, still cancelling on an empty draft (F140/U2)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue={1}
+        dataType="int4"
+        nullable={true}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("1"));
+    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
+
+    fireEvent.doubleClick(screen.getByText("1"));
+    fireEvent.click(screen.getByRole("button", { name: "null" }));
+    expect(onCommit).toHaveBeenCalledWith(null);
+  });
+
+  it("rejects an integer draft beyond Number.MAX_SAFE_INTEGER instead of silently rounding it (F140/U5)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="9007199254740991"
+        dataType="bigint"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("9007199254740991"));
+    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.change(input, { target: { value: "9007199254740993" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onCommit).not.toHaveBeenCalled();
+    // Still in edit mode - a rejection, not a silent cancel.
+    expect(screen.getByLabelText("Edit cell value")).toBeInTheDocument();
+    expect(screen.getByLabelText("Edit cell value")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("commits a safe-integer bigint value normally", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="1"
+        dataType="bigint"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("1"));
+    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.change(input, { target: { value: "42" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith(42);
+  });
+
+  it("Escape cancels a date editor without committing (F140/U4)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="2024-03-05"
+        dataType="date"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("2024-03-05"));
+    expect(screen.getByRole("button", { name: "Choose date" })).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "Choose date" }), { key: "Escape" });
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Choose date" })).not.toBeInTheDocument();
+  });
 });

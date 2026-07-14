@@ -1,9 +1,8 @@
 # Plan 0006: Role-Aware Database IDE (read-only MVP -> full IDE)
 
-Status: In progress - F128 is implemented and its local PR gate passes; delivery and CI evidence
-remain before the final feature can move to `passing` and this plan can move to completed. Revised
-2026-07-10 after a second-pass adversarial review (code audit and market research); see
-"Second-pass revisions" below.
+Status: Completed - F090-F128 are passing. F128 closed the final slice in draft PR #138 at
+`631510d`; its local, pre-push, and both GitHub CI gates passed. Revised 2026-07-10 after a
+second-pass adversarial review (code audit and market research); see "Second-pass revisions" below.
 Owner: unassigned
 Linked features: F090-F128 (`docs/FEATURES.json`)
 
@@ -679,5 +678,6 @@ tables` (create, no existing `:table` to scope under yet) plus `/api/tables/:sch
   warned, read-classified-only opt-in; MongoDB is explicitly not applicable. Live conformance
   found MySQL rejects DML planning inside `START TRANSACTION READ ONLY`, so Qyre limits MySQL
   Explain to read-classified SQL instead of removing the authoritative safety backstop. The full
-  local PR gate passed (34 package tasks, 11 smoke E2E passes, 29 full E2E passes); delivery and CI
-  evidence remain.
+  local and pre-push PR gates passed (34 package tasks, 11 smoke E2E passes, 29 full E2E passes),
+  both GitHub CI jobs passed on draft PR #138, and F128 moved to `passing`. With every linked
+  feature complete, plan 0006 is closed.

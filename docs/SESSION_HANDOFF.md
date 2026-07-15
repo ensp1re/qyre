@@ -7,8 +7,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 - Date: 2026-07-15.
 - Branch: `feature/F143-workspace-structure`, based on `main` at `d4e5d8e` through merged PR #153
-  (F142).
-- Queue: F128-F142 are `passing`; F143 is `active`
+  (F142), with F143 pushed at `747e625` in draft PR #154.
+- Queue: F128-F143 are `passing`
   review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
   packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
 
@@ -39,11 +39,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   sidebar selection when available, and routes creation to the chosen schema. UI 366/366, web
   140/140, both full local gates, and both GitHub CI jobs passed; exact evidence is in
   `docs/FEATURES.json`.
+- F143 (draft PR #154) reorganizes production source throughout the workspace, splits every
+  production file over 500 lines, preserves public package exports, and leaves all test files in
+  place. The largest production source is now 488 lines and no production source folder has more
+  than eight direct files. Local/pre-push full gates and both GitHub CI jobs passed; exact evidence
+  is in `docs/FEATURES.json`.
 
 ## In progress
 
-- F143 is splitting production files over 500 lines and grouping overloaded flat source folders
-  across the workspace without behavior or public-export changes.
+- None.
 
 ## Known issues / blockers
 
@@ -81,4 +85,4 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Finish F143, the final review-driven structure slice.
+- Review and merge draft PR #154, the final review-driven structure slice.

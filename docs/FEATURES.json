@@ -165,7 +165,7 @@
       "id": "F142",
       "behavior": "Close SUGGESTIONS.md U6: SchemaTab hardcodes targetSchema = schemas[0], so on multi-schema Postgres databases 'New table' silently creates in whichever schema sorts first with no way to choose. Add a schema selector to CreateTableDialog (defaulting sensibly, e.g. to the sidebar's current selection when set), thread the choice through useCreateTable to POST /api/schemas/:schema/tables.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

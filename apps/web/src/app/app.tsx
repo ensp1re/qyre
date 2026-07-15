@@ -373,6 +373,7 @@ export function App(): ReactNode {
                     allTables={allTables}
                     databaseKey={health?.target ?? null}
                     schemas={overview.data?.schemas ?? []}
+                    selectedSchema={selected?.schema}
                     engine={overview.data?.engine}
                     capabilities={capabilities.data}
                   />

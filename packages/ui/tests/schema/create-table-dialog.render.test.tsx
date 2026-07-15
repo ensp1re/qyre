@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CreateTableDialog } from "../../src/schema/create-table-dialog.js";
 
@@ -18,6 +18,32 @@ describe("CreateTableDialog (component rendering, F113)", () => {
     expect(screen.getByText("New table")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("my_table")).toBeInTheDocument();
     expect(screen.getByLabelText("Column name")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Schema" })).toHaveValue("public");
+  });
+
+  it("offers every schema and reports a changed target", () => {
+    const onSchemaChange = vi.fn();
+    render(
+      <CreateTableDialog
+        schema="public"
+        schemas={["analytics", "public"]}
+        onSchemaChange={onSchemaChange}
+        columnTypes={POSTGRES_COLUMN_TYPES}
+        creating={false}
+        onCreate={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    const schemaSelect = screen.getByRole("combobox", { name: "Schema" });
+    expect(schemaSelect).toHaveValue("public");
+    expect(
+      within(schemaSelect)
+        .getAllByRole("option")
+        .map((option) => option.textContent)
+    ).toEqual(["analytics", "public"]);
+    fireEvent.change(schemaSelect, { target: { value: "analytics" } });
+    expect(onSchemaChange).toHaveBeenCalledWith("analytics");
   });
 
   it("degrades to a name-only new-collection form when columnTypes is empty (MongoDB)", () => {

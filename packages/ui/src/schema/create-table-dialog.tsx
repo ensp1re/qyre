@@ -27,6 +27,9 @@ export interface CreateTableColumnInput {
 
 export interface CreateTableDialogProps {
   schema: string;
+  /** Available SQL schemas. The controlled `schema` value is selected by default. */
+  schemas?: readonly string[];
+  onSchemaChange?: (schema: string) => void;
   /** The curated per-engine type catalog (F110's `POSTGRES_COLUMN_TYPES` and siblings). Empty for
    * MongoDB, which has no column DDL at all (schemaless) - the dialog degrades to a name-only
    * new-collection form when this is empty, per docs/product-specs/schema-editing.md's "MongoDB's
@@ -105,6 +108,8 @@ function makeColumnDraft(dataType: string): ColumnDraft {
  */
 export function CreateTableDialog({
   schema,
+  schemas = [schema],
+  onSchemaChange,
   columnTypes,
   creating,
   error,
@@ -213,33 +218,53 @@ export function CreateTableDialog({
           </label>
 
           {!isMongo && (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
+            <>
+              <label className="flex flex-col gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Columns
+                  Schema
                 </span>
-                <button
-                  type="button"
-                  onClick={addColumn}
-                  className="flex items-center gap-1 rounded-[2px] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                <select
+                  value={schema}
+                  onChange={(event) => onSchemaChange?.(event.target.value)}
+                  aria-label="Schema"
+                  className="rounded-[3px] border border-border bg-secondary px-2 py-1 font-mono text-[12px] text-foreground outline-none focus:border-foreground/40"
                 >
-                  <Plus className="h-3 w-3" /> Add column
-                </button>
-              </div>
+                  {schemas.map((schemaName) => (
+                    <option key={schemaName} value={schemaName}>
+                      {schemaName}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
               <div className="flex flex-col gap-2">
-                {columns.map((column) => (
-                  <ColumnRow
-                    key={column.key}
-                    column={column}
-                    columnTypes={columnTypes}
-                    removable={columns.length > 1}
-                    onChange={(patch) => updateColumn(column.key, patch)}
-                    onRemove={() => removeColumn(column.key)}
-                  />
-                ))}
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Columns
+                  </span>
+                  <button
+                    type="button"
+                    onClick={addColumn}
+                    className="flex items-center gap-1 rounded-[2px] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <Plus className="h-3 w-3" /> Add column
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {columns.map((column) => (
+                    <ColumnRow
+                      key={column.key}
+                      column={column}
+                      columnTypes={columnTypes}
+                      removable={columns.length > 1}
+                      onChange={(patch) => updateColumn(column.key, patch)}
+                      onRemove={() => removeColumn(column.key)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           <div className="flex flex-col gap-1">

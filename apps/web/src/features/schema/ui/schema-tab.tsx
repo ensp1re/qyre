@@ -17,6 +17,7 @@ export interface SchemaTabProps {
    * namespaced per database. Null before a connection exists - the tab shows loading/empty then. */
   databaseKey: string | null;
   schemas: SchemaMetadata[];
+  selectedSchema?: string;
   engine: string | undefined;
   capabilities: ConnectionCapabilities | undefined;
 }
@@ -27,23 +28,31 @@ export function SchemaTab({
   allTables,
   databaseKey,
   schemas,
+  selectedSchema,
   engine,
   capabilities
 }: SchemaTabProps): ReactNode {
   const { view, setView } = useSchemaView();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const targetSchema = schemas[0]?.name ?? "";
-  const createTableMutation = useCreateTable(targetSchema);
+  const [targetSchema, setTargetSchema] = useState("");
+  const createTableMutation = useCreateTable();
   const canCreateTable = sessionAllows(capabilities, "supportsDdl");
+  const defaultSchema =
+    schemas.find((schema) => schema.name === selectedSchema)?.name ?? schemas[0]?.name ?? "";
 
   const dialog = dialogOpen && (
     <CreateTableDialog
       schema={targetSchema}
+      schemas={schemas.map((schema) => schema.name)}
+      onSchemaChange={setTargetSchema}
       columnTypes={columnTypeCatalogForEngine(engine)}
       creating={createTableMutation.isPending}
       error={createTableMutation.error?.message}
       onCreate={(table, columns) => {
-        createTableMutation.mutate({ table, columns }, { onSuccess: () => setDialogOpen(false) });
+        createTableMutation.mutate(
+          { schema: targetSchema, table, columns },
+          { onSuccess: () => setDialogOpen(false) }
+        );
       }}
       onClose={() => setDialogOpen(false)}
     />
@@ -52,7 +61,10 @@ export function SchemaTab({
   const newTableButton = canCreateTable && (
     <button
       type="button"
-      onClick={() => setDialogOpen(true)}
+      onClick={() => {
+        setTargetSchema(defaultSchema);
+        setDialogOpen(true);
+      }}
       className="ml-auto flex items-center gap-1 rounded-[3px] border border-border bg-card px-2 py-1 font-mono text-[11px] text-foreground hover:bg-accent"
     >
       <Plus className="h-3 w-3" /> New table

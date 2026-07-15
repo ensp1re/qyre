@@ -1,7 +1,8 @@
 # Plan 0007: Product Experience Audit and Coherent UI Polish
 
-Status: Revised plan approved 2026-07-15; DF-10 delivery in progress before DF-11 implementation.
-No production code changed during the audit.
+Status: Revised plan approved 2026-07-15; DF-10 delivered in draft PR #157 at `c24b1b3`,
+with both CI jobs passing. DF-11 editing integrity is next. No production code changed during the
+audit.
 Owner: current product-design engagement
 Linked feature: DF-10 (`docs/FEATURES.json`)
 Evidence captured: 2026-07-15
@@ -807,3 +808,5 @@ personal taste.
   changed.
 - 2026-07-15: User explicitly approved the revised plan. Current step: deliver DF-10, then activate
   DF-11 and implement editing integrity only.
+- 2026-07-15: DF-10 delivered in draft PR #157 at `c24b1b3`; local, pre-push, and both GitHub CI
+  gates passed. Current step: activate DF-11.

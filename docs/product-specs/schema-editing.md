@@ -41,7 +41,9 @@ runs - and a user without those grants never sees an affordance that would just 
   grant to introspect, so `TablePermissions` stays exactly as `row-editing.md` left it.
 - Creating a **new** table/collection is scoped to an existing schema/database - this spec does not
   cover creating a new schema/database itself (that is Phase E's `F115`, "database/schema
-  lifecycle").
+  lifecycle"). For SQL engines, the New table dialog exposes that target explicitly: it defaults to
+  the schema of the table currently selected in the sidebar when available, otherwise the first
+  introspected schema, and the selected value determines `/api/schemas/:schema/tables`.
 
 ### Out of scope (for now)
 

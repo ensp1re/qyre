@@ -232,6 +232,8 @@ schemas[0]?.name ?? ""`).
   in `public`.
 - **Fix direction:** Add a schema select to `CreateTableDialog` (defaulting to the current
   sidebar selection if any), passing it through `useCreateTable`.
+- **Resolution (F142):** The SQL dialog now exposes the full schema list, defaults to the current
+  sidebar table's schema when it is present, and carries the selected schema in the create mutation.
 
 ## CLI
 

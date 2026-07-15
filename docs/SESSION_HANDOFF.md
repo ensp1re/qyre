@@ -6,9 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F141-document-fetch-cancellation`, based on `main` at `ddafc95` through merged
-  PR #151 (F138).
-- Queue: F128-F141 are `passing`; F142-F143 are `not_started`
+- Branch: `feature/F142-schema-create-target`, based on `main` at `ea94ace` through merged PR #152
+  (F141).
+- Queue: F128-F142 are `passing`; F143 is `not_started`
   review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
   packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
 
@@ -35,15 +35,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   names (S4); `GET /api/files/content` caps a preview read at 1 MiB (S5); and batch-commit
   introspects each staged table once instead of once per op (V2). See each id's evidence in
   `docs/FEATURES.json` for full reasoning/test detail.
-- F137 (merged PR #150) rejects nullable primary-key update/delete targets with an explicit 400
-  before an adapter mutation runs. Server 298/298 tests, SQLite 51/51 tests, the full local PR gate,
-  and both GitHub CI jobs passed; exact evidence is recorded in `docs/FEATURES.json`.
-- F138 (merged PR #151) rejects invalid `--port` values with a friendly Commander error and
-  restores cooked terminal mode before Ctrl-C exits a masked password prompt. The CLI suite, both
-  full local gates, and both GitHub CI jobs passed; exact evidence is in `docs/FEATURES.json`.
-- F141 (draft PR #152) cancels and invalidates superseded MongoDB document-editor loads so stale
-  text, errors, and loading completions cannot overwrite the current drawer. The web suite, both
-  full local gates, and both GitHub CI jobs passed; exact evidence is in `docs/FEATURES.json`.
+- F142 (draft PR #153) adds an explicit SQL schema selector to New table, defaulted from the current
+  sidebar selection when available, and routes creation to the chosen schema. UI 366/366, web
+  140/140, both full local gates, and both GitHub CI jobs passed; exact evidence is in
+  `docs/FEATURES.json`.
 
 ## In progress
 
@@ -85,5 +80,4 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Merge F141's green draft PR #152, then promote F142. Leave F143 last so its file moves do not
-  conflict with in-flight fixes.
+- Merge F142's green draft PR #153, then promote F143 for the final review-driven structure slice.

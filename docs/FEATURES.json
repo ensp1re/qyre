@@ -165,11 +165,12 @@
       "id": "F142",
       "behavior": "Close SUGGESTIONS.md U6: SchemaTab hardcodes targetSchema = schemas[0], so on multi-schema Postgres databases 'New table' silently creates in whichever schema sorts first with no way to choose. Add a schema selector to CreateTableDialog (defaulting sensibly, e.g. to the sidebar's current selection when set), thread the choice through useCreateTable to POST /api/schemas/:schema/tables.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "56ac0b9",
+      "evidence": "Draft PR #153 (https://github.com/ensp1re/qyre/pull/153), pushed as 56ac0b9. Closed SUGGESTIONS.md U6 by adding a controlled SQL schema selector to CreateTableDialog. SchemaTab seeds it from the current sidebar table's schema when that schema is available, otherwise from the first introspected schema, and useCreateTable now carries the chosen schema in each mutation to POST /api/schemas/:schema/tables. MongoDB's collection dialog remains unchanged. Added UI coverage for the default and selectable schema list plus a web API test proving the selected schema owns the request route. Verified on Node 22 with @qyre/ui 366/366, @qyre/web 140/140, pnpm check:quiet 34/34, local and pre-push pnpm verify:pr (11 smoke E2E passed/4 skipped; 29 full E2E passed/43 skipped), and both GitHub CI jobs passed. The first push attempt hit the repository's documented transient Postgres autocomplete /api/tables timeout; its normal retry passed the complete gate.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-15T13:19:35.000Z"
     },
     {
       "id": "F143",

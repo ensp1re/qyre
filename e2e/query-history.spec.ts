@@ -7,7 +7,7 @@ import {
   setupMysqlFixture,
   setupSqliteFixture
 } from "@qyre/testing";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test.js";
 
 /**
  * F012: a successful SQL Editor query is recorded in history; selecting a history card prefills

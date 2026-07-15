@@ -6,11 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F143-workspace-structure`, based on `main` at `d4e5d8e` through merged PR #153
-  (F142), with F143 pushed at `747e625` in draft PR #154.
-- Queue: F128-F143 are `passing`
-  review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
-  packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
+- Branch: `feature/F144-e2e-fixture-isolation`, based on `main` at `3f5e0bf` through merged PR #154
+  (F143).
+- Queue: F128-F144 are `passing`; `nextIds.F` is 145.
 
 ## Completed
 
@@ -39,11 +37,16 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   sidebar selection when available, and routes creation to the chosen schema. UI 366/366, web
   140/140, both full local gates, and both GitHub CI jobs passed; exact evidence is in
   `docs/FEATURES.json`.
-- F143 (draft PR #154) reorganizes production source throughout the workspace, splits every
+- F143 (merged PR #154) reorganizes production source throughout the workspace, splits every
   production file over 500 lines, preserves public package exports, and leaves all test files in
   place. The largest production source is now 488 lines and no production source folder has more
   than eight direct files. Local/pre-push full gates and both GitHub CI jobs passed; exact evidence
   is in `docs/FEATURES.json`.
+- F144 (draft PR #155) holds a cross-process lock for each underlying engine fixture throughout a
+  Playwright test, shares locks across writable/read-only/restricted projects, retains cross-engine
+  parallelism, and safely handles multi-engine journeys and dead workers. Focused tests, a
+  three-pass full-E2E stress run, both full local gates, and both GitHub CI jobs passed; exact
+  evidence is in `docs/FEATURES.json`.
 
 ## In progress
 
@@ -76,13 +79,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   Node version you intend to test with (this repo's Docker/CI stack matches Node 22,
   `NODE_MODULE_VERSION` 127) to rebuild the prebuilt binary; a `node-gyp rebuild` against a too-new
   Node (e.g. 26) can fail to compile against that Node's V8 headers.
-- Local full E2E is fixture-contention-prone under Playwright's `fullyParallel: true`: repeated
-  no-retry runs moved transient missing-table/schema/autocomplete failures among unrelated engines;
-  the CI configuration's one retry passed the entire gate. Tracked in the tech-debt tracker.
 - This container runs commands as root, so SQLite's 10 chmod/read-only tests cannot observe Unix
   permission denial. Run the gate as a non-root bubblewrap user here; the same 51-test suite is
   green there.
 
 ## Next steps
 
-- Review and merge draft PR #154, the final review-driven structure slice.
+- Merge draft PR #155 for F144 fixture isolation.

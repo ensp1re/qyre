@@ -1,5 +1,5 @@
 import { FIXTURE, requireTestDatabaseUrl, setupFixture } from "@qyre/testing";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test.js";
 
 /**
  * F016: a `jsonb` cell (the fixture's `profile` column, populated only for Ada's row -

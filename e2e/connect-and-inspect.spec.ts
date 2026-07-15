@@ -18,7 +18,7 @@ import {
   setupMysqlFixture,
   setupSqliteFixture
 } from "@qyre/testing";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test.js";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -105,50 +105,56 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
   expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
 });
 
-test("@full switching to MongoDB refreshes the shell without a reload", async ({
-  page
-}, testInfo) => {
-  test.skip(testInfo.project.name !== "postgres", "Run the cross-engine switch once.");
+test.describe("cross-engine connection switching", () => {
+  test.use({ fixtureEngines: ["mongodb", "postgres"] });
 
-  const postgresUrl = requireTestDatabaseUrl();
-  await setupFixture(postgresUrl);
-  await runStatements(postgresUrl, [
-    "DROP TABLE IF EXISTS qyre_switch_only_postgres",
-    "CREATE TABLE qyre_switch_only_postgres (id serial PRIMARY KEY, label text NOT NULL)"
-  ]);
+  test("@full switching to MongoDB refreshes the shell without a reload", async ({
+    page
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "postgres", "Run the cross-engine switch once.");
 
-  const mongoUrl = requireTestMongoUrl();
-  await setupMongoFixture(mongoUrl);
+    const postgresUrl = requireTestDatabaseUrl();
+    await setupFixture(postgresUrl);
+    await runStatements(postgresUrl, [
+      "DROP TABLE IF EXISTS qyre_switch_only_postgres",
+      "CREATE TABLE qyre_switch_only_postgres (id serial PRIMARY KEY, label text NOT NULL)"
+    ]);
 
-  const target = parseConnectionTarget(postgresUrl);
-  const adapter = resolveAdapter([postgresAdapterFactory], target);
-  await adapter.connect();
-  const server = await startServer({
-    adapter,
-    target,
-    port: 4191,
-    host: "127.0.0.1",
-    webRoot: WEB_ROOT,
-    logger: false,
-    adapterFactories: [
-      postgresAdapterFactory,
-      sqliteAdapterFactory,
-      mysqlAdapterFactory,
-      mongodbAdapterFactory
-    ]
+    const mongoUrl = requireTestMongoUrl();
+    await setupMongoFixture(mongoUrl);
+
+    const target = parseConnectionTarget(postgresUrl);
+    const adapter = resolveAdapter([postgresAdapterFactory], target);
+    await adapter.connect();
+    const server = await startServer({
+      adapter,
+      target,
+      port: 4191,
+      host: "127.0.0.1",
+      webRoot: WEB_ROOT,
+      logger: false,
+      adapterFactories: [
+        postgresAdapterFactory,
+        sqliteAdapterFactory,
+        mysqlAdapterFactory,
+        mongodbAdapterFactory
+      ]
+    });
+    try {
+      await page.goto(server.url);
+      await expect(page.getByRole("treeitem", { name: "qyre_switch_only_postgres" })).toBeVisible();
+
+      await page.getByRole("button", { name: "Switch database connection" }).click();
+      await page.getByPlaceholder("postgres://user:pass@host:5432/db").fill(mongoUrl);
+      await page.getByRole("button", { name: "Connect", exact: true }).click();
+
+      await expect(page.getByRole("tab", { name: "SQL Editor" })).toHaveCount(0);
+      await expect(page.getByRole("treeitem", { name: FIXTURE.table })).toBeVisible();
+      await expect(page.getByRole("treeitem", { name: "qyre_switch_only_postgres" })).toHaveCount(
+        0
+      );
+    } finally {
+      await server.close();
+    }
   });
-  try {
-    await page.goto(server.url);
-    await expect(page.getByRole("treeitem", { name: "qyre_switch_only_postgres" })).toBeVisible();
-
-    await page.getByRole("button", { name: "Switch database connection" }).click();
-    await page.getByPlaceholder("postgres://user:pass@host:5432/db").fill(mongoUrl);
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
-
-    await expect(page.getByRole("tab", { name: "SQL Editor" })).toHaveCount(0);
-    await expect(page.getByRole("treeitem", { name: FIXTURE.table })).toBeVisible();
-    await expect(page.getByRole("treeitem", { name: "qyre_switch_only_postgres" })).toHaveCount(0);
-  } finally {
-    await server.close();
-  }
 });

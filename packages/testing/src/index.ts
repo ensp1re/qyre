@@ -10,6 +10,13 @@ import { MongoClient, ObjectId } from "mongodb";
 import mysql from "mysql2/promise";
 import { Pool } from "pg";
 
+export {
+  acquireFixtureEngineLocks,
+  fixtureEngineForProject,
+  type FixtureEngine,
+  type FixtureEngineLock
+} from "./e2e/fixture-isolation.js";
+
 /** Environment variable that holds the Postgres URL used by integration and end-to-end tests. */
 export const TEST_DB_ENV = "QYRE_TEST_DATABASE_URL";
 

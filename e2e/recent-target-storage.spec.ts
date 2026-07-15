@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test.js";
 
 test("@smoke browser storage purges credential-bearing recent targets", async ({
   page

@@ -1,4 +1,4 @@
-import { Binary, Braces, Brackets, Image, Link, Type } from "lucide-react";
+import { Binary, Braces, Brackets, Type } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { formatCell, isClickableDateType } from "../../primitives/format-cell.js";
 
@@ -37,10 +37,18 @@ export type InspectableValue = StructuredValue | BinaryValue | string;
 
 /** Above this length a plain string cell truncates to one line instead of stretching its row (F069),
  * and cell editing routes to the anchored popover editor instead of inline (F146). */
-export const LONG_STRING_THRESHOLD = 300;
+export const LONG_STRING_THRESHOLD = 100;
 
 export function isLongString(value: unknown): value is string {
   return typeof value === "string" && value.length > LONG_STRING_THRESHOLD;
+}
+
+/** Hard-caps display text to `max` characters plus a literal "...", independent of CSS layout
+ * (F146) - a JS substring always shortens the visible text, unlike `overflow`/`text-overflow`
+ * truncation, which only works when the surrounding flex/grid chain constrains width exactly
+ * right and silently fails to truncate otherwise. */
+export function truncateForDisplay(text: string, max = LONG_STRING_THRESHOLD): string {
+  return text.length > max ? `${text.slice(0, max)}...` : text;
 }
 
 export interface UrlPreview {
@@ -141,40 +149,6 @@ function InspectChip({
   );
 }
 
-function UrlChip({
-  preview,
-  onClick
-}: {
-  preview: UrlPreview;
-  onClick: (event: MouseEvent) => void;
-}): ReactNode {
-  const Icon = preview.kind === "image" ? Image : Link;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={`Inspect ${preview.kind} URL ${preview.label}`}
-      title="Click to inspect URL"
-      className="flex max-w-[360px] items-center gap-1.5 rounded-[2px] border border-border bg-accent/30 px-1.5 py-0.5 text-left font-mono text-[10px] text-foreground/80 hover:border-primary/50 hover:bg-accent/60"
-    >
-      {preview.kind === "image" ? (
-        <img
-          src={preview.href}
-          alt=""
-          loading="lazy"
-          className="h-7 w-9 shrink-0 rounded-[2px] border border-border bg-background object-cover"
-        />
-      ) : (
-        <Icon className="h-3 w-3 shrink-0" style={{ color: "var(--c-blue)" }} />
-      )}
-      <span className="truncate" style={{ color: "var(--c-blue)" }}>
-        {preview.label}
-      </span>
-    </button>
-  );
-}
-
 /**
  * Renders one table cell value: a short plain string/number/boolean renders exactly like
  * formatCell's flat text (unchanged); a binary value (see BinaryValue) or a plain object/array
@@ -245,19 +219,6 @@ export function CellValue({
       </button>
     );
   }
-  const urlValue = typeof value === "string" ? value : null;
-  const urlPreview = classifyUrlValue(urlValue);
-  if (urlPreview && urlValue !== null) {
-    return (
-      <UrlChip
-        preview={urlPreview}
-        onClick={(event) => {
-          event.stopPropagation();
-          onInspect(urlValue);
-        }}
-      />
-    );
-  }
   if (isLongString(value)) {
     return (
       <button
@@ -267,14 +228,19 @@ export function CellValue({
           onInspect(value);
         }}
         title="Click to view full value"
-        className="block max-w-[360px] truncate rounded-[2px] border border-border bg-muted/40 px-1.5 py-0.5 text-left font-mono text-[10px] text-foreground/80 hover:border-primary/50 hover:bg-accent/50"
+        className="block max-w-full truncate rounded-[2px] border border-border bg-muted/40 px-1.5 py-0.5 text-left font-mono text-[10px] text-foreground/80 hover:border-primary/50 hover:bg-accent/50"
       >
         <span className="inline-flex max-w-full items-center gap-1.5">
           <Type className="h-3 w-3 shrink-0" style={{ color: "var(--c-blue)" }} />
-          <span className="truncate">{value}</span>
+          <span className="truncate">{truncateForDisplay(value)}</span>
         </span>
       </button>
     );
   }
-  return <span className="block max-w-full truncate">{formatCell(value)}</span>;
+  const text = formatCell(value);
+  return (
+    <span className="block max-w-full truncate">
+      {typeof value === "string" ? truncateForDisplay(text) : text}
+    </span>
+  );
 }

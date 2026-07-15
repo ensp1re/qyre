@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { cn } from "../../cn.js";
 import { formatCell } from "../../primitives/format-cell.js";
-import { LONG_STRING_THRESHOLD } from "./cell-value.js";
+import { LONG_STRING_THRESHOLD, truncateForDisplay } from "./cell-value.js";
 import { CellEditorDrawer } from "../editing/cell-editor-drawer.js";
 import { InlineCellEditor } from "../editing/inline-cell-editor.js";
 import { TypedValueEditor } from "../editing/typed-value-editor.js";
@@ -136,7 +136,11 @@ export function NewRowCell({
           value === undefined ? "italic text-quiet-foreground" : "text-foreground"
         )}
       >
-        {value === undefined ? "Set value..." : value === null ? "null" : formatCell(value)}
+        {value === undefined
+          ? "Set value..."
+          : value === null
+            ? "null"
+            : truncateForDisplay(formatCell(value))}
       </button>
       {value !== undefined && (
         <button

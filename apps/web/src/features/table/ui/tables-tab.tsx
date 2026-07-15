@@ -168,9 +168,11 @@ export function TablesTab({
       return (
         <div className="flex h-full flex-col">
           {viewToggle}
-          <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-            <Spinner /> Loading table...
-          </p>
+          <div className="flex flex-1 items-center justify-center">
+            <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+              <Spinner /> Loading table...
+            </p>
+          </div>
         </div>
       );
     }
@@ -224,16 +226,18 @@ export function TablesTab({
     return (
       <div className="flex h-full flex-col">
         {viewToggle}
-        <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-          <Spinner /> Loading rows...
+        <div className="flex flex-1 flex-col items-center justify-center gap-2">
+          <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+            <Spinner /> Loading rows...
+          </p>
           <button
             type="button"
             onClick={rows.cancel}
-            className="ml-1 rounded-[3px] border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+            className="rounded-[3px] border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
           >
             Cancel
           </button>
-        </p>
+        </div>
       </div>
     );
   }

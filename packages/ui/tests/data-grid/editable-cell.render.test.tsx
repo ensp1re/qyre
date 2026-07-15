@@ -248,7 +248,7 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(onCommit).toHaveBeenCalledWith("42");
   });
 
-  it("shows an immediate switch for a boolean column, with an optional NULL toggle", () => {
+  it("shows an immediate switch for a boolean column, with no NULL toggle to click (F146)", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -261,32 +261,38 @@ describe("EditableCell (component rendering, F103/F146)", () => {
       />
     );
     fireEvent.doubleClick(screen.getByText("true"));
+    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("switch", { name: "value" }));
     expect(onCommit).toHaveBeenCalledWith(false);
   });
 
-  it("hides the null option for a boolean column when the column isn't nullable", () => {
-    render(
-      <EditableCell
-        displayValue={true}
-        dataType="boolean"
-        nullable={false}
-        dirty={false}
-        onCommit={vi.fn()}
-        onRevert={vi.fn()}
-      />
-    );
-    fireEvent.doubleClick(screen.getByText("true"));
-    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
-  });
-
-  it("commits an explicit empty string for a nullable text column, instead of cancelling (F140/U2)", () => {
+  it("auto-stages NULL for a nullable text column left empty, instead of an explicit toggle (F146)", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
         displayValue="Ada"
         dataType="varchar"
         nullable={true}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
+    const input = screen.getByLabelText("value");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith(null);
+  });
+
+  it("commits an empty string as-is for a non-nullable text column (there is no NULL to fall back to)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={false}
         dirty={false}
         onCommit={onCommit}
         onRevert={vi.fn()}
@@ -299,40 +305,7 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(onCommit).toHaveBeenCalledWith("");
   });
 
-  it("stages an explicit NULL for a nullable text column via the NULL toggle (F140/U2)", () => {
-    const onCommit = vi.fn();
-    render(
-      <EditableCell
-        displayValue="Ada"
-        dataType="varchar"
-        nullable={true}
-        dirty={false}
-        onCommit={onCommit}
-        onRevert={vi.fn()}
-      />
-    );
-    fireEvent.doubleClick(screen.getByText("Ada"));
-    fireEvent.click(screen.getByRole("button", { name: "NULL" }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply NULL" }));
-    expect(onCommit).toHaveBeenCalledWith(null);
-  });
-
-  it("hides the null toggle for a non-nullable text column", () => {
-    render(
-      <EditableCell
-        displayValue="Ada"
-        dataType="varchar"
-        nullable={false}
-        dirty={false}
-        onCommit={vi.fn()}
-        onRevert={vi.fn()}
-      />
-    );
-    fireEvent.doubleClick(screen.getByText("Ada"));
-    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
-  });
-
-  it("keeps an invalid empty numeric draft open with an inline error, then permits an explicit NULL (F140/U2)", () => {
+  it("auto-stages NULL for a nullable numeric column left empty, without a validation error (F146)", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -348,12 +321,27 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith(null);
+  });
+
+  it("keeps a non-nullable numeric column's empty draft open with a validation error (nothing to fall back to)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue={1}
+        dataType="int4"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("1"));
+    const input = screen.getByLabelText("value");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.getByLabelText("value")).toHaveAttribute("aria-invalid", "true");
-
-    fireEvent.click(screen.getByRole("button", { name: "NULL" }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply NULL" }));
-    expect(onCommit).toHaveBeenCalledWith(null);
   });
 
   it("commits an integer draft beyond Number.MAX_SAFE_INTEGER as exact text (F140/U5)", () => {

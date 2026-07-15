@@ -74,7 +74,7 @@ describe("InlineCellEditor (F146)", () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it("edits a boolean with an immediate switch, offering a NULL toggle when nullable", () => {
+  it("edits a boolean with an immediate switch", () => {
     const onApply = vi.fn();
     render(
       <InlineCellEditor
@@ -88,7 +88,7 @@ describe("InlineCellEditor (F146)", () => {
     expect(onApply).toHaveBeenCalledWith(true);
   });
 
-  it("stages NULL immediately when the NULL toggle is used", () => {
+  it("auto-stages NULL when a nullable field's text is cleared and left (no separate NULL button)", () => {
     const onApply = vi.fn();
     render(
       <InlineCellEditor
@@ -98,25 +98,27 @@ describe("InlineCellEditor (F146)", () => {
         onCancel={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "NULL" }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply NULL" }));
+    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
+    const input = screen.getByLabelText("nickname");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
     expect(onApply).toHaveBeenCalledWith(null);
   });
 
-  it("Escape cancels out of the NULL chip without applying", () => {
+  it("does not auto-null a non-nullable field left empty - it validates normally", () => {
     const onApply = vi.fn();
-    const onCancel = vi.fn();
     render(
       <InlineCellEditor
-        column={{ name: "nickname", dataType: "varchar", nullable: true }}
-        originalValue={null}
+        column={{ name: "name", dataType: "varchar", nullable: false }}
+        originalValue="Ada"
         onApply={onApply}
-        onCancel={onCancel}
+        onCancel={vi.fn()}
       />
     );
-    fireEvent.keyDown(screen.getByText("NULL"), { key: "Escape" });
-    expect(onApply).not.toHaveBeenCalled();
-    expect(onCancel).toHaveBeenCalled();
+    const input = screen.getByLabelText("name");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onApply).toHaveBeenCalledWith("");
   });
 
   it("uses a compact searchable dropdown for enum columns", () => {

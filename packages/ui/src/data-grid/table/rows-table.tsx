@@ -6,7 +6,7 @@ import { cn } from "../../cn.js";
 import { formatCell, friendlyTypeLabel } from "../../primitives/format-cell.js";
 import { TypeIcon } from "../../primitives/type-icon.js";
 import { CellValueDrawer } from "../cells/cell-value-drawer.js";
-import { CellValue } from "../cells/cell-value.js";
+import { CellValue, truncateForDisplay } from "../cells/cell-value.js";
 import { DateDetailPopover } from "../cells/date-detail-popover.js";
 import { EditableCell } from "../cells/editable-cell.js";
 import { NewRowCell } from "../cells/new-row-cell.js";
@@ -643,7 +643,7 @@ export function RowsTable({
                               className="block max-w-full truncate underline decoration-dotted underline-offset-2 hover:text-primary"
                               style={{ color: "var(--c-blue)" }}
                             >
-                              {formatCell(row[columnName])}
+                              {truncateForDisplay(formatCell(row[columnName]))}
                             </button>
                           ) : meta?.isPrimaryKey && onFiltersChange ? (
                             <button
@@ -656,7 +656,7 @@ export function RowsTable({
                               className="block max-w-full truncate underline decoration-dotted underline-offset-2 hover:text-primary"
                               style={{ color: "var(--c-amber)" }}
                             >
-                              {formatCell(row[columnName])}
+                              {truncateForDisplay(formatCell(row[columnName]))}
                             </button>
                           ) : (
                             <CellValue

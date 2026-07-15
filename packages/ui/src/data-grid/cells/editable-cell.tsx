@@ -7,11 +7,11 @@ import { cn } from "../../cn.js";
 import { formatCell, isClickableDateType } from "../../primitives/format-cell.js";
 import {
   CellValue,
-  classifyUrlValue,
   isBinaryValue,
   isLongString,
   isStructuredValue,
   LONG_STRING_THRESHOLD,
+  truncateForDisplay,
   type InspectableValue
 } from "./cell-value.js";
 import { CellEditorDrawer } from "../editing/cell-editor-drawer.js";
@@ -19,10 +19,10 @@ import { EditorPopover } from "../editing/editor-popover.js";
 import { type CommitDirection, InlineCellEditor } from "../editing/inline-cell-editor.js";
 import { TypedValueEditor } from "../editing/typed-value-editor.js";
 
-/** Whether CellValue would render `displayValue` as an interactive inspect chip/link (long string,
- * structured, binary, URL, or a clickable date) rather than plain text - determines whether editing
- * needs its own separate activation control alongside the chip, instead of the chip/value itself
- * doubling as the edit button. */
+/** Whether CellValue would render `displayValue` as an interactive inspect chip (long string,
+ * structured, binary) or clickable date rather than plain text - determines whether editing needs
+ * its own separate activation control alongside the chip, instead of the chip/value itself
+ * doubling as the edit button. URLs render as plain text (F146) - no special chip/preview. */
 function hasInspectAffordance(
   displayValue: unknown,
   dataType: string,
@@ -32,7 +32,6 @@ function hasInspectAffordance(
     isBinaryValue(displayValue) ||
     isStructuredValue(displayValue) ||
     isLongString(displayValue) ||
-    Boolean(classifyUrlValue(displayValue)) ||
     (hasDateInspect && isClickableDateType(dataType) && typeof displayValue === "string")
   );
 }
@@ -153,7 +152,9 @@ export function EditableCell({
             : undefined
         )}
       >
-        {displayValue === null || displayValue === undefined ? "null" : formatCell(displayValue)}
+        {displayValue === null || displayValue === undefined
+          ? "null"
+          : truncateForDisplay(formatCell(displayValue))}
       </span>
     );
   }
@@ -191,7 +192,11 @@ export function EditableCell({
     }
 
     return (
-      <div data-testid="cell-editor-anchor" data-cell-id={cellId}>
+      <div
+        data-testid="cell-editor-anchor"
+        data-cell-id={cellId}
+        className="flex h-5 min-w-0 items-center rounded-sm border border-primary px-1"
+      >
         <InlineCellEditor
           column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
           engine={engine}
@@ -290,7 +295,7 @@ export function EditableCell({
             ? "null"
             : displayValue === ""
               ? '""'
-              : formatCell(displayValue)}
+              : truncateForDisplay(formatCell(displayValue))}
         </button>
       )}
       {dirty && (

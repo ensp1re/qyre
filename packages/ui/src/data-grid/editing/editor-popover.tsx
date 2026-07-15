@@ -6,8 +6,8 @@ const ANCHOR_GAP = 4;
 const EDITOR_WIDTH = 512;
 const PREFERRED_HEIGHT = 360;
 
-export function editorPopoverPosition(rect: DOMRect): CSSProperties {
-  const width = Math.min(EDITOR_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2);
+export function editorPopoverPosition(rect: DOMRect, preferredWidth = EDITOR_WIDTH): CSSProperties {
+  const width = Math.min(preferredWidth, window.innerWidth - VIEWPORT_MARGIN * 2);
   const left = Math.max(
     VIEWPORT_MARGIN,
     Math.min(rect.left, window.innerWidth - width - VIEWPORT_MARGIN)
@@ -29,16 +29,24 @@ export interface EditorPopoverProps {
   anchorRect: DOMRect;
   children: ReactNode;
   testId?: string;
+  /** Overrides the popover's default width (F146) - the timestamp mini-picker uses a narrower one
+   * so it reads as attached to a compact column instead of a large disconnected form. */
+  width?: number;
 }
 
 /** A grid-safe editor surface. Portalling prevents table overflow and sticky headers from clipping
  * the editor; viewport collision keeps every action reachable in narrow or short windows. */
-export function EditorPopover({ anchorRect, children, testId }: EditorPopoverProps): ReactNode {
+export function EditorPopover({
+  anchorRect,
+  children,
+  testId,
+  width
+}: EditorPopoverProps): ReactNode {
   return createPortal(
     <div
       data-testid={testId}
       className="fixed z-[80] overflow-auto rounded-[4px] border border-primary bg-popover shadow-lg"
-      style={editorPopoverPosition(anchorRect)}
+      style={editorPopoverPosition(anchorRect, width)}
     >
       {children}
     </div>,

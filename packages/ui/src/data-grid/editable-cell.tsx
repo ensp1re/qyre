@@ -7,6 +7,15 @@ import { cn } from "../cn.js";
 import { DateTimeInput, type DateTimeInputKind } from "../primitives/date-time-input.js";
 import { formatCell } from "../primitives/format-cell.js";
 
+/** A whole-number-looking draft whose value exceeds `Number.MAX_SAFE_INTEGER` - `Number(draft)`
+ * would silently round it (SQLite `safeIntegers`/Postgres `bigint` deliver exact values beyond
+ * 2^53 as strings precisely to avoid this). Only integer-shaped drafts are checked - ordinary
+ * fractional precision loss is expected float behavior, not this bug (F140/SUGGESTIONS.md U5).
+ * Exported so `NewRowCell` applies the identical rule to insert drafts. */
+export function isUnsafeIntegerDraft(draft: string): boolean {
+  return /^-?\d+$/.test(draft) && !Number.isSafeInteger(Number(draft));
+}
+
 export type EditWidget = "text" | "number" | "boolean" | DateTimeInputKind;
 
 /** Maps a column's `FilterColumnKind` (F082/F089) to the inline editor widget it gets - the same
@@ -64,29 +73,43 @@ export function EditableCell({
 }: EditableCellProps): ReactNode {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  // Set only when a number draft is rejected for unsafe-integer precision loss (F140/U5) - never
+  // blocks committing, just keeps editing open with feedback instead of silently rounding.
+  const [precisionError, setPrecisionError] = useState(false);
   const widget = widgetFor(dataType, engine);
 
   function startEditing(): void {
     setDraft(displayValue === null || displayValue === undefined ? "" : String(displayValue));
+    setPrecisionError(false);
     setEditing(true);
   }
 
   function commit(next: unknown): void {
     onCommit(next);
     setEditing(false);
+    setPrecisionError(false);
   }
 
   function commitDraft(): void {
-    if (draft === "") {
-      setEditing(false);
-      return;
-    }
     if (widget === "number") {
+      // Unlike text, an empty number draft has no valid "commit as-is" value (empty string isn't
+      // a number) - cancels, same as before; the null button below is the explicit way to clear
+      // a nullable numeric column (F140/U2).
+      if (draft === "") {
+        setEditing(false);
+        return;
+      }
+      if (isUnsafeIntegerDraft(draft)) {
+        setPrecisionError(true);
+        return;
+      }
       const parsed = Number(draft);
       if (!Number.isNaN(parsed)) commit(parsed);
       else setEditing(false);
       return;
     }
+    // Text: an empty draft stages an explicit empty string rather than silently cancelling
+    // (F140/U2) - the null button below is the separate, explicit way to stage NULL.
     commit(draft);
   }
 
@@ -95,6 +118,20 @@ export function EditableCell({
       event.preventDefault();
       commitDraft();
     } else if (event.key === "Escape") {
+      event.preventDefault();
+      setEditing(false);
+    }
+  }
+
+  /** Cancels the date/time/datetime editor on Escape (F140/U4 - it previously had no cancel path
+   * at all). Checked on the wrapping container so it fires regardless of which of
+   * `DateTimeInput`'s several internal segment inputs currently has focus. No commit-on-blur
+   * counterpart: `DateTimeInput` is a compound multi-input widget, and Safari doesn't focus a
+   * `<button>` on click by default, so a naive "focus left the container" blur check can't
+   * reliably distinguish a real blur from clicking this editor's own null button - Escape is the
+   * unambiguous, cross-browser-safe cancel path this fixes. */
+  function handleDateContainerKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.key === "Escape") {
       event.preventDefault();
       setEditing(false);
     }
@@ -142,7 +179,7 @@ export function EditableCell({
 
     if (widget === "date" || widget === "time" || widget === "datetime-local") {
       return (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" onKeyDown={handleDateContainerKeyDown}>
           <DateTimeInput
             kind={widget}
             value={draft}
@@ -165,20 +202,55 @@ export function EditableCell({
     }
 
     return (
-      <input
-        autoFocus
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={handleTextKeyDown}
-        onBlur={commitDraft}
-        type={widget === "number" ? "number" : "text"}
-        inputMode={widget === "number" ? "decimal" : undefined}
-        aria-label="Edit cell value"
-        placeholder={
-          nullable ? "Value... (empty cancels, use null button below to clear)" : "Value..."
-        }
-        className="w-full min-w-0 rounded-[3px] border border-primary bg-secondary px-1.5 py-0.5 text-foreground outline-none"
-      />
+      <div className="flex items-center gap-1">
+        <input
+          autoFocus
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setPrecisionError(false);
+          }}
+          onKeyDown={handleTextKeyDown}
+          onBlur={commitDraft}
+          type={widget === "number" ? "number" : "text"}
+          inputMode={widget === "number" ? "decimal" : undefined}
+          aria-label="Edit cell value"
+          aria-invalid={precisionError}
+          title={
+            precisionError
+              ? "This number is too large to edit exactly - it would lose precision."
+              : undefined
+          }
+          placeholder={
+            widget === "number"
+              ? nullable
+                ? "Value... (blank cancels - use null to clear)"
+                : "Value..."
+              : nullable
+                ? "Value... (blank commits empty text - use null to clear)"
+                : "Value..."
+          }
+          className={cn(
+            "w-full min-w-0 rounded-[3px] border bg-secondary px-1.5 py-0.5 text-foreground outline-none",
+            precisionError ? "border-[var(--c-red)]" : "border-primary"
+          )}
+        />
+        {nullable && (
+          <button
+            type="button"
+            // The adjacent input commits its draft onBlur - without this, clicking null would
+            // blur-commit the typed draft first and unmount this very button before its own
+            // onClick could fire. preventDefault on mousedown stops the input from ever blurring,
+            // so onClick below fires normally against still-editing state (F140/U2).
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => commit(null)}
+            className="shrink-0 rounded-[2px] border border-border px-1.5 py-0.5 italic text-muted-foreground hover:bg-accent"
+            title="Set to null"
+          >
+            null
+          </button>
+        )}
+      </div>
     );
   }
 

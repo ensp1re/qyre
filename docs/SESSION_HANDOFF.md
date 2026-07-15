@@ -8,10 +8,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - Date: 2026-07-15.
 - Branch: `feature/F137-null-primary-key-validation`, based on `main` at `264330e` through merged
   PR #149 (F136).
-- Queue: F114-F121, F128, F129, F130, F131, F132, F133, F134, F135, F139, and F140 are `passing`
-  (merged); F136 is `passing` (merged); F137 is `active`; F138 and F141-F143 are `not_started`
-  review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
-  packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
+- Queue: F128-F137, F139, and F140 are `passing`; F137 is in PR #150. F138 and F141-F143 are
+  `not_started` review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review
+  of apps/web, packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
 
 ## Completed
 
@@ -36,16 +35,13 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   names (S4); `GET /api/files/content` caps a preview read at 1 MiB (S5); and batch-commit
   introspects each staged table once instead of once per op (V2). See each id's evidence in
   `docs/FEATURES.json` for full reasoning/test detail.
+- F137 (PR #150) rejects nullable primary-key update/delete targets with an explicit 400 before an
+  adapter mutation runs. Server 298/298 tests, SQLite 51/51 tests, the full local PR gate, and both
+  GitHub CI jobs passed; exact evidence is recorded in `docs/FEATURES.json`.
 
 ## In progress
 
-- F137: `resolveKey` now rejects any `null` primary-key member with an explicit 400 before an
-  adapter mutation runs. Server unit/route coverage exercises update and delete, and a real SQLite
-  fixture proves the nullable non-`INTEGER` primary-key scenario. Feature verification passed:
-  server 298/298 tests and SQLite 51/51 tests. The complete PR-gate stages also passed in an
-  unprivileged bubblewrap copy: 34/34 check tasks, smoke E2E 11 passed/4 skipped, and full E2E 29
-  passed/43 skipped. The implementation is committed locally on the feature branch.
-- Plan 0006 is complete.
+- No active feature. Plan 0006 is complete.
 
 ## Known issues / blockers
 
@@ -80,11 +76,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - This container runs commands as root, so SQLite's 10 chmod/read-only tests cannot observe Unix
   permission denial. Run the gate as a non-root bubblewrap user here; the same 51-test suite is
   green there.
-- `gh auth status` reports that the configured `ensp1re` token is invalid, blocking the required
-  normal push, draft PR, and CI wait until GitHub authentication is refreshed.
 
 ## Next steps
 
-- Refresh GitHub authentication, push normally from the verified non-root environment, open F137's
-  draft PR, and wait for CI. Continue with F138/F141-F143 afterward; leave F143 last so file moves
-  do not conflict with in-flight fixes.
+- Merge F137's green PR #150, then promote F138 or F141-F143; leave F143 last so file moves do not
+  conflict with in-flight fixes.

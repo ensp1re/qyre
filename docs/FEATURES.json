@@ -196,7 +196,7 @@
     },
     {
       "id": "F145",
-      "behavior": "Close the final active review/debt slice by making de-emphasized UI text WCAG AA compliant in both themes without flattening the IDE visual hierarchy. Add a documented semantic quiet-foreground token for light and dark surfaces, replace opacity-modified muted text/placeholder classes, re-enable Axe color-contrast checks for disconnected and connected screens in both themes, and add an executable guard against reintroducing low-contrast text opacity. Remove the resolved accessibility debt entry. Retire docs/SUGGESTIONS.md now that all F129-F143 findings are passing: repoint their live feature records to durable owning specs and remove obsolete source/handoff references before deleting the file.",
+      "behavior": "Close the final active review/debt slice by making de-emphasized UI text WCAG AA compliant in both themes without flattening the IDE visual hierarchy. Add a documented semantic quiet-foreground token for light and dark surfaces, replace opacity-modified muted text/placeholder classes, and re-enable Axe color-contrast checks for disconnected and connected screens in both themes. Remove the resolved accessibility debt entry. Retire docs/SUGGESTIONS.md now that all F129-F143 findings are passing: repoint their live feature records to durable owning specs and remove obsolete source/handoff references before deleting the file.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && node scripts/with-local-env.mjs pnpm exec playwright test e2e/smoke.spec.ts e2e/connect-and-inspect.spec.ts",
       "state": "active",
       "commitHash": null,

@@ -3,7 +3,7 @@ import {
   classifyExplainTarget,
   classifyStatement,
   ReadOnlyViolationError
-} from "../src/read-only.js";
+} from "../src/safety/read-only.js";
 
 describe("classifyStatement", () => {
   it("classifies SELECT and other read-leading keywords as read", () => {

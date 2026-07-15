@@ -1,2 +1,2 @@
-export { PostgresAdapter, postgresAdapterFactory } from "./adapter.js";
-export { coerceUnknownQuotedIdentifiers } from "./quoted-identifiers.js";
+export { PostgresAdapter, postgresAdapterFactory } from "./runtime/adapter.js";
+export { coerceUnknownQuotedIdentifiers } from "./schema/quoted-identifiers.js";

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { CellValueDrawer } from "../../src/data-grid/cell-value-drawer.js";
+import { CellValueDrawer } from "../../src/data-grid/cells/cell-value-drawer.js";
 
 describe("CellValueDrawer with a plain string value (F069)", () => {
   it("shows the full value and its character count", () => {

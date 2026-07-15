@@ -1,6 +1,6 @@
 import type { ConnectionCapabilities, DatabaseEngine, TableMetadata } from "@qyre/core";
 import { describe, expect, it } from "vitest";
-import { computeCsvImportability } from "../../../../src/features/table/model/csv-importability.js";
+import { computeCsvImportability } from "../../../../src/features/table/model/transfer/csv-importability.js";
 
 const capabilities: ConnectionCapabilities = {
   supportsSql: true,

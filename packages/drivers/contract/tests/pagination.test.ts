@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePageRequest } from "../src/pagination.js";
+import { resolvePageRequest } from "../src/query/pagination.js";
 
 describe("resolvePageRequest", () => {
   it("passes through valid page/pageSize", () => {

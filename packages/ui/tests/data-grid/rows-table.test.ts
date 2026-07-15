@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toCsv } from "../../src/data-grid/rows-table.js";
+import { toCsv } from "../../src/data-grid/table/rows-table.js";
 
 describe("toCsv", () => {
   it("quotes values containing commas, quotes, or newlines", () => {

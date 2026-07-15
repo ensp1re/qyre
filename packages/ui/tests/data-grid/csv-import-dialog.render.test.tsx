@@ -1,7 +1,7 @@
 import type { CsvImportInspection, CsvImportResult } from "@qyre/core";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { CsvImportDialog } from "../../src/data-grid/csv-import-dialog.js";
+import { CsvImportDialog } from "../../src/data-grid/transfer/csv-import-dialog.js";
 
 const inspection: CsvImportInspection = {
   mode: "inspect",

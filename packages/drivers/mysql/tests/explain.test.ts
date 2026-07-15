@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMysqlExplainSql, mysqlPlanLines } from "../src/explain.js";
+import { buildMysqlExplainSql, mysqlPlanLines } from "../src/query/explain.js";
 
 describe("MySQL EXPLAIN construction (F128)", () => {
   it("builds a tree plan without retaining a trailing semicolon", () => {

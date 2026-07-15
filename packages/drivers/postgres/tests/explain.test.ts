@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPostgresExplainSql, postgresPlanLines } from "../src/explain.js";
+import { buildPostgresExplainSql, postgresPlanLines } from "../src/query/explain.js";
 
 describe("PostgreSQL EXPLAIN construction (F128)", () => {
   it("builds plain and analyzed text plans without retaining a trailing semicolon", () => {

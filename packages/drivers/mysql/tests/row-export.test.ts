@@ -1,6 +1,6 @@
 import mysql from "mysql2/promise";
 import { afterAll, describe, expect, it } from "vitest";
-import { formatSqlInsert } from "../src/row-export.js";
+import { formatSqlInsert } from "../src/query/row-export.js";
 
 const pool = mysql.createPool("mysql://unused:unused@localhost/unused");
 

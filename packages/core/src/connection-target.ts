@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { InvalidConnectionTargetError } from "./errors.js";
-import type { ConnectionTarget } from "./types/connection.js";
+import type { ConnectionTarget } from "./types/connection/connection.js";
 
 const POSTGRES_PROTOCOLS = new Set(["postgres:", "postgresql:"]);
 const MYSQL_PROTOCOLS = new Set(["mysql:"]);

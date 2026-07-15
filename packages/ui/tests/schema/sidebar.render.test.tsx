@@ -1,7 +1,7 @@
 import type { SchemaMetadata } from "@qyre/core";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Sidebar } from "../../src/schema/sidebar.js";
+import { Sidebar } from "../../src/schema/navigation/sidebar.js";
 
 const BASE_PROPS = {
   schemas: [],

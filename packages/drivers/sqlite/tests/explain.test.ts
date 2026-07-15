@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSqliteExplainSql, sqlitePlanLines } from "../src/explain.js";
+import { buildSqliteExplainSql, sqlitePlanLines } from "../src/query/explain.js";
 
 describe("SQLite EXPLAIN construction (F128)", () => {
   it("builds a query plan without retaining a trailing semicolon", () => {

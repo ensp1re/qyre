@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDocumentLoadCoordinator } from "../../../../src/features/table/model/document-load.js";
+import { createDocumentLoadCoordinator } from "../../../../src/features/table/model/documents/document-load.js";
 
 describe("createDocumentLoadCoordinator", () => {
   it("aborts and invalidates an older load when a new document opens", () => {

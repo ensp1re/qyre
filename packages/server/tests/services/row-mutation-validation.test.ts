@@ -7,7 +7,7 @@ import {
   resolveKey,
   resolveKeys,
   resolveUpdateChanges
-} from "../../src/services/row-mutation-validation.js";
+} from "../../src/services/rows/row-mutation-validation.js";
 import { makeFakeAdapter } from "../support/fake-adapter.js";
 
 const SQL_TABLE: TableMetadata = {

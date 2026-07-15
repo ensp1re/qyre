@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
 import { describe, expect, it, vi } from "vitest";
-import { inspectAccess } from "../src/access.js";
+import { inspectAccess } from "../src/access/access.js";
 
 describe("inspectAccess", () => {
   it("returns whitelisted role attributes and effective table grants", async () => {

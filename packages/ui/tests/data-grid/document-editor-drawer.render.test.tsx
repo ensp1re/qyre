@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { DocumentEditorDrawer } from "../../src/data-grid/document-editor-drawer.js";
+import { DocumentEditorDrawer } from "../../src/data-grid/editing/document-editor-drawer.js";
 
 describe("DocumentEditorDrawer (component rendering, F125)", () => {
   it("shows a loading state instead of the textarea while fetching (edit mode)", () => {

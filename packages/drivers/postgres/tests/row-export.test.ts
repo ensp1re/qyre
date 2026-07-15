@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatSqlInsert } from "../src/row-export.js";
+import { formatSqlInsert } from "../src/query/row-export.js";
 
 describe("Postgres row export", () => {
   it("quotes identifiers and literals in an executable INSERT statement", () => {

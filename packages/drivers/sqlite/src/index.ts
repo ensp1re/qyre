@@ -1,1 +1,1 @@
-export { SqliteAdapter, sqliteAdapterFactory } from "./adapter.js";
+export { SqliteAdapter, sqliteAdapterFactory } from "./runtime/adapter.js";

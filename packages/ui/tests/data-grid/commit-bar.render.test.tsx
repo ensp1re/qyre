@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { CommitBar } from "../../src/data-grid/commit-bar.js";
+import { CommitBar } from "../../src/data-grid/editing/commit-bar.js";
 
 describe("CommitBar (component rendering, F105)", () => {
   it("renders nothing when the buffer is empty", () => {

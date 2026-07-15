@@ -1,7 +1,7 @@
 import type { SchemaMetadata } from "@qyre/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { SchemaTree } from "../../src/schema/schema-tree.js";
+import { SchemaTree } from "../../src/schema/navigation/schema-tree.js";
 
 const schemas: SchemaMetadata[] = [{ name: "public", tables: ["users", "orders"] }];
 

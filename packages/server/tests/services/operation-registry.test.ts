@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OperationRegistry } from "../../src/services/operation-registry.js";
+import { OperationRegistry } from "../../src/services/observability/operation-registry.js";
 
 describe("OperationRegistry", () => {
   it("returns false for an id that was never registered", async () => {

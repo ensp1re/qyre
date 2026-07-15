@@ -9,7 +9,7 @@ import {
   summarizeBinaryValue,
   summarizeStructuredValue,
   toHex
-} from "../../src/data-grid/cell-value.js";
+} from "../../src/data-grid/cells/cell-value.js";
 
 describe("classifyUrlValue", () => {
   it("recognizes http(s) image URLs by pathname extension", () => {

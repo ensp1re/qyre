@@ -1,1 +1,1 @@
-export { MysqlAdapter, mysqlAdapterFactory } from "./adapter.js";
+export { MysqlAdapter, mysqlAdapterFactory } from "./runtime/adapter.js";

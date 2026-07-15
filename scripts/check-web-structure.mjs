@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, extname, relative, resolve, sep } from "node:path";
+import { basename, dirname, extname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -58,7 +58,7 @@ for (const testFile of filesUnder(testsRoot)) {
   if (!/\.test\.[cm]?[jt]sx?$/.test(testFile)) continue;
   if (relative(testsRoot, testFile).split(sep).includes("support")) continue;
   const mirrored = relative(testsRoot, testFile).replace(/\.test(\.[cm]?[jt]sx?)$/, "$1");
-  if (!existsSync(resolve(srcRoot, mirrored))) {
+  if (!existsSync(resolve(srcRoot, mirrored)) && !importsMovedOwner(testFile)) {
     errors.push(`${relative(root, testFile)}: missing mirrored source owner src/${mirrored}.`);
   }
 }
@@ -69,7 +69,17 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log("Web structure OK: owned areas and mirrored tests validated.");
+console.log("Web structure OK: owned areas and test ownership validated.");
+
+function importsMovedOwner(testFile) {
+  const expectedName = basename(testFile).replace(/\.test(\.[cm]?[jt]sx?)$/, "$1");
+  return importSpecifiers(testFile).some((specifier) => {
+    if (!specifier.startsWith(".")) return false;
+    const target = resolveImport(testFile, specifier);
+    if (!target || relative(srcRoot, target).startsWith("..")) return false;
+    return basename(target) === expectedName;
+  });
+}
 
 function validateDependency(sourceFile, targetFile) {
   const sourceParts = relative(srcRoot, sourceFile).split(sep);

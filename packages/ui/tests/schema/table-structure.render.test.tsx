@@ -1,7 +1,10 @@
 import type { TableMetadata } from "@qyre/core";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { TableStructure, type TableStructureProps } from "../../src/schema/table-structure.js";
+import {
+  TableStructure,
+  type TableStructureProps
+} from "../../src/schema/structure/table-structure.js";
 
 const POSTGRES_COLUMN_TYPES = ["text", "integer", "boolean"] as const;
 

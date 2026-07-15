@@ -1,7 +1,7 @@
 import type { CsvImportResult } from "@qyre/core";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { CsvImportReport } from "../../src/data-grid/csv-import-preview.js";
+import { CsvImportReport } from "../../src/data-grid/transfer/csv-import-preview.js";
 
 describe("CsvImportReport truncated errors (F136)", () => {
   it("shows a 'showing first N of M' notice when the error list was capped", () => {

@@ -9,7 +9,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
-import { computeCapabilities, tablePermissionsFromCapabilities } from "../src/capabilities.js";
+import {
+  computeCapabilities,
+  tablePermissionsFromCapabilities
+} from "../src/runtime/capabilities.js";
 
 function makeFixture(): { dir: string; dbPath: string } {
   const dir = mkdtempSync(join(tmpdir(), "qyre-sqlite-capabilities-"));

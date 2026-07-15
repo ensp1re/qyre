@@ -1,6 +1,6 @@
 import type { ColumnMetadata, ConnectionCapabilities, TableMetadata } from "@qyre/core";
 import { describe, expect, it } from "vitest";
-import { computeTableStructureEditability } from "../../../../src/features/table/model/structure-editability.js";
+import { computeTableStructureEditability } from "../../../../src/features/table/model/structure/structure-editability.js";
 
 const FULL_CAPABILITIES: ConnectionCapabilities = {
   supportsSql: true,

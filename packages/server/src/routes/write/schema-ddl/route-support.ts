@@ -1,0 +1,46 @@
+import type { FastifyRequest } from "fastify";
+import type { ServerContext } from "../../../app.js";
+import type { DdlOperation } from "../../../services/schema/schema-ddl-validation.js";
+
+/** MongoDB collections have no fixed column structure to alter. */
+export function mongoColumnRoutesNotApplicable(engine: string): boolean {
+  return engine === "mongodb";
+}
+
+export function logDdlSuccess(
+  ctx: ServerContext,
+  request: FastifyRequest,
+  operation: DdlOperation,
+  schema: string,
+  table: string,
+  startedAt: number,
+  message: string
+): void {
+  const durationMs = Math.round(performance.now() - startedAt);
+  ctx.eventLog.log("info", message);
+  request.log.info(
+    { operation, schema, table, durationMs, outcome: "success" },
+    `${operation} succeeded`
+  );
+}
+
+export function logDdlFailure(
+  ctx: ServerContext,
+  request: FastifyRequest,
+  operation: DdlOperation,
+  schema: string,
+  table: string,
+  startedAt: number,
+  error: unknown
+): void {
+  // The global handler owns authoritative denials so their raw engine text is never logged and
+  // the EventLog receives exactly one safe denial entry.
+  if (ctx.adapter?.classifyPermissionDenied(error)) return;
+  const durationMs = Math.round(performance.now() - startedAt);
+  const detail = error instanceof Error ? error.message : String(error);
+  ctx.eventLog.log("error", `${operation} failed for ${schema}.${table}: ${detail}`);
+  request.log.error(
+    { operation, schema, table, durationMs, outcome: "error" },
+    `${operation} failed`
+  );
+}

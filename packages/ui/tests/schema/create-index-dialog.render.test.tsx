@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { CreateIndexDialog } from "../../src/schema/create-index-dialog.js";
+import { CreateIndexDialog } from "../../src/schema/dialogs/create-index-dialog.js";
 
 describe("CreateIndexDialog (component rendering, F114)", () => {
   it("disables Create index until a name and at least one column are chosen", () => {

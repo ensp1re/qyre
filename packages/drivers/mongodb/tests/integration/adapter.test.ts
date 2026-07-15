@@ -9,7 +9,7 @@ import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@qyre/testing";
 import { EJSON } from "bson";
 import { Binary, Long, MongoClient, ObjectId } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { isMongoCancelError, registerMongoCancellation } from "../../src/cancellation.js";
+import { isMongoCancelError, registerMongoCancellation } from "../../src/runtime/cancellation.js";
 import { MongodbAdapter } from "../../src/index.js";
 
 describe("MongodbAdapter integration", () => {

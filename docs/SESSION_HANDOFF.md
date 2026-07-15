@@ -6,9 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F142-schema-create-target`, based on `main` at `ea94ace` through merged PR #152
-  (F141).
-- Queue: F128-F142 are `passing`; F143 is `not_started`
+- Branch: `feature/F143-workspace-structure`, based on `main` at `d4e5d8e` through merged PR #153
+  (F142).
+- Queue: F128-F142 are `passing`; F143 is `active`
   review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
   packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
 
@@ -35,14 +35,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   names (S4); `GET /api/files/content` caps a preview read at 1 MiB (S5); and batch-commit
   introspects each staged table once instead of once per op (V2). See each id's evidence in
   `docs/FEATURES.json` for full reasoning/test detail.
-- F142 (draft PR #153) adds an explicit SQL schema selector to New table, defaulted from the current
+- F142 (merged PR #153) adds an explicit SQL schema selector to New table, defaulted from the current
   sidebar selection when available, and routes creation to the chosen schema. UI 366/366, web
   140/140, both full local gates, and both GitHub CI jobs passed; exact evidence is in
   `docs/FEATURES.json`.
 
 ## In progress
 
-- No active feature. Plan 0006 is complete.
+- F143 is splitting production files over 500 lines and grouping overloaded flat source folders
+  across the workspace without behavior or public-export changes.
 
 ## Known issues / blockers
 
@@ -80,4 +81,4 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Merge F142's green draft PR #153, then promote F143 for the final review-driven structure slice.
+- Finish F143, the final review-driven structure slice.

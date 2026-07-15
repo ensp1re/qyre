@@ -12,7 +12,7 @@ import {
   countPendingEdits,
   type PendingEdits,
   type PendingInserts
-} from "../../../../src/features/table/model/pending-changes.js";
+} from "../../../../src/features/table/model/editing/pending-changes.js";
 
 describe("applyStageEdit / applyRevertEdit (F103)", () => {
   it("stages an edit under its row key and column", () => {

@@ -1,7 +1,7 @@
 import type { ColumnMetadata } from "@qyre/core";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { FilterBar } from "../../src/data-grid/filter-bar.js";
+import { FilterBar } from "../../src/data-grid/table/filter-bar.js";
 
 const columns: ColumnMetadata[] = [
   { name: "id", dataType: "integer", nullable: false, isPrimaryKey: true, isForeignKey: false },

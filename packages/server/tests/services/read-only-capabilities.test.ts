@@ -1,6 +1,6 @@
 import type { ConnectionCapabilities } from "@qyre/core";
 import { describe, expect, it } from "vitest";
-import { applyReadOnlyOverride } from "../../src/services/read-only-capabilities.js";
+import { applyReadOnlyOverride } from "../../src/services/access/read-only-capabilities.js";
 
 const writable: ConnectionCapabilities = {
   supportsSql: true,

@@ -26,17 +26,17 @@ import {
 import { commitMutations } from "../api/mutations.js";
 import { importCsv, inspectCsvImport, validateCsvImport } from "../api/csv-import.js";
 import { exportRowsUrl } from "../api/rows.js";
-import { buildMutationOps, buildPreviewLine } from "../model/commit-preview.js";
-import { computeDocumentEditability } from "../model/document-editability.js";
-import { createDocumentLoadCoordinator } from "../model/document-load.js";
-import { computeCsvImportability } from "../model/csv-importability.js";
-import { computeTableEditability } from "../model/editability.js";
-import { computeTableStructureEditability } from "../model/structure-editability.js";
-import { usePendingChanges } from "../model/pending-changes.js";
-import { useTableDdlMutations } from "../model/use-table-ddl.js";
-import { useTableView } from "../model/use-table-view.js";
-import type { useRows } from "../model/use-rows.js";
-import type { useTable } from "../model/use-table.js";
+import { buildMutationOps, buildPreviewLine } from "../model/editing/commit-preview.js";
+import { computeDocumentEditability } from "../model/documents/document-editability.js";
+import { createDocumentLoadCoordinator } from "../model/documents/document-load.js";
+import { computeCsvImportability } from "../model/transfer/csv-importability.js";
+import { computeTableEditability } from "../model/editing/editability.js";
+import { computeTableStructureEditability } from "../model/structure/structure-editability.js";
+import { usePendingChanges } from "../model/editing/pending-changes.js";
+import { useTableDdlMutations } from "../model/structure/use-table-ddl.js";
+import { useTableView } from "../model/data/use-table-view.js";
+import type { useRows } from "../model/data/use-rows.js";
+import type { useTable } from "../model/data/use-table.js";
 import { columnTypeCatalogForEngine } from "../../../shared/lib/ddl/column-type-catalog.js";
 import { ViewButton } from "../../../shared/ui/view-button.js";
 

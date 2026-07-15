@@ -186,25 +186,61 @@ export function resolveKeys(
   return keys.map((key) => resolveKey(tableMetadata, key, engine));
 }
 
-/**
- * Validates/coerces one staged batch-commit operation (F102) exactly the way its own per-op route
- * already does - `assertMutable` plus the matching `resolve*` helper - so every op in a
- * `POST /api/mutations/commit` batch is checked against its *own* table's real columns/permissions
- * before the transaction starts, per docs/product-specs/row-editing.md's "validation failure on any
- * operation aborts the whole commit before any write happens."
- */
-export async function resolveBatchOp(db: DatabaseAdapter, op: MutationOp): Promise<MutationOp> {
-  const tableMetadata = await db.getTable(op.schema, op.table);
+/** Validates/coerces one op against its table's already-fetched metadata - the synchronous half
+ * `resolveBatchOps` delegates to once it has each op's `tableMetadata` in hand. */
+function resolveOneOp(
+  tableMetadata: TableMetadata,
+  op: MutationOp,
+  engine: DatabaseAdapter["engine"]
+): MutationOp {
   assertMutable(tableMetadata, op.type);
   if (op.type === "insert") {
-    return { ...op, values: resolveInsertValues(tableMetadata, op.values, db.engine) };
+    return { ...op, values: resolveInsertValues(tableMetadata, op.values, engine) };
   }
   if (op.type === "update") {
     return {
       ...op,
-      key: resolveKey(tableMetadata, op.key, db.engine),
-      changes: resolveUpdateChanges(tableMetadata, op.changes, db.engine)
+      key: resolveKey(tableMetadata, op.key, engine),
+      changes: resolveUpdateChanges(tableMetadata, op.changes, engine)
     };
   }
-  return { ...op, keys: resolveKeys(tableMetadata, op.keys, db.engine) };
+  return { ...op, keys: resolveKeys(tableMetadata, op.keys, engine) };
+}
+
+function batchTargetKey(op: Pick<MutationOp, "schema" | "table">): string {
+  return `${op.schema} ${op.table}`;
+}
+
+/**
+ * Validates/coerces every op in a `POST /api/mutations/commit` batch (F135/SUGGESTIONS.md V2) -
+ * `assertMutable` plus the matching `resolve*` helper for each op, same as the per-op routes' own
+ * validation, but sharing one introspection per distinct `schema.table` across the whole batch
+ * instead of firing `getTable` once per op. A staged batch is almost always many ops against one
+ * table (200 staged cell edits previously fired 200 concurrent, identical introspection query
+ * sets before the transaction even started). Ops keep their original relative order in the
+ * returned array - `result.failedIndex` and the route's own `ops[]` lookups both depend on it -
+ * and a validation failure on any op still throws before `commitBatch` is ever called, per
+ * docs/product-specs/row-editing.md's "validation failure on any operation aborts the whole
+ * commit before any write happens." The failure actually reported is deterministic (the first
+ * array-order op with a problem), a side effect of sharing one metadata-fetch phase ahead of a
+ * synchronous validation pass instead of racing N independent async validations.
+ */
+export async function resolveBatchOps(
+  db: DatabaseAdapter,
+  ops: MutationOp[]
+): Promise<MutationOp[]> {
+  const targets = new Map<string, { schema: string; table: string }>();
+  for (const op of ops) {
+    const key = batchTargetKey(op);
+    if (!targets.has(key)) targets.set(key, { schema: op.schema, table: op.table });
+  }
+
+  const metadataEntries = await Promise.all(
+    [...targets].map(
+      async ([key, target]) => [key, await db.getTable(target.schema, target.table)] as const
+    )
+  );
+  const metadataByKey = new Map(metadataEntries);
+
+  return ops.map((op) => resolveOneOp(metadataByKey.get(batchTargetKey(op))!, op, db.engine));
 }

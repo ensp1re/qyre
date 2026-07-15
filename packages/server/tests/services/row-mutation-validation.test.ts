@@ -1,8 +1,8 @@
 import type { TableMetadata } from "@qyre/core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   assertMutable,
-  resolveBatchOp,
+  resolveBatchOps,
   resolveInsertValues,
   resolveKey,
   resolveKeys,
@@ -276,55 +276,47 @@ describe("resolveKeys (F101)", () => {
   });
 });
 
-describe("resolveBatchOp (F102)", () => {
+describe("resolveBatchOps (F102/F135)", () => {
   it("resolves and coerces an insert op", async () => {
     const adapter = makeFakeAdapter({ getTable: async () => SQL_TABLE });
-    const resolved = await resolveBatchOp(adapter, {
-      type: "insert",
-      schema: "public",
-      table: "users",
-      values: { id: 1, name: "Ada" }
-    });
-    expect(resolved).toEqual({
-      type: "insert",
-      schema: "public",
-      table: "users",
-      values: { id: 1, name: "Ada" }
-    });
+    const resolved = await resolveBatchOps(adapter, [
+      { type: "insert", schema: "public", table: "users", values: { id: 1, name: "Ada" } }
+    ]);
+    expect(resolved).toEqual([
+      { type: "insert", schema: "public", table: "users", values: { id: 1, name: "Ada" } }
+    ]);
   });
 
   it("resolves and coerces an update op", async () => {
     const adapter = makeFakeAdapter({ getTable: async () => SQL_TABLE });
-    const resolved = await resolveBatchOp(adapter, {
-      type: "update",
-      schema: "public",
-      table: "users",
-      key: { id: 1 },
-      changes: { name: "Grace" }
-    });
-    expect(resolved).toEqual({
-      type: "update",
-      schema: "public",
-      table: "users",
-      key: { id: 1 },
-      changes: { name: "Grace" }
-    });
+    const resolved = await resolveBatchOps(adapter, [
+      {
+        type: "update",
+        schema: "public",
+        table: "users",
+        key: { id: 1 },
+        changes: { name: "Grace" }
+      }
+    ]);
+    expect(resolved).toEqual([
+      {
+        type: "update",
+        schema: "public",
+        table: "users",
+        key: { id: 1 },
+        changes: { name: "Grace" }
+      }
+    ]);
   });
 
   it("resolves and coerces a delete op", async () => {
     const adapter = makeFakeAdapter({ getTable: async () => SQL_TABLE });
-    const resolved = await resolveBatchOp(adapter, {
-      type: "delete",
-      schema: "public",
-      table: "users",
-      keys: [{ id: 1 }, { id: 2 }]
-    });
-    expect(resolved).toEqual({
-      type: "delete",
-      schema: "public",
-      table: "users",
-      keys: [{ id: 1 }, { id: 2 }]
-    });
+    const resolved = await resolveBatchOps(adapter, [
+      { type: "delete", schema: "public", table: "users", keys: [{ id: 1 }, { id: 2 }] }
+    ]);
+    expect(resolved).toEqual([
+      { type: "delete", schema: "public", table: "users", keys: [{ id: 1 }, { id: 2 }] }
+    ]);
   });
 
   it("rejects an op against a view with 400", async () => {
@@ -332,7 +324,7 @@ describe("resolveBatchOp (F102)", () => {
       getTable: async () => ({ ...SQL_TABLE, kind: "view" })
     });
     await expect(
-      resolveBatchOp(adapter, { type: "insert", schema: "public", table: "v", values: {} })
+      resolveBatchOps(adapter, [{ type: "insert", schema: "public", table: "v", values: {} }])
     ).rejects.toThrow(expect.objectContaining({ statusCode: 400 }));
   });
 
@@ -344,24 +336,69 @@ describe("resolveBatchOp (F102)", () => {
       })
     });
     await expect(
-      resolveBatchOp(adapter, {
-        type: "insert",
-        schema: "public",
-        table: "users",
-        values: { name: "Ada" }
-      })
+      resolveBatchOps(adapter, [
+        { type: "insert", schema: "public", table: "users", values: { name: "Ada" } }
+      ])
     ).rejects.toThrow(expect.objectContaining({ statusCode: 403 }));
   });
 
   it("rejects an op with an unknown column with 400", async () => {
     const adapter = makeFakeAdapter({ getTable: async () => SQL_TABLE });
     await expect(
-      resolveBatchOp(adapter, {
-        type: "insert",
+      resolveBatchOps(adapter, [
+        { type: "insert", schema: "public", table: "users", values: { nope: 1 } }
+      ])
+    ).rejects.toThrow(expect.objectContaining({ statusCode: 400 }));
+  });
+
+  it("introspects each distinct schema.table exactly once, not once per op (F135)", async () => {
+    const getTable = vi.fn(async () => SQL_TABLE);
+    const adapter = makeFakeAdapter({ getTable });
+
+    await resolveBatchOps(adapter, [
+      { type: "insert", schema: "public", table: "users", values: { id: 1, name: "Ada" } },
+      {
+        type: "update",
         schema: "public",
         table: "users",
-        values: { nope: 1 }
-      })
+        key: { id: 1 },
+        changes: { name: "Grace" }
+      },
+      { type: "delete", schema: "public", table: "users", keys: [{ id: 2 }] }
+    ]);
+
+    expect(getTable).toHaveBeenCalledTimes(1);
+    expect(getTable).toHaveBeenCalledWith("public", "users");
+  });
+
+  it("introspects once per distinct table and preserves the original op order across tables", async () => {
+    const getTable = vi.fn(async (schema: string, table: string) =>
+      table === "memberships" ? COMPOSITE_KEY_TABLE : SQL_TABLE
+    );
+    const adapter = makeFakeAdapter({ getTable });
+
+    const resolved = await resolveBatchOps(adapter, [
+      { type: "insert", schema: "public", table: "users", values: { id: 1, name: "Ada" } },
+      {
+        type: "insert",
+        schema: "public",
+        table: "memberships",
+        values: { org_id: 1, user_id: 1, role: "admin" }
+      },
+      { type: "delete", schema: "public", table: "users", keys: [{ id: 2 }] }
+    ]);
+
+    expect(getTable).toHaveBeenCalledTimes(2);
+    expect(resolved.map((op) => op.table)).toEqual(["users", "memberships", "users"]);
+  });
+
+  it("still throws before commitBatch would run when a later op in the batch fails validation", async () => {
+    const adapter = makeFakeAdapter({ getTable: async () => SQL_TABLE });
+    await expect(
+      resolveBatchOps(adapter, [
+        { type: "insert", schema: "public", table: "users", values: { id: 1, name: "Ada" } },
+        { type: "insert", schema: "public", table: "users", values: { nope: 1 } }
+      ])
     ).rejects.toThrow(expect.objectContaining({ statusCode: 400 }));
   });
 });

@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../app.js";
 import { requireAdapter } from "../services/require-adapter.js";
 import { permissionRoute } from "../services/permission-denied.js";
-import { resolveBatchOp } from "../services/row-mutation-validation.js";
+import { resolveBatchOps } from "../services/row-mutation-validation.js";
 
 function rowCountFor(result: InsertRowResult | UpdateRowResult | DeleteRowsResult): number {
   // Checked in this order deliberately: `InsertRowResult.row` is optional, so `"row" in result`
@@ -47,9 +47,7 @@ export function registerMutationsRoutes(app: FastifyInstance, ctx: ServerContext
         return reply.status(400).send({ error: "This engine does not support batch commit." });
       }
 
-      const resolvedOps = await Promise.all(
-        parsedBody.data.ops.map((op) => resolveBatchOp(db, op))
-      );
+      const resolvedOps = await resolveBatchOps(db, parsedBody.data.ops);
 
       const startedAt = performance.now();
       const result = await db.mutations.commitBatch(resolvedOps);

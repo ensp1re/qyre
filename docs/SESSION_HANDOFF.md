@@ -8,9 +8,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - Date: 2026-07-15.
 - Branch: `feature/F144-e2e-fixture-isolation`, based on `main` at `3f5e0bf` through merged PR #154
   (F143).
-- Queue: F128-F143 are `passing` review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14
-  deep code review of apps/web, packages/ui, packages/server, packages/cli). F144 is `active`;
-  `nextIds.F` is 145.
+- Queue: F128-F144 are `passing`; `nextIds.F` is 145.
 
 ## Completed
 
@@ -44,11 +42,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   place. The largest production source is now 488 lines and no production source folder has more
   than eight direct files. Local/pre-push full gates and both GitHub CI jobs passed; exact evidence
   is in `docs/FEATURES.json`.
+- F144 (draft PR #155) holds a cross-process lock for each underlying engine fixture throughout a
+  Playwright test, shares locks across writable/read-only/restricted projects, retains cross-engine
+  parallelism, and safely handles multi-engine journeys and dead workers. Focused tests, a
+  three-pass full-E2E stress run, both full local gates, and both GitHub CI jobs passed; exact
+  evidence is in `docs/FEATURES.json`.
 
 ## In progress
 
-- F144 serializes Playwright tests per underlying engine fixture while retaining parallelism
-  between different engines, closing the recurring shared-fixture contention debt.
+- None.
 
 ## Known issues / blockers
 
@@ -83,4 +85,4 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Implement and verify F144 fixture isolation, then remove the resolved reliability debt.
+- Merge draft PR #155 for F144 fixture isolation.

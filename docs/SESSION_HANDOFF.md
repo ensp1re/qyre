@@ -8,7 +8,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - Date: 2026-07-15.
 - Branch: `feature/F145-accessible-muted-text-contrast`, based on `main` at `885abd5` through merged
   PR #155 (F144).
-- Queue: F128-F144 are `passing`; F145 is `active`; `nextIds.F` is 146.
+- Queue: F128-F145 are `passing`; there is no active feature; `nextIds.F` is 146.
 
 ## Completed
 
@@ -38,11 +38,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   parallelism, and safely handles multi-engine journeys and dead workers. Focused tests, a
   three-pass full-E2E stress run, both full local gates, and both GitHub CI jobs passed; exact
   evidence is in `docs/FEATURES.json`.
+- F145 (draft PR #156) replaces low-contrast muted-text opacity with compliant semantic tokens in
+  both themes, enables Axe contrast enforcement, removes the resolved accessibility debt, deletes
+  the completed review artifact, and repoints its findings to durable specs. UI 366/366, web
+  140/140, both full local gates, and both GitHub CI jobs passed; exact evidence is in
+  `docs/FEATURES.json`.
 
 ## In progress
 
-- F145 replaces low-contrast muted-text opacity with compliant semantic tokens in both themes,
-  enables Axe contrast enforcement, and retires the completed review artifact.
+- None. F145 is the final scheduled task and is passing in draft PR #156.
 
 ## Known issues / blockers
 
@@ -77,4 +81,4 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Implement and verify F145, then deliver its final draft PR and passing-state evidence.
+- Merge draft PR #156. No further feature is scheduled.

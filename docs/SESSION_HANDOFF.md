@@ -6,11 +6,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F140-editable-cell-fixes` at `214929d`, based on `main` through merged PR #143
-  (F139).
-- Queue: F114-F121, F128, F129, F130, F134, and F139 are `passing` (merged); F140 is `passing`
-  (pending this branch's PR); F131-F133, F135-F138, and F141-F143 are `not_started` review-fix
-  tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
+- Branch: `feature/F131-redact-connect-errors` at `636d6d9`, based on `main` through merged PR
+  #144 (F140).
+- Queue: F114-F121, F128, F129, F130, F134, F139, and F140 are `passing` (merged); F131 is
+  `passing` (pending this branch's PR); F132-F133, F135-F138, and F141-F143 are `not_started`
+  review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
   packages/ui, packages/server, packages/cli); no active feature. `nextIds.F` is 144.
 
 ## Completed
@@ -24,21 +24,18 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   role-aware E2E matrix, and the SQL EXPLAIN viewer. Per-feature evidence lives in the plan's
   progress log and PR history; every slice passed local/pre-push `pnpm verify:pr` and GitHub CI.
 - A deep read-only code review of the product workspace (2026-07-14) produced
-  `docs/SUGGESTIONS.md` (14 findings: security, server, UI, CLI) and queued F129-F143.
-- F129 (PR #140, `d624bef`), F130 (PR #141, `b99ef25`), and F134 (PR #142, `15d5c2e`) are merged:
-  the session-token handout is now documented as an accepted local-trust limitation (S1),
-  `--verbose` request logs mask the export URL's `?token=` param (S2/C2), and the combined column
-  rename+alter DDL route is atomic on Postgres/SQLite with an honest partial-success result on
-  MySQL (V1). See each id's evidence in `docs/FEATURES.json` for full reasoning/test detail.
-- F139 merged as PR #143 (`d20d99d`). Closed SUGGESTIONS.md U1 - the SQL Editor's `runQuery`/
-  `explainQuery` fetchers now route non-2xx bodies through the shared `apiResponseError`, so a
-  structured permission denial notifies the F120 capability-cache refresh instead of leaving write
-  affordances stale until the next poll.
-- F140 (`214929d`, pending PR): closed SUGGESTIONS.md U2+U4+U5 in `EditableCell`/`NewRowCell` -
-  a null button now reaches nullable text/number columns and an empty text draft commits `''`
-  instead of silently cancelling (U2), Escape now cancels the date/time/datetime editor (U4), and
-  a numeric draft beyond `Number.MAX_SAFE_INTEGER` is rejected with visible feedback instead of
-  silently rounding (U5). See `docs/FEATURES.json`'s F140 evidence for live-verification detail.
+  `docs/SUGGESTIONS.md` (14 findings: security, server, UI, CLI) and queued F129-F143. F129
+  (PR #140), F130 (#141), F134 (#142), F139 (#143), and F140 (#144) are merged: the session-token
+  handout is documented as an accepted local-trust limitation (S1); `--verbose` logs mask the
+  export URL's token (S2/C2); combined column rename+alter is atomic on Postgres/SQLite with an
+  honest partial-success result on MySQL (V1); the SQL Editor's write-attempt errors now trigger
+  the F120 capability-cache refresh (U1); and `EditableCell`/`NewRowCell` gained NULL/empty-string
+  reachability, Escape-to-cancel on date editors, and bigint-precision rejection (U2/U4/U5). See
+  each id's evidence in `docs/FEATURES.json` for full reasoning/test detail.
+- F131 (`636d6d9`, pending PR): closed SUGGESTIONS.md S3 - `describeError()` now redacts a
+  userinfo password or credential-named query param embedded in driver error text (e.g. MongoDB's
+  `MongoParseError` family) before it reaches `/api/connect`'s 400 body, `/api/health.lastError`,
+  the EventLog, or the CLI's connect-failure message. See `docs/FEATURES.json`'s F131 evidence.
 
 ## In progress
 
@@ -77,7 +74,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Open/merge F140's PR, then promote the next task from the F131-F133/F135-F138/F141-F143
+- Open/merge F131's PR, then promote the next task from the F132-F133/F135-F138/F141-F143
   review-fix queue (see `docs/SUGGESTIONS.md` for each finding's full context). Suggested order:
-  minors next (F131-F133, F135-F138, F141, F142); F143 (scalable-structure refactor) last so file
-  moves don't conflict with in-flight fixes.
+  remaining minors (F132-F133, F135-F138, F141, F142); F143 (scalable-structure refactor) last so
+  file moves don't conflict with in-flight fixes.

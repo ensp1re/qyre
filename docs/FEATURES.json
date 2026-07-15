@@ -132,11 +132,12 @@
       "id": "F131",
       "behavior": "Close SUGGESTIONS.md S3: describeError output (packages/server/src/services/connection-display.ts) flows unredacted into POST /api/connect 400 bodies, /api/health lastError, the EventLog, and the CLI's connect-failure message - driver-generated text (notably MongoDB URI parse errors) can echo connection-string fragments containing credentials. Apply a credential-masking pass (userinfo and credential-named query params anywhere in the string, same pattern family as redactConnectionString) to describeError output before it is returned, logged, or printed.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/cli test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "636d6d9",
+      "evidence": "Closed SUGGESTIONS.md S3: added packages/server/src/services/connection-display.ts's redactErrorMessage() and applied it to every describeError() return path (Error, AggregateError unwrapping, and non-Error String() fallback) so a driver-generated error can never flow unredacted into POST /api/connect's 400 body, /api/health's lastError, the EventLog, or the CLI's connect-failure message. Masks a URL-shaped ://user:password@ fragment (password half only, mirroring @qyre/core's redactConnectionString) and any credential-named query param found anywhere in the text (same substring rule redactConnectionString uses), operating on free text that may only contain a connection string as a substring rather than text that must parse as one URL. New tests: userinfo redaction, query-param redaction, an ordinary message left untouched, AggregateError unwrapping still redacted, and a non-Error value's string form. pnpm --filter @qyre/server test (287 tests, 7 new) and @qyre/qyre test (46, CLI unaffected) both green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-15T00:50:00.000Z"
     },
     {
       "id": "F132",

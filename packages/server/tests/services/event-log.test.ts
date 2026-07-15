@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EventLog } from "../../src/services/event-log.js";
+import { EventLog } from "../../src/services/observability/event-log.js";
 
 describe("EventLog", () => {
   it("returns logged events in order with incrementing ids and a timestamp", () => {

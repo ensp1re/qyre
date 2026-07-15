@@ -1,7 +1,7 @@
 import type { RowPage } from "@qyre/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { RowsTable } from "../../src/data-grid/rows-table.js";
+import { RowsTable } from "../../src/data-grid/table/rows-table.js";
 
 const rowPage: RowPage = { columns: ["name"], rows: [{ name: "Ada" }], page: 0, pageSize: 25 };
 

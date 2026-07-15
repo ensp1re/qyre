@@ -2,7 +2,7 @@ import type { ColumnMetadata, CsvImportMapping } from "@qyre/core";
 import { CSV_IMPORT_MAX_ERRORS } from "@qyre/core";
 import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { processCsvImport } from "../../src/services/csv-import.js";
+import { processCsvImport } from "../../src/services/transfer/csv-import.js";
 import { makeFakeAdapter } from "../support/fake-adapter.js";
 
 const columns: ColumnMetadata[] = [

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyPostgresPermissionDenied } from "../src/permission-errors.js";
+import { classifyPostgresPermissionDenied } from "../src/access/permission-errors.js";
 
 describe("classifyPostgresPermissionDenied", () => {
   it("classifies insufficient privilege, ownership, and read-only SQLSTATEs", () => {

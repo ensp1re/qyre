@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { NewRowCell } from "../../src/data-grid/new-row-cell.js";
+import { NewRowCell } from "../../src/data-grid/cells/new-row-cell.js";
 
 describe("NewRowCell (component rendering, F104)", () => {
   it("renders a text input pre-filled with the given value", () => {

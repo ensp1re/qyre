@@ -1,6 +1,6 @@
 import type mysql from "mysql2/promise";
 import { describe, expect, it, vi } from "vitest";
-import { inspectAccess } from "../src/access.js";
+import { inspectAccess } from "../src/access/access.js";
 
 describe("inspectAccess", () => {
   it("reports active roles and redacts authentication clauses from SHOW GRANTS", async () => {

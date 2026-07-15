@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseTargetDatabase } from "../../../../src/features/connection/model/parse-target-database.js";
+import { parseTargetDatabase } from "../../../../src/features/connection/model/targets/parse-target-database.js";
 
 describe("parseTargetDatabase (F116)", () => {
   it("extracts the database name from a redacted postgres target", () => {

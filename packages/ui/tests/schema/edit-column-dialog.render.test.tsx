@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { EditColumnDialog } from "../../src/schema/edit-column-dialog.js";
+import { EditColumnDialog } from "../../src/schema/dialogs/edit-column-dialog.js";
 
 const POSTGRES_COLUMN_TYPES = ["text", "integer", "boolean"] as const;
 

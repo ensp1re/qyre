@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyMysqlPermissionDenied } from "../src/permission-errors.js";
+import { classifyMysqlPermissionDenied } from "../src/access/permission-errors.js";
 
 describe("classifyMysqlPermissionDenied", () => {
   it("classifies symbolic and numeric access denials plus read-only sessions", () => {

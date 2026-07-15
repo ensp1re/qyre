@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stubReadOnlyCapabilities } from "../src/capabilities.js";
+import { stubReadOnlyCapabilities } from "../src/types/capabilities.js";
 
 describe("stubReadOnlyCapabilities", () => {
   it("reports every write flag false and readOnlyReason grants", () => {

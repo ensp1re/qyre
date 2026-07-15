@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { CellValue } from "../../src/data-grid/cell-value.js";
+import { CellValue } from "../../src/data-grid/cells/cell-value.js";
 
 describe("CellValue (component rendering, F055)", () => {
   it("renders a primitive value as plain text, matching formatCell", () => {

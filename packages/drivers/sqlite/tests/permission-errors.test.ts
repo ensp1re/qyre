@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifySqlitePermissionDenied } from "../src/permission-errors.js";
+import { classifySqlitePermissionDenied } from "../src/access/permission-errors.js";
 
 describe("classifySqlitePermissionDenied", () => {
   it("classifies read-only and authorization result codes", () => {

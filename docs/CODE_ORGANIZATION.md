@@ -54,6 +54,9 @@ packages/drivers/postgres/
 ```
 
 - Mirror the chosen source organization so implementation and tests remain easy to pair.
+- A source-only structural migration may leave an existing test in its prior folder when the
+  feature explicitly excludes test moves. The test must then directly import its moved, same-named
+  source owner, and an executable structure check must validate that relationship.
 - Add `unit/`, `integration/`, or `render/` only when an area has multiple real test levels.
 - Put shared fixtures and setup in `tests/support/`, never mixed with assertions.
 - Root browser journeys live in `tests/e2e/journeys/`; fixtures and server launchers live in
@@ -71,7 +74,7 @@ The web app uses an enforced three-layer architecture:
 ```text
 app/                           composition, providers, workspace state, global styles
 features/<capability>/api/     endpoint wrappers
-features/<capability>/model/   query hooks, state, and domain logic
+features/<capability>/model/   query hooks, state, and domain logic, grouped by concern when needed
 features/<capability>/ui/      web-only composition
 shared/api/                    HTTP transport
 shared/lib/<concern>/          dependency-free infrastructure
@@ -89,6 +92,10 @@ boundaries include product responsibility, layout, feedback, or primitives, but 
 the components actually exhibit. UI code may depend on `core` types but must not fetch data or
 import server/driver packages.
 
+The current dense families use one additional responsibility level: `data-grid/{cells,editing,
+table,transfer}` and `schema/{dialogs,navigation,structure}`. Public exports remain centralized in
+`packages/ui/src/index.tsx`; these folders are internal ownership, not new package entry points.
+
 ## Server
 
 `packages/server/src/` uses:
@@ -96,8 +103,10 @@ import server/driver packages.
 ```text
 app.ts                 builds Fastify and registers plugins/routes
 index.ts               public exports only
-routes/<resource>.ts   one resource-oriented Fastify plugin
-services/<concern>.ts  reusable application behavior without HTTP concerns
+routes/<domain>/<resource>.ts
+                       one resource-oriented Fastify plugin grouped by API domain
+services/<domain>/<concern>.ts
+                       reusable HTTP-independent behavior grouped by domain
 plugins/<concern>.ts   Fastify decorators and cross-cutting infrastructure
 shared/                genuinely cross-domain errors or small infrastructure
 ```
@@ -114,6 +123,14 @@ Split each driver by the engine's actual concerns. Adapter lifecycle, introspect
 filtering, conversion, and errors are examples, not a required file list. Do not force identical
 modules across engines. Promote behavior to `drivers/contract` only after at least two engines prove
 it is identical.
+
+The current engines converge on `access/`, `query/`, `runtime/`, `schema/`, and `write/`, adding
+`admin/` only where the engine supports it. These names describe shared ownership, not a requirement
+that every engine contain every folder. Each engine's `src/index.ts` remains its sole public barrel.
+
+Core follows the same rule within cross-runtime contracts: `types/connection`, `types/query`,
+`types/schema`, `types/mutation`, and `types/transfer` group related shapes while
+`packages/core/src/index.ts` preserves the existing public surface.
 
 ## Mechanical enforcement
 

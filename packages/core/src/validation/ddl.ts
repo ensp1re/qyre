@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ColumnDefinition, IndexDefinition } from "../types/ddl.js";
+import type { ColumnDefinition, IndexDefinition } from "../types/schema/ddl.js";
 
 /**
  * "Conservative identifier pattern" (docs/product-specs/schema-editing.md) for a genuinely new name

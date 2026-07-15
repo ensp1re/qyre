@@ -7,7 +7,7 @@ import {
   InvalidFilePathError,
   readFilePreview,
   resolveSqlFilePath
-} from "../../src/services/files.js";
+} from "../../src/services/transfer/files.js";
 
 function makeRoot(): string {
   return mkdtempSync(join(tmpdir(), "qyre-files-"));

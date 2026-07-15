@@ -176,11 +176,12 @@
       "id": "F143",
       "behavior": "Scalable-structure refactor across the ENTIRE workspace (every package and app; product source only, never test files), behavior-preserving - no functional changes. (1) Split every non-test source file over 500 lines into cohesive modules within a folder; as of 2026-07-14 that is packages/ui/src/data-grid/rows-table.tsx (933: extract toolbar, selection/drag logic, and row/cell rendering), packages/server/src/routes/schema-ddl.ts (640: split table-lifecycle, column, and index route groups), packages/ui/src/schema/table-structure.tsx (546: extract columns section, indexes section, table-actions section), and packages/ui/src/data-grid/filter-bar.tsx (517: extract filter-editor pieces) - but re-measure at execution time and split anything else that has crossed 500 lines since. (2) Group every flat folder that has grown past comfortable scanning into related subfolders, applied across the whole workspace (apps/web, packages/ui, packages/server, packages/cli, packages/core, packages/drivers/*, packages/config, packages/testing*): e.g. packages/server/src/routes (13 files) and src/services (14) by domain (rows/ddl/admin/import-export/infra), packages/ui/src/data-grid (11) and src/schema (9) by concern, and each packages/drivers/*/src (12-16 files) into introspection/mutation/admin groupings kept consistent across engines - plus any other folder found at execution time to exceed ~8 flat files. Respect docs/CODE_ORGANIZATION.md and ARCHITECTURE.md layer rules; keep each package's public exports (its index) unchanged so no consumer import breaks; pure moves/renames plus mechanical extraction only. Update docs/CODE_ORGANIZATION.md if the new folder conventions change what it documents.",
       "verification": "pnpm check:quiet",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "747e625",
+      "evidence": "Draft PR #154 (https://github.com/ensp1re/qyre/pull/154), pushed as 747e625. Reorganized production source across apps/web, packages/ui, packages/server, packages/core, packages/drivers/contract, and all four engine drivers into cohesive responsibility folders while preserving package public exports and leaving every test file in place. Split the four production files over 500 lines: RowsTable into table state, toolbar, footer, export, and types modules; FilterBar into filter-editor pieces; TableStructure into row renderers; and the schema DDL route into table, column, index, and shared-support groups. Updated current structure/security/product documentation and extended the web structure check so an intentionally unmoved test must directly import its moved same-named source owner. Final audit found no production source file over 500 lines (largest 488) and no production source folder with more than 8 direct files. Verified on Node 22 with pnpm check:quiet (34/34 tasks), local and pre-push pnpm verify:pr (11 smoke E2E passed/4 skipped; 29 full E2E passed/43 skipped), and both GitHub CI jobs passed. Postgres, MySQL, SQLite, and MongoDB were covered by the repository gate.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-15T13:52:50.000Z"
     }
   ]
 }

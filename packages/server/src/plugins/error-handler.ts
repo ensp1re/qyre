@@ -1,6 +1,6 @@
 import type { FastifyError, FastifyInstance } from "fastify";
 import type { ServerContext } from "../app.js";
-import { permissionDeniedResponse } from "../services/permission-denied.js";
+import { permissionDeniedResponse } from "../services/access/permission-denied.js";
 
 /**
  * Catch-all for any route error not already given its own specific response (e.g.

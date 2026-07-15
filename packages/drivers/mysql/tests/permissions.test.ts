@@ -4,7 +4,7 @@ import {
   fetchAllTablePermissions,
   fetchConnectionCapabilities,
   fetchTablePermissions
-} from "../src/permissions.js";
+} from "../src/access/permissions.js";
 
 /** A fake `mysql2` pool that answers by inspecting the query text, since
  * `fetchConnectionCapabilities`/`fetchAllTablePermissions` issue more than one query (some in

@@ -26,7 +26,7 @@ the final word, never Qyre's guess.
 
 ### Behavior
 
-- A new type in `packages/core/src/types/schema.ts`, alongside the existing `AdapterCapabilities`
+- A new type in `packages/core/src/types/schema/schema.ts`, alongside the existing `AdapterCapabilities`
   (F063):
   ```ts
   export type ReadOnlyReason = "qyre-flag" | "replica" | "connection" | "grants" | null;
@@ -53,7 +53,7 @@ the final word, never Qyre's guess.
   grants) and (b) the connected role's introspected grants allow it. Engine-level "doesn't exist"
   and role-level "not permitted" collapse into the same `false` - callers never need to distinguish
   them, since the UI treatment (hide/disable the affordance) is identical either way.
-- `DatabaseOverview.capabilities` (`packages/core/src/types/schema.ts`) changes type from
+- `DatabaseOverview.capabilities` (`packages/core/src/types/schema/schema.ts`) changes type from
   `AdapterCapabilities` to `ConnectionCapabilities` - additive at the field level (every existing
   consumer reading `capabilities.supportsSql` keeps working unchanged), but every adapter's
   `getOverview()` must now compute the new flags, not just `supportsSql`.
@@ -71,7 +71,7 @@ the final word, never Qyre's guess.
 
 ### Behavior
 
-- A new type, also in `packages/core/src/types/schema.ts`:
+- A new type, also in `packages/core/src/types/schema/schema.ts`:
   ```ts
   export interface TablePermissions {
     readonly select: boolean;
@@ -80,7 +80,7 @@ the final word, never Qyre's guess.
     readonly delete: boolean;
   }
   ```
-- `TableMetadata` (`packages/core/src/types/table.ts`) gains an optional field:
+- `TableMetadata` (`packages/core/src/types/query/table.ts`) gains an optional field:
   `readonly permissions?: TablePermissions`. Optional, not required, because F123's batched
   introspection and F124's `kind` field land after this spec and before permissions are actually
   populated (F092-F095) - `TableMetadata` must keep compiling and every existing test passing
@@ -251,7 +251,7 @@ F091-F097 can build against it without re-deciding anything:
   changed.
 - The exact shape of `ConnectionCapabilities`, `ReadOnlyReason`, and `TablePermissions` is fixed
   precisely enough that F091 ("capability plumbing") can add them to
-  `packages/core/src/types/schema.ts`/`table.ts` without a design decision left open - field names,
+  `packages/core/src/types/schema/schema.ts`/`query/table.ts` without a design decision left open - field names,
   types, and the `AdapterCapabilities`-extension relationship are all specified above, not implied.
 - The API-shape decision (extend `GET /api/overview` vs. a new endpoint) is resolved with a
   reasoned answer, so F091 doesn't re-litigate it.

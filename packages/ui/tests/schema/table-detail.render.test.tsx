@@ -1,7 +1,7 @@
 import type { TableMetadata } from "@qyre/core";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { TableDetail } from "../../src/schema/table-detail.js";
+import { TableDetail } from "../../src/schema/structure/table-detail.js";
 
 function makeTable(overrides: Partial<TableMetadata> = {}): TableMetadata {
   return {

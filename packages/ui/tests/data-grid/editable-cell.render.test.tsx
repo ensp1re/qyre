@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { EditableCell } from "../../src/data-grid/editable-cell.js";
+import { EditableCell } from "../../src/data-grid/cells/editable-cell.js";
 
 describe("EditableCell (component rendering, F103)", () => {
   it("renders the display value as plain text when not editing", () => {

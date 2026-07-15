@@ -236,7 +236,7 @@ describe("read-only enforcement", () => {
 
   it("permissions.ts's privilege-action vocabulary never appears as an actual method call", () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    const source = readFileSync(join(here, "../src/permissions.ts"), "utf-8");
+    const source = readFileSync(join(here, "../src/access/permissions.ts"), "utf-8");
     for (const method of WRITE_METHODS) {
       const callPattern = method.endsWith("(") ? method : `${method}(`;
       expect(source, `permissions.ts must not call ${method}`).not.toContain(callPattern);
@@ -245,7 +245,7 @@ describe("read-only enforcement", () => {
 
   it("mutations.ts only calls the write methods row-editing has actually shipped so far (F099: insertOne, F100: findOneAndReplace, F101: deleteMany)", () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    const source = readFileSync(join(here, "../src/mutations.ts"), "utf-8");
+    const source = readFileSync(join(here, "../src/write/mutations.ts"), "utf-8");
     const shipped = ["insertOne", "findOneAndReplace", "deleteMany"];
     for (const method of shipped) {
       expect(source, `mutations.ts must call ${method}`).toContain(`${method}(`);
@@ -261,7 +261,7 @@ describe("read-only enforcement", () => {
 
   it("ddl.ts only calls the write methods DDL has actually shipped so far (F110: createCollection, renameCollection, deleteMany, .drop(; F112: createIndex, dropIndex)", () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    const source = readFileSync(join(here, "../src/ddl.ts"), "utf-8");
+    const source = readFileSync(join(here, "../src/schema/ddl.ts"), "utf-8");
     const shipped = [
       "createCollection",
       "renameCollection",
@@ -284,7 +284,7 @@ describe("read-only enforcement", () => {
 
   it("admin.ts only calls the write method database lifecycle has actually shipped (F115: dropDatabase)", () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    const source = readFileSync(join(here, "../src/admin.ts"), "utf-8");
+    const source = readFileSync(join(here, "../src/admin/admin.ts"), "utf-8");
     expect(source, "admin.ts must call dropDatabase").toContain("dropDatabase(");
     // Every other write method stays absent - notably no createCollection-style implicit
     // database creation: MongoDB has no createDatabase member at all (see admin.ts's doc comment).

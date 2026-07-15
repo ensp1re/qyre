@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRowExport } from "../../src/services/row-export.js";
+import { formatRowExport } from "../../src/services/rows/row-export.js";
 import { makeFakeAdapter } from "../support/fake-adapter.js";
 
 async function collect(chunks: AsyncIterable<string>): Promise<string> {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capResultRows } from "../src/result-cap.js";
+import { capResultRows } from "../src/query/result-cap.js";
 
 describe("capResultRows", () => {
   it("wraps a SELECT in an outer LIMIT", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeError, displayTarget } from "../../src/services/connection-display.js";
+import { describeError, displayTarget } from "../../src/services/connection/connection-display.js";
 
 describe("describeError redaction (F131)", () => {
   it("redacts a userinfo password embedded in a driver error message", () => {

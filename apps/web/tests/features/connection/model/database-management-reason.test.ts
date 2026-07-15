@@ -1,6 +1,6 @@
 import type { ConnectionCapabilities } from "@qyre/core";
 import { describe, expect, it } from "vitest";
-import { databaseManagementReason } from "../../../../src/features/connection/model/database-management-reason.js";
+import { databaseManagementReason } from "../../../../src/features/connection/model/admin/database-management-reason.js";
 
 const WRITABLE: ConnectionCapabilities = {
   supportsSql: true,

@@ -2,7 +2,7 @@ import {
   canPersistTarget,
   nextRecentTargets,
   parseRecentTargets
-} from "../../../../src/features/connection/model/recent-targets.js";
+} from "../../../../src/features/connection/model/targets/recent-targets.js";
 import { describe, expect, it } from "vitest";
 
 describe("recent targets", () => {

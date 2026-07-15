@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "../pagination.js";
-import { FILTER_OPS } from "../types/query.js";
+import { FILTER_OPS } from "../types/query/query.js";
 
 const NO_VALUE_OPS = new Set<(typeof FILTER_OPS)[number]>(["isNull", "isNotNull"]);
 

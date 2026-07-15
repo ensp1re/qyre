@@ -12,7 +12,7 @@ rules are first-class.
   developer visits resolving its own hostname to `127.0.0.1`) -
   `packages/server/src/plugins/host-guard.ts`'s `onRequest` hook, F025.
 - Every `/api/*` route requires a per-session bearer token: the CLI mints a cryptographically
-  random token at startup (`packages/server/src/services/auth-token.ts`) and the served UI receives
+  random token at startup (`packages/server/src/services/access/auth-token.ts`) and the served UI receives
   it embedded in `index.html` (`packages/server/src/plugins/static-web.ts`); requests present it as
   an `Authorization: Bearer <token>` header (every `fetchJson` call) or a `token` query param (the
   CSV export's plain `<a href>` download, which can't set headers) -
@@ -54,7 +54,7 @@ rules are first-class.
 - The CLI's `--read-only` flag (F096) is a hard, Qyre-level ceiling that always wins over whatever
   the connected database role would otherwise allow - `ConnectionCapabilities` reports every
   `supports*` flag `false` and `readOnlyReason: "qyre-flag"` regardless of grants
-  (`packages/server/src/services/read-only-capabilities.ts`), and the read-only guard plugin
+  (`packages/server/src/services/access/read-only-capabilities.ts`), and the read-only guard plugin
   (`packages/server/src/plugins/read-only-guard.ts`) rejects any route registered as mutating before
   its handler runs. Every future write route must register under this
   choke point - it is the single place session read-only mode is enforced server-side, not

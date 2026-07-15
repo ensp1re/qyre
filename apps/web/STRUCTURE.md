@@ -12,12 +12,14 @@ src/
   shared/
     api/                     HTTP transport
     lib/                     focused infrastructure such as query policy and storage
-tests/                       mirrors src/ ownership exactly
+tests/                       mirrors src/ ownership, or directly imports a moved source owner
 ```
 
 Dependency direction is `shared -> features -> app`: shared imports neither feature nor app code;
 features may import shared code but never another feature or app code; app composes all layers.
-`pnpm check:web-structure` enforces these rules and the mirrored test tree.
+`pnpm check:web-structure` enforces these rules. F143 deliberately leaves existing test files in
+place while regrouping production source; a test outside its owner's new subfolder must directly
+import the same-named source module so ownership remains executable rather than inferred.
 
 State is separated by ownership:
 

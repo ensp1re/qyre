@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { tokensMatch } from "../services/auth-token.js";
+import { tokensMatch } from "../services/access/auth-token.js";
 
 const BEARER_PREFIX = "Bearer ";
 

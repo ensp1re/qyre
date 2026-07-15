@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 import { describe, expect, it } from "vitest";
-import { serializeJsonRow } from "../src/row-export.js";
+import { serializeJsonRow } from "../src/query/row-export.js";
 
 describe("MongoDB row export", () => {
   it("serializes raw BSON values as relaxed Extended JSON", () => {

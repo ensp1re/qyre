@@ -4,7 +4,7 @@ import {
   buildMutationOps,
   buildPreviewLine,
   parseRowKey
-} from "../../../../src/features/table/model/commit-preview.js";
+} from "../../../../src/features/table/model/editing/commit-preview.js";
 import {
   applyAddInsert,
   applyStageDelete,
@@ -13,7 +13,7 @@ import {
   computeRowKey,
   type PendingEdits,
   type PendingInserts
-} from "../../../../src/features/table/model/pending-changes.js";
+} from "../../../../src/features/table/model/editing/pending-changes.js";
 
 describe("parseRowKey (F105)", () => {
   it("round-trips a row key back to its primary-key value map", () => {

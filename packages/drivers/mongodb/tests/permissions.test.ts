@@ -3,7 +3,7 @@ import {
   capabilitiesFromConnectionStatus,
   tablePermissionsFromConnectionStatus,
   type ConnectionStatusResult
-} from "../src/permissions.js";
+} from "../src/access/permissions.js";
 
 function status(
   authenticatedUsers: Array<{ user: string; db: string }>,

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { CreateTableDialog } from "../../src/schema/create-table-dialog.js";
+import { CreateTableDialog } from "../../src/schema/dialogs/create-table-dialog.js";
 
 const POSTGRES_COLUMN_TYPES = ["text", "integer", "boolean"] as const;
 

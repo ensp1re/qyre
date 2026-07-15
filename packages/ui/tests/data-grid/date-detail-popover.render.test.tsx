@@ -1,6 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DateDetailPopover, formatRelativeTime } from "../../src/data-grid/date-detail-popover.js";
+import {
+  DateDetailPopover,
+  formatRelativeTime
+} from "../../src/data-grid/cells/date-detail-popover.js";
 
 const ANCHOR = { left: 100, right: 200, bottom: 50 } as DOMRect;
 

@@ -6,19 +6,19 @@
  * can never silently drift apart. See ARCHITECTURE.md and docs/CODE_ORGANIZATION.md for the folder
  * rules this package follows.
  */
-export * from "./types/connection.js";
-export * from "./types/table.js";
-export * from "./types/schema.js";
-export * from "./types/access.js";
-export * from "./types/query.js";
-export * from "./types/mutation.js";
-export * from "./types/ddl.js";
-export * from "./types/health.js";
-export * from "./types/files.js";
+export * from "./types/connection/connection.js";
+export * from "./types/query/table.js";
+export * from "./types/schema/schema.js";
+export * from "./types/connection/access.js";
+export * from "./types/query/query.js";
+export * from "./types/mutation/mutation.js";
+export * from "./types/schema/ddl.js";
+export * from "./types/connection/health.js";
+export * from "./types/transfer/files.js";
 export * from "./types/console.js";
-export * from "./types/connect.js";
-export * from "./types/csv-import.js";
-export * from "./types/permission-denied.js";
+export * from "./types/connection/connect.js";
+export * from "./types/transfer/csv-import.js";
+export * from "./types/connection/permission-denied.js";
 export * from "./errors.js";
 export * from "./connection-target.js";
 export * from "./pagination.js";

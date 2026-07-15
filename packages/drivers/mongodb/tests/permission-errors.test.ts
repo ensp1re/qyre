@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyMongodbPermissionDenied } from "../src/permission-errors.js";
+import { classifyMongodbPermissionDenied } from "../src/access/permission-errors.js";
 
 describe("classifyMongodbPermissionDenied", () => {
   it("classifies native and wrapped unauthorized errors", () => {

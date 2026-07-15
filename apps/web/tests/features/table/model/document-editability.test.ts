@@ -1,6 +1,6 @@
 import type { ColumnMetadata, ConnectionCapabilities, TableMetadata } from "@qyre/core";
 import { describe, expect, it } from "vitest";
-import { computeDocumentEditability } from "../../../../src/features/table/model/document-editability.js";
+import { computeDocumentEditability } from "../../../../src/features/table/model/documents/document-editability.js";
 
 const WRITABLE_CAPABILITIES: ConnectionCapabilities = {
   supportsSql: false,

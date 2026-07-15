@@ -1,5 +1,5 @@
-import type { ColumnMetadata } from "./types/table.js";
-import type { FilterOp } from "./types/query.js";
+import type { ColumnMetadata } from "./types/query/table.js";
+import type { FilterOp } from "./types/query/query.js";
 
 export type FilterValueInput = "text" | "number" | "boolean" | "date" | "time" | "datetime-local";
 

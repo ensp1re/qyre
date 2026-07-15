@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
-import { permissionRoute } from "../../src/services/permission-denied.js";
+import { permissionRoute } from "../../src/services/access/permission-denied.js";
 import { authHeaders } from "../helpers/auth.js";
 
 /**

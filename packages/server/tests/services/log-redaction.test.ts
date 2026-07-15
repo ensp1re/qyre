@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { redactSensitiveQueryParams } from "../../src/services/log-redaction.js";
+import { redactSensitiveQueryParams } from "../../src/services/observability/log-redaction.js";
 
 describe("redactSensitiveQueryParams (F130)", () => {
   it("masks a token query param", () => {

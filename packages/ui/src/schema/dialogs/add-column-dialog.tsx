@@ -1,6 +1,7 @@
 import { AlertTriangle, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { Select } from "../../primitives/controls/select.js";
 import { useFocusTrap } from "../../primitives/use-focus-trap.js";
 import { coerceDefaultValue, type CreateTableColumnInput } from "./create-table-dialog.js";
 
@@ -103,18 +104,13 @@ export function AddColumnDialog({
         </label>
 
         <div className="flex items-center gap-1.5">
-          <select
+          <Select
             value={dataType}
-            onChange={(event) => setDataType(event.target.value)}
-            aria-label="Column type"
-            className="rounded-[2px] border border-border bg-secondary px-1.5 py-1 font-mono text-[11px] text-foreground outline-none"
-          >
-            {columnTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+            onValueChange={setDataType}
+            label="Column type"
+            options={columnTypes.map((type) => ({ value: type, label: type }))}
+            className="w-40"
+          />
           <label className="flex items-center gap-1 whitespace-nowrap font-mono text-[10px] text-muted-foreground">
             <input
               type="checkbox"

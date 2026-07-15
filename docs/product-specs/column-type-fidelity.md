@@ -69,12 +69,19 @@ the browser-visible raw representation unless the user explicitly changes it; fi
 not mutation controls. In particular, a minute-only time picker cannot author a replacement for a
 value that may contain seconds, fractional precision, or a timezone offset.
 
-The SQL grid therefore uses a mutation-specific capability matrix. `date` remains editable because
-its complete stored representation is preserved. `time`, local timestamp, and timezone timestamp
-remain display-only until a lossless editor has verified round trips for seconds, fractional
-precision, offset/instant semantics, null, invalid input, and DST boundaries on each applicable
-engine. Direct mutation APIs still accept validated exact strings and pass them to the driver
-without a JavaScript `Date` conversion.
+The SQL grid therefore uses a mutation-specific capability matrix. `date`, `time`, local timestamp,
+and timezone timestamp become editable only through exact-string controls that preserve seconds,
+fractional precision, and offsets and have round-trip coverage for null, invalid input, and DST
+boundaries on each applicable engine. Numeric drafts likewise remain decimal strings through the
+browser/server boundary rather than passing through a JavaScript `number`. Direct mutation APIs
+accept these validated exact strings and pass them to the driver without a JavaScript `Date`
+conversion.
+
+JSON/JSONB and supported scalar arrays use a full-value structured editor. JSON is parsed before it
+is staged, serialized exactly once at the server/driver boundary, and never edited through a plain
+single-line text input. PostgreSQL native arrays remain arrays; MySQL and SQLite JSON remain JSON
+rather than being misidentified as native arrays. MongoDB uses the same syntax/formatting/error
+surface in relaxed Extended JSON mode so BSON wrappers remain unambiguous.
 
 ## Scope
 

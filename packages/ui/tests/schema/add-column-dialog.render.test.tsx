@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AddColumnDialog } from "../../src/schema/dialogs/add-column-dialog.js";
+import { chooseSelect } from "../support/select.js";
 
 const POSTGRES_COLUMN_TYPES = ["text", "integer", "boolean"] as const;
 
@@ -37,7 +38,7 @@ describe("AddColumnDialog (component rendering, F114)", () => {
       />
     );
     fireEvent.change(screen.getByLabelText("Column name"), { target: { value: "total" } });
-    fireEvent.change(screen.getByLabelText("Column type"), { target: { value: "integer" } });
+    chooseSelect("Column type", "integer");
     fireEvent.change(screen.getByLabelText("Default value"), { target: { value: "5" } });
     fireEvent.click(screen.getByLabelText("Not null"));
     fireEvent.click(screen.getByRole("button", { name: "Add column" }));

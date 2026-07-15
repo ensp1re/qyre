@@ -103,36 +103,38 @@ describe("RowsTable Add-row / Duplicate-row (component rendering, F104)", () => 
     expect(screen.queryByRole("button", { name: /add row/i })).not.toBeInTheDocument();
   });
 
-  it("clicking Add row stages a blank draft row with an input per insertable column", () => {
+  it("clicking Add row stages a blank draft row with an editor trigger per insertable column", () => {
     render(<TestHost canInsert />);
     fireEvent.click(screen.getByRole("button", { name: /add row/i }));
-    expect(screen.getAllByLabelText("New row value")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Set id" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set name" })).toBeInTheDocument();
   });
 
-  it("typing into a draft cell and blurring stages that column's value", () => {
+  it("typing into a draft cell and applying stages that column's value", () => {
     render(<TestHost canInsert />);
     fireEvent.click(screen.getByRole("button", { name: /add row/i }));
-    const [nameInput] = screen.getAllByLabelText("New row value").slice(-1);
+    fireEvent.click(screen.getByRole("button", { name: "Set name" }));
+    const nameInput = screen.getByLabelText("New row value");
     fireEvent.change(nameInput as HTMLElement, { target: { value: "Grace" } });
-    fireEvent.blur(nameInput as HTMLElement);
-    expect((nameInput as HTMLInputElement).value).toBe("Grace");
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(screen.getByRole("button", { name: "Edit name" })).toHaveTextContent("Grace");
   });
 
   it("discarding a draft row removes its inputs", () => {
     render(<TestHost canInsert />);
     fireEvent.click(screen.getByRole("button", { name: /add row/i }));
-    expect(screen.getAllByLabelText("New row value")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Set id" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set name" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Discard new row" }));
-    expect(screen.queryByLabelText("New row value")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set id" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set name" })).not.toBeInTheDocument();
   });
 
   it("Duplicate row pre-fills a new draft from the source row, excluding the primary key", () => {
     render(<TestHost canInsert />);
     fireEvent.click(screen.getByRole("button", { name: "Duplicate row 1" }));
-    const inputs = screen.getAllByLabelText("New row value");
-    // id (PK, excluded) has no input value pre-filled; name does.
-    const values = inputs.map((input) => (input as HTMLInputElement).value);
-    expect(values).toContain("Ada");
+    expect(screen.getByRole("button", { name: "Edit name" })).toHaveTextContent("Ada");
+    expect(screen.getByRole("button", { name: "Set id" })).toBeInTheDocument();
   });
 
   it("hides the Duplicate row action when canInsert is false", () => {
@@ -143,6 +145,7 @@ describe("RowsTable Add-row / Duplicate-row (component rendering, F104)", () => 
   it("does not render an input for a non-insertable column on a draft row", () => {
     render(<TestHost canInsert insertableColumns={new Set(["id"])} />);
     fireEvent.click(screen.getByRole("button", { name: /add row/i }));
-    expect(screen.getAllByLabelText("New row value")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Set id" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set name" })).not.toBeInTheDocument();
   });
 });

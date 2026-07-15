@@ -1,5 +1,7 @@
-import type { MutationOp, TableMetadata } from "@qyre/core";
+import type { ColumnMetadata, DatabaseEngine, MutationOp, TableMetadata } from "@qyre/core";
 import { classifyFilterColumnKind, type FilterColumnKind } from "@qyre/core/filter-capabilities";
+import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
+import { isExactNumericText, validateMutationValue } from "@qyre/core/mutation-editor-values";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 
 function badRequest(message: string): Error {
@@ -25,14 +27,8 @@ export function assertMutable(
   }
 }
 
-/**
- * Coerces one value against its column's `FilterColumnKind` (reused from F082/F089, not
- * reimplemented - docs/product-specs/row-editing.md), matching the exact rules the spec fixes:
- * JSON-typed values only (a `numeric` column rejects a numeric *string*, unlike `RowFilter.value`,
- * which is always a URL query string), date/time/datetime pass through as the validated ISO string
- * (the driver owns the actual conversion), and structured/binary/unknown/null-kind columns are
- * never accepted here.
- */
+/** MongoDB row keys still use the filter classifier because `_id` is sampled metadata and may
+ * require ObjectId validation. SQL mutation values use the richer typed-editor contract below. */
 function coerceRowValue(
   kind: FilterColumnKind,
   value: unknown,
@@ -49,7 +45,9 @@ function coerceRowValue(
       if (typeof value !== "string") throw badRequest(`Column "${columnName}" expects a string.`);
       return value;
     case "numeric":
-      if (typeof value !== "number") throw badRequest(`Column "${columnName}" expects a number.`);
+      if (typeof value !== "number" && !(typeof value === "string" && isExactNumericText(value))) {
+        throw badRequest(`Column "${columnName}" expects an exact number.`);
+      }
       return value;
     case "boolean":
       if (typeof value !== "boolean") throw badRequest(`Column "${columnName}" expects a boolean.`);
@@ -74,6 +72,35 @@ function coerceRowValue(
   }
 }
 
+function resolveEditableValue(
+  column: ColumnMetadata,
+  value: unknown,
+  engine: DatabaseAdapter["engine"]
+): unknown {
+  if (value === null) {
+    if (!column.nullable) throw badRequest(`Column "${column.name}" is not nullable.`);
+    return null;
+  }
+
+  const metadata = {
+    allowedValues: column.allowedValues,
+    elementDataType: column.elementDataType
+  };
+  const databaseEngine = engine as DatabaseEngine;
+  const capability = mutationEditorCapability(column.dataType, databaseEngine, metadata);
+  if (!capability.editable) {
+    throw badRequest(
+      `Column "${column.name}" is not editable. ${capability.unavailableReason ?? ""}`.trim()
+    );
+  }
+  const result = validateMutationValue(capability, value, databaseEngine, metadata);
+  if (!result.valid) throw badRequest(`Column "${column.name}": ${result.error}`);
+
+  if (capability.widget === "json") return JSON.stringify(result.value);
+  if (capability.widget === "set") return (result.value as string[]).join(",");
+  return result.value;
+}
+
 /**
  * Validates/coerces a column -> value map against the table's real introspected columns before an
  * adapter is ever called - the actual injection surface, since a column name is a raw identifier a
@@ -95,8 +122,7 @@ function resolveColumnValues(
     if (rejectPrimaryKey && column.isPrimaryKey) {
       throw badRequest(`Column "${columnName}" is part of the primary key and cannot be changed.`);
     }
-    const kind = classifyFilterColumnKind(column.dataType, engine);
-    resolved[columnName] = coerceRowValue(kind, rawValue, column.nullable, columnName);
+    resolved[columnName] = resolveEditableValue(column, rawValue, engine);
   }
   return resolved;
 }
@@ -166,8 +192,12 @@ export function resolveKey(
     if (key[column.name] === null) {
       throw badRequest("Rows with a NULL primary key cannot be targeted.");
     }
-    const kind = classifyFilterColumnKind(column.dataType, engine);
-    resolved[column.name] = coerceRowValue(kind, key[column.name], column.nullable, column.name);
+    if (engine === "mongodb") {
+      const kind = classifyFilterColumnKind(column.dataType, engine);
+      resolved[column.name] = coerceRowValue(kind, key[column.name], column.nullable, column.name);
+    } else {
+      resolved[column.name] = resolveEditableValue(column, key[column.name], engine);
+    }
   }
   return resolved;
 }

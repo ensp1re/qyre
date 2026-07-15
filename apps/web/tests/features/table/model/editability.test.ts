@@ -30,12 +30,12 @@ const EDITABLE_TABLE: TableMetadata = {
 };
 
 describe("computeTableEditability (F103)", () => {
-  it("allows editing a table with full write access, excluding the primary key and structured columns", () => {
+  it("allows editing a table with full write access, excluding the primary key", () => {
     const result = computeTableEditability(EDITABLE_TABLE, WRITABLE_CAPABILITIES, "postgres");
     expect(result.editable).toBe(true);
     expect(result.editableColumns.has("name")).toBe(true);
     expect(result.editableColumns.has("id")).toBe(false);
-    expect(result.editableColumns.has("tags")).toBe(false);
+    expect(result.editableColumns.has("tags")).toBe(true);
   });
 
   it("disables editing entirely for MongoDB - its editing surface is F125's document editor", () => {
@@ -101,7 +101,7 @@ describe("computeTableEditability (F103)", () => {
     ["mysql", "datetime(6)"],
     ["mysql", "time(6)"],
     ["sqlite", "TIMESTAMP"]
-  ] as const)("fails closed for %s %s columns", (engine, dataType) => {
+  ] as const)("keeps exact temporal editing available for %s %s columns", (engine, dataType) => {
     const table: TableMetadata = {
       ...EDITABLE_TABLE,
       columns: [
@@ -116,8 +116,8 @@ describe("computeTableEditability (F103)", () => {
       ]
     };
     const result = computeTableEditability(table, WRITABLE_CAPABILITIES, engine);
-    expect(result.editableColumns.has("temporal_value")).toBe(false);
-    expect(result.insertableColumns.has("temporal_value")).toBe(false);
+    expect(result.editableColumns.has("temporal_value")).toBe(true);
+    expect(result.insertableColumns.has("temporal_value")).toBe(true);
   });
 
   it.each(["postgres", "mysql", "sqlite"] as const)(
@@ -144,12 +144,12 @@ describe("computeTableEditability (F103)", () => {
 });
 
 describe("computeTableEditability insert gating (F104)", () => {
-  it("allows insert with full write access, including the primary key but excluding structured columns", () => {
+  it("allows insert with full write access, including the primary key and structured columns", () => {
     const result = computeTableEditability(EDITABLE_TABLE, WRITABLE_CAPABILITIES, "postgres");
     expect(result.canInsert).toBe(true);
     expect(result.insertableColumns.has("id")).toBe(true);
     expect(result.insertableColumns.has("name")).toBe(true);
-    expect(result.insertableColumns.has("tags")).toBe(false);
+    expect(result.insertableColumns.has("tags")).toBe(true);
   });
 
   it("allows insert independently of update permission", () => {

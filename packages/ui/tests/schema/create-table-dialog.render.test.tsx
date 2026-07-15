@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CreateTableDialog } from "../../src/schema/dialogs/create-table-dialog.js";
+import { chooseSelect } from "../support/select.js";
 
 const POSTGRES_COLUMN_TYPES = ["text", "integer", "boolean"] as const;
 
@@ -18,7 +19,7 @@ describe("CreateTableDialog (component rendering, F113)", () => {
     expect(screen.getByText("New table")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("my_table")).toBeInTheDocument();
     expect(screen.getByLabelText("Column name")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Schema" })).toHaveValue("public");
+    expect(screen.getByRole("combobox", { name: "Schema" })).toHaveTextContent("public");
   });
 
   it("offers every schema and reports a changed target", () => {
@@ -36,13 +37,13 @@ describe("CreateTableDialog (component rendering, F113)", () => {
     );
 
     const schemaSelect = screen.getByRole("combobox", { name: "Schema" });
-    expect(schemaSelect).toHaveValue("public");
-    expect(
-      within(schemaSelect)
-        .getAllByRole("option")
-        .map((option) => option.textContent)
-    ).toEqual(["analytics", "public"]);
-    fireEvent.change(schemaSelect, { target: { value: "analytics" } });
+    expect(schemaSelect).toHaveTextContent("public");
+    fireEvent.click(schemaSelect);
+    expect(screen.getAllByRole("option").map((option) => option.textContent?.trim())).toEqual([
+      "analytics",
+      "public"
+    ]);
+    fireEvent.click(screen.getByRole("option", { name: "analytics" }));
     expect(onSchemaChange).toHaveBeenCalledWith("analytics");
   });
 
@@ -131,7 +132,7 @@ describe("CreateTableDialog (component rendering, F113)", () => {
     );
     fireEvent.change(screen.getByPlaceholderText("my_table"), { target: { value: "orders" } });
     fireEvent.change(screen.getByLabelText("Column name"), { target: { value: "total" } });
-    fireEvent.change(screen.getByLabelText("Column type"), { target: { value: "integer" } });
+    chooseSelect("Column type", "integer");
     fireEvent.change(screen.getByLabelText("Default value"), { target: { value: "5" } });
     fireEvent.click(screen.getByRole("button", { name: "Create table" }));
 

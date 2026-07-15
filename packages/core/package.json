@@ -17,6 +17,10 @@
       "types": "./dist/mutation/editor-capabilities.d.ts",
       "import": "./dist/mutation/editor-capabilities.js"
     },
+    "./mutation-editor-values": {
+      "types": "./dist/mutation/editor-values.d.ts",
+      "import": "./dist/mutation/editor-values.js"
+    },
     "./csv-import": {
       "types": "./dist/csv-import.d.ts",
       "import": "./dist/csv-import.js"

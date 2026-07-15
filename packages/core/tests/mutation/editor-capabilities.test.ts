@@ -3,21 +3,16 @@ import { mutationEditorCapability } from "../../src/mutation/editor-capabilities
 
 describe("mutationEditorCapability", () => {
   it.each([
-    ["postgres", "timestamp without time zone", "timestamp-local"],
-    ["postgres", "timestamp with time zone", "timestamp-time-zone"],
-    ["postgres", "timestamptz", "timestamp-time-zone"],
-    ["mysql", "datetime(6)", "timestamp-local"],
-    ["mysql", "timestamp(6)", "timestamp-local"],
-    ["sqlite", "TIMESTAMP", "timestamp-local"],
-    ["postgres", "time with time zone", "time"],
-    ["mysql", "time(6)", "time"]
-  ] as const)("fails closed for %s %s", (engine, dataType, kind) => {
-    expect(mutationEditorCapability(dataType, engine)).toEqual({
-      kind,
-      editable: false,
-      widget: null,
-      unavailableReason: expect.stringMatching(/seconds.*precision.*timezone/i)
-    });
+    ["postgres", "timestamp without time zone", "timestamp-local", "timestamp"],
+    ["postgres", "timestamp with time zone", "timestamp-time-zone", "timestamp"],
+    ["postgres", "timestamptz", "timestamp-time-zone", "timestamp"],
+    ["mysql", "datetime(6)", "timestamp-local", "timestamp"],
+    ["mysql", "timestamp(6)", "timestamp-local", "timestamp"],
+    ["sqlite", "TIMESTAMP", "timestamp-local", "timestamp"],
+    ["postgres", "time with time zone", "time", "time"],
+    ["mysql", "time(6)", "time", "time"]
+  ] as const)("provides the exact %s %s editor", (engine, dataType, kind, widget) => {
+    expect(mutationEditorCapability(dataType, engine)).toEqual({ kind, editable: true, widget });
   });
 
   it.each([
@@ -25,11 +20,9 @@ describe("mutationEditorCapability", () => {
     ["mysql", "DATE", "date", "date"],
     ["sqlite", "DATE", "date", "date"],
     ["postgres", "uuid", "identifier", "text"],
-    ["postgres", "numeric(20, 4)", "numeric", "number"],
+    ["postgres", "numeric(20, 4)", "numeric", "decimal"],
     ["mysql", "boolean", "boolean", "boolean"],
-    ["sqlite", "TEXT", "text", "text"],
-    ["mysql", "enum('draft','live')", "enum", "text"],
-    ["mysql", "set('a','b')", "set", "text"]
+    ["sqlite", "TEXT", "text", "multiline"]
   ] as const)("provides the safe %s %s editor", (engine, dataType, kind, widget) => {
     expect(mutationEditorCapability(dataType, engine)).toEqual({
       kind,
@@ -38,16 +31,43 @@ describe("mutationEditorCapability", () => {
     });
   });
 
+  it("uses authoritative enum and set metadata", () => {
+    expect(
+      mutationEditorCapability("mood", "postgres", { allowedValues: ["happy", "sad"] })
+    ).toMatchObject({ kind: "enum", editable: true, widget: "enum" });
+    expect(
+      mutationEditorCapability("set('a','b')", "mysql", { allowedValues: ["a", "b"] })
+    ).toMatchObject({ kind: "set", editable: true, widget: "set" });
+  });
+
+  it("fails closed when enum options are missing", () => {
+    expect(mutationEditorCapability("enum", "mysql")).toMatchObject({
+      kind: "enum",
+      editable: false,
+      widget: null
+    });
+  });
+
   it.each([
-    ["jsonb", "structured"],
-    ["text[]", "structured"],
     ["bytea", "binary"],
+    ["xml", "structured"],
     ["geography", "unknown"]
   ] as const)("fails closed for unsupported %s values", (dataType, kind) => {
     const capability = mutationEditorCapability(dataType, "postgres");
     expect(capability.kind).toBe(kind);
     expect(capability.editable).toBe(false);
     expect(capability.unavailableReason).toBeTruthy();
+  });
+
+  it("provides dedicated JSON and PostgreSQL array editors", () => {
+    expect(mutationEditorCapability("jsonb", "postgres")).toMatchObject({
+      editable: true,
+      widget: "json"
+    });
+    expect(
+      mutationEditorCapability("ARRAY", "postgres", { elementDataType: "text" })
+    ).toMatchObject({ editable: true, widget: "array" });
+    expect(mutationEditorCapability("ARRAY", "sqlite")).toMatchObject({ editable: false });
   });
 
   it("keeps MongoDB on its whole-document editing surface", () => {

@@ -100,9 +100,28 @@ chart/graph is ever added rather than inventing new hues.
 - Search-and-highlight in the sidebar tree: matched substrings wrapped in `<mark>` with a tinted
   `--c-blue` background - matching nodes force their ancestor path open.
 
-## Explicitly out of scope for this design system
+## Shared control contract
 
-- Any control implying a write/mutation (the source mock's "Add row" button, row-selection
-  checkboxes as a bulk-edit affordance) - Qyre is read-only (`docs/PRODUCT_SENSE.md`,
-  `docs/SECURITY.md`). Port the surrounding UI, drop or repurpose write-shaped controls; never wire
-  them to a real mutating action.
+Qyre's compact Button, IconButton, Field, Select/Combobox, and editor-action primitives live in
+`packages/ui`; feature components compose them instead of restating padding, radii, disabled
+opacity, focus rings, loading treatment, or icon sizing. Buttons support primary, secondary,
+outline, ghost, and destructive intent at the dense 11px control size. Icon-only controls require
+an accessible label and retain a practical pointer target without visually inflating the IDE chrome.
+
+Select/Combobox is themed application UI, never the browser's default `<select>`. Its trigger uses
+labelled combobox semantics and its portalled popup uses listbox/option semantics, viewport
+collision handling, scrolling, disabled options, typeahead, Arrow keys, Home/End, Enter, Escape,
+and focus restoration. A native select remains acceptable only in non-interactive generated
+documents, never in the web application.
+
+Mutation editors use these same controls. Validation is associated with its field through
+`aria-describedby`/`aria-invalid`; destructive and loading states use semantic variants rather than
+one-off colors. Full-value JSON/array/EJSON editors provide a monospace editing surface, explicit
+Format and Apply actions, error location, and visible original/draft values.
+
+## Mutation guardrail
+
+Qyre now supports role-aware writes. Mutation controls render only when connected-user grants,
+table permissions, and the hard `--read-only` override all allow the action. The design system owns
+their visual and interaction consistency; it never weakens those capability gates or turns a
+disabled write into an optimistic client-side assumption.

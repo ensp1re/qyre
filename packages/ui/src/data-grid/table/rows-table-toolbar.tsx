@@ -7,6 +7,7 @@ import type {
 } from "@qyre/core";
 import { Copy, Download, FileUp, Lock, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { Select } from "../../primitives/controls/select.js";
 import { FilterBar } from "./filter-bar.js";
 import { exportFormatLabel } from "./row-export.js";
 
@@ -170,18 +171,16 @@ export function RowsTableToolbar({
         {!canExportSelectedRows && onExportAllRows && activeExportFormat && (
           <div className="flex items-center gap-1">
             {exportFormats.length > 1 && (
-              <select
+              <Select
                 value={activeExportFormat}
-                onChange={(event) => onExportFormatChange(event.target.value as RowExportFormat)}
-                aria-label="Export format"
-                className="rounded-[3px] border border-border bg-card px-1.5 py-1 font-mono text-[10px] text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus:border-ring"
-              >
-                {exportFormats.map((format) => (
-                  <option key={format} value={format}>
-                    {exportFormatLabel(format, jsonExportMode)}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(value) => onExportFormatChange(value as RowExportFormat)}
+                label="Export format"
+                options={exportFormats.map((format) => ({
+                  value: format,
+                  label: exportFormatLabel(format, jsonExportMode)
+                }))}
+                className="min-h-6 w-24 bg-card py-0.5"
+              />
             )}
             <button
               type="button"

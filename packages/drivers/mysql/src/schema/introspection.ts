@@ -19,6 +19,41 @@ function mapTableTypeToTableKind(tableType: string): TableKind {
   return tableType === "VIEW" ? "view" : "table";
 }
 
+function parseAllowedValues(columnType: string): string[] | undefined {
+  if (!/^(?:enum|set)\(/i.test(columnType)) return undefined;
+  const body = columnType.slice(columnType.indexOf("(") + 1, -1);
+  const values: string[] = [];
+  let current = "";
+  let quoted = false;
+  let escaped = false;
+  for (let index = 0; index < body.length; index += 1) {
+    const character = body[index];
+    if (!character) continue;
+    if (escaped) {
+      current += character;
+      escaped = false;
+    } else if (character === "\\") {
+      escaped = true;
+    } else if (character === "'" && quoted && body[index + 1] === "'") {
+      current += "'";
+      index += 1;
+    } else if (character === "'") {
+      quoted = !quoted;
+    } else if (character === "," && !quoted) {
+      values.push(current);
+      current = "";
+    } else if (quoted) {
+      current += character;
+    }
+  }
+  values.push(current);
+  return values;
+}
+
+function columnMetadataType(dataType: string, columnType: string): string {
+  return dataType === "enum" || dataType === "set" ? columnType : dataType;
+}
+
 async function fetchAllTableTargets(pool: mysql.Pool): Promise<TableTarget[]> {
   const [rows] = await pool.query<mysql.RowDataPacket[]>(
     `SELECT table_schema AS table_schema, table_name AS table_name, table_type AS table_type
@@ -71,7 +106,7 @@ async function fetchIndexes(
 async function fetchAllColumns(pool: mysql.Pool): Promise<Map<string, ColumnMetadata[]>> {
   const [columnsResult] = await pool.query<mysql.RowDataPacket[]>(
     `SELECT table_schema AS table_schema, table_name AS table_name, column_name AS column_name,
-            data_type AS data_type, is_nullable AS is_nullable
+            data_type AS data_type, column_type AS column_type, is_nullable AS is_nullable
        FROM information_schema.columns
       WHERE table_schema NOT IN (?, ?, ?, ?)
       ORDER BY table_schema, table_name, ordinal_position`,
@@ -132,6 +167,7 @@ async function fetchAllColumns(pool: mysql.Pool): Promise<Map<string, ColumnMeta
     table_name: string;
     column_name: string;
     data_type: string;
+    column_type: string;
     is_nullable: "YES" | "NO";
   }>) {
     const key = tableKey(row.table_schema, row.table_name);
@@ -140,7 +176,8 @@ async function fetchAllColumns(pool: mysql.Pool): Promise<Map<string, ColumnMeta
     const columns = columnsByTable.get(key) ?? [];
     columns.push({
       name: row.column_name,
-      dataType: row.data_type,
+      dataType: columnMetadataType(row.data_type, row.column_type),
+      allowedValues: parseAllowedValues(row.column_type),
       nullable: row.is_nullable === "YES",
       isPrimaryKey: primaryKeys?.has(row.column_name) ?? false,
       isForeignKey: foreignKeys?.has(row.column_name) ?? false,
@@ -232,7 +269,8 @@ export async function introspectTable(
   table: string
 ): Promise<TableMetadata> {
   const [columnsResult] = await pool.query<mysql.RowDataPacket[]>(
-    `SELECT column_name AS column_name, data_type AS data_type, is_nullable AS is_nullable
+    `SELECT column_name AS column_name, data_type AS data_type, column_type AS column_type,
+            is_nullable AS is_nullable
        FROM information_schema.columns
       WHERE table_schema = ? AND table_name = ?
       ORDER BY ordinal_position`,
@@ -274,10 +312,16 @@ export async function introspectTable(
     ])
   );
   const columns: ColumnMetadata[] = (
-    columnsResult as Array<{ column_name: string; data_type: string; is_nullable: "YES" | "NO" }>
+    columnsResult as Array<{
+      column_name: string;
+      data_type: string;
+      column_type: string;
+      is_nullable: "YES" | "NO";
+    }>
   ).map((row) => ({
     name: row.column_name,
-    dataType: row.data_type,
+    dataType: columnMetadataType(row.data_type, row.column_type),
+    allowedValues: parseAllowedValues(row.column_type),
     nullable: row.is_nullable === "YES",
     isPrimaryKey: primaryKeys.has(row.column_name),
     isForeignKey: foreignKeyReferences.has(row.column_name),

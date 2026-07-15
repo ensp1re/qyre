@@ -119,7 +119,7 @@ export function computeTableEditability(
   const canDelete = tableAllows(table.permissions, "delete");
 
   const mutationEditableColumns = table.columns.filter(
-    (column) => mutationEditorCapability(column.dataType, engine).editable
+    (column) => mutationEditorCapability(column.dataType, engine, column).editable
   );
 
   const editableColumns = canUpdate

@@ -11,6 +11,12 @@ export interface ForeignKeyReference {
 export interface ColumnMetadata {
   readonly name: string;
   readonly dataType: string;
+  /** Authoritative enum/set members when the engine catalog exposes a closed value set. Missing
+   * means the UI must not guess options from display text. */
+  readonly allowedValues?: readonly string[];
+  /** Native array element type when the engine exposes it (PostgreSQL). JSON arrays do not use
+   * this field because they remain JSON values rather than native SQL arrays. */
+  readonly elementDataType?: string;
   readonly nullable: boolean;
   readonly isPrimaryKey: boolean;
   readonly isForeignKey: boolean;

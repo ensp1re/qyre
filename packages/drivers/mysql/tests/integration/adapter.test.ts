@@ -141,6 +141,28 @@ describe("MysqlAdapter integration", () => {
     expect(table.rowCount).toBe(FIXTURE.rowCount);
   });
 
+  it("reports ENUM and SET choices for typed editors", async () => {
+    const pool = mysql.createPool(databaseUrl);
+    try {
+      await pool.query("DROP TABLE IF EXISTS qyre_test_choices");
+      await pool.query(
+        "CREATE TABLE qyre_test_choices (id INT PRIMARY KEY, status ENUM('draft','ready'), flags SET('one','two'))"
+      );
+      const table = await adapter.getTable(databaseName, "qyre_test_choices");
+      expect(table.columns.find((column) => column.name === "status")).toMatchObject({
+        dataType: "enum('draft','ready')",
+        allowedValues: ["draft", "ready"]
+      });
+      expect(table.columns.find((column) => column.name === "flags")).toMatchObject({
+        dataType: "set('one','two')",
+        allowedValues: ["one", "two"]
+      });
+    } finally {
+      await pool.query("DROP TABLE IF EXISTS qyre_test_choices");
+      await pool.end();
+    }
+  });
+
   it("reports the connected engine's name and version", async () => {
     expect(await adapter.getVersion()).toMatch(/^MySQL \d/);
   });

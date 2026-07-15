@@ -112,10 +112,10 @@ describe("resolveInsertValues (F099)", () => {
     expect(
       resolveInsertValues(
         SQL_TABLE,
-        { id: 1, name: "Ada", active: true, created_at: "2024-01-01T00:00:00.000Z" },
+        { id: 1, name: "Ada", active: true, created_at: "2024-01-01 00:00:00.000" },
         "postgres"
       )
-    ).toEqual({ id: 1, name: "Ada", active: true, created_at: "2024-01-01T00:00:00.000Z" });
+    ).toEqual({ id: 1, name: "Ada", active: true, created_at: "2024-01-01 00:00:00.000" });
   });
 
   it("rejects an unknown column", () => {
@@ -124,8 +124,14 @@ describe("resolveInsertValues (F099)", () => {
     );
   });
 
-  it("rejects a numeric string for a numeric column (JSON number required, unlike RowFilter)", () => {
-    expect(() => resolveInsertValues(SQL_TABLE, { id: "1" }, "postgres")).toThrow(
+  it("preserves an exact numeric string instead of rounding through JavaScript", () => {
+    expect(resolveInsertValues(SQL_TABLE, { id: "9007199254740993" }, "postgres")).toEqual({
+      id: "9007199254740993"
+    });
+  });
+
+  it("rejects a malformed exact numeric string", () => {
+    expect(() => resolveInsertValues(SQL_TABLE, { id: "1.2.3" }, "postgres")).toThrow(
       expect.objectContaining({ statusCode: 400 })
     );
   });
@@ -158,10 +164,23 @@ describe("resolveInsertValues (F099)", () => {
     );
   });
 
-  it("rejects a structured (jsonb) column - not editable via the flat map", () => {
-    expect(() => resolveInsertValues(SQL_TABLE, { tags: ["a"] }, "postgres")).toThrow(
-      expect.objectContaining({ statusCode: 400 })
-    );
+  it("validates and serializes JSON exactly once", () => {
+    expect(resolveInsertValues(SQL_TABLE, { tags: ["a", { nested: true }] }, "postgres")).toEqual({
+      tags: '["a",{"nested":true}]'
+    });
+  });
+
+  it("preserves a precision-bearing timestamp string", () => {
+    const timestamp = "2024-11-03 01:30:45.123456";
+    expect(resolveInsertValues(SQL_TABLE, { created_at: timestamp }, "postgres")).toEqual({
+      created_at: timestamp
+    });
+  });
+
+  it("rejects a local timestamp carrying an unexpected timezone offset", () => {
+    expect(() =>
+      resolveInsertValues(SQL_TABLE, { created_at: "2024-11-03 01:30:45.123456-04:00" }, "postgres")
+    ).toThrow(expect.objectContaining({ statusCode: 400 }));
   });
 
   it("skips per-column validation entirely for MongoDB - passes the body through as-is", () => {

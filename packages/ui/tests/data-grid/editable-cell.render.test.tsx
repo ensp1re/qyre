@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { EditableCell } from "../../src/data-grid/cells/editable-cell.js";
+import { chooseSelect } from "../support/select.js";
 
 describe("EditableCell (component rendering, F103)", () => {
   it("renders the display value as plain text when not editing", () => {
@@ -83,6 +84,53 @@ describe("EditableCell (component rendering, F103)", () => {
     expect(onCommit).toHaveBeenCalledWith("Grace");
   });
 
+  it("keeps Enter for multiline text and applies with Ctrl/Cmd+Enter", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="text"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText("Ada"));
+    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.change(input, { target: { value: "Grace\nHopper" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
+    expect(onCommit).toHaveBeenCalledWith("Grace\nHopper");
+  });
+
+  it("keeps structured inspection and editing as distinct actions", () => {
+    const value = { account: { active: true } };
+    const onInspect = vi.fn();
+    render(
+      <EditableCell
+        columnName="profile"
+        displayValue={value}
+        dataType="jsonb"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onInspect={onInspect}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "{ 1 key }" }));
+    expect(onInspect).toHaveBeenCalledWith(value);
+    expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
+    expect(screen.getByRole("textbox", { name: "New value" })).toBeInTheDocument();
+  });
+
   it("Escape cancels the edit without committing", () => {
     const onCommit = vi.fn();
     render(
@@ -146,10 +194,10 @@ describe("EditableCell (component rendering, F103)", () => {
     );
     fireEvent.click(screen.getByText("Ada"));
     expect(screen.getByTestId("cell-editor-anchor")).toHaveClass("relative", "h-5");
-    expect(screen.getByTestId("cell-editor-surface")).toHaveClass("absolute");
+    expect(screen.getByTestId("cell-editor-surface")).toHaveClass("fixed");
   });
 
-  it("keeps a precision-bearing timestamp exact and read-only", () => {
+  it("edits a precision-bearing timestamp without normalizing it", () => {
     const onCommit = vi.fn();
     const value = "2024-11-03 01:30:45.123456-04:00";
     render(
@@ -163,14 +211,12 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    const display = screen.getByText(value);
-    fireEvent.click(display);
-    expect(display).toHaveAttribute(
-      "title",
-      expect.stringMatching(/seconds.*precision.*timezone/i)
-    );
-    expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
-    expect(onCommit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText(value));
+    const input = screen.getByLabelText("Edit cell value");
+    expect(input).toHaveValue(value);
+    fireEvent.change(input, { target: { value: "2024-11-03 01:30:45.123457-04:00" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith("2024-11-03 01:30:45.123457-04:00");
   });
 
   it("commits a valid number and cancels on an invalid one, for a numeric column", () => {
@@ -189,7 +235,7 @@ describe("EditableCell (component rendering, F103)", () => {
     const input = screen.getByLabelText("Edit cell value");
     fireEvent.change(input, { target: { value: "42" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(onCommit).toHaveBeenCalledWith(42);
+    expect(onCommit).toHaveBeenCalledWith("42");
   });
 
   it("shows true/false/null buttons for a boolean column, and commits the picked value", () => {
@@ -205,9 +251,9 @@ describe("EditableCell (component rendering, F103)", () => {
       />
     );
     fireEvent.click(screen.getByText("true"));
-    expect(screen.getByRole("button", { name: "false" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "null" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "false" }));
+    chooseSelect("Edit cell value", "false");
+    expect(screen.getByRole("button", { name: "NULL" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onCommit).toHaveBeenCalledWith(false);
   });
 
@@ -223,7 +269,7 @@ describe("EditableCell (component rendering, F103)", () => {
       />
     );
     fireEvent.click(screen.getByText("true"));
-    expect(screen.queryByRole("button", { name: "null" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
   });
 
   it("commits an explicit empty string for a nullable text column, instead of cancelling (F140/U2)", () => {
@@ -258,7 +304,8 @@ describe("EditableCell (component rendering, F103)", () => {
       />
     );
     fireEvent.click(screen.getByText("Ada"));
-    fireEvent.click(screen.getByRole("button", { name: "null" }));
+    fireEvent.click(screen.getByRole("button", { name: "NULL" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onCommit).toHaveBeenCalledWith(null);
   });
 
@@ -274,10 +321,10 @@ describe("EditableCell (component rendering, F103)", () => {
       />
     );
     fireEvent.click(screen.getByText("Ada"));
-    expect(screen.queryByRole("button", { name: "null" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
   });
 
-  it("shows a null button for a nullable numeric column, still cancelling on an empty draft (F140/U2)", () => {
+  it("keeps an invalid empty numeric draft open, then permits an explicit NULL (F140/U2)", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -294,14 +341,14 @@ describe("EditableCell (component rendering, F103)", () => {
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onCommit).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Edit cell value")).toHaveAttribute("aria-invalid", "true");
 
-    fireEvent.click(screen.getByText("1"));
-    fireEvent.click(screen.getByRole("button", { name: "null" }));
+    fireEvent.click(screen.getByRole("button", { name: "NULL" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onCommit).toHaveBeenCalledWith(null);
   });
 
-  it("rejects an integer draft beyond Number.MAX_SAFE_INTEGER instead of silently rounding it (F140/U5)", () => {
+  it("commits an integer draft beyond Number.MAX_SAFE_INTEGER as exact text (F140/U5)", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -318,10 +365,7 @@ describe("EditableCell (component rendering, F103)", () => {
     fireEvent.change(input, { target: { value: "9007199254740993" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
-    expect(onCommit).not.toHaveBeenCalled();
-    // Still in edit mode - a rejection, not a silent cancel.
-    expect(screen.getByLabelText("Edit cell value")).toBeInTheDocument();
-    expect(screen.getByLabelText("Edit cell value")).toHaveAttribute("aria-invalid", "true");
+    expect(onCommit).toHaveBeenCalledWith("9007199254740993");
   });
 
   it("commits a safe-integer bigint value normally", () => {
@@ -340,7 +384,7 @@ describe("EditableCell (component rendering, F103)", () => {
     const input = screen.getByLabelText("Edit cell value");
     fireEvent.change(input, { target: { value: "42" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(onCommit).toHaveBeenCalledWith(42);
+    expect(onCommit).toHaveBeenCalledWith("42");
   });
 
   it("Escape cancels a date editor without committing (F140/U4)", () => {

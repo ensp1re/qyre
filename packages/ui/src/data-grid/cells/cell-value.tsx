@@ -129,6 +129,8 @@ function InspectChip({
     <button
       type="button"
       onClick={onClick}
+      aria-label={summary}
+      title={`Inspect ${summary}`}
       className="flex max-w-[280px] items-center gap-1 whitespace-nowrap rounded-[2px] border border-border bg-accent/40 px-1.5 py-px text-[10px] text-muted-foreground hover:border-primary/50 hover:text-foreground"
     >
       <Icon className="h-2.5 w-2.5 shrink-0" style={{ color: "var(--c-amber)" }} />

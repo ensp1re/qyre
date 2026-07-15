@@ -232,6 +232,22 @@ describe("resolveKey (F100)", () => {
     );
   });
 
+  it("rejects a NULL primary-key value with an explicit targeting error (F137)", () => {
+    const nullablePrimaryKeyTable: TableMetadata = {
+      ...SQL_TABLE,
+      columns: SQL_TABLE.columns.map((column) =>
+        column.name === "id" ? { ...column, dataType: "TEXT", nullable: true } : column
+      )
+    };
+
+    expect(() => resolveKey(nullablePrimaryKeyTable, { id: null }, "sqlite")).toThrow(
+      expect.objectContaining({
+        statusCode: 400,
+        message: "Rows with a NULL primary key cannot be targeted."
+      })
+    );
+  });
+
   it("resolves MongoDB's single-field _id key via the same generic column logic", () => {
     expect(resolveKey(MONGO_TABLE, { _id: "507f1f77bcf86cd799439011" }, "mongodb")).toEqual({
       _id: "507f1f77bcf86cd799439011"

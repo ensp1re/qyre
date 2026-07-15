@@ -163,6 +163,9 @@ export function resolveKey(
     if (!(column.name in key)) {
       throw badRequest(`Primary key column "${column.name}" is required.`);
     }
+    if (key[column.name] === null) {
+      throw badRequest("Rows with a NULL primary key cannot be targeted.");
+    }
     const kind = classifyFilterColumnKind(column.dataType, engine);
     resolved[column.name] = coerceRowValue(kind, key[column.name], column.nullable, column.name);
   }

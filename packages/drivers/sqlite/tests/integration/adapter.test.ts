@@ -30,6 +30,7 @@ describe("SqliteAdapter integration", () => {
       CREATE UNIQUE INDEX idx_qyre_demo_users_email ON qyre_demo_users(email);
       CREATE TABLE qyre_demo_empty (id INTEGER PRIMARY KEY, note TEXT);
       CREATE TABLE qyre_demo_composite (a INTEGER, b INTEGER, PRIMARY KEY (a, b));
+      CREATE TABLE qyre_demo_nullable_key (id TEXT PRIMARY KEY, name TEXT NOT NULL);
       CREATE TABLE qyre_demo_orders (
         id INTEGER PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES qyre_demo_users(id),
@@ -39,6 +40,7 @@ describe("SqliteAdapter integration", () => {
         ('Ada Lovelace', 'ada@example.com'),
         ('Alan Turing', 'alan@example.com'),
         ('Grace Hopper', 'grace@example.com');
+      INSERT INTO qyre_demo_nullable_key (id, name) VALUES (NULL, 'Null key');
     `);
     setup.close();
 
@@ -109,6 +111,15 @@ describe("SqliteAdapter integration", () => {
     const users = await adapter.getTable("main", "qyre_demo_users");
     expect(users.indexes?.some((index) => index.primary)).toBe(false);
     expect(users.columns.find((column) => column.name === "id")?.isPrimaryKey).toBe(true);
+  });
+
+  it("introspects SQLite's nullable non-INTEGER primary key accurately (F137)", async () => {
+    const table = await adapter.getTable("main", "qyre_demo_nullable_key");
+    const idColumn = table.columns.find((column) => column.name === "id");
+    expect(idColumn).toMatchObject({ nullable: true, isPrimaryKey: true });
+
+    const page = await adapter.getRows("main", "qyre_demo_nullable_key", 0, 10);
+    expect(page.rows).toContainEqual({ id: null, name: "Null key" });
   });
 
   it("returns correct columns even when a table/query has zero rows", async () => {

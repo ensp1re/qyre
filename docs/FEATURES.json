@@ -198,7 +198,7 @@
       "id": "F137",
       "behavior": "Close SUGGESTIONS.md V4: a nullable primary-key value (legal in SQLite non-INTEGER PKs) coerces to null in resolveKey and binds into 'pk = ?' in every SQL adapter, which never matches - the mutation reports matched 0 and the UI shows the misleading 'This row was already changed or removed.' Either generate IS NULL for null key values in the adapters' key clauses, or reject null key values at validation (row-mutation-validation.ts) with an explicit 'rows with a NULL primary key cannot be targeted' message; pick one and cover it with a SQLite-backed test.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/sqlite test",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

@@ -6,13 +6,12 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F136-csv-import-error-cap` at `7b5c43e`, based on `main` through merged PR #148
-  (F135).
+- Branch: `feature/F137-null-primary-key-validation`, based on `main` at `264330e` through merged
+  PR #149 (F136).
 - Queue: F114-F121, F128, F129, F130, F131, F132, F133, F134, F135, F139, and F140 are `passing`
-  (merged); F136 is `passing` (pending this branch's PR); F137-F138 and F141-F143 are
-  `not_started` review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code
-  review of apps/web, packages/ui, packages/server, packages/cli); no active feature. `nextIds.F`
-  is 144.
+  (merged); F136 is `passing` (merged); F137 is `active`; F138 and F141-F143 are `not_started`
+  review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
+  packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
 
 ## Completed
 
@@ -37,14 +36,16 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   names (S4); `GET /api/files/content` caps a preview read at 1 MiB (S5); and batch-commit
   introspects each staged table once instead of once per op (V2). See each id's evidence in
   `docs/FEATURES.json` for full reasoning/test detail.
-- F136 (`7b5c43e`, pending PR): closed SUGGESTIONS.md V3 - CSV import's per-row error list is now
-  capped at `CSV_IMPORT_MAX_ERRORS` (100) while `failedRows` still reports the true total, with
-  `CsvImportReport` showing a "Showing the first N of M errors." notice when truncated. See
-  `docs/FEATURES.json`'s F136 evidence.
 
 ## In progress
 
-- No active feature. Plan 0006 is complete.
+- F137: `resolveKey` now rejects any `null` primary-key member with an explicit 400 before an
+  adapter mutation runs. Server unit/route coverage exercises update and delete, and a real SQLite
+  fixture proves the nullable non-`INTEGER` primary-key scenario. Feature verification passed:
+  server 298/298 tests and SQLite 51/51 tests. The complete PR-gate stages also passed in an
+  unprivileged bubblewrap copy: 34/34 check tasks, smoke E2E 11 passed/4 skipped, and full E2E 29
+  passed/43 skipped. The implementation is committed locally on the feature branch.
+- Plan 0006 is complete.
 
 ## Known issues / blockers
 
@@ -76,10 +77,14 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - Local full E2E is fixture-contention-prone under Playwright's `fullyParallel: true`: repeated
   no-retry runs moved transient missing-table/schema/autocomplete failures among unrelated engines;
   the CI configuration's one retry passed the entire gate. Tracked in the tech-debt tracker.
+- This container runs commands as root, so SQLite's 10 chmod/read-only tests cannot observe Unix
+  permission denial. Run the gate as a non-root bubblewrap user here; the same 51-test suite is
+  green there.
+- `gh auth status` reports that the configured `ensp1re` token is invalid, blocking the required
+  normal push, draft PR, and CI wait until GitHub authentication is refreshed.
 
 ## Next steps
 
-- Open/merge F136's PR, then promote the next task from the F137-F138/F141-F143 review-fix queue
-  (see `docs/SUGGESTIONS.md` for each finding's full context). Suggested order: remaining minors
-  (F137, F138, F141, F142); F143 (scalable-structure refactor) last so file moves don't conflict
-  with in-flight fixes.
+- Refresh GitHub authentication, push normally from the verified non-root environment, open F137's
+  draft PR, and wait for CI. Continue with F138/F141-F143 afterward; leave F143 last so file moves
+  do not conflict with in-flight fixes.

@@ -6,9 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F138-cli-input-safety`, based on `main` at `4b98bdc` through merged PR #150
-  (F137).
-- Queue: F128-F137, F139, and F140 are `passing`; F138 is `active`; F141-F143 are `not_started`
+- Branch: `feature/F141-document-fetch-cancellation`, based on `main` at `ddafc95` through merged
+  PR #151 (F138).
+- Queue: F128-F140 are `passing`; F141 is `active`; F142-F143 are `not_started`
   review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
   packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
 
@@ -38,14 +38,17 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - F137 (merged PR #150) rejects nullable primary-key update/delete targets with an explicit 400
   before an adapter mutation runs. Server 298/298 tests, SQLite 51/51 tests, the full local PR gate,
   and both GitHub CI jobs passed; exact evidence is recorded in `docs/FEATURES.json`.
+- F138 (merged PR #151) rejects invalid `--port` values with a friendly Commander error and
+  restores cooked terminal mode before Ctrl-C exits a masked password prompt. The CLI suite, both
+  full local gates, and both GitHub CI jobs passed; exact evidence is in `docs/FEATURES.json`.
 
 ## In progress
 
-- F138: validate `--port` as a decimal integer in the valid listen range with Commander's friendly
-  argument error, and restore cooked terminal mode before Ctrl-C exits a masked password prompt.
-  Implementation is complete: the corrected `@qyre/qyre` feature suite passed 52/52 tests, and
-  `pnpm verify:pr` passed 34/34 checks, smoke E2E (11 passed/4 skipped), and full E2E (29 passed/43
-  skipped).
+- F141: cancel and invalidate the document editor's previous fetch when another document opens,
+  the drawer closes, insert mode opens, or the Tables tab unmounts, so stale completions cannot
+  overwrite the current document text, error, or loading state. The web suite passed 139/139 tests,
+  and `pnpm verify:pr` passed 34/34 checks, smoke E2E (11 passed/4 skipped), and full E2E (29
+  passed/43 skipped).
 - Plan 0006 is complete.
 
 ## Known issues / blockers
@@ -84,5 +87,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Commit and push F138, open its draft PR, and wait for CI. Continue with F141-F143 afterward;
+- Commit and push F141, open its draft PR, and wait for CI. Continue with F142-F143 afterward;
   leave F143 last so file moves do not conflict with in-flight fixes.

@@ -51,6 +51,7 @@ export function createStreamGuidedLoginIO(
             return true;
           }
           if (char === CTRL_C_CHAR) {
+            if (masked && rawModeCapable) input.setRawMode?.(false);
             output.write("\n");
             process.exit(130);
           }

@@ -12,7 +12,7 @@ import { postgresAdapterFactory } from "@qyre/postgres";
 import { describeError, displayTarget, startServer } from "@qyre/server";
 import { sqliteAdapterFactory } from "@qyre/sqlite";
 import chalk from "chalk";
-import { Command } from "commander";
+import { Command, InvalidArgumentError } from "commander";
 import figlet from "figlet";
 import gradient from "gradient-string";
 import open from "open";
@@ -63,6 +63,14 @@ export interface CliArgs {
   readOnly: boolean;
 }
 
+function parsePortFlag(value: string): number {
+  const port = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isInteger(port) || port < 0 || port > 65_535) {
+    throw new InvalidArgumentError("Port must be an integer between 0 and 65535.");
+  }
+  return port;
+}
+
 /** Parse CLI arguments. Throws (via commander) on malformed flags. */
 export function parseArgs(argv: string[]): CliArgs {
   const program = new Command();
@@ -73,7 +81,7 @@ export function parseArgs(argv: string[]): CliArgs {
       "[target]",
       "database connection string (postgres://user:pass@host:5432/db, mysql://user:pass@host:3306/db, mongodb://user:pass@host:27017/db) or a path to a SQLite file (./app.db). Omit to start with no database connected and connect from the browser instead."
     )
-    .option("-p, --port <port>", "port for the local server", (value) => parseInt(value, 10))
+    .option("-p, --port <port>", "port for the local server", parsePortFlag)
     .option(
       "--files-dir <dir>",
       "directory the Files tab may read *.sql files from (opt-in; disabled by default)"

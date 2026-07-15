@@ -94,6 +94,53 @@ describe("computeTableEditability (F103)", () => {
     expect(result.editable).toBe(false);
     expect(result.editableColumns.size).toBe(0);
   });
+
+  it.each([
+    ["postgres", "timestamp with time zone"],
+    ["postgres", "time without time zone"],
+    ["mysql", "datetime(6)"],
+    ["mysql", "time(6)"],
+    ["sqlite", "TIMESTAMP"]
+  ] as const)("fails closed for %s %s columns", (engine, dataType) => {
+    const table: TableMetadata = {
+      ...EDITABLE_TABLE,
+      columns: [
+        ...columns,
+        {
+          name: "temporal_value",
+          dataType,
+          nullable: true,
+          isPrimaryKey: false,
+          isForeignKey: false
+        }
+      ]
+    };
+    const result = computeTableEditability(table, WRITABLE_CAPABILITIES, engine);
+    expect(result.editableColumns.has("temporal_value")).toBe(false);
+    expect(result.insertableColumns.has("temporal_value")).toBe(false);
+  });
+
+  it.each(["postgres", "mysql", "sqlite"] as const)(
+    "keeps lossless date editing available for %s",
+    (engine) => {
+      const table: TableMetadata = {
+        ...EDITABLE_TABLE,
+        columns: [
+          ...columns,
+          {
+            name: "calendar_date",
+            dataType: "date",
+            nullable: true,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]
+      };
+      const result = computeTableEditability(table, WRITABLE_CAPABILITIES, engine);
+      expect(result.editableColumns.has("calendar_date")).toBe(true);
+      expect(result.insertableColumns.has("calendar_date")).toBe(true);
+    }
+  );
 });
 
 describe("computeTableEditability insert gating (F104)", () => {

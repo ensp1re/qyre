@@ -1,10 +1,8 @@
 # Product Contract: Row Editing
 
-Qyre is strictly read-only today (`docs/SECURITY.md`) - no adapter exposes a write path, and every
-route only ever reads. Plan 0006's Phase B turns a session with real database write grants
-(`ConnectionCapabilities.supportsRowMutations`, `docs/product-specs/permissions-and-capabilities.md`)
-into one that can insert, edit, and delete rows, gated by both session- and table-level permissions
-and never available to a `--read-only` session regardless of grants (F096).
+Qyre supports role-aware row writes for connected users whose real database grants allow them.
+`ConnectionCapabilities.supportsRowMutations`, table permissions, and the hard `--read-only`
+override gate every affordance and server route; the database remains the final authority.
 
 This spec is a data-contract and decision spec only, like F090 before it. It fixes the mutation API
 shape every engine's adapter implements (F099-F101), the SQL pending-changes-buffer and batch-commit
@@ -42,16 +40,17 @@ capabilities.md`) **and** the table's own `TablePermissions.insert`/`update`/`de
   case. A row whose key contains `null` cannot be targeted: SQLite permits this for non-`INTEGER`
   primary keys, but SQL equality cannot match the value. Update and delete requests reject it with
   400 `Rows with a NULL primary key cannot be targeted.` before calling the adapter (F137).
-- Non-editable **columns** within an otherwise-editable table: a `structured` or `binary`
-  `FilterColumnKind` (`packages/core/src/filter-capabilities.ts`, F082/F089) is not editable through
-  the flat cell/insert editors this spec covers - the same reasoning that spec already gives for
-  excluding them from scalar filtering (a JSON/array or binary value needs a dedicated editor
-  surface, not a text box) applies identically to editing. `unknown`-kind columns are also excluded
-  - Qyre never guesses a coercion it isn't confident about. A primary-key column is always editable
-    when inserting a new row (it must be supplied, unless the engine auto-generates it - see below) but
-    is **never** editable when updating an existing row - changing a row's identity mid-edit is
-    indistinguishable from "insert a new row and delete the old one" and this spec doesn't support that
-    as a single operation.
+- Non-editable **columns** within an otherwise-editable table are decided by the mutation-specific
+  editor capability matrix, not the filter classifier. Filtering and mutation have different
+  fidelity requirements: a filter may safely accept a coarse search value that would be lossy as a
+  stored replacement. Structured and binary values need dedicated editors, and unknown types stay
+  read-only because Qyre never guesses a coercion. Time and timestamp values are also read-only in
+  the SQL grid until their editor round-trips seconds, fractional precision, and timezone/offset
+  semantics without coercion. A primary-key column is always editable
+  when inserting a new row (it must be supplied, unless the engine auto-generates it - see below) but
+  is **never** editable when updating an existing row - changing a row's identity mid-edit is
+  indistinguishable from "insert a new row and delete the old one" and this spec doesn't support that
+  as a single operation.
 - Auto-generated primary keys (Postgres `serial`/`identity`, MySQL `AUTO_INCREMENT`, SQLite
   `INTEGER PRIMARY KEY` rowid alias) may be omitted on insert; the engine assigns the value and it is
   reported back in the result (see "Mutation API shape" below) rather than guessed client-side.
@@ -161,9 +160,9 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
 
 ### Behavior
 
-- Every column's edit value is validated against the **same** `FilterColumnKind` classification
-  F082/F089 already computes (`classifyFilterColumnKind`, `packages/core/src/filter-capabilities.ts`)
-  - reused, not reimplemented, so a column's filterability and editability agree by construction:
+- Every column's edit value is validated against the mutation contract. The UI's editor capability
+  matrix is deliberately separate from `FilterColumnKind`: filterability must not imply that Qyre
+  can safely author a replacement value.
   - `text` / `identifier`: JSON string.
   - `numeric`: JSON number - **not** a numeric string. Unlike `RowFilter.value` (always a URL query
     string, F072), insert/update bodies are real JSON, so the client sends a real typed number and
@@ -177,6 +176,9 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
     the same "let the driver own type conversion" precedent `column-type-fidelity.md` (F019)
     established for reads, now applied symmetrically to writes, avoiding a manual JS `Date`
     round-trip and the timezone bugs F019 fixed in the first place.
+    The direct API continues to accept exact caller-supplied strings. The SQL grid exposes only
+    `date` editing until the time/timestamp UI has lossless round-trip coverage; it never sends a
+    minute-truncated value merely because a filter-oriented control cannot represent the original.
   - `objectId` (MongoDB only): JSON string, further validated as a syntactically valid 24-hex-char
     ObjectId before the adapter constructs a real `ObjectId` from it.
   - `null`: only accepted when the column is `nullable`; identical to how `RowFilter`'s `isNull`

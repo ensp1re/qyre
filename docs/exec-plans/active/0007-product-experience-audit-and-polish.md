@@ -1,10 +1,10 @@
 # Plan 0007: Product Experience Audit and Coherent UI Polish
 
 Status: Revised plan approved 2026-07-15; DF-10 delivered in draft PR #157 at `c24b1b3`,
-with both CI jobs passing. DF-11 editing integrity is next. No production code changed during the
-audit.
+with both CI jobs passing. DF-11 editing integrity is in delivery verification. No production code
+changed during the audit.
 Owner: current product-design engagement
-Linked feature: DF-10 (`docs/FEATURES.json`)
+Linked features: DF-10 audit (passing), DF-11 editing integrity (active)
 Evidence captured: 2026-07-15
 
 ## Objective
@@ -810,3 +810,15 @@ personal taste.
   DF-11 and implement editing integrity only.
 - 2026-07-15: DF-10 delivered in draft PR #157 at `c24b1b3`; local, pre-push, and both GitHub CI
   gates passed. Current step: activate DF-11.
+- 2026-07-15: Activated DF-11 on `feature/DF-11-editing-integrity`. Corrected the row-editing and
+  type-fidelity contracts before production changes: filtering no longer defines mutation-editor
+  safety, and time/timestamp editing must fail closed until it can preserve precision and offsets.
+- 2026-07-15: Implemented the mutation-specific capability matrix and stable scalar edit activation.
+  Focused core, UI, and web suites passed (69, 371, and 148 tests), UI/web typechecks and builds
+  passed, and the focused writable/read-only E2E run passed. Live Postgres review at 1440, 1024,
+  and 768px confirmed pointer and F2 activation, Escape focus restoration, no row selection from a
+  cell action, unchanged 29.25px row geometry while editing, no page overflow, and no console
+  errors. Current step: full delivery gate and draft PR.
+- 2026-07-15: DF-11 full `pnpm verify:pr` passed: 34/34 package tasks, 11 smoke E2E with four
+  expected project skips, and 29 full E2E with 43 expected project skips. Current step: review,
+  commit, push, draft PR, and CI.

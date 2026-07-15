@@ -22,7 +22,7 @@ test("@full editing, inserting, and deleting rows commits together and persists"
   await expect(table.getByText("Ada Lovelace")).toBeVisible();
 
   // Edit an existing row's name.
-  await table.getByText("Grace Hopper").dblclick();
+  await table.getByText("Grace Hopper").click();
   const editInput = page.getByLabel("Edit cell value");
   await editInput.fill("Grace Hopper-Murray");
   await editInput.press("Enter");

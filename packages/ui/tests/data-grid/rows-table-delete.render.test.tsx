@@ -119,7 +119,7 @@ describe("RowsTable delete staging (component rendering, F105)", () => {
     render(<TestHost canDelete editable />);
     fireEvent.click(screen.getByLabelText("Select row 1"));
     fireEvent.click(screen.getByRole("button", { name: "Delete 1 selected" }));
-    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.click(screen.getByText("Ada"));
     expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
   });
 

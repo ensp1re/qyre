@@ -1,3 +1,4 @@
+import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import { ArrowUpDown, CopyPlus, Pencil, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../../cn.js";
@@ -260,7 +261,17 @@ export function RowsTable({
                               }
                             />
                           ) : (
-                            <span className="italic text-quiet-foreground">not editable</span>
+                            <span
+                              className="italic text-quiet-foreground"
+                              title={
+                                meta
+                                  ? mutationEditorCapability(meta.dataType, engine)
+                                      .unavailableReason
+                                  : undefined
+                              }
+                            >
+                              not editable
+                            </span>
                           )}
                         </td>
                       );
@@ -367,6 +378,9 @@ export function RowsTable({
                       const meta = columnByName.get(columnName);
                       const reference =
                         meta?.isForeignKey && onNavigateToForeignKey ? meta.references : undefined;
+                      const editorCapability = meta
+                        ? mutationEditorCapability(meta.dataType, engine)
+                        : undefined;
                       // FK-with-navigation and PK-with-filter-click keep their existing single-click
                       // behavior even when this column is otherwise editable - PK columns are never
                       // in `editableColumns` in the first place (F103), so only the FK case actually
@@ -386,6 +400,11 @@ export function RowsTable({
                       return (
                         <td
                           key={columnName}
+                          title={
+                            editable && !meta?.isPrimaryKey && !reference
+                              ? editorCapability?.unavailableReason
+                              : undefined
+                          }
                           className={cn(
                             "whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80",
                             markedForDelete && "line-through opacity-60"

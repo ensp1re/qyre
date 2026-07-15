@@ -1,10 +1,13 @@
 import type { DatabaseEngine } from "@qyre/core";
-import { classifyFilterColumnKind } from "@qyre/core/filter-capabilities";
+import {
+  mutationEditorCapability,
+  type MutationEditorWidget
+} from "@qyre/core/mutation-editor-capabilities";
 import { RotateCcw } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../../cn.js";
-import { DateTimeInput, type DateTimeInputKind } from "../../primitives/date-time-input.js";
+import { DateTimeInput } from "../../primitives/date-time-input.js";
 import { formatCell } from "../../primitives/format-cell.js";
 
 /** A whole-number-looking draft whose value exceeds `Number.MAX_SAFE_INTEGER` - `Number(draft)`
@@ -16,27 +19,12 @@ export function isUnsafeIntegerDraft(draft: string): boolean {
   return /^-?\d+$/.test(draft) && !Number.isSafeInteger(Number(draft));
 }
 
-export type EditWidget = "text" | "number" | "boolean" | DateTimeInputKind;
+export type EditWidget = MutationEditorWidget;
 
-/** Maps a column's `FilterColumnKind` (F082/F089) to the inline editor widget it gets - the same
- * kind classification `RowsTable`'s caller already used to decide whether this column is editable
- * at all, so a column that reaches this component always has a defined widget. Exported so
- * `NewRowCell` (F104) can pick the identical widget for a column's insert editor. */
-export function widgetFor(dataType: string, engine: DatabaseEngine | undefined): EditWidget {
-  switch (classifyFilterColumnKind(dataType, engine)) {
-    case "numeric":
-      return "number";
-    case "boolean":
-      return "boolean";
-    case "date":
-      return "date";
-    case "time":
-      return "time";
-    case "datetime":
-      return "datetime-local";
-    default:
-      return "text";
-  }
+/** Returns only mutation-safe widgets. A null result is a fail-closed contract, never a text-input
+ * fallback for a type Qyre cannot round-trip exactly. */
+export function widgetFor(dataType: string, engine: DatabaseEngine | undefined): EditWidget | null {
+  return mutationEditorCapability(dataType, engine).widget;
 }
 
 export interface EditableCellProps {
@@ -55,8 +43,8 @@ export interface EditableCellProps {
 }
 
 /**
- * One editable grid cell (F103): double-click or Enter starts inline editing with a type-aware
- * widget (reusing F082/F089's filter value controls - `DateTimeInput`, plain text/number inputs, a
+ * One editable grid cell (F103/DF-11): pointer click, Enter, or F2 starts editing with a type-aware
+ * mutation widget (`DateTimeInput` for lossless dates, plain text/number inputs, a
  * boolean picker, plus an explicit "set to null" option when the column is nullable). Edits stage
  * into the caller's pending-changes buffer on commit; nothing here ever calls the server. A dirty
  * cell (a staged edit exists) gets a highlighted ring and a revert button restoring the original
@@ -76,27 +64,43 @@ export function EditableCell({
   // Set only when a number draft is rejected for unsafe-integer precision loss (F140/U5) - never
   // blocks committing, just keeps editing open with feedback instead of silently rounding.
   const [precisionError, setPrecisionError] = useState(false);
+  const activationRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef(false);
+  const capability = mutationEditorCapability(dataType, engine);
   const widget = widgetFor(dataType, engine);
 
+  useEffect(() => {
+    if (!editing && restoreFocusRef.current) {
+      restoreFocusRef.current = false;
+      activationRef.current?.focus();
+    }
+  }, [editing]);
+
   function startEditing(): void {
+    if (!widget) return;
     setDraft(displayValue === null || displayValue === undefined ? "" : String(displayValue));
     setPrecisionError(false);
     setEditing(true);
   }
 
-  function commit(next: unknown): void {
-    onCommit(next);
+  function closeEditing(restoreFocus: boolean): void {
+    restoreFocusRef.current = restoreFocus;
     setEditing(false);
     setPrecisionError(false);
   }
 
-  function commitDraft(): void {
+  function commit(next: unknown, restoreFocus = true): void {
+    onCommit(next);
+    closeEditing(restoreFocus);
+  }
+
+  function commitDraft(restoreFocus = true): void {
     if (widget === "number") {
       // Unlike text, an empty number draft has no valid "commit as-is" value (empty string isn't
       // a number) - cancels, same as before; the null button below is the explicit way to clear
       // a nullable numeric column (F140/U2).
       if (draft === "") {
-        setEditing(false);
+        closeEditing(restoreFocus);
         return;
       }
       if (isUnsafeIntegerDraft(draft)) {
@@ -104,13 +108,13 @@ export function EditableCell({
         return;
       }
       const parsed = Number(draft);
-      if (!Number.isNaN(parsed)) commit(parsed);
-      else setEditing(false);
+      if (!Number.isNaN(parsed)) commit(parsed, restoreFocus);
+      else closeEditing(restoreFocus);
       return;
     }
     // Text: an empty draft stages an explicit empty string rather than silently cancelling
     // (F140/U2) - the null button below is the separate, explicit way to stage NULL.
-    commit(draft);
+    commit(draft, restoreFocus);
   }
 
   function handleTextKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
@@ -119,7 +123,7 @@ export function EditableCell({
       commitDraft();
     } else if (event.key === "Escape") {
       event.preventDefault();
-      setEditing(false);
+      closeEditing(true);
     }
   }
 
@@ -133,13 +137,41 @@ export function EditableCell({
   function handleDateContainerKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.key === "Escape") {
       event.preventDefault();
-      setEditing(false);
+      closeEditing(true);
     }
+  }
+
+  function editorSurface(content: ReactNode): ReactNode {
+    return (
+      <div className="relative h-5 min-w-0" data-testid="cell-editor-anchor">
+        <div
+          data-testid="cell-editor-surface"
+          className="absolute left-0 top-1/2 z-20 min-w-full -translate-y-1/2 rounded-md border border-primary bg-popover p-1 shadow-lg"
+        >
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  if (!widget) {
+    return (
+      <span
+        title={capability.unavailableReason}
+        className={cn(
+          displayValue === null || displayValue === undefined
+            ? "italic text-quiet-foreground"
+            : undefined
+        )}
+      >
+        {displayValue === null || displayValue === undefined ? "null" : formatCell(displayValue)}
+      </span>
+    );
   }
 
   if (editing) {
     if (widget === "boolean") {
-      return (
+      return editorSurface(
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -167,7 +199,7 @@ export function EditableCell({
           )}
           <button
             type="button"
-            onClick={() => setEditing(false)}
+            onClick={() => closeEditing(true)}
             aria-label="Cancel edit"
             className="ml-0.5 text-muted-foreground hover:text-foreground"
           >
@@ -177,8 +209,8 @@ export function EditableCell({
       );
     }
 
-    if (widget === "date" || widget === "time" || widget === "datetime-local") {
-      return (
+    if (widget === "date") {
+      return editorSurface(
         <div className="flex items-center gap-1" onKeyDown={handleDateContainerKeyDown}>
           <DateTimeInput
             kind={widget}
@@ -201,7 +233,7 @@ export function EditableCell({
       );
     }
 
-    return (
+    return editorSurface(
       <div className="flex items-center gap-1">
         <input
           autoFocus
@@ -211,7 +243,7 @@ export function EditableCell({
             setPrecisionError(false);
           }}
           onKeyDown={handleTextKeyDown}
-          onBlur={commitDraft}
+          onBlur={() => commitDraft(false)}
           type={widget === "number" ? "number" : "text"}
           inputMode={widget === "number" ? "decimal" : undefined}
           aria-label="Edit cell value"
@@ -256,17 +288,7 @@ export function EditableCell({
 
   return (
     <div
-      tabIndex={0}
-      role="button"
-      onDoubleClick={startEditing}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          startEditing();
-        }
-      }}
-      title={dirty ? "Edited - double-click to change again" : "Double-click to edit"}
-      className="flex items-center gap-1 rounded-[2px] border border-transparent px-0.5 outline-none focus-visible:ring-1 focus-visible:ring-primary"
+      className="flex min-w-0 items-center gap-1 rounded-sm border border-transparent"
       style={
         dirty
           ? {
@@ -276,15 +298,28 @@ export function EditableCell({
           : undefined
       }
     >
-      <span
+      <button
+        ref={activationRef}
+        type="button"
+        onClick={startEditing}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === "F2") {
+            event.preventDefault();
+            startEditing();
+          }
+        }}
+        title={
+          dirty ? "Edited - click, Enter, or F2 to change again" : "Click, Enter, or F2 to edit"
+        }
         className={cn(
+          "min-w-0 flex-1 rounded-sm px-0.5 text-left outline-none focus-visible:ring-1 focus-visible:ring-primary",
           displayValue === null || displayValue === undefined
             ? "italic text-quiet-foreground"
-            : undefined
+            : "text-foreground"
         )}
       >
         {displayValue === null || displayValue === undefined ? "null" : formatCell(displayValue)}
-      </span>
+      </button>
       {dirty && (
         <button
           type="button"

@@ -13,6 +13,10 @@
       "types": "./dist/filter-capabilities.d.ts",
       "import": "./dist/filter-capabilities.js"
     },
+    "./mutation-editor-capabilities": {
+      "types": "./dist/mutation/editor-capabilities.d.ts",
+      "import": "./dist/mutation/editor-capabilities.js"
+    },
     "./csv-import": {
       "types": "./dist/csv-import.d.ts",
       "import": "./dist/csv-import.js"

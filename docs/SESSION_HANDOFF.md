@@ -6,13 +6,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F136-csv-import-error-cap` at `7b5c43e`, based on `main` through merged PR #148
-  (F135).
-- Queue: F114-F121, F128, F129, F130, F131, F132, F133, F134, F135, F139, and F140 are `passing`
-  (merged); F136 is `passing` (pending this branch's PR); F137-F138 and F141-F143 are
-  `not_started` review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code
-  review of apps/web, packages/ui, packages/server, packages/cli); no active feature. `nextIds.F`
-  is 144.
+- Branch: `feature/F137-null-primary-key-validation`, based on `main` at `264330e` through merged
+  PR #149 (F136).
+- Queue: F128-F137, F139, and F140 are `passing`; F137 is in PR #150. F138 and F141-F143 are
+  `not_started` review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review
+  of apps/web, packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
 
 ## Completed
 
@@ -37,10 +35,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   names (S4); `GET /api/files/content` caps a preview read at 1 MiB (S5); and batch-commit
   introspects each staged table once instead of once per op (V2). See each id's evidence in
   `docs/FEATURES.json` for full reasoning/test detail.
-- F136 (`7b5c43e`, pending PR): closed SUGGESTIONS.md V3 - CSV import's per-row error list is now
-  capped at `CSV_IMPORT_MAX_ERRORS` (100) while `failedRows` still reports the true total, with
-  `CsvImportReport` showing a "Showing the first N of M errors." notice when truncated. See
-  `docs/FEATURES.json`'s F136 evidence.
+- F137 (PR #150) rejects nullable primary-key update/delete targets with an explicit 400 before an
+  adapter mutation runs. Server 298/298 tests, SQLite 51/51 tests, the full local PR gate, and both
+  GitHub CI jobs passed; exact evidence is recorded in `docs/FEATURES.json`.
 
 ## In progress
 
@@ -76,10 +73,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - Local full E2E is fixture-contention-prone under Playwright's `fullyParallel: true`: repeated
   no-retry runs moved transient missing-table/schema/autocomplete failures among unrelated engines;
   the CI configuration's one retry passed the entire gate. Tracked in the tech-debt tracker.
+- This container runs commands as root, so SQLite's 10 chmod/read-only tests cannot observe Unix
+  permission denial. Run the gate as a non-root bubblewrap user here; the same 51-test suite is
+  green there.
 
 ## Next steps
 
-- Open/merge F136's PR, then promote the next task from the F137-F138/F141-F143 review-fix queue
-  (see `docs/SUGGESTIONS.md` for each finding's full context). Suggested order: remaining minors
-  (F137, F138, F141, F142); F143 (scalable-structure refactor) last so file moves don't conflict
-  with in-flight fixes.
+- Merge F137's green PR #150, then promote F138 or F141-F143; leave F143 last so file moves do not
+  conflict with in-flight fixes.

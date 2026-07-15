@@ -39,7 +39,9 @@ capabilities.md`) **and** the table's own `TablePermissions.insert`/`update`/`de
   columns with `isPrimaryKey: true`) is matched as a set - every PK column's current value must be
   supplied and must match for an update/delete to apply. MongoDB's single-field `_id` (already
   marked `isPrimaryKey: true` per F068) is handled by the exact same general logic, not a special
-  case.
+  case. A row whose key contains `null` cannot be targeted: SQLite permits this for non-`INTEGER`
+  primary keys, but SQL equality cannot match the value. Update and delete requests reject it with
+  400 `Rows with a NULL primary key cannot be targeted.` before calling the adapter (F137).
 - Non-editable **columns** within an otherwise-editable table: a `structured` or `binary`
   `FilterColumnKind` (`packages/core/src/filter-capabilities.ts`, F082/F089) is not editable through
   the flat cell/insert editors this spec covers - the same reasoning that spec already gives for

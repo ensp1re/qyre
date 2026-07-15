@@ -8,61 +8,6 @@
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
     {
-      "id": "F114",
-      "behavior": "Each table gains a Structure view alongside Rows per docs/product-specs/schema-editing.md: columns listed with add/rename/drop/alter controls (capability-gated; hidden where the adapter reports not-applicable, e.g. MongoDB columns), index management (F112), and rename/truncate/drop-table actions behind the spec's typed confirmations - every action previews its DDL/ops first and surfaces the audit outcome. Views/matviews (F124) get the Structure information read-only with zero mutation affordances and their kind stated; read-only sessions likewise see structure info only (a strict improvement to today's read-only experience). E2E covers a column-add + index-create + drop-table roundtrip on one SQL engine, and the F097 read-only guard stays green. Depends on F111, F112, F113.",
-      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm test:e2e",
-      "state": "passing",
-      "commitHash": "dd707f4",
-      "evidence": "PR #130 (https://github.com/ensp1re/qyre/pull/130), merged as dd707f4. A Rows/Structure toggle on the Tables tab (useTableView, localStorage-backed like the Schema tab's graph/grid choice, surviving TablesTab's remount-on-table-switch). packages/ui's new TableStructure lists columns with Edit/Drop controls (EditColumnDialog combines rename+alter into one PATCH per F111's route shape; the new shared ConfirmTypedNameDialog primitive backs all three typed-confirmation flows: dropColumn/truncateTable/dropTable), an AddColumnDialog, indexes with an immediate Drop button (no confirmation - an index carries no user data, per the spec) plus CreateIndexDialog, and table-lifecycle actions (inline rename; typed-confirm Truncate/Drop table). Three independent gates via computeTableStructureEditability: canEditColumns (supportsDdl, false for MongoDB), canManageIndexes (supportsIndexManagement), canEditTable (supportsDdl); views/matviews or zero-capability sessions render the read-only TableDetail - zero write affordances, not disabled ones. e2e/read-only-mode.spec.ts's F097 guard extended to visit the Structure view and its button-name regex covers the new DDL control names. Found and fixed a real latent bug: dropTable/dropColumn/dropIndex (F110-F112) reply 204 No Content but the shared fetchJson helper unconditionally parsed a JSON body, throwing on the empty response (silently swallowed by the caller) - no UI had called those DELETE routes before F114; fixed fetchJson to return null on 204, covered by new fetch-json.test.ts. 36 new tests across packages/ui (ConfirmTypedNameDialog/AddColumnDialog/EditColumnDialog/CreateIndexDialog/TableStructure render tests) and apps/web (structure-editability, fetch-json, workspace-state reducer actions tableRenamed/tableDropped). Verified: pnpm check:quiet:run and pnpm verify:pr all green (CI also green on PR #130), plus manual browser verification of all 8 operations end-to-end against a live Postgres connection, including re-verifying dropIndex/dropColumn after the 204 fix.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/schema-editing.md",
-      "completedAt": "2026-07-13T18:30:00.000Z"
-    },
-    {
-      "id": "F115",
-      "behavior": "Database/schema lifecycle where the engine supports it: adapters gain the admin namespace with listDatabases (Postgres/MySQL/MongoDB; SQLite not-applicable - one file is one database and must report that cleanly), createDatabase/dropDatabase, and Postgres schema create/drop; capabilities report supportsDatabaseManagement from the real F092-F095 introspection. Server routes gated + audited; drop requires the typed-confirmation token server-side. Conformance: list/create/drop roundtrip on the three applicable engines, restricted-user rejection, SQLite clean not-applicable. Needs a short spec section added to docs/product-specs/permissions-and-capabilities.md or schema-editing.md (decide during implementation, following F109's patterns). Depends on F096, F110.",
-      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "passing",
-      "commitHash": "8ba44c3",
-      "evidence": "PR #131 (https://github.com/ensp1re/qyre/pull/131), merged as 8ba44c3. Adapters gain the DatabaseAdminApi admin namespace (mirroring mutations/ddl's optional-namespace pattern): Postgres gets listDatabases/createDatabase/dropDatabase plus createSchema/dropSchema (no CASCADE on drop - a non-empty schema surfaces Postgres's own dependency error rather than silently taking every contained table with it, confirmed live); MySQL the database trio only (its \"schema\" IS its database); MongoDB listDatabases/dropDatabase only (databases exist implicitly on first write, so there is no create to model - the route responds 400 explaining that); SQLite has no namespace at all (one file is one database, routes reply a clean 400, never a bare 404). supportsDatabaseManagement was already introspected for real on Postgres (CREATEDB/superuser) and MySQL (global CREATE/SUPER) from F092/F093; MongoDB now derives it from the dropDatabase privilege action (the only database-management action its privilege model has), replacing its F095 always-false placeholder incl. the unauthenticated full-access default. New routes: GET /api/databases (a read, no gate), POST /api/databases, DELETE /api/databases/:database, POST /api/schemas, DELETE /api/schemas/:schema - mutating routes two-tier gated (F096 + supportsDatabaseManagement), both drops behind server-side typed confirmation, all audited with operation+target structured fields. Design decision documented in the spec's new \"Database and schema lifecycle\" section: DELETE /api/schemas/:schema deliberately has no exists-first 404, since getOverview() derives schemas from tables and an empty schema never appears in it. MongoDB's WRITE_METHODS lint-scan gained admin.ts as a third trusted write-path file. Verified: 16 new server route tests, 4 new conformance tests (create/list/drop roundtrip on Postgres/MySQL/MongoDB incl. MongoDB's implicit-creation path, SQLite absent-namespace, Postgres schema roundtrip, capability reporting), restricted-role rejection tests for Postgres/MySQL, updated MongoDB permission-shape unit tests - all green against live databases, pnpm check:quiet:run and pnpm verify:pr all green.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/schema-editing.md",
-      "completedAt": "2026-07-13T20:15:00.000Z"
-    },
-    {
-      "id": "F116",
-      "behavior": "Database-level management UI: the connection/database switcher (F064/F085 flow) lists databases on the current server with switch-in-place, permission-gated create-database (name plus minimal engine-appropriate options), and drop-database behind typed confirmation; Postgres schema create/drop appears in the sidebar. Read-only or ungranted sessions see the list only, with the affordances hidden and the reason available. Depends on F115.",
-      "verification": "pnpm --filter @qyre/web test && pnpm test:e2e",
-      "state": "passing",
-      "commitHash": "94987a4",
-      "evidence": "PR #132 (https://github.com/ensp1re/qyre/pull/132), merged as 94987a4. ConnectDrawer now lists sibling databases and switches without credential re-entry through POST /api/connect/database; create/drop database and Postgres schema controls are capability-gated and hidden in read-only or ungranted sessions while list/switch remain available. Shared DatabasePanel, CreateNamedDialog, and typed-confirmation patterns cover the UI. Verified live against Postgres for create/switch/drop database and schema dependency handling; 36 new/updated unit tests, pnpm check:quiet:run, full E2E, and both CI jobs passed.",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-13T18:28:27.000Z"
-    },
-    {
-      "id": "F117",
-      "behavior": "Permission-gated CSV import into an existing table: a server endpoint streams and parses the upload (with an explicit request-size/row-count cap and multipart limits so a huge or malicious file cannot exhaust memory or disk - the F066 streaming-export philosophy in reverse), validates and coerces values per column type against introspected metadata, and inserts in bounded batches through the mutations namespace (transactional per batch, per-row error report with line numbers); the UI wizard maps CSV columns to table columns with a dry-run preview of the first rows and a clear success/failure summary. Kind-gated (tables/collections only) and permission-gated. Needs a short product-spec pass (docs/product-specs/csv-import.md) before implementation, following the F063-F066 pattern. Depends on F099, F102.",
-      "verification": "pnpm --filter @qyre/testing-conformance test && pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "35c29ce",
-      "evidence": "PR #133 (https://github.com/ensp1re/qyre/pull/133), merged as 35c29ce. Added the capped streaming multipart POST /api/tables/:schema/:table/import.csv contract with inspect/validate/import modes, scalar coercion against introspected metadata, physical source-line errors, a 20-row preview, and server-side kind/insert-permission/read-only enforcement. Postgres/MySQL/SQLite use existing commitBatch transactions in bounded 250-row batches; standalone MongoDB uses one-document atomic insertRow calls. The Tables toolbar and shared CsvImportDialog provide exact-name mapping defaults, dry-run invalidation, coerced preview, and inserted/failed result reporting while hiding the action for unavailable targets. Added the browser-safe @qyre/core/csv-import export plus 2 core, 11 server, 5 web, and 4 UI tests, and extended the standing read-only E2E canary. Verified on Node 22 with CI=1 pnpm verify:pr locally and again through the pre-push hook: 34/34 package tasks, smoke E2E, and full E2E passed against Postgres, MySQL, SQLite, and MongoDB; both GitHub CI jobs passed.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/csv-import.md",
-      "completedAt": "2026-07-13T19:46:24.000Z"
-    },
-    {
-      "id": "F118",
-      "behavior": "Row export grows JSON (streamed array of objects) and SQL-INSERT formats (SQL engines only, identifiers/literals safely escaped per engine; MongoDB exports Extended JSON, reported via capabilities not engine-name checks) alongside the existing CSV path, honoring current filters/sort/selection exactly as F066/F083 do. The export implementation also fixes the current O(n^2) pattern (the CSV route re-runs the query per MAX_PAGE_SIZE page via OFFSET pagination - packages/server/src/routes/tables.ts): switch to a single-pass stream per engine (pg cursor/query stream, mysql2 .stream(), better-sqlite3 .iterate(), MongoDB cursor). Read-only-safe, so it improves every access level; update docs/product-specs/server-side-sort-export.md. No dependency on write slices - schedulable any time after F091.",
-      "verification": "pnpm --filter @qyre/testing-conformance test && pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "a56c238",
-      "evidence": "PR #134 (https://github.com/ensp1re/qyre/pull/134), pushed as a56c238. Replaced the CSV route's repeated OFFSET pagination with one native async stream per adapter: pg-query-stream, mysql2 query streams, better-sqlite3 iteration, and MongoDB cursors, all with early-close cleanup. Added capability-driven CSV, ordinary JSON, MongoDB relaxed Extended JSON, and adapter-owned SQL INSERT output with validated sort/filter propagation, bounded formatting, formula-injection defense, and engine-specific identifier/literal escaping. The Tables toolbar exposes only advertised whole-result formats while preserving F083 selected-row browser CSV precedence. Updated the product contract plus shared capabilities, route/formatter/UI/API tests, and cross-engine conformance coverage for format availability, sorting, filtering, empty results, and interrupted iteration. Verified on Node 22 with CI=1 pnpm verify:pr locally and through the pre-push hook: 34/34 package tasks, 11 smoke E2E, and 19 full E2E passed; the focused native-stream conformance case passed explicitly on Postgres, MySQL, SQLite, and MongoDB; both GitHub CI jobs passed.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/server-side-sort-export.md",
-      "completedAt": "2026-07-13T20:38:22.000Z"
-    },
-    {
       "id": "F128",
       "behavior": "EXPLAIN viewer for the SQL editor (read-only-safe, a standard IDE capability): an Explain action runs the engine-appropriate plan statement for the current query - Postgres EXPLAIN (optionally ANALYZE behind an explicit toggle with a warning that ANALYZE executes the statement, and never for non-SELECT classifications), MySQL EXPLAIN/EXPLAIN FORMAT=TREE, SQLite EXPLAIN QUERY PLAN; MongoDB not-applicable (no SQL surface) - and renders the plan in a readable dedicated panel (text/tree; no graphical layout this slice). assertReadOnly already allows the EXPLAIN keyword, so read-only sessions get this too. Unit tests for the per-engine statement construction; e2e asserts a plan renders for a fixture query on one engine. Depends on F106 (classification decides ANALYZE eligibility); read-only parts schedulable earlier if picked up independently.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test",
@@ -72,39 +17,6 @@
       "blockedReason": null,
       "spec": "docs/product-specs/sql-editor.md",
       "completedAt": "2026-07-14T15:42:29.000Z"
-    },
-    {
-      "id": "F119",
-      "behavior": "A read-only Roles & grants viewer so users understand why affordances are hidden: Postgres shows pg_roles plus a grants summary for the current user, MySQL shows SHOW GRANTS/information_schema privileges (including granted roles), MongoDB shows rolesInfo/usersInfo where permitted, SQLite shows file-permission facts instead; strictly a viewer - no role management mutations anywhere in plan 0006. Surfaces through the admin namespace with a capability flag; degrades cleanly when the connected user may not read role catalogs. Depends on F092-F095.",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "ce3a5bc",
-      "evidence": "PR #135 (https://github.com/ensp1re/qyre/pull/135), pushed as ce3a5bc. Added the shared secret-safe AccessOverview contract, supportsAccessInspection capability, read-only DatabaseAdminApi.inspectAccess method, and authenticated GET /api/access route that remains available under --read-only. Postgres reports explicit pg_roles attributes plus enabled-role table grants; MySQL reports CURRENT_USER/USER/CURRENT_ROLE and redacted SHOW GRANTS; MongoDB uses connectionStatus with best-effort usersInfo/rolesInfo; SQLite reports file, directory, connection, and PRAGMA facts. The capability-driven Settings Access viewer covers disconnected, unsupported, capability-loading, data-loading, empty, degraded-notice, error, retry, and success states without engine-name branches or mutations. Added bounds, degradation, redaction, route, browser API, UI, and live four-engine conformance coverage. Repaired the repeated parallel E2E catalog race by keeping SQL fixture tables present with transactional row replacement and waiting for completion metadata explicitly. Verified on Node 22 with pnpm verify:pr locally and through the pre-push hook: 34/34 package tasks, 11 smoke E2E, and 19 full E2E passed; both GitHub CI jobs passed.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/roles-and-grants-viewer.md",
-      "completedAt": "2026-07-13T21:15:35.000Z"
-    },
-    {
-      "id": "F120",
-      "behavior": "Permission-denied hardening across every mutating path: engine permission errors map to structured, friendly responses (which operation, which object, the likely missing grant) instead of raw engine text; a denial triggers a capabilities/permissions refetch so UI affordances converge with reality when grants change mid-session (the advisory-introspection principle in exec plan 0006); the event log records each denial. Conformance covers a denied insert/update/ddl per engine using the restricted fixtures with grants revoked mid-session where the engine allows. Depends on the write surfaces it protects - schedule after F117.",
-      "verification": "pnpm --filter @qyre/server test && node scripts/with-local-env.mjs pnpm --filter @qyre/testing-conformance test",
-      "state": "passing",
-      "commitHash": "dd3bde0",
-      "evidence": "PR #136 (https://github.com/ensp1re/qyre/pull/136), pushed as dd3bde0. Added a shared permission-denied response contract and engine-native classifiers for Postgres SQLSTATE, MySQL code/errno, SQLite result code, and MongoDB code 13. Every mutating route now declares operation/object/grant metadata; startup rejects uncovered future routes, authoritative denials return one redacted structured 403 and produce exactly one safe EventLog/request-log entry, while non-permission failures retain their existing behavior. Batch and CSV paths preserve native denials for boundary classification. The browser recognizes the structured denial and invalidates overview, all-tables, and table query families so advisory capabilities and table permissions refetch. Restricted conformance revokes Postgres/MySQL grants and uses a read-only SQLite target; MongoDB live restricted auth is not applicable because the shared fixture has authorization disabled, with its native shape covered by shared and driver tests. Verified on Node 22 with the focused server suite (267 passed), live conformance (120 passed, 20 not-applicable/skipped), pnpm verify:pr locally and through pre-push (34/34 package tasks, 11 smoke E2E, 19 full E2E), and both GitHub CI jobs passed.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/permissions-and-capabilities.md",
-      "completedAt": "2026-07-13T21:54:02.000Z"
-    },
-    {
-      "id": "F121",
-      "behavior": "Plan 0006's exit gate: a Playwright role-matrix suite runs per engine - a read-only session (restricted fixture user and --read-only flag) shows zero write affordances, keeps every pre-plan read-only workflow green, and receives clean structured rejections from every mutating API route both with a valid session token and (401) without one (F122); a writable session edits and commits a row (SQL grid on one engine, MongoDB document editor), runs a write statement through the destructive-confirmation flow, and creates + drops a table (where the engine supports it) end-to-end. Docs consolidation lands with it: README feature matrix, ARCHITECTURE.md's adding-an-engine recipe gains the capabilities/mutations/ddl/admin steps, and docs/SECURITY.md's write rules are updated from aspirational to implemented contract. Move plan 0006 to exec-plans/completed with evidence. Depends on all prior plan slices.",
-      "verification": "pnpm test:e2e:full && pnpm check:state",
-      "state": "passing",
-      "commitHash": "9bd0c8d",
-      "evidence": "Draft PR #137 (https://github.com/ensp1re/qyre/pull/137), pushed as 9bd0c8d. Added Playwright role-matrix projects for restricted Postgres/MySQL roles, a filesystem-read-only SQLite fixture, and forced-read-only Postgres/MongoDB sessions. Read-only coverage proves normal schema/table reads, zero write controls, structured authenticated denials, and 401 responses without the session token across all 19 mutating API paths; writable Postgres/MySQL/SQLite/MongoDB sessions create and drop a table or collection through the real UI, alongside the existing row-grid, SQL destructive-confirmation, and MongoDB document-editor journeys. The matrix exposed and fixed a missing qyre-flag denial discriminator and MySQL's invalid bare VARCHAR table-designer default. Consolidated README, architecture, security, connection, driver, and harness documentation. Verified on Node 22 with the exact feature command, local pnpm verify:pr, the pre-push gate, and both GitHub CI jobs: 34/34 package tasks, 11 smoke E2E passes, and 29 full E2E passes (43 explicit engine/project skips). MongoDB restricted authentication remains not applicable because the shared fixture has auth disabled; its hard read-only override is covered. Plan 0006 completed after F128 passed in PR #138.",
-      "blockedReason": null,
-      "spec": null,
-      "completedAt": "2026-07-13T22:21:15.000Z"
     },
     {
       "id": "F129",
@@ -198,11 +110,12 @@
       "id": "F137",
       "behavior": "Close SUGGESTIONS.md V4: a nullable primary-key value (legal in SQLite non-INTEGER PKs) coerces to null in resolveKey and binds into 'pk = ?' in every SQL adapter, which never matches - the mutation reports matched 0 and the UI shows the misleading 'This row was already changed or removed.' Either generate IS NULL for null key values in the adapters' key clauses, or reject null key values at validation (row-mutation-validation.ts) with an explicit 'rows with a NULL primary key cannot be targeted' message; pick one and cover it with a SQLite-backed test.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/sqlite test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "4704f34",
+      "evidence": "PR #150 (https://github.com/ensp1re/qyre/pull/150), pushed as 4704f34. Closed SUGGESTIONS.md V4 by rejecting any null primary-key member in the shared resolveKey validation path before update or delete reaches an adapter, returning 400 `Rows with a NULL primary key cannot be targeted.` instead of the misleading stale-row result produced by SQL `pk = NULL`. Added service coverage, update/delete route coverage proving adapters are not called, and a real SQLite nullable non-INTEGER primary-key fixture. Postgres, MySQL, and MongoDB are protected by the same shared validation path; the legal nullable-primary-key fixture is SQLite-specific. Verified with pnpm --filter @qyre/server test (298 tests), pnpm --filter @qyre/sqlite test (51 tests in the required non-root environment), pnpm verify:pr (34/34 check tasks, 11 smoke E2E passed/4 skipped, 29 full E2E passed/43 skipped), and both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-15T12:22:29.000Z"
     },
     {
       "id": "F138",

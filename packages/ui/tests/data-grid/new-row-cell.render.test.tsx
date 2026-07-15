@@ -114,7 +114,7 @@ describe("NewRowCell (component rendering, F104/F146)", () => {
     expect(onChange).toHaveBeenCalledWith("42");
   });
 
-  it("opens JSON in a small anchored popover by default, with an Expand action for the drawer", () => {
+  it("opens JSON directly in the streamlined right-side drawer", () => {
     render(
       <NewRowCell
         value={{}}
@@ -125,8 +125,9 @@ describe("NewRowCell (component rendering, F104/F146)", () => {
       />
     );
     openEditor("Edit value");
-    expect(screen.getByTestId("new-row-cell-editor-surface")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Expand to full panel" }));
     expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
+    expect(screen.queryByTestId("new-row-cell-editor-surface")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "JSON editor" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Expand to full panel" })).not.toBeInTheDocument();
   });
 });

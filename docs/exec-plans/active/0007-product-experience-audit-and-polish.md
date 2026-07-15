@@ -563,7 +563,9 @@ Acceptance criteria:
 - Text/multiline, exact numeric/decimal, UUID/identifier, tri-state boolean, enum/set, date/time,
   timestamp, JSON/JSONB, and supported array editors each validate without silent coercion.
 - Structured editing provides syntax error location, formatting, full-value space, and lossless
-  before/after preview. MongoDB reuses the structured editor while preserving Extended JSON.
+  before/after preview. SQL JSON/array editing opens directly in the shared right-side drawer with
+  no intermediate popover or duplicated metadata. MongoDB reuses the structured editor while
+  preserving Extended JSON.
 - Binary and unknown types remain read-only unless an engine-specific lossless contract is approved;
   the cell explains the limitation.
 - Server validation and all applicable drivers gain conformance coverage for newly editable
@@ -848,3 +850,8 @@ personal taste.
   body cell is clicked, and replaced the nested timestamp date/time popup with the shared filter
   calendar panel while preserving the complete stored time suffix. Current step: local PR gate and
   push to draft PR #160; GitHub Actions credits remain unavailable.
+- 2026-07-16: User approved simplifying SQL JSON/array mutation editing to the existing right-side
+  drawer. Existing-row and inserted-row structured editors now skip the anchored popover/Expand
+  step and remove duplicated metadata, helper copy, Minify, and Copy while retaining Format,
+  validation, nullable selection, Cancel, and Apply. Current step: full local PR gate and push to
+  draft PR #160; GitHub Actions credits remain unavailable.

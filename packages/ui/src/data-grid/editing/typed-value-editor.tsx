@@ -24,6 +24,9 @@ export interface TypedValueEditorProps {
   controlLabel?: string;
   onApply: (value: unknown) => void;
   onCancel: () => void;
+  /** The drawer already names the edited column, so structured editors can omit duplicate
+   * metadata and explanatory chrome. */
+  presentation?: "popover" | "drawer";
   /** Reveals a small "Expand" action opening the same value in the full right-side drawer instead
    * of this anchored popover (F146) - an explicit, occasional escape hatch, never the default. */
   onExpand?: () => void;
@@ -37,10 +40,8 @@ function setInitialValue(value: unknown): string[] {
 }
 
 /**
- * The anchored-popover editor for widgets too large for in-place inline editing (F146): JSON/array,
- * set, and long plain text (over `LONG_STRING_THRESHOLD`). Everything else - text, numbers,
- * booleans, enums, dates, timestamps - edits directly in the cell via `InlineCellEditor` and never
- * reaches this component.
+ * The full-value editor for widgets too large for in-place editing (F146). JSON/arrays use its
+ * streamlined drawer presentation; SET retains the anchored popover and optional drawer expansion.
  */
 export function TypedValueEditor({
   column,
@@ -49,6 +50,7 @@ export function TypedValueEditor({
   controlLabel = "Edit cell value",
   onApply,
   onCancel,
+  presentation = "popover",
   onExpand
 }: TypedValueEditorProps): ReactNode {
   const metadata = {
@@ -100,6 +102,7 @@ export function TypedValueEditor({
   }
 
   const structured = capability.widget === "json" || capability.widget === "array";
+  const minimalStructuredDrawer = structured && presentation === "drawer";
 
   let control: ReactElement;
   if (nullDraft) {
@@ -150,10 +153,11 @@ export function TypedValueEditor({
           setDraft(value);
           setError(undefined);
         }}
-        label="New value"
+        label={minimalStructuredDrawer ? "JSON editor" : "New value"}
         error={error}
         autoFocus
-        minHeightClassName="min-h-40"
+        minHeightClassName={minimalStructuredDrawer ? "min-h-[calc(100vh-9rem)]" : "min-h-40"}
+        variant={minimalStructuredDrawer ? "minimal" : "full"}
       />
     );
   } else {
@@ -174,36 +178,41 @@ export function TypedValueEditor({
 
   return (
     <div className="grid w-full max-w-full gap-2 p-2" onKeyDown={handleKeyDown}>
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-medium text-foreground">{column.name}</p>
-          <p className="font-mono text-[9px] text-quiet-foreground">{column.dataType}</p>
+      {(!minimalStructuredDrawer || column.nullable) && (
+        <div className="flex items-start gap-2">
+          {!minimalStructuredDrawer && (
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium text-foreground">{column.name}</p>
+              <p className="font-mono text-[9px] text-quiet-foreground">{column.dataType}</p>
+            </div>
+          )}
+          {onExpand && !minimalStructuredDrawer && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onExpand}
+              aria-label="Expand to full panel"
+              title="Expand to full panel"
+            >
+              <Maximize2 className="h-2.5 w-2.5" />
+            </Button>
+          )}
+          {column.nullable && (
+            <Button
+              variant={nullDraft ? "primary" : "outline"}
+              size="sm"
+              aria-pressed={nullDraft}
+              onClick={() => {
+                setNullDraft((current) => !current);
+                setError(undefined);
+              }}
+              className={minimalStructuredDrawer ? "ml-auto" : undefined}
+            >
+              NULL
+            </Button>
+          )}
         </div>
-        {onExpand && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onExpand}
-            aria-label="Expand to full panel"
-            title="Expand to full panel"
-          >
-            <Maximize2 className="h-2.5 w-2.5" />
-          </Button>
-        )}
-        {column.nullable && (
-          <Button
-            variant={nullDraft ? "primary" : "outline"}
-            size="sm"
-            aria-pressed={nullDraft}
-            onClick={() => {
-              setNullDraft((current) => !current);
-              setError(undefined);
-            }}
-          >
-            NULL
-          </Button>
-        )}
-      </div>
+      )}
       {structured ? (
         control
       ) : (

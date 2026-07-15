@@ -61,8 +61,8 @@ capabilities.md`) **and** the table's own `TablePermissions.insert`/`update`/`de
 - Column-level edit permissions finer than what `TablePermissions` already expresses - same
   exclusion `permissions-and-capabilities.md` already states for column-level grants generally; a
   column-level rejection surfaces as a real database error, friendly-mapped (F120).
-- A dedicated structured (JSON/array) or binary value editor. Revisit only with real demand; today
-  those columns simply aren't editable, same treatment as filtering.
+- A dedicated binary value editor. Binary columns remain read-only until Qyre has a lossless authoring
+  contract; JSON and supported arrays use the structured editor defined below.
 - Changing a row's primary key value via update (see above) - delete-and-reinsert is the only path,
   and this spec doesn't wire a combined "rekey" operation for it.
 
@@ -188,7 +188,11 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
     choosing a day replaces only the date prefix and preserves the exact separator, time, fractional
     seconds, and timezone suffix.
   - `JSON` / `JSONB`: the editor parses JSON, reports line and column, formats on explicit request,
-    and stages the parsed JSON value. The server serializes it exactly once for the SQL driver.
+    and stages the parsed JSON value. Editing opens directly in the established right-side drawer,
+    with the column named once in its header and no intermediate popover or duplicated metadata.
+    The streamlined drawer retains Format, validation errors, nullable selection, Cancel, and Apply;
+    Minify, Copy, and explanatory helper text are omitted from this mutation surface. The server
+    serializes the value exactly once for the SQL driver.
     PostgreSQL native scalar arrays use the same full-value surface but require a JSON array and
     remain native arrays at the driver boundary. SQLite has no native array contract; MySQL arrays
     remain JSON values rather than a separate native array kind.

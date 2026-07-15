@@ -208,10 +208,10 @@ describe("RowsTable inline cell editing (component rendering, F103)", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
-    expect(screen.getByTestId("cell-editor-surface")).toBeInTheDocument();
+    expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("true"));
-    expect(screen.queryByTestId("cell-editor-surface")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cell-editor-drawer")).not.toBeInTheDocument();
 
     fireEvent.doubleClick(screen.getByText("true"));
     expect(screen.getByRole("combobox", { name: "enabled" })).toBeInTheDocument();

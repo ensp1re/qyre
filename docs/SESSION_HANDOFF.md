@@ -7,7 +7,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 - Date: 2026-07-16.
 - Branch: `feature/F146-grid-editing-ux-polish`, based on `main` at `fcab56c` (DF-12 merged in #159).
-  Draft PR #160 contains all five F146 review rounds.
+  Draft PR #160 contains all six F146 review rounds.
 - Queue: DF-10 through DF-12 are passing. F146 is active, continuing the same 0007 audit plan on
   the grid-editing surface. DF-13 (guided Add/Duplicate row composer) is next after F146.
 
@@ -45,10 +45,14 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   different body-cell click; timestamp editing directly reuses the filter calendar panel without
   nested date/time controls and preserves the stored time/precision/timezone tail; removed SQL
   Editor Analyze and kept Explain non-executing.
+- F146 round 6: JSON and supported-array editing now opens directly in the established right-side
+  drawer for existing and inserted rows. The mutation surface names the column once and keeps only
+  the full-value editor, Format, validation, nullable selection, Cancel, and Apply; the intermediate
+  popover, Expand step, duplicated type/value labels, helper copy, Minify, and Copy are removed.
 
 ## In progress
 
-- Round 5 passes the complete local PR gate and is being pushed to draft PR #160. F146 remains
+- Round 6 passes the complete local PR gate and is being pushed to draft PR #160. F146 remains
   active until GitHub CI can run again.
 
 ## Known issues / blockers

@@ -71,10 +71,8 @@ export interface EditableCellProps {
 }
 
 /** One mutation-safe grid cell (F146): single click selects, double-click/Enter/F2 edits. Simple
- * types (text, numbers, booleans, enums, dates, timestamps) edit directly in place; JSON/array/set
- * and long text (over `LONG_STRING_THRESHOLD`) use a small anchored popover instead, with an
- * explicit Expand action for the full right-side drawer. Nothing here ever resizes the table or
- * moves the row. */
+ * types edit directly in place; JSON/arrays open in the right-side drawer, while SET uses the
+ * anchored popover with an optional drawer expansion. Nothing here resizes the table or row. */
 export function EditableCell({
   cellId,
   columnName = "value",
@@ -110,8 +108,8 @@ export function EditableCell({
   const metadata = { allowedValues, elementDataType };
   const capability = mutationEditorCapability(dataType, engine, metadata);
   const inspectable = hasInspectAffordance(displayValue, dataType, Boolean(onInspectDate));
-  const wide =
-    capability.widget === "json" || capability.widget === "array" || capability.widget === "set";
+  const structured = capability.widget === "json" || capability.widget === "array";
+  const wide = structured || capability.widget === "set";
 
   useEffect(() => {
     if (!isActive && restoreFocusRef.current) {
@@ -184,7 +182,8 @@ export function EditableCell({
         column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
         engine={engine}
         originalValue={displayValue}
-        onExpand={!expanded ? () => setExpanded(true) : undefined}
+        presentation={structured ? "drawer" : "popover"}
+        onExpand={!structured && !expanded ? () => setExpanded(true) : undefined}
         onApply={(next) => {
           onCommit(next);
           closeEditing();
@@ -192,15 +191,20 @@ export function EditableCell({
         onCancel={closeEditing}
       />
     );
-    wideEditor = expanded ? (
-      <CellEditorDrawer title={columnName} onClose={closeEditing}>
-        {editor}
-      </CellEditorDrawer>
-    ) : (
-      <EditorPopover anchorRect={anchorRect} testId="cell-editor-surface" onDismiss={closeEditing}>
-        {editor}
-      </EditorPopover>
-    );
+    wideEditor =
+      structured || expanded ? (
+        <CellEditorDrawer title={columnName} onClose={closeEditing}>
+          {editor}
+        </CellEditorDrawer>
+      ) : (
+        <EditorPopover
+          anchorRect={anchorRect}
+          testId="cell-editor-surface"
+          onDismiss={closeEditing}
+        >
+          {editor}
+        </EditorPopover>
+      );
   }
 
   return (

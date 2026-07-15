@@ -51,8 +51,8 @@ export function NewRowCell({
   const activationRef = useRef<HTMLButtonElement>(null);
   const metadata = { allowedValues, elementDataType };
   const capability = mutationEditorCapability(dataType, engine, metadata);
-  const wide =
-    capability.widget === "json" || capability.widget === "array" || capability.widget === "set";
+  const structured = capability.widget === "json" || capability.widget === "array";
+  const wide = structured || capability.widget === "set";
 
   if (!capability.editable) {
     return (
@@ -76,7 +76,8 @@ export function NewRowCell({
         engine={engine}
         originalValue={value}
         controlLabel="New row value"
-        onExpand={!expanded ? () => setExpanded(true) : undefined}
+        presentation={structured ? "drawer" : "popover"}
+        onExpand={!structured && !expanded ? () => setExpanded(true) : undefined}
         onApply={(next) => {
           onChange(next);
           close();
@@ -87,7 +88,7 @@ export function NewRowCell({
 
     return (
       <div className="relative h-5 min-w-0" data-testid="new-row-editor-anchor">
-        {expanded ? (
+        {structured || expanded ? (
           <CellEditorDrawer title={columnName} onClose={close}>
             {editor}
           </CellEditorDrawer>

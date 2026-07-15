@@ -139,7 +139,7 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(screen.queryByRole("textbox", { name: "New value" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
-    expect(screen.getByRole("textbox", { name: "New value" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "JSON editor" })).toBeInTheDocument();
   });
 
   it("Escape cancels the edit without committing", () => {
@@ -503,7 +503,7 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(screen.getByRole("button", { name: "Edit value" })).toBeInTheDocument();
   });
 
-  it("opens JSON/array cell editing in a small anchored popover by default, not a permanent drawer (F146)", () => {
+  it("opens JSON/array cell editing directly in the right-side drawer (F146)", () => {
     render(
       <EditableCell
         columnName="profile"
@@ -517,27 +517,15 @@ describe("EditableCell (component rendering, F103/F146)", () => {
       />
     );
     fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
-    expect(screen.getByTestId("cell-editor-surface")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "{ 1 key }" })).toBeInTheDocument();
-    expect(screen.queryByTestId("cell-editor-drawer")).not.toBeInTheDocument();
-  });
-
-  it("opens the full right-side drawer only via the explicit Expand action (F146)", () => {
-    render(
-      <EditableCell
-        columnName="profile"
-        displayValue={{ active: true }}
-        dataType="jsonb"
-        engine="postgres"
-        nullable={false}
-        dirty={false}
-        onCommit={vi.fn()}
-        onRevert={vi.fn()}
-      />
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
-    fireEvent.click(screen.getByRole("button", { name: "Expand to full panel" }));
     expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "{ 1 key }" })).toBeInTheDocument();
+    expect(screen.queryByTestId("cell-editor-surface")).not.toBeInTheDocument();
+    expect(screen.queryByText("jsonb")).not.toBeInTheDocument();
+    expect(screen.queryByText("New value")).not.toBeInTheDocument();
+    expect(screen.queryByText(/JSON is validated before Apply/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Minify" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copy" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Format" })).toBeInTheDocument();
   });
 
   it("only one editor is active at a time when coordinated by a parent (F146)", () => {

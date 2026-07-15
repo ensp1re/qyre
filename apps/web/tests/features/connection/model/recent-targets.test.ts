@@ -13,6 +13,18 @@ describe("recent targets", () => {
     expect(canPersistTarget("./local.db")).toBe(true);
   });
 
+  it("catches compound credential-param names, not just exact matches (F132)", () => {
+    // A real libpq param - contains "password" but isn't spelled exactly "password".
+    expect(canPersistTarget("postgres://localhost/db?sslpassword=hunter2")).toBe(false);
+    expect(canPersistTarget("mongodb://localhost/db?access_token=abc123")).toBe(false);
+    expect(canPersistTarget("mongodb://localhost/db?authSecret=abc123")).toBe(false);
+    expect(canPersistTarget("mongodb://localhost/db?tlsCertificateKeyFilePassword=abc123")).toBe(
+      false
+    );
+    // An unrelated param with no credential-shaped substring still persists.
+    expect(canPersistTarget("postgres://localhost/db?sslmode=require")).toBe(true);
+  });
+
   it("purges sensitive legacy entries while parsing", () => {
     expect(
       parseRecentTargets([

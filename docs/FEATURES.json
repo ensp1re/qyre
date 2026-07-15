@@ -143,11 +143,12 @@
       "id": "F132",
       "behavior": "Close SUGGESTIONS.md S4: apps/web/src/features/connection/model/recent-targets.ts's SENSITIVE_PARAMETER regex full-matches bare names only, so compound credential params like sslpassword or access_token pass canPersistTarget and are persisted to localStorage, violating the 'persisted recent targets must be credential-free' rule. Switch to substring matching at least as strict as @qyre/core's CREDENTIAL_QUERY_PARAM_PATTERN and extend the unit tests with sslpassword/access_token/authSecret cases.",
       "verification": "pnpm --filter @qyre/web test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "789ac3e",
+      "evidence": "Closed SUGGESTIONS.md S4: apps/web/src/features/connection/model/recent-targets.ts's SENSITIVE_PARAMETER regex was anchored to the whole key (^...$), so a compound name like sslpassword (a real libpq param), access_token, or authSecret never matched and the target was judged safe to persist to localStorage, violating the 'persisted recent targets must be credential-free' rule. Dropped the anchors so every existing branch matches as a substring, at least as strict as @qyre/core's own CREDENTIAL_QUERY_PARAM_PATTERN (/password|pwd|secret|token/i) while keeping the two additional patterns (api key, credential) this check has always covered beyond core's set. New test cases cover sslpassword, access_token, authSecret, and tlsCertificateKeyFilePassword, plus a confirming case that an unrelated param still persists normally. pnpm --filter @qyre/web test (137 tests, 5 new assertions) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-15T01:05:00.000Z"
     },
     {
       "id": "F133",

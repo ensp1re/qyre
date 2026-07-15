@@ -6,10 +6,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F131-redact-connect-errors` at `636d6d9`, based on `main` through merged PR
-  #144 (F140).
-- Queue: F114-F121, F128, F129, F130, F134, F139, and F140 are `passing` (merged); F131 is
-  `passing` (pending this branch's PR); F132-F133, F135-F138, and F141-F143 are `not_started`
+- Branch: `feature/F132-recent-targets-credential-match` at `789ac3e`, based on `main` through
+  merged PR #145 (F131).
+- Queue: F114-F121, F128, F129, F130, F131, F134, F139, and F140 are `passing` (merged); F132 is
+  `passing` (pending this branch's PR); F133, F135-F138, and F141-F143 are `not_started`
   review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
   packages/ui, packages/server, packages/cli); no active feature. `nextIds.F` is 144.
 
@@ -25,17 +25,18 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   progress log and PR history; every slice passed local/pre-push `pnpm verify:pr` and GitHub CI.
 - A deep read-only code review of the product workspace (2026-07-14) produced
   `docs/SUGGESTIONS.md` (14 findings: security, server, UI, CLI) and queued F129-F143. F129
-  (PR #140), F130 (#141), F134 (#142), F139 (#143), and F140 (#144) are merged: the session-token
-  handout is documented as an accepted local-trust limitation (S1); `--verbose` logs mask the
-  export URL's token (S2/C2); combined column rename+alter is atomic on Postgres/SQLite with an
-  honest partial-success result on MySQL (V1); the SQL Editor's write-attempt errors now trigger
-  the F120 capability-cache refresh (U1); and `EditableCell`/`NewRowCell` gained NULL/empty-string
-  reachability, Escape-to-cancel on date editors, and bigint-precision rejection (U2/U4/U5). See
-  each id's evidence in `docs/FEATURES.json` for full reasoning/test detail.
-- F131 (`636d6d9`, pending PR): closed SUGGESTIONS.md S3 - `describeError()` now redacts a
-  userinfo password or credential-named query param embedded in driver error text (e.g. MongoDB's
-  `MongoParseError` family) before it reaches `/api/connect`'s 400 body, `/api/health.lastError`,
-  the EventLog, or the CLI's connect-failure message. See `docs/FEATURES.json`'s F131 evidence.
+  (PR #140), F130 (#141), F134 (#142), F139 (#143), F140 (#144), and F131 (#145) are merged: the
+  session-token handout is documented as an accepted local-trust limitation (S1); `--verbose` logs
+  mask the export URL's token (S2/C2); combined column rename+alter is atomic on Postgres/SQLite
+  with an honest partial-success result on MySQL (V1); the SQL Editor's write-attempt errors now
+  trigger the F120 capability-cache refresh (U1); `EditableCell`/`NewRowCell` gained NULL/empty-
+  string reachability, Escape-to-cancel on date editors, and bigint-precision rejection
+  (U2/U4/U5); and `describeError()` now redacts credentials embedded in driver error text (S3).
+  See each id's evidence in `docs/FEATURES.json` for full reasoning/test detail.
+- F132 (`789ac3e`, pending PR): closed SUGGESTIONS.md S4 - recent-targets persistence's
+  credential-param check now matches by substring (not anchored to the whole key), so a compound
+  name like `sslpassword`/`access_token`/`authSecret` is caught and never persisted to
+  localStorage. See `docs/FEATURES.json`'s F132 evidence.
 
 ## In progress
 
@@ -74,7 +75,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Open/merge F131's PR, then promote the next task from the F132-F133/F135-F138/F141-F143
-  review-fix queue (see `docs/SUGGESTIONS.md` for each finding's full context). Suggested order:
-  remaining minors (F132-F133, F135-F138, F141, F142); F143 (scalable-structure refactor) last so
-  file moves don't conflict with in-flight fixes.
+- Open/merge F132's PR, then promote the next task from the F133/F135-F138/F141-F143 review-fix
+  queue (see `docs/SUGGESTIONS.md` for each finding's full context). Suggested order: remaining
+  minors (F133, F135-F138, F141, F142); F143 (scalable-structure refactor) last so file moves
+  don't conflict with in-flight fixes.

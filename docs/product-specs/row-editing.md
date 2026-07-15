@@ -184,7 +184,9 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
     offset, and shows the original and draft together before Apply. Neither browser nor server
     constructs a JavaScript `Date`; the driver binds the validated string unchanged. MySQL `TIME`
     retains its signed-duration range, while PostgreSQL time-of-day and timezone shapes remain
-    distinct.
+    distinct. Timestamp calendar editing reuses the same shared calendar panel as row filtering;
+    choosing a day replaces only the date prefix and preserves the exact separator, time, fractional
+    seconds, and timezone suffix.
   - `JSON` / `JSONB`: the editor parses JSON, reports line and column, formats on explicit request,
     and stages the parsed JSON value. The server serializes it exactly once for the SQL driver.
     PostgreSQL native scalar arrays use the same full-value surface but require a JSON array and
@@ -196,6 +198,9 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
     already respects nullability.
   - `binary` / `unknown`: never accepted - see "Row identity and editability" above. Unsupported
     structured families such as XML also remain read-only until they have a lossless contract.
+- Only one grid editor is active at a time. Clicking a different body cell dismisses any scalar,
+  structured, or inserted-row editor after the current scalar input has had a chance to stage its
+  blur result; interaction inside the active cell or its portalled editor does not dismiss it.
 - This validation happens **before** the adapter is called, using the table's own freshly-
   introspected columns (never a client-supplied schema) - the same trust boundary `resolveRowSort`/
   filter-column validation already enforces.

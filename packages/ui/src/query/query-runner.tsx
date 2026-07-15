@@ -44,8 +44,6 @@ export interface QueryRunnerProps {
   isExplaining: boolean;
   explainResult?: QueryPlanResult;
   explainError?: string;
-  explainAnalyze: boolean;
-  onExplainAnalyzeChange: (analyze: boolean) => void;
   /** Opens the query history drawer (F012) - rendered by the caller, not this component. */
   onOpenHistory: () => void;
   /**
@@ -129,8 +127,6 @@ export function QueryRunner({
   isExplaining,
   explainResult,
   explainError,
-  explainAnalyze,
-  onExplainAnalyzeChange,
   onOpenHistory,
   tables = [],
   engine = "postgres",
@@ -288,19 +284,6 @@ export function QueryRunner({
         <span className="hidden rounded-[2px] border border-border px-1 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
           {shortcutLabel}
         </span>
-        {engine === "postgres" && (
-          <label className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
-            <input
-              type="checkbox"
-              aria-label="Run with EXPLAIN ANALYZE"
-              checked={explainAnalyze}
-              disabled={isBusy}
-              onChange={(event) => onExplainAnalyzeChange(event.target.checked)}
-              className="h-3 w-3 accent-primary"
-            />
-            Analyze
-          </label>
-        )}
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
@@ -315,15 +298,6 @@ export function QueryRunner({
           </span>
         </div>
       </div>
-
-      {engine === "postgres" && explainAnalyze && (
-        <div
-          role="alert"
-          className="shrink-0 border-b border-[color:var(--c-amber)]/30 bg-[color:var(--c-amber)]/10 px-3 py-1.5 font-mono text-[10px] text-[color:var(--c-amber)]"
-        >
-          EXPLAIN ANALYZE executes the statement and is accepted only for read-classified SQL.
-        </div>
-      )}
 
       <div className="flex min-h-[8rem] flex-1 overflow-hidden">
         <div ref={editorParentRef} data-testid="query-editor" className="min-w-0 flex-1" />

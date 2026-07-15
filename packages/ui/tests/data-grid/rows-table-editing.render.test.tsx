@@ -155,6 +155,72 @@ describe("RowsTable inline cell editing (component rendering, F103)", () => {
     expect(value.closest("div")).not.toHaveClass("ring-primary");
   });
 
+  it("dismisses structured and scalar editors when another table cell is clicked", () => {
+    const jsonPage: RowPage = {
+      columns: ["id", "profile", "enabled"],
+      rows: [{ id: 1, profile: { active: true }, enabled: true }],
+      page: 0,
+      pageSize: 25
+    };
+    render(
+      <RowsTable
+        {...baseProps({
+          rowPage: jsonPage,
+          columns: [
+            {
+              name: "id",
+              dataType: "int4",
+              nullable: false,
+              isPrimaryKey: true,
+              isForeignKey: false
+            },
+            {
+              name: "profile",
+              dataType: "jsonb",
+              nullable: false,
+              isPrimaryKey: false,
+              isForeignKey: false
+            },
+            {
+              name: "enabled",
+              dataType: "boolean",
+              nullable: false,
+              isPrimaryKey: false,
+              isForeignKey: false
+            }
+          ],
+          editable: true,
+          editableColumns: new Set(["profile", "enabled"]),
+          pendingChanges: {
+            getEdit: () => undefined,
+            stageEdit: vi.fn(),
+            revertEdit: vi.fn(),
+            inserts: [],
+            addInsert: () => "",
+            updateInsertValue: vi.fn(),
+            removeInsert: vi.fn(),
+            deletes: new Set(),
+            stageDelete: vi.fn(),
+            unstageDelete: vi.fn()
+          }
+        })}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
+    expect(screen.getByTestId("cell-editor-surface")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("true"));
+    expect(screen.queryByTestId("cell-editor-surface")).not.toBeInTheDocument();
+
+    fireEvent.doubleClick(screen.getByText("true"));
+    expect(screen.getByRole("combobox", { name: "enabled" })).toBeInTheDocument();
+
+    const [, primaryKeyValue] = screen.getAllByText("1");
+    fireEvent.click(primaryKeyValue as HTMLElement);
+    expect(screen.queryByRole("combobox", { name: "enabled" })).not.toBeInTheDocument();
+  });
+
   it("does not make the primary-key cell editable even when editable is true", () => {
     render(<TestHost editable />);
     // Two "1"s render: the row-number column and the id (PK) cell's value - the PK cell is the

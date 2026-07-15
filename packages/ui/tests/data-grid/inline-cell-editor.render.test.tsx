@@ -194,7 +194,7 @@ describe("InlineCellEditor (F146)", () => {
     expect(onCommitKey).toHaveBeenCalledWith("tab");
   });
 
-  it("offers an optional compact picker for timestamps that preserves the precise tail on change", () => {
+  it("reuses the shared calendar for timestamps and preserves the precise time tail", () => {
     render(
       <InlineCellEditor
         column={{ name: "seen_at", dataType: "timestamp with time zone", nullable: false }}
@@ -207,5 +207,11 @@ describe("InlineCellEditor (F146)", () => {
     expect(screen.queryByTestId("inline-timestamp-picker")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open date/time picker" }));
     expect(screen.getByTestId("inline-timestamp-picker")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Choose date" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Hour")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "5" }));
+    expect(screen.getByLabelText("seen_at")).toHaveValue("2024-11-05 01:30:45.123456-04:00");
+    expect(screen.queryByTestId("inline-timestamp-picker")).not.toBeInTheDocument();
   });
 });

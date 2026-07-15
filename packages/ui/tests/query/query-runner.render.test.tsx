@@ -10,8 +10,6 @@ const BASE_PROPS = {
   isRunning: false,
   onExplain: vi.fn(),
   isExplaining: false,
-  explainAnalyze: false,
-  onExplainAnalyzeChange: vi.fn(),
   onOpenHistory: vi.fn()
 };
 
@@ -121,25 +119,10 @@ describe("QueryRunner query plans (F128)", () => {
     expect(onExplain).toHaveBeenCalledTimes(1);
   });
 
-  it("shows PostgreSQL ANALYZE as an explicit warned opt-in", () => {
-    const onExplainAnalyzeChange = vi.fn();
-    const { rerender } = render(
-      <QueryRunner
-        {...BASE_PROPS}
-        engine="postgres"
-        onExplainAnalyzeChange={onExplainAnalyzeChange}
-      />
-    );
-    fireEvent.click(screen.getByRole("checkbox", { name: "Run with EXPLAIN ANALYZE" }));
-    expect(onExplainAnalyzeChange).toHaveBeenCalledWith(true);
-
-    rerender(<QueryRunner {...BASE_PROPS} engine="postgres" explainAnalyze />);
-    expect(screen.getByRole("alert")).toHaveTextContent("executes the statement");
-  });
-
-  it("does not offer ANALYZE for MySQL or SQLite", () => {
-    render(<QueryRunner {...BASE_PROPS} engine="mysql" />);
+  it("does not offer ANALYZE in the SQL Editor", () => {
+    render(<QueryRunner {...BASE_PROPS} engine="postgres" />);
     expect(screen.queryByRole("checkbox", { name: /ANALYZE/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Analyze")).not.toBeInTheDocument();
   });
 
   it("renders a normalized plan in the resizable output panel", () => {

@@ -22,17 +22,13 @@ test("@full a write-capable session runs a mutation directly and confirms a dest
 
   const editor = page.getByTestId("query-editor").locator(".cm-content");
 
-  // A native query plan renders in its own output panel. ANALYZE stays an explicit opt-in because
-  // PostgreSQL executes the target query when it is enabled.
+  // A native, non-executing query plan renders in its own output panel. The SQL Editor intentionally
+  // exposes no ANALYZE control because PostgreSQL would execute the target query.
   await editor.click();
   await editor.fill(`SELECT * FROM ${FIXTURE.table} WHERE name = 'Ada Lovelace'`);
+  await expect(page.getByRole("checkbox", { name: "Run with EXPLAIN ANALYZE" })).toHaveCount(0);
   await page.getByRole("button", { name: "Explain" }).click();
   await expect(page.getByTestId("query-plan")).toContainText(/Scan on/);
-
-  await page.getByRole("checkbox", { name: "Run with EXPLAIN ANALYZE" }).check();
-  await expect(page.getByRole("alert")).toContainText("executes the statement");
-  await page.getByRole("button", { name: "Explain" }).click();
-  await expect(page.getByTestId("query-plan")).toContainText("analyzed");
 
   // A mutation with a WHERE clause runs directly (no confirmation) and reports affected rows.
   await editor.click();

@@ -5,7 +5,7 @@ import { Calendar } from "lucide-react";
 import type { KeyboardEvent, ReactElement, ReactNode } from "react";
 import { useRef, useState } from "react";
 import { Select } from "../../primitives/controls/select.js";
-import { DateTimeInput } from "../../primitives/date-time-input.js";
+import { CalendarPicker, DateTimeInput } from "../../primitives/date-time-input.js";
 import { EditorPopover } from "./editor-popover.js";
 
 export type CommitDirection = "enter" | "tab" | "shiftTab";
@@ -55,6 +55,7 @@ export function InlineCellEditor({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState<string>();
   const pickerAnchorRef = useRef<HTMLButtonElement>(null);
+  const draftInputRef = useRef<HTMLInputElement>(null);
 
   function commit(value: unknown, direction?: CommitDirection): void {
     onApply(value);
@@ -173,6 +174,7 @@ export function InlineCellEditor({
     control = (
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <input
+          ref={draftInputRef}
           autoFocus
           aria-label={column.name}
           aria-invalid={Boolean(error)}
@@ -211,28 +213,21 @@ export function InlineCellEditor({
           <EditorPopover
             anchorRect={pickerAnchorRef.current.getBoundingClientRect()}
             testId="inline-timestamp-picker"
-            width={264}
+            width={256}
             onDismiss={() => setPickerOpen(false)}
           >
-            <div className="p-2">
-              <DateTimeInput
-                kind="datetime-local"
-                value={draft.replace(" ", "T").slice(0, 16)}
-                onChange={(value) => {
-                  // The picker only ever edits the "date + HH:MM" prefix - splice it back onto the
-                  // existing draft so any seconds/fraction/offset tail is preserved exactly.
-                  const tail = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(.*)$/.exec(draft)?.[1] ?? "";
-                  setDraft(`${value}${tail}`);
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setPickerOpen(false)}
-                className="mt-1.5 w-full rounded-[3px] bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground hover:opacity-90"
-              >
-                Done
-              </button>
-            </div>
+            <CalendarPicker
+              value={draft.slice(0, 10)}
+              onChange={(date) => {
+                // Calendar editing changes only the date prefix. Preserve the exact separator,
+                // time, fractional seconds, and timezone tail already present in the cell.
+                const tail = /^\d{4}-\d{2}-\d{2}(.*)$/.exec(draft)?.[1] ?? " 00:00";
+                setDraft(`${date}${tail}`);
+                setError(undefined);
+                setPickerOpen(false);
+                requestAnimationFrame(() => draftInputRef.current?.focus());
+              }}
+            />
           </EditorPopover>
         )}
       </div>

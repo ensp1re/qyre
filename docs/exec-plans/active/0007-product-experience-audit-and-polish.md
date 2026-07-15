@@ -62,7 +62,7 @@ clear semantic and visual contract.
 | Read and explore rows              | loading, populated, dense/long data, sorting, filtering, pagination, responsive widths                        | PostgreSQL/MySQL/SQLite, MongoDB document values  | Core workflow works; long-value sizing and keyboard model are systemic blockers                                           |
 | Edit and commit SQL rows           | row selection, inline editing, typed values, add/duplicate row, delete, required fields, cancel/review/commit | writable PostgreSQL plus source-level type matrix | Editing changes geometry and conflicts with selection; type fidelity, add-row, and commit review need a cohesive redesign |
 | Edit MongoDB documents             | collection table, nested value drawer, document surface                                                       | MongoDB                                           | Engine-specific model is appropriate and preserved                                                                        |
-| Run SQL                            | results, history, error, retry, Explain, Analyze warning, destructive confirmation                            | PostgreSQL/MySQL/SQLite; MongoDB N/A              | Strong destructive guard; feedback semantics and hidden drawer lifecycle need work                                        |
+| Run SQL                            | results, history, error, retry, Explain, destructive confirmation                                             | PostgreSQL/MySQL/SQLite; MongoDB N/A              | Strong destructive guard; feedback semantics and hidden drawer lifecycle need work                                        |
 | Inspect files and console          | empty files, event history                                                                                    | all connected modes                               | Functional; empty and live-status semantics are underdeveloped                                                            |
 | Understand access and preferences  | large roles/grants list, notices, theme, history settings                                                     | writable PostgreSQL                               | Accurate but unscalable information architecture                                                                          |
 | Restricted operation               | forced read-only and restricted database role                                                                 | PostgreSQL                                        | Clear reason and hidden write affordances; inert row selection remains                                                    |
@@ -544,6 +544,8 @@ Acceptance criteria:
   each explicit part change has a visible before/after representation.
 - Single row click selects only. Cell edit activation is consistent by pointer and `Enter`/`F2`.
 - Scalar editors preserve row height and column geometry; Escape cancels and Enter applies the draft.
+- Clicking another body cell dismisses any active scalar, structured, or inserted-row editor.
+- Timestamp date selection reuses the filter calendar and preserves the exact stored time suffix.
 - PostgreSQL, MySQL, and SQLite temporal round-trip tests cover precision, offsets, null, invalid,
   and DST-boundary values; MongoDB is explicitly not applicable to SQL cell editing.
 
@@ -842,3 +844,7 @@ personal taste.
   push, open the draft PR, and wait for CI before marking DF-12 passing.
 - 2026-07-15: DF-12 is passing in draft PR #159 at `fc57253`; the pre-push full gate and both
   GitHub CI jobs passed. Current step: merge PR #159, return to `main`, then activate DF-13.
+- 2026-07-16: F146 follow-up removed SQL Editor Analyze, made all grid editors dismiss when another
+  body cell is clicked, and replaced the nested timestamp date/time popup with the shared filter
+  calendar panel while preserving the complete stored time suffix. Current step: local PR gate and
+  push to draft PR #160; GitHub Actions credits remain unavailable.

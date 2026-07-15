@@ -1,7 +1,11 @@
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import { parseMutationDraft } from "@qyre/core/mutation-editor-values";
 import { ArrowUpDown, CopyPlus, Pencil, Trash2 } from "lucide-react";
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  ReactNode
+} from "react";
 import { cn } from "../../cn.js";
 import { formatCell, friendlyTypeLabel } from "../../primitives/format-cell.js";
 import { TypeIcon } from "../../primitives/type-icon.js";
@@ -169,6 +173,14 @@ export function RowsTable({
     if (nextRowKey) focusCell(`${nextRowKey}:${nextColumn}`);
   }
 
+  /** The click event starts after focus/blur processing, so an inline input can stage its draft
+   * first. Then any different table cell dismisses the old scalar, structured, or insert editor. */
+  function dismissEditorFromOtherCell(event: ReactMouseEvent<HTMLDivElement>): void {
+    if (!activeEditor || !(event.target instanceof Element)) return;
+    const clickedCell = event.target.closest<HTMLTableCellElement>("td");
+    if (clickedCell && clickedCell.dataset.editorId !== activeEditor) setActiveEditor(null);
+  }
+
   /** Arrow-key/copy/paste/revert grid shortcuts (F146), scoped to the current `selectedCell` -
    * attached to the scroll container so it fires regardless of which cell's control has DOM focus. */
   function handleGridKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
@@ -306,6 +318,7 @@ export function RowsTable({
           data-testid="rows-table"
           ref={scrollRef}
           className="flex-1 overflow-auto"
+          onClickCapture={dismissEditorFromOtherCell}
           onKeyDown={handleGridKeyDown}
         >
           <table className="border-collapse font-mono text-[11px]" style={{ tableLayout: "fixed" }}>
@@ -416,9 +429,11 @@ export function RowsTable({
                     {rowPage.columns.map((columnName) => {
                       const meta = columnByName.get(columnName);
                       const isInsertable = insertableColumns?.has(columnName);
+                      const insertEditorId = `insert:${insert.id}:${columnName}`;
                       return (
                         <td
                           key={columnName}
+                          data-editor-id={isInsertable ? insertEditorId : undefined}
                           className="relative overflow-hidden border-r border-border-subtle px-3 py-1.5"
                         >
                           {isInsertable ? (
@@ -433,13 +448,11 @@ export function RowsTable({
                               onChange={(next) =>
                                 pendingChanges.updateInsertValue(insert.id, columnName, next)
                               }
-                              isActive={activeEditor === `insert:${insert.id}:${columnName}`}
-                              onActivate={() =>
-                                setActiveEditor(`insert:${insert.id}:${columnName}`)
-                              }
+                              isActive={activeEditor === insertEditorId}
+                              onActivate={() => setActiveEditor(insertEditorId)}
                               onDeactivate={() =>
                                 setActiveEditor((current) =>
-                                  current === `insert:${insert.id}:${columnName}` ? null : current
+                                  current === insertEditorId ? null : current
                                 )
                               }
                             />
@@ -588,6 +601,7 @@ export function RowsTable({
                       return (
                         <td
                           key={columnName}
+                          data-editor-id={isEditableCell ? cellId : undefined}
                           title={
                             editable && !meta?.isPrimaryKey && !reference
                               ? editorCapability?.unavailableReason

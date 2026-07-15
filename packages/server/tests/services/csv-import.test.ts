@@ -1,4 +1,5 @@
 import type { ColumnMetadata, CsvImportMapping } from "@qyre/core";
+import { CSV_IMPORT_MAX_ERRORS } from "@qyre/core";
 import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { processCsvImport } from "../../src/services/csv-import.js";
@@ -162,7 +163,10 @@ describe("processCsvImport", () => {
       failedRows: 250
     });
     if (result.mode === "inspect") throw new Error("Expected an import result.");
-    expect(result.errors).toHaveLength(250);
+    // failedRows (asserted above) stays the true total even though the stored/returned error
+    // list itself is capped at CSV_IMPORT_MAX_ERRORS (F136) - all 250 rolled-back rows are real
+    // failures, but only the first 100 are retained in the response.
+    expect(result.errors).toHaveLength(CSV_IMPORT_MAX_ERRORS);
     expect(result.errors[4]?.message).toMatch(/database rejected/i);
     expect(result.errors[0]?.message).toMatch(/line 6 failed/i);
   });
@@ -284,5 +288,28 @@ describe("processCsvImport", () => {
         csvStream(`Name\n${rows}\n`)
       )
     ).rejects.toMatchObject({ statusCode: 413 });
+  });
+
+  it("caps the returned per-row errors while failedRows still reports the true total (F136)", async () => {
+    const badRows = Array.from(
+      { length: 150 },
+      (_, index) => `Bad${index},not-a-number,true,`
+    ).join("\n");
+    const result = await processCsvImport(
+      adapter(),
+      "public",
+      "users",
+      "validate",
+      mapping,
+      csvStream(`Name,Age,Active,Joined\n${badRows}\n`)
+    );
+
+    expect(result).toMatchObject({
+      mode: "validate",
+      rowCount: 150,
+      validRows: 0,
+      failedRows: 150
+    });
+    expect((result as { errors: unknown[] }).errors).toHaveLength(CSV_IMPORT_MAX_ERRORS);
   });
 });

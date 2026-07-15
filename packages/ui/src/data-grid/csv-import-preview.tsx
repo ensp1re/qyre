@@ -74,6 +74,11 @@ export function CsvImportReport({
       </div>
       {report.errors.length > 0 ? (
         <div className="max-h-32 overflow-auto rounded-[2px] border border-border bg-card p-2">
+          {report.errors.length < report.failedRows && (
+            <p className="mb-1.5 font-mono text-[10px]" style={{ color: "var(--c-amber)" }}>
+              Showing the first {report.errors.length} of {report.failedRows} errors.
+            </p>
+          )}
           {report.errors.map((item) => (
             <p
               key={`${item.line}-${item.column ?? "row"}`}

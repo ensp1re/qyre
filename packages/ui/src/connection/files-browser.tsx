@@ -1,5 +1,5 @@
 import type { FileNode } from "@qyre/core";
-import { File, FileCode2, FolderOpen, Play } from "lucide-react";
+import { AlertTriangle, File, FileCode2, FolderOpen, Play } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "../cn.js";
@@ -11,11 +11,16 @@ export interface FilesBrowserProps {
   selectedPath?: string;
   onSelectFile: (path: string) => void;
   content?: string;
+  /** True when `content` is only the file's first bytes, not the whole file (F133) - a file over
+   * the server's preview size cap. Hides "Run in editor" (the file's SQL is incomplete) and shows
+   * a truncation notice instead. */
+  contentTruncated?: boolean;
   isContentLoading?: boolean;
   contentError?: string;
   onRetryContent?: () => void;
   /** Runs the currently-previewed `.sql` file's content in the SQL Editor (F062). Omitted (button
-   * hidden) when the SQL Editor isn't available for the current connection, e.g. MongoDB. */
+   * hidden) when the SQL Editor isn't available for the current connection, e.g. MongoDB, or when
+   * the preview is truncated. */
   onRunInEditor?: (content: string) => void;
 }
 
@@ -104,6 +109,7 @@ export function FilesBrowser({
   selectedPath,
   onSelectFile,
   content,
+  contentTruncated,
   isContentLoading,
   contentError,
   onRetryContent,
@@ -111,7 +117,10 @@ export function FilesBrowser({
 }: FilesBrowserProps): ReactNode {
   const lines = content?.split("\n") ?? [];
   const canRunInEditor =
-    onRunInEditor !== undefined && content !== undefined && selectedPath?.endsWith(".sql");
+    onRunInEditor !== undefined &&
+    content !== undefined &&
+    !contentTruncated &&
+    selectedPath?.endsWith(".sql");
 
   return (
     <div
@@ -157,22 +166,33 @@ export function FilesBrowser({
         ) : content === undefined ? (
           <p className="p-3 font-mono text-[11px] text-muted-foreground">No file selected.</p>
         ) : (
-          <div className="flex flex-1 overflow-auto">
-            <div
-              aria-hidden="true"
-              className="shrink-0 select-none border-r border-border bg-background pr-3 pt-3 text-right font-mono text-[11px] text-muted-foreground/30"
-              style={{ minWidth: "44px" }}
-            >
-              {lines.map((_, index) => (
-                <div key={index} style={{ lineHeight: "20px" }}>
-                  {index + 1}
-                </div>
-              ))}
+          <>
+            {contentTruncated && (
+              <p
+                className="flex shrink-0 items-center gap-1.5 border-b border-border px-3 py-1.5 font-mono text-[11px]"
+                style={{ color: "var(--c-amber)" }}
+              >
+                <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                File too large to preview in full - showing only the beginning.
+              </p>
+            )}
+            <div className="flex flex-1 overflow-auto">
+              <div
+                aria-hidden="true"
+                className="shrink-0 select-none border-r border-border bg-background pr-3 pt-3 text-right font-mono text-[11px] text-muted-foreground/30"
+                style={{ minWidth: "44px" }}
+              >
+                {lines.map((_, index) => (
+                  <div key={index} style={{ lineHeight: "20px" }}>
+                    {index + 1}
+                  </div>
+                ))}
+              </div>
+              <pre className="flex-1 whitespace-pre p-3 font-mono text-[12px] leading-5 text-foreground/80">
+                {content}
+              </pre>
             </div>
-            <pre className="flex-1 whitespace-pre p-3 font-mono text-[12px] leading-5 text-foreground/80">
-              {content}
-            </pre>
-          </div>
+          </>
         )}
       </div>
     </div>

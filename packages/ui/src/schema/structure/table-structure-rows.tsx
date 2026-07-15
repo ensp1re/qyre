@@ -59,8 +59,8 @@ export function ColumnRow({
           FK
         </span>
       )}
-      <span className="ml-auto text-[9px] text-muted-foreground/40">{column.dataType}</span>
-      {column.nullable && <span className="text-[9px] text-muted-foreground/30">null</span>}
+      <span className="ml-auto text-[9px] text-quiet-foreground">{column.dataType}</span>
+      {column.nullable && <span className="text-[9px] text-quiet-foreground">null</span>}
       {editable && (
         <span className="flex items-center gap-0.5">
           <button

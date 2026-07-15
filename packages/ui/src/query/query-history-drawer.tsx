@@ -69,7 +69,7 @@ export function QueryHistoryDrawer({
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
           <History className="h-3 w-3 text-muted-foreground" />
-          <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-quiet-foreground">
             Query History
           </span>
           <button

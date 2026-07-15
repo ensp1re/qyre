@@ -133,7 +133,7 @@ function InspectChip({
     >
       <Icon className="h-2.5 w-2.5 shrink-0" style={{ color: "var(--c-amber)" }} />
       <span className="shrink-0">{summary}</span>
-      <span className="truncate font-mono text-muted-foreground/50">{preview}</span>
+      <span className="truncate font-mono text-quiet-foreground">{preview}</span>
     </button>
   );
 }

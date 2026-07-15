@@ -57,7 +57,7 @@ export type ServerLoggerOption =
  * Normalizes a `CreateServerOptions.logger` value into Fastify's logger config, always attaching
  * {@link redactedRequestSerializer} - `logger: true` and a bare `{ level }` object both bypass any
  * serializer otherwise, which is exactly the `--verbose` path that leaked the session token
- * (SUGGESTIONS.md S2). `false`/`undefined` disables logging entirely, unchanged.
+ * (F130 review finding S2). `false`/`undefined` disables logging entirely, unchanged.
  */
 export function buildLoggerOptions(
   logger: ServerLoggerOption | undefined

@@ -5,10 +5,10 @@
  * in sync with one definition.
  *
  * Colors use the rgb(var(--x) / <alpha-value>) form (not a bare var()) so Tailwind's opacity
- * modifiers (bg-primary/10, text-foreground/70, ...) actually generate CSS - see
- * apps/web/SUGGESTIONS.md #1. `border`/`sidebar-border` are the exception: they're rgba() strings
- * with a fixed hairline alpha baked in on purpose, not meant to be re-modified per callsite - use
- * `border-subtle` for the one softer variant components need.
+ * modifiers (bg-primary/10, text-foreground/70, ...) actually generate CSS. `border` and
+ * `sidebar-border` are the exception: they are rgba() strings with a fixed hairline alpha baked in
+ * on purpose, not meant to be re-modified per callsite - use `border-subtle` for the one softer
+ * variant components need.
  * @type {import('tailwindcss').Config}
  */
 export default {
@@ -39,6 +39,7 @@ export default {
           DEFAULT: "rgb(var(--muted) / <alpha-value>)",
           foreground: "rgb(var(--muted-foreground) / <alpha-value>)"
         },
+        "quiet-foreground": "rgb(var(--quiet-foreground) / <alpha-value>)",
         accent: {
           DEFAULT: "rgb(var(--accent) / <alpha-value>)",
           foreground: "rgb(var(--accent-foreground) / <alpha-value>)"

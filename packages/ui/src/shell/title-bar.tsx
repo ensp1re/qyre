@@ -62,11 +62,11 @@ export function TitleBar({
 
       <div className="flex min-w-0 items-center gap-0 truncate font-mono text-[11px]">
         {breadcrumb ? (
-          <span className="truncate text-muted-foreground/60">
+          <span className="truncate text-quiet-foreground">
             {breadcrumb.prefix ?? breadcrumb.name}
           </span>
         ) : (
-          <span className="text-muted-foreground/60">not connected</span>
+          <span className="text-quiet-foreground">not connected</span>
         )}
       </div>
 

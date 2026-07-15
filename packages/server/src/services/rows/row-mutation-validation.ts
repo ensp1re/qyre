@@ -215,7 +215,7 @@ function batchTargetKey(op: Pick<MutationOp, "schema" | "table">): string {
 }
 
 /**
- * Validates/coerces every op in a `POST /api/mutations/commit` batch (F135/SUGGESTIONS.md V2) -
+ * Validates/coerces every op in a `POST /api/mutations/commit` batch (F135 review finding V2) -
  * `assertMutable` plus the matching `resolve*` helper for each op, same as the per-op routes' own
  * validation, but sharing one introspection per distinct `schema.table` across the whole batch
  * instead of firing `getTable` once per op. A staged batch is almost always many ops against one

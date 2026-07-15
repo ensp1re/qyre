@@ -100,7 +100,7 @@ export function StatusBar({
 
   return (
     <footer className="flex h-6 shrink-0 items-center justify-between gap-3 border-t border-border bg-sidebar px-3 sm:px-4 font-mono text-[10px]">
-      <div className="flex min-w-0 items-center gap-3 text-muted-foreground/60">
+      <div className="flex min-w-0 items-center gap-3 text-quiet-foreground">
         <span style={{ color: STATUS_COLOR[status] }} title={statusTitle}>
           {STATUS_LABEL[status]}
         </span>
@@ -130,7 +130,7 @@ export function StatusBar({
         )}
       </div>
       {lastQueryMs !== undefined && (
-        <div className="hidden shrink-0 items-center gap-1 text-muted-foreground/40 sm:flex">
+        <div className="hidden shrink-0 items-center gap-1 text-quiet-foreground sm:flex">
           <Clock className="h-2.5 w-2.5" />
           {lastQueryMs}ms
         </div>

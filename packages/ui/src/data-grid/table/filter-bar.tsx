@@ -199,7 +199,7 @@ export function FilterBar({
     <div className="relative flex flex-wrap items-center gap-1.5">
       {active.map((filter, index) => (
         <span key={`${filter.column}-${filter.op}-${index}`} className="flex items-center gap-1.5">
-          {index > 0 && <span className="text-[9px] text-muted-foreground/50">and</span>}
+          {index > 0 && <span className="text-[9px] text-quiet-foreground">and</span>}
           <span className="flex items-stretch overflow-hidden rounded-[3px] border border-border bg-accent/50 font-mono text-[11px]">
             <button
               type="button"
@@ -253,7 +253,7 @@ export function FilterBar({
           type="button"
           onClick={() => onFiltersChange(undefined)}
           aria-label="Clear all filters"
-          className="rounded-[3px] px-1.5 py-1 font-mono text-[10px] text-muted-foreground/70 hover:bg-accent hover:text-destructive"
+          className="rounded-[3px] px-1.5 py-1 font-mono text-[10px] text-quiet-foreground hover:bg-accent hover:text-destructive"
         >
           Clear
         </button>
@@ -313,7 +313,7 @@ export function FilterBar({
                         ? `filter-column-option-${highlighted}`
                         : undefined
                     }
-                    className="w-full bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60"
+                    className="w-full bg-transparent text-foreground outline-none placeholder:text-quiet-foreground"
                   />
                 </div>
                 <div
@@ -323,7 +323,7 @@ export function FilterBar({
                   className="max-h-56 overflow-y-auto p-1"
                 >
                   {matchingColumns.length === 0 ? (
-                    <p className="px-2 py-2 text-muted-foreground/60">
+                    <p className="px-2 py-2 text-quiet-foreground">
                       {filterableColumns.length === 0
                         ? "No filterable columns"
                         : "No matching columns"}
@@ -358,7 +358,7 @@ export function FilterBar({
                             FK
                           </span>
                         )}
-                        <span className="ml-auto shrink-0 text-[9px] text-muted-foreground/60">
+                        <span className="ml-auto shrink-0 text-[9px] text-quiet-foreground">
                           {friendlyTypeLabel(column.dataType)}
                         </span>
                       </button>
@@ -392,7 +392,7 @@ export function FilterBar({
                     >
                       {OP_META[op].word}
                       {OP_META[op].symbol !== OP_META[op].word && (
-                        <span className="text-muted-foreground/60">{OP_META[op].symbol}</span>
+                        <span className="text-quiet-foreground">{OP_META[op].symbol}</span>
                       )}
                     </button>
                   ))}
@@ -453,7 +453,7 @@ export function FilterBar({
                       aria-label="Filter value"
                       autoFocus
                       inputMode={valueInputKind === "number" ? "decimal" : undefined}
-                      className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary"
+                      className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-foreground outline-none placeholder:text-quiet-foreground focus:border-primary"
                     />
                   )}
                   <button

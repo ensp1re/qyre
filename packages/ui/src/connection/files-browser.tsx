@@ -57,7 +57,7 @@ function TreeRow({
           <svg
             viewBox="0 0 24 24"
             className={cn(
-              "h-2.5 w-2.5 shrink-0 text-muted-foreground/60 transition-transform",
+              "h-2.5 w-2.5 shrink-0 text-quiet-foreground transition-transform",
               open && "rotate-90"
             )}
             fill="none"
@@ -179,7 +179,7 @@ export function FilesBrowser({
             <div className="flex flex-1 overflow-auto">
               <div
                 aria-hidden="true"
-                className="shrink-0 select-none border-r border-border bg-background pr-3 pt-3 text-right font-mono text-[11px] text-muted-foreground/30"
+                className="shrink-0 select-none border-r border-border bg-background pr-3 pt-3 text-right font-mono text-[11px] text-quiet-foreground"
                 style={{ minWidth: "44px" }}
               >
                 {lines.map((_, index) => (

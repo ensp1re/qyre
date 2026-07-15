@@ -157,8 +157,8 @@ function rawPreview(headers: string[], record: string[], line: number): CsvImpor
 }
 
 /**
- * Tracks per-row import errors with a hard cap on how many are actually retained (F136/
- * SUGGESTIONS.md V3) - `count` is the true total regardless of the cap, so `failedRows` in the
+ * Tracks per-row import errors with a hard cap on how many are actually retained (F136 review
+ * finding V3) - `count` is the true total regardless of the cap, so `failedRows` in the
  * final result is never wrong; `entries` is what the response actually returns.
  */
 function createErrorSink(maxEntries: number): {

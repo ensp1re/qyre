@@ -121,7 +121,7 @@ function CalendarGrid({
       </div>
       <div className="grid grid-cols-7 gap-0.5 text-center">
         {WEEKDAYS.map((day) => (
-          <span key={day} className="font-mono text-[9px] text-muted-foreground/50">
+          <span key={day} className="font-mono text-[9px] text-quiet-foreground">
             {day}
           </span>
         ))}
@@ -178,7 +178,7 @@ function DatePicker({
         aria-label="Choose date"
         className={cn(
           "flex w-full items-center gap-1.5 rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-left font-mono text-[11px] outline-none focus:border-primary",
-          parts ? "text-foreground" : "text-muted-foreground/60"
+          parts ? "text-foreground" : "text-quiet-foreground"
         )}
       >
         <Calendar className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -275,7 +275,7 @@ function TimeSegments({
         placeholder="HH"
         inputMode="numeric"
         autoFocus={autoFocus}
-        className="w-5 bg-transparent text-center font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40"
+        className="w-5 bg-transparent text-center font-mono text-[11px] text-foreground outline-none placeholder:text-quiet-foreground"
       />
       <span className="text-muted-foreground">:</span>
       <input
@@ -290,7 +290,7 @@ function TimeSegments({
         }}
         placeholder="MM"
         inputMode="numeric"
-        className="w-5 bg-transparent text-center font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40"
+        className="w-5 bg-transparent text-center font-mono text-[11px] text-foreground outline-none placeholder:text-quiet-foreground"
       />
     </div>
   );

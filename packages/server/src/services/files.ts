@@ -3,7 +3,15 @@
  * documented in docs/product-specs/dashboard-ui.md's "Files tab security boundary" section - read
  * that before changing this file.
  */
-import { readdirSync, realpathSync } from "node:fs";
+import {
+  closeSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  realpathSync,
+  statSync
+} from "node:fs";
 import { extname, join, relative, resolve, sep } from "node:path";
 import type { FileNode } from "@qyre/core";
 
@@ -94,4 +102,32 @@ export function resolveSqlFilePath(rootDir: string, relativePath: string): strin
   }
 
   return realAbsolutePath;
+}
+
+/**
+ * Reads at most `maxBytes` of `path` (F133/SUGGESTIONS.md S5) - a plain `readFileSync` reads the
+ * whole file into memory regardless of size, so a multi-gigabyte dump under `--files-dir` would
+ * otherwise block the event loop and ship as one giant JSON string. A file at or under the limit
+ * is read in full via the ordinary path (no open/close overhead for the common case); a larger
+ * file is read via a bounded `readSync` into a fixed-size buffer instead. Decoding a truncated
+ * buffer as UTF-8 can split a multi-byte character at the exact cutoff, rendering as a single
+ * replacement character there - an acceptable cosmetic artifact of a byte-based cutoff, not a
+ * correctness concern for a read-only preview.
+ */
+export function readFilePreview(
+  path: string,
+  maxBytes: number
+): { content: string; truncated: boolean } {
+  if (statSync(path).size <= maxBytes) {
+    return { content: readFileSync(path, "utf-8"), truncated: false };
+  }
+
+  const fd = openSync(path, "r");
+  try {
+    const buffer = Buffer.alloc(maxBytes);
+    const bytesRead = readSync(fd, buffer, 0, maxBytes, 0);
+    return { content: buffer.toString("utf-8", 0, bytesRead), truncated: true };
+  } finally {
+    closeSync(fd);
+  }
 }

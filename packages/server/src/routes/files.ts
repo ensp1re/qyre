@@ -1,9 +1,14 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { fileContentQuerySchema } from "@qyre/core";
+import { existsSync, statSync } from "node:fs";
+import { fileContentQuerySchema, FILES_PREVIEW_MAX_BYTES } from "@qyre/core";
 import type { FileContent, FilesOverview } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../app.js";
-import { buildFileTree, InvalidFilePathError, resolveSqlFilePath } from "../services/files.js";
+import {
+  buildFileTree,
+  InvalidFilePathError,
+  readFilePreview,
+  resolveSqlFilePath
+} from "../services/files.js";
 
 export function registerFilesRoutes(app: FastifyInstance, ctx: ServerContext): void {
   app.get("/api/files", async (): Promise<FilesOverview> => {
@@ -36,7 +41,7 @@ export function registerFilesRoutes(app: FastifyInstance, ctx: ServerContext): v
 
     const content: FileContent = {
       path: parsed.data.path,
-      content: readFileSync(absolutePath, "utf-8")
+      ...readFilePreview(absolutePath, FILES_PREVIEW_MAX_BYTES)
     };
     return content;
   });

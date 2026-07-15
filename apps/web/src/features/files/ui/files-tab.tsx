@@ -65,6 +65,7 @@ export function FilesTab({
       selectedPath={selectedFilePath}
       onSelectFile={onSelectFile}
       content={fileContent.data?.content}
+      contentTruncated={fileContent.data?.truncated}
       isContentLoading={fileContent.isLoading}
       contentError={
         fileContent.isError

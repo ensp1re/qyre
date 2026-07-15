@@ -154,11 +154,12 @@
       "id": "F133",
       "behavior": "Close SUGGESTIONS.md S5: GET /api/files/content (packages/server/src/routes/files.ts) readFileSync's the whole target with no size cap, so a multi-GB .sql dump inside --files-dir blocks the event loop and ships as one JSON string. Stat first and above a threshold (e.g. 1 MiB) return a truncated preview plus an explicit truncation marker; FilesBrowser renders the marker so the user knows they're seeing a partial file.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "0172fb2",
+      "evidence": "Closed SUGGESTIONS.md S5: GET /api/files/content previously readFileSync'd the whole target with no size limit. Added readFilePreview() (packages/server/src/services/files.ts): stats first, reads in full at or under FILES_PREVIEW_MAX_BYTES (1 MiB, packages/core), otherwise reads only the first maxBytes via a bounded readSync into a fixed-size buffer, never loading the whole file. FileContent gains a truncated flag; packages/ui's FilesBrowser renders an explicit truncation notice and hides 'Run in editor' for a truncated preview (its SQL is incomplete); apps/web's FilesTab threads the flag through. New tests: readFilePreview's full/bounded-read paths, a route-level test with a real 2 MiB+ file confirming an exact byte-capped truncated response, and FilesBrowser's notice/button-hiding behavior. Live-verified against a running server (curl against real >1 MiB and small files, since the SQLite connect UI wasn't easily automatable in this session): the truncated response is exactly FILES_PREVIEW_MAX_BYTES bytes with truncated: true; a small file returns in full with truncated: false. pnpm --filter @qyre/server test (290 tests, 3 new) and @qyre/ui test (362 tests, 3 new) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-15T01:25:00.000Z"
     },
     {
       "id": "F134",

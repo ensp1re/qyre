@@ -38,3 +38,45 @@ describe("FilesBrowser 'Run in editor' (component rendering, F062)", () => {
     expect(onRunInEditor).toHaveBeenCalledWith("SELECT * FROM users;");
   });
 });
+
+describe("FilesBrowser truncated preview (F133)", () => {
+  it("shows a truncation notice when contentTruncated is true", () => {
+    render(
+      <FilesBrowser
+        tree={tree}
+        selectedPath="seed.sql"
+        onSelectFile={vi.fn()}
+        content="SELECT * FROM users"
+        contentTruncated={true}
+      />
+    );
+    expect(screen.getByText(/too large to preview in full/i)).toBeInTheDocument();
+  });
+
+  it("shows no truncation notice when the preview is complete", () => {
+    render(
+      <FilesBrowser
+        tree={tree}
+        selectedPath="seed.sql"
+        onSelectFile={vi.fn()}
+        content="SELECT 1;"
+        contentTruncated={false}
+      />
+    );
+    expect(screen.queryByText(/too large to preview in full/i)).not.toBeInTheDocument();
+  });
+
+  it("hides 'Run in editor' for a truncated preview even when onRunInEditor is provided", () => {
+    render(
+      <FilesBrowser
+        tree={tree}
+        selectedPath="seed.sql"
+        onSelectFile={vi.fn()}
+        content="SELECT * FROM users"
+        contentTruncated={true}
+        onRunInEditor={vi.fn()}
+      />
+    );
+    expect(screen.queryByText("Run in editor")).not.toBeInTheDocument();
+  });
+});

@@ -69,8 +69,28 @@ describe("Files tab (DF-06)", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       path: "migrations/001_init.sql",
-      content: "CREATE TABLE t (id int);"
+      content: "CREATE TABLE t (id int);",
+      truncated: false
     });
+    await app.close();
+  });
+
+  it("truncates a file over FILES_PREVIEW_MAX_BYTES and reports truncated: true (F133)", async () => {
+    const { FILES_PREVIEW_MAX_BYTES } = await import("@qyre/core");
+    const dir = mkdtempSync(join(tmpdir(), "qyre-files-root-"));
+    writeFileSync(join(dir, "huge.sql"), "-".repeat(FILES_PREVIEW_MAX_BYTES + 1024));
+
+    const app = createServer({ filesRoot: dir });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/files/content?path=huge.sql",
+      headers: authHeaders(app)
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.truncated).toBe(true);
+    expect(body.content).toHaveLength(FILES_PREVIEW_MAX_BYTES);
     await app.close();
   });
 

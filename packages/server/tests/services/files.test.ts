@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFileTree,
   InvalidFilePathError,
+  readFilePreview,
   resolveSqlFilePath
 } from "../../src/services/files.js";
 
@@ -105,5 +106,29 @@ describe("resolveSqlFilePath", () => {
   it("still resolves a normal path that does not exist yet (caller handles the 404)", () => {
     const root = makeRoot();
     expect(resolveSqlFilePath(root, "missing.sql")).toBe(join(root, "missing.sql"));
+  });
+});
+
+describe("readFilePreview (F133)", () => {
+  it("reads a file at or under the byte limit in full, reporting truncated: false", () => {
+    const root = makeRoot();
+    const path = join(root, "small.sql");
+    writeFileSync(path, "SELECT 1;");
+
+    expect(readFilePreview(path, 1024)).toEqual({ content: "SELECT 1;", truncated: false });
+    // Exactly at the limit still counts as "in full".
+    expect(readFilePreview(path, "SELECT 1;".length)).toEqual({
+      content: "SELECT 1;",
+      truncated: false
+    });
+  });
+
+  it("reads only the first maxBytes of a file over the limit, reporting truncated: true", () => {
+    const root = makeRoot();
+    const path = join(root, "big.sql");
+    writeFileSync(path, "0123456789");
+
+    const result = readFilePreview(path, 4);
+    expect(result).toEqual({ content: "0123", truncated: true });
   });
 });

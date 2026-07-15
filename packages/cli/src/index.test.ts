@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { CommanderError } from "commander";
 import { describe, expect, it, vi } from "vitest";
 import {
   createShutdownHandler,
@@ -21,6 +22,24 @@ describe("parseArgs", () => {
     const args = parseArgs(["postgres://localhost/db", "--port", "9000"]);
     expect(args.port).toBe(9000);
   });
+
+  it.each(["abc", "80a0", "-1", "65536", "1.5"])(
+    "rejects invalid --port value %s with a friendly argument error",
+    (value) => {
+      let thrown: unknown;
+      try {
+        parseArgs(["./app.db", "--port", value]);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(CommanderError);
+      expect(thrown).toMatchObject({
+        code: "commander.invalidArgument",
+        message: expect.stringContaining("Port must be an integer between 0 and 65535.")
+      });
+    }
+  );
 
   it("returns an undefined target when none is given", () => {
     expect(parseArgs([]).target).toBeUndefined();

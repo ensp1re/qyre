@@ -1,5 +1,5 @@
 import { PassThrough } from "node:stream";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStreamGuidedLoginIO, type GuidedLoginStream } from "./guided-login-io.js";
 
 function makeStreams(isTTY: boolean): {
@@ -26,6 +26,8 @@ function makeStreams(isTTY: boolean): {
 }
 
 describe("createStreamGuidedLoginIO", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it("ask reads a line and echoes the question", async () => {
     const { input, output } = makeStreams(false);
     const io = createStreamGuidedLoginIO(input, output);
@@ -78,6 +80,26 @@ describe("createStreamGuidedLoginIO", () => {
 
     expect(await promise).toBe("secret");
     expect(setRawModeCalls).toEqual([]);
+  });
+
+  it("askMasked restores cooked mode before exiting on Ctrl-C", () => {
+    const { input, output, setRawModeCalls } = makeStreams(true);
+    const events: string[] = [];
+    input.setRawMode = (mode: boolean) => {
+      setRawModeCalls.push(mode);
+      events.push(`raw:${mode}`);
+    };
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => {
+      events.push("exit");
+    }) as never);
+    const io = createStreamGuidedLoginIO(input, output);
+
+    void io.askMasked("Password: ");
+    input.write(String.fromCharCode(3));
+
+    expect(exit).toHaveBeenCalledWith(130);
+    expect(setRawModeCalls).toEqual([true, false]);
+    expect(events).toEqual(["raw:true", "raw:false", "exit"]);
   });
 
   it("carries extra answers past the first newline over to the next ask (bulk/piped input)", async () => {

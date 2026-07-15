@@ -6,11 +6,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F137-null-primary-key-validation`, based on `main` at `264330e` through merged
-  PR #149 (F136).
-- Queue: F128-F137, F139, and F140 are `passing`; F137 is in PR #150. F138 and F141-F143 are
-  `not_started` review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review
-  of apps/web, packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
+- Branch: `feature/F138-cli-input-safety`, based on `main` at `4b98bdc` through merged PR #150
+  (F137).
+- Queue: F128-F137, F139, and F140 are `passing`; F138 is `active`; F141-F143 are `not_started`
+  review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
+  packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
 
 ## Completed
 
@@ -35,13 +35,18 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   names (S4); `GET /api/files/content` caps a preview read at 1 MiB (S5); and batch-commit
   introspects each staged table once instead of once per op (V2). See each id's evidence in
   `docs/FEATURES.json` for full reasoning/test detail.
-- F137 (PR #150) rejects nullable primary-key update/delete targets with an explicit 400 before an
-  adapter mutation runs. Server 298/298 tests, SQLite 51/51 tests, the full local PR gate, and both
-  GitHub CI jobs passed; exact evidence is recorded in `docs/FEATURES.json`.
+- F137 (merged PR #150) rejects nullable primary-key update/delete targets with an explicit 400
+  before an adapter mutation runs. Server 298/298 tests, SQLite 51/51 tests, the full local PR gate,
+  and both GitHub CI jobs passed; exact evidence is recorded in `docs/FEATURES.json`.
 
 ## In progress
 
-- No active feature. Plan 0006 is complete.
+- F138: validate `--port` as a decimal integer in the valid listen range with Commander's friendly
+  argument error, and restore cooked terminal mode before Ctrl-C exits a masked password prompt.
+  Implementation is complete: the corrected `@qyre/qyre` feature suite passed 52/52 tests, and
+  `pnpm verify:pr` passed 34/34 checks, smoke E2E (11 passed/4 skipped), and full E2E (29 passed/43
+  skipped).
+- Plan 0006 is complete.
 
 ## Known issues / blockers
 
@@ -79,5 +84,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Merge F137's green PR #150, then promote F138 or F141-F143; leave F143 last so file moves do not
-  conflict with in-flight fixes.
+- Commit and push F138, open its draft PR, and wait for CI. Continue with F141-F143 afterward;
+  leave F143 last so file moves do not conflict with in-flight fixes.

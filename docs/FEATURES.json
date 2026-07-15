@@ -120,8 +120,8 @@
     {
       "id": "F138",
       "behavior": "Close SUGGESTIONS.md V5 + C1 (CLI polish pair): (1) --port accepts garbage ('--port 80a0' parses to NaN) and dies with Fastify's raw 'options.port should be >= 0' error - validate the parsed flag via commander's InvalidArgumentError with a friendly message; (2) Ctrl-C during the masked password prompt calls process.exit(130) without input.setRawMode(false) (guided-login-io.ts), plausibly leaving the terminal in raw mode - restore cooked mode before exiting and verify the terminal behaves after Ctrl-C at the Password prompt.",
-      "verification": "pnpm --filter @qyre/cli test",
-      "state": "not_started",
+      "verification": "pnpm --filter @qyre/qyre test",
+      "state": "active",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,

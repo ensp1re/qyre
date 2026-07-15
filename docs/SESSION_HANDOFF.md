@@ -8,7 +8,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - Date: 2026-07-15.
 - Branch: `feature/F141-document-fetch-cancellation`, based on `main` at `ddafc95` through merged
   PR #151 (F138).
-- Queue: F128-F140 are `passing`; F141 is `active`; F142-F143 are `not_started`
+- Queue: F128-F141 are `passing`; F142-F143 are `not_started`
   review-fix tasks derived from `docs/SUGGESTIONS.md` (a 2026-07-14 deep code review of apps/web,
   packages/ui, packages/server, packages/cli). `nextIds.F` is 144.
 
@@ -41,15 +41,13 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - F138 (merged PR #151) rejects invalid `--port` values with a friendly Commander error and
   restores cooked terminal mode before Ctrl-C exits a masked password prompt. The CLI suite, both
   full local gates, and both GitHub CI jobs passed; exact evidence is in `docs/FEATURES.json`.
+- F141 (draft PR #152) cancels and invalidates superseded MongoDB document-editor loads so stale
+  text, errors, and loading completions cannot overwrite the current drawer. The web suite, both
+  full local gates, and both GitHub CI jobs passed; exact evidence is in `docs/FEATURES.json`.
 
 ## In progress
 
-- F141: cancel and invalidate the document editor's previous fetch when another document opens,
-  the drawer closes, insert mode opens, or the Tables tab unmounts, so stale completions cannot
-  overwrite the current document text, error, or loading state. The web suite passed 139/139 tests,
-  and `pnpm verify:pr` passed 34/34 checks, smoke E2E (11 passed/4 skipped), and full E2E (29
-  passed/43 skipped).
-- Plan 0006 is complete.
+- No active feature. Plan 0006 is complete.
 
 ## Known issues / blockers
 
@@ -87,5 +85,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Commit and push F141, open its draft PR, and wait for CI. Continue with F142-F143 afterward;
-  leave F143 last so file moves do not conflict with in-flight fixes.
+- Merge F141's green draft PR #152, then promote F142. Leave F143 last so its file moves do not
+  conflict with in-flight fixes.

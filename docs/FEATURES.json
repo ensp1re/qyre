@@ -154,11 +154,12 @@
       "id": "F141",
       "behavior": "Close SUGGESTIONS.md U3: TablesTab's openEditDocument leaves the previous document's fetch un-cancelled - opening A, closing, quickly opening B can let A's late response overwrite documentText/documentLoading while the drawer shows B's _id (the server's originalDocument check prevents a wrong write, but the user sees and edits the wrong document). Guard the resolution against the current documentEditor.id (sequence ref or AbortController) so stale responses are dropped.",
       "verification": "pnpm --filter @qyre/web test",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "3768500",
+      "evidence": "Draft PR #152 (https://github.com/ensp1re/qyre/pull/152), pushed as 3768500. Closed SUGGESTIONS.md U3 with an app-owned document-load coordinator: every edit open aborts and invalidates the previous request, while closing the drawer, entering insert mode, and unmounting the Tables tab cancel the current one. The document API now accepts an AbortSignal, and text, error, and loading completions are identity-gated so an older response cannot overwrite the drawer for a newer `_id`. Added mirrored coordinator tests for replacement and close cancellation, and documented the one-active-load contract in the row-editing spec. Verified on Node 22 with the web suite (139/139), `pnpm check:quiet` (34/34 tasks), local and pre-push `pnpm verify:pr` (11 smoke E2E passed/4 skipped; 29 full E2E passed/43 skipped), and both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-15T12:59:43.000Z"
     },
     {
       "id": "F142",

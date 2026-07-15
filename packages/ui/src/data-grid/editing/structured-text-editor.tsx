@@ -1,6 +1,7 @@
 import { jsonErrorWithLocation } from "@qyre/core/mutation-editor-values";
-import { Braces } from "lucide-react";
+import { Braces, Check, Copy, Minus } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { Button } from "../../primitives/controls/button.js";
 import { Field } from "../../primitives/controls/field.js";
 
@@ -32,10 +33,22 @@ export function StructuredTextEditor({
   minHeightClassName = "min-h-32"
 }: StructuredTextEditorProps): ReactNode {
   const syntaxError = structuredTextError(text);
+  const [copied, setCopied] = useState(false);
 
   function format(): void {
     if (syntaxError) return;
     onChange(JSON.stringify(JSON.parse(text), null, 2));
+  }
+
+  function minify(): void {
+    if (syntaxError) return;
+    onChange(JSON.stringify(JSON.parse(text)));
+  }
+
+  function copy(): void {
+    void navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
   }
 
   return (
@@ -53,16 +66,20 @@ export function StructuredTextEditor({
           className={`${minHeightClassName} w-full resize-y rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary`}
         />
       </Field>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={format}
-        disabled={Boolean(syntaxError)}
-        className="justify-self-start"
-      >
-        <Braces className="h-2.5 w-2.5" />
-        Format JSON
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="sm" onClick={format} disabled={Boolean(syntaxError)}>
+          <Braces className="h-2.5 w-2.5" />
+          Format
+        </Button>
+        <Button variant="ghost" size="sm" onClick={minify} disabled={Boolean(syntaxError)}>
+          <Minus className="h-2.5 w-2.5" />
+          Minify
+        </Button>
+        <Button variant="ghost" size="sm" onClick={copy}>
+          {copied ? <Check className="h-2.5 w-2.5" /> : <Copy className="h-2.5 w-2.5" />}
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
     </div>
   );
 }

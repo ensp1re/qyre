@@ -5,7 +5,9 @@ import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { cn } from "../../cn.js";
 import { formatCell } from "../../primitives/format-cell.js";
+import { LONG_STRING_THRESHOLD } from "./cell-value.js";
 import { CellEditorDrawer } from "../editing/cell-editor-drawer.js";
+import { InlineCellEditor } from "../editing/inline-cell-editor.js";
 import { TypedValueEditor } from "../editing/typed-value-editor.js";
 import { EditorPopover } from "../editing/editor-popover.js";
 
@@ -45,13 +47,16 @@ export function NewRowCell({
   const onActivate = onActivateProp ?? (() => setUncontrolledActive(true));
   const onDeactivate = onDeactivateProp ?? (() => setUncontrolledActive(false));
   const [anchorRect, setAnchorRect] = useState<DOMRect>();
+  const [expanded, setExpanded] = useState(false);
   const activationRef = useRef<HTMLButtonElement>(null);
   const metadata = { allowedValues, elementDataType };
   const capability = mutationEditorCapability(dataType, engine, metadata);
+  const valueLength = typeof value === "string" ? value.length : String(value ?? "").length;
   const wide =
     capability.widget === "json" ||
     capability.widget === "array" ||
-    capability.widget === "multiline";
+    capability.widget === "set" ||
+    valueLength > LONG_STRING_THRESHOLD;
 
   if (!capability.editable) {
     return (
@@ -62,17 +67,20 @@ export function NewRowCell({
   }
 
   function close(): void {
+    setExpanded(false);
     onDeactivate();
     requestAnimationFrame(() => activationRef.current?.focus());
   }
 
-  if (isActive && anchorRect) {
+  if (isActive && wide) {
+    if (!anchorRect) return null;
     const editor = (
       <TypedValueEditor
         column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
         engine={engine}
         originalValue={value}
         controlLabel="New row value"
+        onExpand={!expanded ? () => setExpanded(true) : undefined}
         onApply={(next) => {
           onChange(next);
           close();
@@ -83,7 +91,7 @@ export function NewRowCell({
 
     return (
       <div className="relative h-5 min-w-0" data-testid="new-row-editor-anchor">
-        {wide ? (
+        {expanded ? (
           <CellEditorDrawer title={columnName} onClose={close}>
             {editor}
           </CellEditorDrawer>
@@ -92,6 +100,21 @@ export function NewRowCell({
             {editor}
           </EditorPopover>
         )}
+      </div>
+    );
+  }
+
+  if (isActive) {
+    return (
+      <div data-testid="new-row-editor-anchor">
+        <InlineCellEditor
+          column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
+          engine={engine}
+          originalValue={value}
+          onApply={(next) => onChange(next)}
+          onCancel={close}
+          onCommitKey={close}
+        />
       </div>
     );
   }

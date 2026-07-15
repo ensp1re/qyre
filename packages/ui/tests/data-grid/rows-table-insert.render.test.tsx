@@ -114,9 +114,9 @@ describe("RowsTable Add-row / Duplicate-row (component rendering, F104)", () => 
     render(<TestHost canInsert />);
     fireEvent.click(screen.getByRole("button", { name: /add row/i }));
     fireEvent.click(screen.getByRole("button", { name: "Set name" }));
-    const nameInput = screen.getByLabelText("New row value");
+    const nameInput = screen.getByLabelText("name");
     fireEvent.change(nameInput as HTMLElement, { target: { value: "Grace" } });
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.keyDown(nameInput, { key: "Enter" });
     expect(screen.getByRole("button", { name: "Edit name" })).toHaveTextContent("Grace");
   });
 

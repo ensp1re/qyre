@@ -1,6 +1,7 @@
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
+import { parseMutationDraft } from "@qyre/core/mutation-editor-values";
 import { ArrowUpDown, CopyPlus, Pencil, Trash2 } from "lucide-react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { cn } from "../../cn.js";
 import { formatCell, friendlyTypeLabel } from "../../primitives/format-cell.js";
 import { TypeIcon } from "../../primitives/type-icon.js";
@@ -9,6 +10,7 @@ import { CellValue } from "../cells/cell-value.js";
 import { DateDetailPopover } from "../cells/date-detail-popover.js";
 import { EditableCell } from "../cells/editable-cell.js";
 import { NewRowCell } from "../cells/new-row-cell.js";
+import type { CommitDirection } from "../editing/inline-cell-editor.js";
 import { computeRowKey, DEFAULT_EXPORT_FORMATS, toCsv } from "./row-export.js";
 import type { RowsTableProps } from "./rows-table-types.js";
 import { RowsTableFooter } from "./rows-table-footer.js";
@@ -72,6 +74,9 @@ export function RowsTable({
     setDateInspected,
     activeEditor,
     setActiveEditor,
+    selectedCell,
+    setSelectedCell,
+    rowVirtualizer,
     scrollRef,
     columnByName,
     filtered,
@@ -112,6 +117,155 @@ export function RowsTable({
     canDelete
   });
 
+  // Columns Tab/Shift+Tab may land on - editable, non-PK, and (when FK navigation is available)
+  // non-FK, mirroring `isEditableCell`'s column-level conditions below without the per-row ones.
+  const editableColumnOrder = rowPage.columns.filter((name) => {
+    const meta = columnByName.get(name);
+    if (!editableColumns?.has(name) || meta?.isPrimaryKey) return false;
+    if (meta?.isForeignKey && onNavigateToForeignKey) return false;
+    return true;
+  });
+
+  function focusCell(cellId: string): void {
+    requestAnimationFrame(() => {
+      const target = scrollRef.current?.querySelector<HTMLElement>(
+        `[data-cell-id="${CSS.escape(cellId)}"]`
+      );
+      target?.focus();
+    });
+  }
+
+  /** Moves the grid's selection after Enter/Tab/Shift+Tab commits an inline edit (F146) -
+   * spreadsheet-style "commit and advance" so editing several cells/rows in sequence never dead-
+   * ends back at a plain display cell with no next step. */
+  function moveSelection(rowIndex: number, column: string, direction: CommitDirection): void {
+    let nextRowIndex = rowIndex;
+    let nextColumn = column;
+
+    if (direction === "enter") {
+      nextRowIndex = Math.min(rowIndex + 1, filtered.length - 1);
+    } else {
+      const at = editableColumnOrder.indexOf(column);
+      const delta = direction === "tab" ? 1 : -1;
+      const next = at + delta;
+      if (next >= 0 && next < editableColumnOrder.length) {
+        nextColumn = editableColumnOrder[next] ?? column;
+      } else {
+        nextRowIndex = Math.min(Math.max(rowIndex + delta, 0), filtered.length - 1);
+        nextColumn =
+          (delta > 0
+            ? editableColumnOrder[0]
+            : editableColumnOrder[editableColumnOrder.length - 1]) ?? column;
+      }
+    }
+
+    setSelectedCell({ rowIndex: nextRowIndex, column: nextColumn });
+    rowVirtualizer.scrollToIndex(nextRowIndex);
+    const nextItem = filtered[nextRowIndex];
+    const nextRowKey =
+      nextItem && pendingChanges && primaryKeyColumns
+        ? computeRowKey(nextItem.row, primaryKeyColumns)
+        : undefined;
+    if (nextRowKey) focusCell(`${nextRowKey}:${nextColumn}`);
+  }
+
+  /** Arrow-key/copy/paste/revert grid shortcuts (F146), scoped to the current `selectedCell` -
+   * attached to the scroll container so it fires regardless of which cell's control has DOM focus. */
+  function handleGridKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
+    if (!selectedCell || activeEditor) return;
+    const item = filtered[selectedCell.rowIndex];
+    if (!item) return;
+    const rowKey =
+      pendingChanges && primaryKeyColumns ? computeRowKey(item.row, primaryKeyColumns) : undefined;
+    const meta = columnByName.get(selectedCell.column);
+    const staged =
+      rowKey && pendingChanges ? pendingChanges.getEdit(rowKey, selectedCell.column) : undefined;
+    const currentValue = staged ? staged.next : item.row[selectedCell.column];
+    const isEditableSelected =
+      rowKey !== undefined && editableColumnOrder.includes(selectedCell.column);
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      const nextRowIndex = Math.min(
+        Math.max(selectedCell.rowIndex + delta, 0),
+        filtered.length - 1
+      );
+      setSelectedCell({ rowIndex: nextRowIndex, column: selectedCell.column });
+      rowVirtualizer.scrollToIndex(nextRowIndex);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      const delta = event.key === "ArrowRight" ? 1 : -1;
+      const at = rowPage.columns.indexOf(selectedCell.column);
+      const nextAt = Math.min(Math.max(at + delta, 0), rowPage.columns.length - 1);
+      const nextColumn = rowPage.columns[nextAt];
+      if (nextColumn) setSelectedCell({ rowIndex: selectedCell.rowIndex, column: nextColumn });
+    } else if (event.key === "Escape") {
+      setSelectedCell(null);
+    } else if (
+      (event.key === "Delete" || event.key === "Backspace") &&
+      isEditableSelected &&
+      rowKey &&
+      pendingChanges &&
+      meta?.nullable
+    ) {
+      event.preventDefault();
+      pendingChanges.stageEdit(rowKey, selectedCell.column, item.row[selectedCell.column], null);
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+      if (isEditableSelected && rowKey && pendingChanges && staged) {
+        event.preventDefault();
+        pendingChanges.revertEdit(rowKey, selectedCell.column);
+      }
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      void navigator.clipboard.writeText(formatCell(currentValue));
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "v") {
+      if (!isEditableSelected || !rowKey || !pendingChanges) return;
+      event.preventDefault();
+      void navigator.clipboard.readText().then((text) => {
+        const rows = text
+          .split(/\r\n|\r|\n/)
+          .filter((_, i, arr) => !(i === arr.length - 1 && arr[i] === ""));
+        rows.forEach((line, rowOffset) => {
+          const targetItem = filtered[selectedCell.rowIndex + rowOffset];
+          if (!targetItem) return;
+          const targetRowKey =
+            primaryKeyColumns && pendingChanges
+              ? computeRowKey(targetItem.row, primaryKeyColumns)
+              : undefined;
+          if (!targetRowKey) return;
+          const cells = line.split("\t");
+          const startAt = editableColumnOrder.indexOf(selectedCell.column);
+          cells.forEach((cellText, colOffset) => {
+            const targetColumn = editableColumnOrder[startAt + colOffset];
+            const targetMeta = targetColumn ? columnByName.get(targetColumn) : undefined;
+            if (!targetColumn || !targetMeta) return;
+            const targetMetadata = {
+              allowedValues: targetMeta.allowedValues,
+              elementDataType: targetMeta.elementDataType
+            };
+            const capability = mutationEditorCapability(
+              targetMeta.dataType,
+              engine,
+              targetMetadata
+            );
+            if (!capability.editable) return;
+            // Skip (never stage) a pasted value that fails type validation - safer than silently
+            // corrupting a cell with an unparseable value the user didn't mean to paste there.
+            const result = parseMutationDraft(cellText, capability, engine, targetMetadata);
+            if (!result.valid) return;
+            pendingChanges.stageEdit(
+              targetRowKey,
+              targetColumn,
+              targetItem.row[targetColumn],
+              result.value
+            );
+          });
+        });
+      });
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
       <RowsTableToolbar
@@ -148,7 +302,12 @@ export function RowsTable({
           <p className="font-mono text-[11px] text-muted-foreground">No rows in this table.</p>
         </div>
       ) : (
-        <div data-testid="rows-table" ref={scrollRef} className="flex-1 overflow-auto">
+        <div
+          data-testid="rows-table"
+          ref={scrollRef}
+          className="flex-1 overflow-auto"
+          onKeyDown={handleGridKeyDown}
+        >
           <table className="border-collapse font-mono text-[11px]" style={{ tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: 32 }} />
@@ -436,6 +595,7 @@ export function RowsTable({
                         >
                           {isEditableCell && rowKey ? (
                             <EditableCell
+                              cellId={`${rowKey}:${columnName}`}
                               displayValue={staged ? staged.next : row[columnName]}
                               columnName={columnName}
                               dataType={meta?.dataType ?? "unknown"}
@@ -458,6 +618,16 @@ export function RowsTable({
                                 setActiveEditor((current) =>
                                   current === `${rowKey}:${columnName}` ? null : current
                                 )
+                              }
+                              isSelected={
+                                selectedCell?.rowIndex === virtualRow.index &&
+                                selectedCell.column === columnName
+                              }
+                              onSelect={() =>
+                                setSelectedCell({ rowIndex: virtualRow.index, column: columnName })
+                              }
+                              onCommitKey={(direction) =>
+                                moveSelection(virtualRow.index, columnName, direction)
                               }
                             />
                           ) : row[columnName] === null || row[columnName] === undefined ? (

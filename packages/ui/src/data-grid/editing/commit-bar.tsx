@@ -103,7 +103,9 @@ export function CommitBar({
             type="button"
             onClick={onCommit}
             disabled={committing}
-            className="flex items-center gap-1.5 rounded-[3px] bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            title="Commit (Ctrl/Cmd+S)"
+            className="flex items-center gap-1.5 rounded-[3px] px-3 py-1 text-[11px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: "var(--c-green)" }}
           >
             {committing ? (
               <Spinner className="h-2.5 w-2.5 text-primary-foreground" />

@@ -34,7 +34,7 @@ describe("CellValue (component rendering, F055)", () => {
 
   it("renders a long string as a clickable truncated button and calls onInspect with the full value", () => {
     const onInspect = vi.fn();
-    const long = "a".repeat(200);
+    const long = "a".repeat(320);
     render(<CellValue value={long} onInspect={onInspect} />);
     const button = screen.getByRole("button");
     expect(button).toHaveTextContent(long);

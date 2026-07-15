@@ -1,14 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { NewRowCell } from "../../src/data-grid/cells/new-row-cell.js";
-import { chooseSelect } from "../support/select.js";
 
 function openEditor(name = "Set value"): void {
   fireEvent.click(screen.getByRole("button", { name }));
 }
 
-describe("NewRowCell (component rendering, F104)", () => {
-  it("edits a precision-bearing timestamp without normalizing it", () => {
+describe("NewRowCell (component rendering, F104/F146)", () => {
+  it("edits a precision-bearing timestamp in place without normalizing it", () => {
     const onChange = vi.fn();
     render(
       <NewRowCell
@@ -20,34 +19,35 @@ describe("NewRowCell (component rendering, F104)", () => {
       />
     );
     openEditor("Edit value");
-    const input = screen.getByLabelText("New row value - exact value");
+    const input = screen.getByLabelText("value");
     expect(input).toHaveValue("2024-11-03 01:30:45.123456-04:00");
+    fireEvent.change(input, { target: { value: "2024-11-03 01:30:45.123457-04:00" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(onChange).toHaveBeenCalledWith("2024-11-03 01:30:45.123456-04:00");
+    expect(onChange).toHaveBeenCalledWith("2024-11-03 01:30:45.123457-04:00");
   });
 
   it("opens a text editor pre-filled with the given value", () => {
     render(<NewRowCell value="Ada" dataType="varchar" nullable={false} onChange={vi.fn()} />);
     openEditor("Edit value");
-    expect(screen.getByLabelText("New row value")).toHaveValue("Ada");
+    expect(screen.getByLabelText("value")).toHaveValue("Ada");
   });
 
   it("opens an empty editor when the column is untouched", () => {
     render(<NewRowCell value={undefined} dataType="varchar" nullable={true} onChange={vi.fn()} />);
     openEditor();
-    expect(screen.getByLabelText("New row value")).toHaveValue("");
+    expect(screen.getByLabelText("value")).toHaveValue("");
   });
 
-  it("does not commit a text value on blur", () => {
+  it("commits a text value on blur when valid (F146 - immediate, spreadsheet-like editing)", () => {
     const onChange = vi.fn();
     render(
       <NewRowCell value={undefined} dataType="varchar" nullable={false} onChange={onChange} />
     );
     openEditor();
-    const input = screen.getByLabelText("New row value");
+    const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "Grace" } });
     fireEvent.blur(input);
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith("Grace");
   });
 
   it("commits a text value on Enter", () => {
@@ -56,7 +56,7 @@ describe("NewRowCell (component rendering, F104)", () => {
       <NewRowCell value={undefined} dataType="varchar" nullable={false} onChange={onChange} />
     );
     openEditor();
-    const input = screen.getByLabelText("New row value");
+    const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "Grace" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).toHaveBeenCalledWith("Grace");
@@ -69,26 +69,25 @@ describe("NewRowCell (component rendering, F104)", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 
-  it("commits a valid number and drops an invalid one, for a numeric column", () => {
+  it("commits a valid number, for a numeric column", () => {
     const onChange = vi.fn();
     render(<NewRowCell value={undefined} dataType="int4" nullable={false} onChange={onChange} />);
     openEditor();
-    const input = screen.getByLabelText("New row value");
+    const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "42" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).toHaveBeenCalledWith("42");
   });
 
-  it("shows true/false/null buttons for a boolean column, and reports the picked value immediately", () => {
+  it("shows an immediate switch for a boolean column", () => {
     const onChange = vi.fn();
     render(<NewRowCell value={undefined} dataType="boolean" nullable={true} onChange={onChange} />);
     openEditor();
-    chooseSelect("New row value", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("switch", { name: "value" }));
     expect(onChange).toHaveBeenCalledWith(true);
   });
 
-  it("hides the null option for a boolean column when the column isn't nullable", () => {
+  it("hides the null toggle for a boolean column when the column isn't nullable", () => {
     render(<NewRowCell value={undefined} dataType="boolean" nullable={false} onChange={vi.fn()} />);
     openEditor();
     expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
@@ -98,7 +97,7 @@ describe("NewRowCell (component rendering, F104)", () => {
     const onChange = vi.fn();
     render(<NewRowCell value={undefined} dataType="bigint" nullable={false} onChange={onChange} />);
     openEditor();
-    const input = screen.getByLabelText("New row value");
+    const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "9007199254740993" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).toHaveBeenCalledWith("9007199254740993");
@@ -108,9 +107,25 @@ describe("NewRowCell (component rendering, F104)", () => {
     const onChange = vi.fn();
     render(<NewRowCell value={undefined} dataType="bigint" nullable={false} onChange={onChange} />);
     openEditor();
-    const input = screen.getByLabelText("New row value");
+    const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "42" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).toHaveBeenCalledWith("42");
+  });
+
+  it("opens JSON in a small anchored popover by default, with an Expand action for the drawer", () => {
+    render(
+      <NewRowCell
+        value={{}}
+        dataType="jsonb"
+        engine="postgres"
+        nullable={false}
+        onChange={vi.fn()}
+      />
+    );
+    openEditor("Edit value");
+    expect(screen.getByTestId("new-row-cell-editor-surface")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Expand to full panel" }));
+    expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
   });
 });

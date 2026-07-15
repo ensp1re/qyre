@@ -118,8 +118,22 @@ export function TablesTab({
   const [documentError, setDocumentError] = useState<string | undefined>(undefined);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const documentLoads = useRef(createDocumentLoadCoordinator()).current;
+  // Always calls the latest handleCommit (defined below, after this component's early loading/
+  // error returns - a ref sidesteps the rules-of-hooks issue of registering the listener there).
+  const commitRef = useRef<() => void>(() => {});
 
   useEffect(() => () => documentLoads.cancel(), [documentLoads]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent): void {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        commitRef.current();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   if (!selected) {
     return <p className="text-[13px] text-muted-foreground">Select a table from the sidebar.</p>;
@@ -279,6 +293,10 @@ export function TablesTab({
     pendingChanges.clear();
     setCommitError(undefined);
   }
+
+  commitRef.current = () => {
+    if (ops.length > 0 && !committing) void handleCommit();
+  };
 
   function openEditDocument(row: Record<string, unknown>): void {
     const id = String(row._id);

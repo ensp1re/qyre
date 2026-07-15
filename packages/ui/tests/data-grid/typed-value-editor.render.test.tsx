@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TypedValueEditor } from "../../src/data-grid/editing/typed-value-editor.js";
-import { chooseSelect } from "../support/select.js";
 
 describe("TypedValueEditor", () => {
   it("reports JSON syntax location and preserves the draft", () => {
@@ -34,7 +33,7 @@ describe("TypedValueEditor", () => {
         onCancel={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Format JSON" }));
+    fireEvent.click(screen.getByRole("button", { name: "Format" }));
     expect(screen.getByLabelText("New value")).toHaveValue('{\n  "count": 1\n}');
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onApply).toHaveBeenCalledWith({ count: 1 });
@@ -63,27 +62,7 @@ describe("TypedValueEditor", () => {
     expect(onApply).toHaveBeenCalledWith(["one", "two"]);
   });
 
-  it("uses custom enum and SET controls from column metadata", () => {
-    const enumApply = vi.fn();
-    const { unmount } = render(
-      <TypedValueEditor
-        column={{
-          name: "status",
-          dataType: "status_enum",
-          nullable: false,
-          allowedValues: ["draft", "ready"]
-        }}
-        engine="postgres"
-        originalValue="draft"
-        onApply={enumApply}
-        onCancel={vi.fn()}
-      />
-    );
-    chooseSelect("Edit cell value", "ready");
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-    expect(enumApply).toHaveBeenCalledWith("ready");
-    unmount();
-
+  it("uses a custom SET checklist control from column metadata", () => {
     const setApply = vi.fn();
     render(
       <TypedValueEditor

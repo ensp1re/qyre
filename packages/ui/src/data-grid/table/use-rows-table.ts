@@ -55,6 +55,13 @@ export function useRowsTableModel({
   // (see cellEditorId below), not the cell's own local state, so activating one editor closes any
   // other and the table never shows the stacked-popover clutter of independent per-cell state.
   const [activeEditor, setActiveEditor] = useState<string | null>(null);
+  // The grid's single selected cell (F146) - separate from `activeEditor`: a click selects without
+  // editing, and arrow/Tab keys move this instead of DOM focus alone so selection survives
+  // virtualized rows scrolling in and out of the DOM.
+  const [selectedCell, setSelectedCell] = useState<{
+    rowIndex: number;
+    column: string;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragSelectionMode = useRef<"select" | "deselect" | null>(null);
 
@@ -245,6 +252,9 @@ export function useRowsTableModel({
     setDateInspected,
     activeEditor,
     setActiveEditor,
+    selectedCell,
+    setSelectedCell,
+    rowVirtualizer,
     scrollRef,
     columnByName,
     filtered,

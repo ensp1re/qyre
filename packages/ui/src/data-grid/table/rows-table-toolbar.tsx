@@ -160,7 +160,8 @@ export function RowsTableToolbar({
               <button
                 type="button"
                 onClick={onStageSelectedForDelete}
-                className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] hover:bg-accent"
+                title="Stages the selection for deletion - still reversible until Commit"
+                className="flex items-center gap-1 rounded-[3px] border-l border-border-subtle px-2 py-1 pl-2.5 text-[11px] hover:bg-accent"
                 style={{ color: "var(--c-red)" }}
               >
                 <Trash2 className="h-3 w-3" /> Delete {selected.size} selected

@@ -35,8 +35,9 @@ export function isBinaryValue(value: unknown): value is BinaryValue {
 /** Anything CellValue can render as an inspectable chip - a structured value, binary, or a long string. */
 export type InspectableValue = StructuredValue | BinaryValue | string;
 
-/** Above this length a plain string cell truncates to one line instead of stretching its row (F069). */
-export const LONG_STRING_THRESHOLD = 120;
+/** Above this length a plain string cell truncates to one line instead of stretching its row (F069),
+ * and cell editing routes to the anchored popover editor instead of inline (F146). */
+export const LONG_STRING_THRESHOLD = 300;
 
 export function isLongString(value: unknown): value is string {
   return typeof value === "string" && value.length > LONG_STRING_THRESHOLD;

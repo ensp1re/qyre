@@ -62,7 +62,7 @@ describe("EditableCell (component rendering, F103)", () => {
     expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
   });
 
-  it("double-click opens a text editor pre-filled with the current value, and Enter commits it", () => {
+  it("click opens a text editor pre-filled with the current value, and Enter commits it", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -74,7 +74,7 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.click(screen.getByText("Ada"));
     const input = screen.getByLabelText("Edit cell value") as HTMLInputElement;
     expect(input.value).toBe("Ada");
 
@@ -95,10 +95,12 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("Ada"));
+    const activation = screen.getByText("Ada");
+    fireEvent.click(activation);
     fireEvent.keyDown(screen.getByLabelText("Edit cell value"), { key: "Escape" });
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
+    expect(screen.getByText("Ada")).toHaveFocus();
   });
 
   it("Enter on the display cell also starts editing", () => {
@@ -116,6 +118,61 @@ describe("EditableCell (component rendering, F103)", () => {
     expect(screen.getByLabelText("Edit cell value")).toBeInTheDocument();
   });
 
+  it("F2 on the display cell starts editing", () => {
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={false}
+        dirty={false}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.keyDown(screen.getByText("Ada"), { key: "F2" });
+    expect(screen.getByLabelText("Edit cell value")).toBeInTheDocument();
+  });
+
+  it("anchors the editor in an overlay without changing the cell's layout footprint", () => {
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={false}
+        dirty={false}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText("Ada"));
+    expect(screen.getByTestId("cell-editor-anchor")).toHaveClass("relative", "h-5");
+    expect(screen.getByTestId("cell-editor-surface")).toHaveClass("absolute");
+  });
+
+  it("keeps a precision-bearing timestamp exact and read-only", () => {
+    const onCommit = vi.fn();
+    const value = "2024-11-03 01:30:45.123456-04:00";
+    render(
+      <EditableCell
+        displayValue={value}
+        dataType="timestamp with time zone"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    const display = screen.getByText(value);
+    fireEvent.click(display);
+    expect(display).toHaveAttribute(
+      "title",
+      expect.stringMatching(/seconds.*precision.*timezone/i)
+    );
+    expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
   it("commits a valid number and cancels on an invalid one, for a numeric column", () => {
     const onCommit = vi.fn();
     render(
@@ -128,7 +185,7 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("1"));
+    fireEvent.click(screen.getByText("1"));
     const input = screen.getByLabelText("Edit cell value");
     fireEvent.change(input, { target: { value: "42" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -147,7 +204,7 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("true"));
+    fireEvent.click(screen.getByText("true"));
     expect(screen.getByRole("button", { name: "false" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "null" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "false" }));
@@ -165,7 +222,7 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("true"));
+    fireEvent.click(screen.getByText("true"));
     expect(screen.queryByRole("button", { name: "null" })).not.toBeInTheDocument();
   });
 
@@ -181,7 +238,7 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.click(screen.getByText("Ada"));
     const input = screen.getByLabelText("Edit cell value");
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -200,7 +257,7 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.click(screen.getByText("Ada"));
     fireEvent.click(screen.getByRole("button", { name: "null" }));
     expect(onCommit).toHaveBeenCalledWith(null);
   });
@@ -216,7 +273,7 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.click(screen.getByText("Ada"));
     expect(screen.queryByRole("button", { name: "null" })).not.toBeInTheDocument();
   });
 
@@ -232,14 +289,14 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("1"));
+    fireEvent.click(screen.getByText("1"));
     const input = screen.getByLabelText("Edit cell value");
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
 
-    fireEvent.doubleClick(screen.getByText("1"));
+    fireEvent.click(screen.getByText("1"));
     fireEvent.click(screen.getByRole("button", { name: "null" }));
     expect(onCommit).toHaveBeenCalledWith(null);
   });
@@ -256,7 +313,7 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("9007199254740991"));
+    fireEvent.click(screen.getByText("9007199254740991"));
     const input = screen.getByLabelText("Edit cell value");
     fireEvent.change(input, { target: { value: "9007199254740993" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -279,7 +336,7 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("1"));
+    fireEvent.click(screen.getByText("1"));
     const input = screen.getByLabelText("Edit cell value");
     fireEvent.change(input, { target: { value: "42" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -298,7 +355,7 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.doubleClick(screen.getByText("2024-03-05"));
+    fireEvent.click(screen.getByText("2024-03-05"));
     expect(screen.getByRole("button", { name: "Choose date" })).toBeInTheDocument();
 
     fireEvent.keyDown(screen.getByRole("button", { name: "Choose date" }), { key: "Escape" });

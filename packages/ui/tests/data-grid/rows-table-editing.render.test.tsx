@@ -112,15 +112,15 @@ function baseProps(
 describe("RowsTable inline cell editing (component rendering, F103)", () => {
   it("does not enable editing when editable is omitted, even with editableColumns set", () => {
     render(<RowsTable {...baseProps({ editableColumns: new Set(["name"]) })} />);
-    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.click(screen.getByText("Ada"));
     expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
   });
 
-  it("double-click on an editable, non-PK cell opens the editor and stages the edit on commit", () => {
+  it("click on an editable, non-PK cell opens the editor and stages the edit on commit", () => {
     const onStageEdit = vi.fn();
     render(<TestHost editable onStageEdit={onStageEdit} />);
 
-    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.click(screen.getByText("Ada"));
     const input = screen.getByLabelText("Edit cell value");
     fireEvent.change(input, { target: { value: "Grace" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -128,19 +128,36 @@ describe("RowsTable inline cell editing (component rendering, F103)", () => {
     expect(onStageEdit).toHaveBeenCalledWith(expect.any(String), "name", "Ada", "Grace");
   });
 
+  it("keeps row-background selection separate from cell edit activation", () => {
+    render(<TestHost editable />);
+    const checkbox = screen.getByRole("checkbox", { name: "Select row 1" });
+    const cellButton = screen.getByText("Ada");
+
+    fireEvent.pointerDown(cellButton, { button: 0 });
+    fireEvent.click(cellButton);
+    expect(checkbox).not.toBeChecked();
+    expect(screen.getByLabelText("Edit cell value")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByLabelText("Edit cell value"), { key: "Escape" });
+    const row = screen.getByText("Ada").closest("tr");
+    expect(row).not.toBeNull();
+    fireEvent.pointerDown(row as HTMLTableRowElement, { button: 0 });
+    expect(checkbox).toBeChecked();
+  });
+
   it("does not make the primary-key cell editable even when editable is true", () => {
     render(<TestHost editable />);
     // Two "1"s render: the row-number column and the id (PK) cell's value - the PK cell is the
     // second one in document order.
     const [, pkCell] = screen.getAllByText("1");
-    fireEvent.doubleClick(pkCell as HTMLElement);
+    fireEvent.click(pkCell as HTMLElement);
     expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
   });
 
   it("shows the staged value and a revert button for a dirty cell", () => {
     render(<TestHost editable />);
 
-    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.click(screen.getByText("Ada"));
     fireEvent.change(screen.getByLabelText("Edit cell value"), { target: { value: "Grace" } });
     fireEvent.keyDown(screen.getByLabelText("Edit cell value"), { key: "Enter" });
 
@@ -152,7 +169,7 @@ describe("RowsTable inline cell editing (component rendering, F103)", () => {
     const onRevertEdit = vi.fn();
     render(<TestHost editable onRevertEdit={onRevertEdit} />);
 
-    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.click(screen.getByText("Ada"));
     fireEvent.change(screen.getByLabelText("Edit cell value"), { target: { value: "Grace" } });
     fireEvent.keyDown(screen.getByLabelText("Edit cell value"), { key: "Enter" });
     fireEvent.click(screen.getByLabelText("Revert cell to original value"));

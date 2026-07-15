@@ -1,4 +1,5 @@
 import type { DatabaseEngine } from "@qyre/core";
+import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "../../cn.js";
@@ -31,6 +32,7 @@ export function NewRowCell({
   onChange
 }: NewRowCellProps): ReactNode {
   const widget = widgetFor(dataType, engine);
+  const capability = mutationEditorCapability(dataType, engine);
   const [text, setText] = useState(() =>
     value === null || value === undefined ? "" : String(value)
   );
@@ -60,6 +62,14 @@ export function NewRowCell({
       event.preventDefault();
       commitText();
     }
+  }
+
+  if (!widget) {
+    return (
+      <span className="italic text-quiet-foreground" title={capability.unavailableReason}>
+        not editable
+      </span>
+    );
   }
 
   if (widget === "boolean") {
@@ -95,7 +105,7 @@ export function NewRowCell({
     );
   }
 
-  if (widget === "date" || widget === "time" || widget === "datetime-local") {
+  if (widget === "date") {
     return (
       <div className="flex items-center gap-1">
         <DateTimeInput

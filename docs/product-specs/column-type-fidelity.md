@@ -62,6 +62,20 @@ bytes` chip with a hex preview; its `CellValueDrawer` view shows a UTF-8 decode 
    shown, matching the rest of this product's "never freeze the UI on a huge value" rule), and its
    copy button copies a plain hex string instead of the JSON shape.
 
+## Mutation fidelity
+
+Read fidelity does not automatically make a value safe to edit. A mutation editor must preserve
+the browser-visible raw representation unless the user explicitly changes it; filter controls are
+not mutation controls. In particular, a minute-only time picker cannot author a replacement for a
+value that may contain seconds, fractional precision, or a timezone offset.
+
+The SQL grid therefore uses a mutation-specific capability matrix. `date` remains editable because
+its complete stored representation is preserved. `time`, local timestamp, and timezone timestamp
+remain display-only until a lossless editor has verified round trips for seconds, fractional
+precision, offset/instant semantics, null, invalid input, and DST boundaries on each applicable
+engine. Direct mutation APIs still accept validated exact strings and pass them to the driver
+without a JavaScript `Date` conversion.
+
 ## Scope
 
 In scope: the four defects above, confirmed via a live fixture across all three engines and fixed

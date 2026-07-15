@@ -1,5 +1,5 @@
 import type { ConnectionCapabilities, DatabaseEngine, TableMetadata } from "@qyre/core";
-import { classifyFilterColumnKind } from "@qyre/core/filter-capabilities";
+import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import {
   sessionAllows,
   tableAllows
@@ -10,7 +10,7 @@ export interface TableEditability {
   /** Why editing is disabled, for UI copy - undefined when `editable` is true. */
   readonly reason?: string;
   /** Columns eligible for inline cell editing when `editable` is true - primary-key columns and
-   * structured/binary/unknown/null `FilterColumnKind` columns are never included, per
+   * mutation kinds without a safe editor are never included, per
    * docs/product-specs/row-editing.md ("a primary-key column is... never editable when updating an
    * existing row"). Empty when `editable` is false. */
   readonly editableColumns: ReadonlySet<string>;
@@ -118,21 +118,22 @@ export function computeTableEditability(
   const canInsert = tableAllows(table.permissions, "insert");
   const canDelete = tableAllows(table.permissions, "delete");
 
-  const nonStructuredColumns = table.columns.filter((column) => {
-    const kind = classifyFilterColumnKind(column.dataType, engine);
-    return kind !== "structured" && kind !== "binary" && kind !== "unknown" && kind !== "null";
-  });
+  const mutationEditableColumns = table.columns.filter(
+    (column) => mutationEditorCapability(column.dataType, engine).editable
+  );
 
   const editableColumns = canUpdate
     ? new Set(
-        nonStructuredColumns.filter((column) => !column.isPrimaryKey).map((column) => column.name)
+        mutationEditableColumns
+          .filter((column) => !column.isPrimaryKey)
+          .map((column) => column.name)
       )
     : new Set<string>();
 
   // Unlike `editableColumns`, the primary key IS included here - a new row's key must be supplied
   // on insert unless the engine auto-generates it (docs/product-specs/row-editing.md).
   const insertableColumns = canInsert
-    ? new Set(nonStructuredColumns.map((column) => column.name))
+    ? new Set(mutationEditableColumns.map((column) => column.name))
     : new Set<string>();
 
   return {

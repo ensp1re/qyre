@@ -25,16 +25,17 @@ test("@full editing, inserting, and deleting rows commits together and persists"
   await table.getByText("Grace Hopper").click();
   const editInput = page.getByLabel("Edit cell value");
   await editInput.fill("Grace Hopper-Murray");
-  await editInput.press("Enter");
+  await editInput.press("ControlOrMeta+Enter");
   await expect(table.getByText("Grace Hopper-Murray")).toBeVisible();
 
   // Insert a new row (name/email are NOT NULL with no default, so both must be filled).
   await page.getByRole("button", { name: "Add row" }).click();
-  const newRowInputs = page.getByLabel("New row value");
-  await newRowInputs.nth(1).fill("Marie Curie");
-  await newRowInputs.nth(1).blur();
-  await newRowInputs.nth(2).fill("marie@example.com");
-  await newRowInputs.nth(2).blur();
+  await page.getByRole("button", { name: "Set name" }).click();
+  await page.getByLabel("New row value").fill("Marie Curie");
+  await page.getByLabel("New row value").press("ControlOrMeta+Enter");
+  await page.getByRole("button", { name: "Set email" }).click();
+  await page.getByLabel("New row value").fill("marie@example.com");
+  await page.getByLabel("New row value").press("ControlOrMeta+Enter");
 
   // Stage a row for deletion via selection - Alan Turing is row 2.
   await page.getByLabel("Select row 2").check();

@@ -6,79 +6,37 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F145-accessible-muted-text-contrast`, based on `main` at `885abd5` through merged
-  PR #155 (F144).
-- Queue: F128-F145 are `passing`; there is no active feature; `nextIds.F` is 146.
+- Branch: `feature/DF-12-shared-typed-editors`, based on `main` at `ab9406a` (merged PR #158).
+- Queue: DF-10 through DF-12 are passing. The next approved slice is DF-13.
+- DF-12 is committed at `fc57253`, pushed, and passing in draft PR #159 after both CI jobs passed.
 
 ## Completed
 
-- All read-only MVP work through F089 is merged and passing; see product specs and Git/PR history.
-- Exec plan 0006 (`docs/exec-plans/completed/0006-role-aware-database-ide.md`) is fully merged to
-  `main` as F090-F128 (PRs #94-#138, final commit `90e69c2`): permission/capability foundation,
-  the row-mutation write path and row-editing UI, statement classification and the write-capable
-  SQL Editor, schema/table/column/index DDL and its UI, database/schema lifecycle, CSV import,
-  streamed multi-format export, roles-and-grants viewer, permission-denied hardening, the
-  role-aware E2E matrix, and the SQL EXPLAIN viewer. Per-feature evidence lives in the plan's
-  progress log and PR history; every slice passed local/pre-push `pnpm verify:pr` and GitHub CI.
-- A deep read-only code review of the product workspace (2026-07-14) queued F129-F143 across
-  security, server, UI, CLI, and structure. Every finding is merged and passing; F145 retires the
-  completed review artifact after repointing each live record to its durable owning spec. See each
-  id's evidence in `docs/FEATURES.json` for full reasoning and verification detail.
-- F142 (merged PR #153) adds an explicit SQL schema selector to New table, defaulted from the current
-  sidebar selection when available, and routes creation to the chosen schema. UI 366/366, web
-  140/140, both full local gates, and both GitHub CI jobs passed; exact evidence is in
-  `docs/FEATURES.json`.
-- F143 (merged PR #154) reorganizes production source throughout the workspace, splits every
-  production file over 500 lines, preserves public package exports, and leaves all test files in
-  place. The largest production source is now 488 lines and no production source folder has more
-  than eight direct files. Local/pre-push full gates and both GitHub CI jobs passed; exact evidence
-  is in `docs/FEATURES.json`.
-- F144 (merged PR #155) holds a cross-process lock for each underlying engine fixture throughout a
-  Playwright test, shares locks across writable/read-only/restricted projects, retains cross-engine
-  parallelism, and safely handles multi-engine journeys and dead workers. Focused tests, a
-  three-pass full-E2E stress run, both full local gates, and both GitHub CI jobs passed; exact
-  evidence is in `docs/FEATURES.json`.
-- F145 (draft PR #156) replaces low-contrast muted-text opacity with compliant semantic tokens in
-  both themes, enables Axe contrast enforcement, removes the resolved accessibility debt, deletes
-  the completed review artifact, and repoints its findings to durable specs. UI 366/366, web
-  140/140, both full local gates, and both GitHub CI jobs passed; exact evidence is in
-  `docs/FEATURES.json`.
+- DF-10 captured the evidence-based product audit and approved nine-slice plan in PR #157.
+- DF-11 delivered lossless temporal/editing integrity and stable scalar interaction in PR #158.
+- DF-12 now provides shared Button, IconButton, Field, custom Select/Combobox, and editor-action
+  primitives; lossless typed row/Mongo editors; authoritative PostgreSQL enum/array and MySQL
+  enum/set metadata; exact server-side mutation validation; and explained fail-closed handling for
+  unsupported types.
+- Live browser validation covered JSON error/recovery, inspection versus editing, add/commit,
+  keyboard focus, selector keyboard behavior, and 848px/640px editor collision containment.
+- Final local `pnpm verify:pr` passed: 34/34 package tasks, 11 smoke E2E (4 expected skips), and 29
+  full E2E (43 expected skips), including write, read-only, structured-value, and MongoDB workflows.
+- Pre-push verification and both GitHub CI jobs passed for draft PR #159.
 
 ## In progress
 
-- None. F145 is the final scheduled task and is passing in draft PR #156.
+- None. DF-12 is passing and awaits merge.
 
 ## Known issues / blockers
 
-- Full `pnpm check` requires Docker; root test/check commands load the gitignored `.env` URLs.
-- If `docker` resolves to a dangling `/usr/local/bin/docker`, prepend
-  `/Applications/Docker.app/Contents/Resources/bin` to `PATH`.
-- UI Preview must rebuild `@qyre/ui` before `@qyre/web` because the web package consumes UI `dist/`.
-- Vitest resolves workspace packages (`@qyre/core`, `@qyre/driver-contract`, each adapter) through
-  their built `dist/`, not source - after changing a package's exported surface, rebuild it
-  (`pnpm --filter <pkg> build`) before running a _different_ package's tests against the change, or
-  they'll silently exercise the stale build ("X is not a function" is the tell). `tsc --noEmit`
-  doesn't have this problem (it honors the root `tsconfig.base.json`'s `paths` straight to `src`).
-- `.local/preview-server-mysql.mjs` still points at a stale pre-rename port/db
-  (`localhost:3307`/`humb_test`, wrong env var names).
-- MongoDB's shared docker-compose/CI container has no authorization enabled at all - every
-  connection is anonymous and full-access. Testing a genuinely restricted MongoDB user live would
-  require enabling auth globally and migrating every existing Mongo test/fixture to credentials
-  (see F095's evidence in FEATURES.json / `permissions.ts`'s top comment) - deliberately not done.
-- F099 has two merged PRs on `feature/F099-row-insert` (#109, #110) with identical content: a
-  squash-merge landed first, then the branch was merged again (regular merge commit) without
-  deleting it in between. Both are harmless no-op-content merges on `main` - `commitHash` in
-  FEATURES.json points at the final one (#110, `fc4240a`). No action needed, just don't be
-  surprised by the duplicate history.
-- `better-sqlite3`'s native binding can go stale against the machine's active Node version
-  (`NODE_MODULE_VERSION` mismatch, `new Database()` throws). Fix: `pnpm install --force` under the
-  Node version you intend to test with (this repo's Docker/CI stack matches Node 22,
-  `NODE_MODULE_VERSION` 127) to rebuild the prebuilt binary; a `node-gyp rebuild` against a too-new
-  Node (e.g. 26) can fail to compile against that Node's V8 headers.
-- This container runs commands as root, so SQLite's 10 chmod/read-only tests cannot observe Unix
-  permission denial. Run the gate as a non-root bubblewrap user here; the same 51-test suite is
-  green there.
+- No DF-12 blocker is known.
+- Repository verification must use Node 22; Node 24 cannot load the current `better-sqlite3` native
+  binding.
+- UI Preview and E2E must rebuild `@qyre/ui` before `@qyre/web` because web consumes UI `dist/`.
+- Docker may require `/Applications/Docker.app/Contents/Resources/bin/docker` explicitly on macOS.
 
 ## Next steps
 
-- Merge draft PR #156. No further feature is scheduled.
+- Merge draft PR #159.
+- Return to `main` and activate DF-13, the guided Add/Duplicate row composer.

@@ -1,10 +1,11 @@
 # Plan 0007: Product Experience Audit and Coherent UI Polish
 
-Status: Revised plan approved 2026-07-15; DF-10 delivered in draft PR #157 at `c24b1b3`,
-with both CI jobs passing. DF-11 editing integrity is in delivery verification. No production code
-changed during the audit.
+Status: Revised plan approved 2026-07-15; DF-10 audit and DF-11 editing integrity are delivered.
+DF-12 shared controls and complete typed editors is passing in draft PR #159. DF-13 is next after
+merge.
 Owner: current product-design engagement
-Linked features: DF-10 audit (passing), DF-11 editing integrity (active)
+Linked features: DF-10 audit (passing), DF-11 editing integrity (passing), DF-12 typed editors
+(passing)
 Evidence captured: 2026-07-15
 
 ## Objective
@@ -822,3 +823,22 @@ personal taste.
 - 2026-07-15: DF-11 full `pnpm verify:pr` passed: 34/34 package tasks, 11 smoke E2E with four
   expected project skips, and 29 full E2E with 43 expected project skips. Current step: review,
   commit, push, draft PR, and CI.
+- 2026-07-15: DF-11 merged in PR #158 at `a6330fa`. Activated DF-12 on
+  `feature/DF-12-shared-typed-editors`; current step: specify and implement shared controls plus the
+  lossless typed-editor registry.
+- 2026-07-15: Implemented DF-12's shared Button, IconButton, Field, custom Select/Combobox, editor
+  actions, and typed editor registry. PostgreSQL enum/array and MySQL enum/set introspection now
+  supplies authoritative editor metadata; exact numeric, temporal, JSON/JSONB, native array, SET,
+  boolean, identifier, text, and MongoDB structured values validate without browser coercion.
+  Unsupported binary/XML/unknown paths remain read-only.
+- 2026-07-15: Live PostgreSQL review verified custom-selector keyboard behavior, JSON syntax errors
+  with line/column, Escape focus restoration, distinct structured inspect/edit actions, add-row
+  typed staging, commit persistence, and editor collision containment at 848px and 640px with no
+  document overflow. The live-found sticky-header clipping defect is covered by viewport-position
+  unit tests.
+- 2026-07-15: DF-12 full `pnpm verify:pr` passed: 34/34 package tasks, 11 smoke E2E with four
+  expected project skips, and 29 full E2E with 43 expected project skips. Focused writable,
+  MongoDB, read-only, and structured-inspector workflows also passed. Current step: review, commit,
+  push, open the draft PR, and wait for CI before marking DF-12 passing.
+- 2026-07-15: DF-12 is passing in draft PR #159 at `fc57253`; the pre-push full gate and both
+  GitHub CI jobs passed. Current step: merge PR #159, return to `main`, then activate DF-13.

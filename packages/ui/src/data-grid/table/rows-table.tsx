@@ -253,7 +253,10 @@ export function RowsTable({
                           {isInsertable ? (
                             <NewRowCell
                               value={insert.values[columnName]}
+                              columnName={columnName}
                               dataType={meta?.dataType ?? "unknown"}
+                              allowedValues={meta?.allowedValues}
+                              elementDataType={meta?.elementDataType}
                               engine={engine}
                               nullable={meta?.nullable ?? true}
                               onChange={(next) =>
@@ -265,7 +268,7 @@ export function RowsTable({
                               className="italic text-quiet-foreground"
                               title={
                                 meta
-                                  ? mutationEditorCapability(meta.dataType, engine)
+                                  ? mutationEditorCapability(meta.dataType, engine, meta)
                                       .unavailableReason
                                   : undefined
                               }
@@ -379,7 +382,7 @@ export function RowsTable({
                       const reference =
                         meta?.isForeignKey && onNavigateToForeignKey ? meta.references : undefined;
                       const editorCapability = meta
-                        ? mutationEditorCapability(meta.dataType, engine)
+                        ? mutationEditorCapability(meta.dataType, engine, meta)
                         : undefined;
                       // FK-with-navigation and PK-with-filter-click keep their existing single-click
                       // behavior even when this column is otherwise editable - PK columns are never
@@ -413,10 +416,14 @@ export function RowsTable({
                           {isEditableCell && rowKey ? (
                             <EditableCell
                               displayValue={staged ? staged.next : row[columnName]}
+                              columnName={columnName}
                               dataType={meta?.dataType ?? "unknown"}
+                              allowedValues={meta?.allowedValues}
+                              elementDataType={meta?.elementDataType}
                               engine={engine}
                               nullable={meta?.nullable ?? true}
                               dirty={Boolean(staged)}
+                              onInspect={(value) => setInspected({ column: columnName, value })}
                               onCommit={(next) =>
                                 pendingChanges.stageEdit(rowKey, columnName, row[columnName], next)
                               }

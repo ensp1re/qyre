@@ -6,6 +6,7 @@ import { cn } from "../cn.js";
 export type DateTimeInputKind = "date" | "time" | "datetime-local";
 
 export interface DateTimeInputProps {
+  id?: string;
   kind: DateTimeInputKind;
   /** Matches the exact string shape the native input this replaces used to produce, so no
    * downstream (filter query) code needed to change: "YYYY-MM-DD", "HH:MM", or
@@ -16,6 +17,8 @@ export interface DateTimeInputProps {
    * calendar day click already commits the date half by itself. */
   onEnter?: () => void;
   autoFocus?: boolean;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
 }
 
 function pad(value: number): string {
@@ -157,13 +160,19 @@ function CalendarGrid({
 }
 
 function DatePicker({
+  id,
   value,
   onChange,
-  autoFocus
+  autoFocus,
+  ariaDescribedBy,
+  ariaInvalid
 }: {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   autoFocus?: boolean;
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
 }): ReactNode {
   const [open, setOpen] = useState(false);
   const parts = parseDatePart(value);
@@ -172,10 +181,13 @@ function DatePicker({
   return (
     <div className="relative">
       <button
+        id={id}
         type="button"
         autoFocus={autoFocus}
         onClick={() => setOpen((current) => !current)}
         aria-label="Choose date"
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
         className={cn(
           "flex w-full items-center gap-1.5 rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-left font-mono text-[11px] outline-none focus:border-primary",
           parts ? "text-foreground" : "text-quiet-foreground"
@@ -211,15 +223,21 @@ function DatePicker({
 }
 
 function TimeSegments({
+  id,
   value,
   onChange,
   onEnter,
-  autoFocus
+  autoFocus,
+  ariaDescribedBy,
+  ariaInvalid
 }: {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   onEnter?: () => void;
   autoFocus?: boolean;
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
 }): ReactNode {
   const [hour, setHour] = useState(() => {
     const parts = parseTimePart(value);
@@ -261,7 +279,14 @@ function TimeSegments({
   }
 
   return (
-    <div className="flex items-center gap-1 rounded-[3px] border border-border bg-secondary px-2 py-1.5 focus-within:border-primary">
+    <div
+      id={id}
+      role="group"
+      aria-label="Time"
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid}
+      className="flex items-center gap-1 rounded-[3px] border border-border bg-secondary px-2 py-1.5 focus-within:border-primary"
+    >
       <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
       <input
         ref={hourRef}
@@ -304,26 +329,53 @@ function TimeSegments({
  * ("YYYY-MM-DD" / "HH:MM" / "YYYY-MM-DDTHH:MM"), so no downstream filter-query code changed.
  */
 export function DateTimeInput({
+  id,
   kind,
   value,
   onChange,
   onEnter,
-  autoFocus
+  autoFocus,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid
 }: DateTimeInputProps): ReactNode {
   if (kind === "time") {
     return (
-      <TimeSegments value={value} onChange={onChange} onEnter={onEnter} autoFocus={autoFocus} />
+      <TimeSegments
+        id={id}
+        value={value}
+        onChange={onChange}
+        onEnter={onEnter}
+        autoFocus={autoFocus}
+        ariaDescribedBy={ariaDescribedBy}
+        ariaInvalid={ariaInvalid}
+      />
     );
   }
 
   if (kind === "date") {
-    return <DatePicker value={value} onChange={onChange} autoFocus={autoFocus} />;
+    return (
+      <DatePicker
+        id={id}
+        value={value}
+        onChange={onChange}
+        autoFocus={autoFocus}
+        ariaDescribedBy={ariaDescribedBy}
+        ariaInvalid={ariaInvalid}
+      />
+    );
   }
 
   const [datePart = "", timePart = ""] = value ? value.split("T") : [];
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div
+      id={id}
+      role="group"
+      aria-label="Date and time"
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid}
+      className="flex flex-col gap-1.5"
+    >
       <DatePicker
         value={datePart}
         autoFocus={autoFocus}

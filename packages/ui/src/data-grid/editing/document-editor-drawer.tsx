@@ -3,6 +3,9 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useFocusTrap } from "../../primitives/use-focus-trap.js";
 import { Spinner } from "../../feedback/spinner.js";
+import { Button } from "../../primitives/controls/button.js";
+import { IconButton } from "../../primitives/controls/icon-button.js";
+import { StructuredTextEditor, structuredTextError } from "./structured-text-editor.js";
 
 export interface DocumentEditorDrawerProps {
   mode: "edit" | "insert";
@@ -65,12 +68,7 @@ export function DocumentEditorDrawer({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  let parseError: string | undefined;
-  try {
-    if (text.trim().length > 0) JSON.parse(text);
-  } catch (err) {
-    parseError = err instanceof Error ? err.message : "Invalid JSON.";
-  }
+  const parseError = structuredTextError(text);
 
   const busy = Boolean(loading || saving || deleting);
   const canSave = !busy && !parseError && text.trim().length > 0;
@@ -93,14 +91,13 @@ export function DocumentEditorDrawer({
           {documentId && (
             <span className="truncate font-mono text-[10px] text-foreground/70">{documentId}</span>
           )}
-          <button
-            type="button"
+          <IconButton
             onClick={onClose}
-            aria-label="Close"
-            className="ml-auto rounded-[2px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
+            label="Close"
+            icon={<X className="h-3.5 w-3.5" />}
+            variant="ghost"
+            className="ml-auto"
+          />
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-3">
@@ -110,22 +107,13 @@ export function DocumentEditorDrawer({
             </p>
           ) : (
             <>
-              <textarea
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-                aria-label="Document JSON"
-                spellCheck={false}
-                className="min-h-[16rem] flex-1 resize-none rounded-[3px] border border-border bg-secondary p-2 font-mono text-[11px] text-foreground outline-none focus:border-primary"
+              <StructuredTextEditor
+                text={text}
+                onChange={setText}
+                label="Document JSON"
+                autoFocus
+                minHeightClassName="min-h-[16rem]"
               />
-              {parseError && (
-                <p
-                  className="flex items-start gap-1.5 font-mono text-[10px]"
-                  style={{ color: "var(--c-red)" }}
-                >
-                  <AlertTriangle className="mt-0.5 h-2.5 w-2.5 shrink-0" />
-                  {parseError}
-                </p>
-              )}
             </>
           )}
 
@@ -141,27 +129,20 @@ export function DocumentEditorDrawer({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-3 py-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            className="rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
             Cancel
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => onSave(text)}
             disabled={!canSave}
-            className="ml-auto flex items-center gap-1.5 rounded-[3px] bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            loading={saving}
+            className="ml-auto"
           >
-            {saving ? (
-              <Spinner className="h-2.5 w-2.5 text-primary-foreground" />
-            ) : (
-              <Check className="h-2.5 w-2.5" />
-            )}
+            {!saving && <Check className="h-2.5 w-2.5" />}
             {saving ? "Saving..." : "Save"}
-          </button>
+          </Button>
         </div>
 
         {mode === "edit" && canDelete && documentId && (
@@ -178,20 +159,16 @@ export function DocumentEditorDrawer({
                 placeholder={documentId}
                 className="min-w-0 flex-1 rounded-[3px] border border-border bg-secondary px-2 py-1 font-mono text-[10px] text-foreground outline-none focus:border-primary"
               />
-              <button
-                type="button"
+              <Button
+                variant="destructive"
+                size="sm"
                 onClick={onDelete}
                 disabled={!deleteConfirmed || busy}
-                className="flex shrink-0 items-center gap-1 rounded-[3px] border px-2 py-1 font-mono text-[10px] disabled:cursor-not-allowed disabled:opacity-40"
-                style={{ borderColor: "var(--c-red)", color: "var(--c-red)" }}
+                loading={deleting}
               >
-                {deleting ? (
-                  <Spinner className="h-2.5 w-2.5" />
-                ) : (
-                  <Trash2 className="h-2.5 w-2.5" />
-                )}
+                {!deleting && <Trash2 className="h-2.5 w-2.5" />}
                 Delete
-              </button>
+              </Button>
             </div>
           </div>
         )}

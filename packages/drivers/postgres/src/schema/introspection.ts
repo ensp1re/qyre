@@ -112,11 +112,24 @@ export async function introspectTable(
       data_type: string;
       udt_name: string;
       is_nullable: "YES" | "NO";
+      allowed_values: string[] | null;
+      element_data_type: string | null;
     }>(
-      `SELECT column_name, data_type, udt_name, is_nullable
-         FROM information_schema.columns
-        WHERE table_schema = $1 AND table_name = $2
-        ORDER BY ordinal_position`,
+      `SELECT c.column_name, c.data_type, c.udt_name, c.is_nullable,
+              enum_values.allowed_values,
+              element_type.typname AS element_data_type
+         FROM information_schema.columns c
+         LEFT JOIN pg_namespace type_namespace ON type_namespace.nspname = c.udt_schema
+         LEFT JOIN pg_type column_type
+           ON column_type.typname = c.udt_name AND column_type.typnamespace = type_namespace.oid
+         LEFT JOIN pg_type element_type ON element_type.oid = column_type.typelem
+         LEFT JOIN LATERAL (
+           SELECT json_agg(enum_value.enumlabel ORDER BY enum_value.enumsortorder) AS allowed_values
+             FROM pg_enum enum_value
+            WHERE enum_value.enumtypid = column_type.oid
+         ) enum_values ON true
+        WHERE c.table_schema = $1 AND c.table_name = $2
+        ORDER BY c.ordinal_position`,
       [schema, table]
     ),
     pool.query<{
@@ -169,6 +182,8 @@ export async function introspectTable(
   const columns: ColumnMetadata[] = columnsResult.rows.map((row) => ({
     name: row.column_name,
     dataType: row.data_type === "USER-DEFINED" ? row.udt_name : row.data_type,
+    allowedValues: row.allowed_values ?? undefined,
+    elementDataType: row.element_data_type ?? undefined,
     nullable: row.is_nullable === "YES",
     isPrimaryKey: primaryKeys.has(row.column_name),
     isForeignKey: foreignKeyReferences.has(row.column_name),
@@ -193,11 +208,24 @@ async function fetchAllColumns(pool: Pool): Promise<Map<string, ColumnMetadata[]
       data_type: string;
       udt_name: string;
       is_nullable: "YES" | "NO";
+      allowed_values: string[] | null;
+      element_data_type: string | null;
     }>(
-      `SELECT table_schema, table_name, column_name, data_type, udt_name, is_nullable
-         FROM information_schema.columns
-        WHERE table_schema <> ALL($1::text[])
-        ORDER BY table_schema, table_name, ordinal_position`,
+      `SELECT c.table_schema, c.table_name, c.column_name, c.data_type, c.udt_name, c.is_nullable,
+              enum_values.allowed_values,
+              element_type.typname AS element_data_type
+         FROM information_schema.columns c
+         LEFT JOIN pg_namespace type_namespace ON type_namespace.nspname = c.udt_schema
+         LEFT JOIN pg_type column_type
+           ON column_type.typname = c.udt_name AND column_type.typnamespace = type_namespace.oid
+         LEFT JOIN pg_type element_type ON element_type.oid = column_type.typelem
+         LEFT JOIN LATERAL (
+           SELECT json_agg(enum_value.enumlabel ORDER BY enum_value.enumsortorder) AS allowed_values
+             FROM pg_enum enum_value
+            WHERE enum_value.enumtypid = column_type.oid
+         ) enum_values ON true
+        WHERE c.table_schema <> ALL($1::text[])
+        ORDER BY c.table_schema, c.table_name, c.ordinal_position`,
       [SYSTEM_SCHEMAS]
     ),
     pool.query<{
@@ -255,6 +283,8 @@ async function fetchAllColumns(pool: Pool): Promise<Map<string, ColumnMetadata[]
     columns.push({
       name: row.column_name,
       dataType: row.data_type === "USER-DEFINED" ? row.udt_name : row.data_type,
+      allowedValues: row.allowed_values ?? undefined,
+      elementDataType: row.element_data_type ?? undefined,
       nullable: row.is_nullable === "YES",
       isPrimaryKey: primaryKeys?.has(row.column_name) ?? false,
       isForeignKey: foreignKeys?.has(row.column_name) ?? false,

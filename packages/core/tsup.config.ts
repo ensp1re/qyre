@@ -7,6 +7,7 @@ export default defineConfig(
       "src/index.ts",
       "src/filter-capabilities.ts",
       "src/mutation/editor-capabilities.ts",
+      "src/mutation/editor-values.ts",
       "src/csv-import.ts"
     ]
   })

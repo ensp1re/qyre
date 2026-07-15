@@ -43,10 +43,10 @@ capabilities.md`) **and** the table's own `TablePermissions.insert`/`update`/`de
 - Non-editable **columns** within an otherwise-editable table are decided by the mutation-specific
   editor capability matrix, not the filter classifier. Filtering and mutation have different
   fidelity requirements: a filter may safely accept a coarse search value that would be lossy as a
-  stored replacement. Structured and binary values need dedicated editors, and unknown types stay
-  read-only because Qyre never guesses a coercion. Time and timestamp values are also read-only in
-  the SQL grid until their editor round-trips seconds, fractional precision, and timezone/offset
-  semantics without coercion. A primary-key column is always editable
+  stored replacement. JSON and supported native arrays use dedicated validated editors; binary and
+  unknown types stay read-only because Qyre never guesses a coercion. Time and timestamp values are
+  editable only through the exact temporal editor that preserves seconds, fractional precision,
+  and timezone/offset semantics without a JavaScript `Date` conversion. A primary-key column is always editable
   when inserting a new row (it must be supplied, unless the engine auto-generates it - see below) but
   is **never** editable when updating an existing row - changing a row's identity mid-edit is
   indistinguishable from "insert a new row and delete the old one" and this spec doesn't support that
@@ -163,32 +163,62 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
 - Every column's edit value is validated against the mutation contract. The UI's editor capability
   matrix is deliberately separate from `FilterColumnKind`: filterability must not imply that Qyre
   can safely author a replacement value.
-  - `text` / `identifier`: JSON string.
-  - `numeric`: JSON number - **not** a numeric string. Unlike `RowFilter.value` (always a URL query
-    string, F072), insert/update bodies are real JSON, so the client sends a real typed number and
-    the server rejects a string here rather than silently coercing one, closing a class of "silently
-    stored `'42'` instead of `42`" bugs.
+  - Single-line scalar editors apply on `Enter`. Multiline and structured editors preserve plain
+    `Enter` for new lines and apply on `Ctrl/Cmd+Enter`; every editor also exposes explicit Apply
+    and Cancel actions, and `Escape` cancels without staging.
+  - `text`: JSON string. Long-text families use a multiline editor; fixed/varying character
+    families use a single-line editor. An empty string remains distinct from `NULL`.
+  - `identifier`: JSON string. UUID columns additionally require the canonical hyphenated UUID
+    shape before staging.
+  - `numeric`: the UI sends an exact decimal string, not a JavaScript `number`, so integers beyond
+    `Number.MAX_SAFE_INTEGER`, fixed-scale decimals, and exponent notation are never rounded in the
+    browser. The server accepts that validated decimal grammar and passes the string as a bound
+    parameter; existing API callers may still send a finite JSON number for backward compatibility.
+    The database remains authoritative for native precision/range.
   - `boolean`: JSON boolean.
-  - `date` / `time` / `datetime`: JSON string, further validated as a parseable ISO-8601-shaped
-    value before it reaches the adapter (reject garbage early, same principle `resolveRowSort`
-    already applies to column names). The adapter passes the validated string straight through as a
-    bound parameter - the SQL driver itself converts it to the column's native date/timestamp type,
-    the same "let the driver own type conversion" precedent `column-type-fidelity.md` (F019)
-    established for reads, now applied symmetrically to writes, avoiding a manual JS `Date`
-    round-trip and the timezone bugs F019 fixed in the first place.
-    The direct API continues to accept exact caller-supplied strings. The SQL grid exposes only
-    `date` editing until the time/timestamp UI has lossless round-trip coverage; it never sends a
-    minute-truncated value merely because a filter-oriented control cannot represent the original.
+  - `enum`: one JSON string selected from authoritative engine metadata. `set` uses a JSON string
+    array whose members are each validated against that metadata; the server converts the list to
+    the engine's native bound representation.
+  - `date` / `time` / local timestamp / timezone timestamp: exact strings with engine-aware lexical
+    validation. The editor preserves seconds, fractional precision, and an existing `Z`/numeric
+    offset, and shows the original and draft together before Apply. Neither browser nor server
+    constructs a JavaScript `Date`; the driver binds the validated string unchanged. MySQL `TIME`
+    retains its signed-duration range, while PostgreSQL time-of-day and timezone shapes remain
+    distinct.
+  - `JSON` / `JSONB`: the editor parses JSON, reports line and column, formats on explicit request,
+    and stages the parsed JSON value. The server serializes it exactly once for the SQL driver.
+    PostgreSQL native scalar arrays use the same full-value surface but require a JSON array and
+    remain native arrays at the driver boundary. SQLite has no native array contract; MySQL arrays
+    remain JSON values rather than a separate native array kind.
   - `objectId` (MongoDB only): JSON string, further validated as a syntactically valid 24-hex-char
     ObjectId before the adapter constructs a real `ObjectId` from it.
   - `null`: only accepted when the column is `nullable`; identical to how `RowFilter`'s `isNull`
     already respects nullability.
-  - `structured` / `binary` / `unknown`: never accepted - see "Row identity and editability" above.
+  - `binary` / `unknown`: never accepted - see "Row identity and editability" above. Unsupported
+    structured families such as XML also remain read-only until they have a lossless contract.
 - This validation happens **before** the adapter is called, using the table's own freshly-
   introspected columns (never a client-supplied schema) - the same trust boundary `resolveRowSort`/
   filter-column validation already enforces.
 - A `key`/`changes`/`values` map with an unrecognized column name is rejected `400`, same treatment
   an unrecognized `sortColumn`/filter `column` already gets.
+
+### Per-engine editor matrix
+
+| Editor kind                | PostgreSQL                              | MySQL                              | SQLite                                   | MongoDB                                |
+| -------------------------- | --------------------------------------- | ---------------------------------- | ---------------------------------------- | -------------------------------------- |
+| Text / multiline / UUID    | scalar cell                             | scalar cell                        | scalar cell                              | whole-document EJSON                   |
+| Exact integer / decimal    | decimal-string binding                  | decimal-string binding             | decimal-string binding                   | whole-document EJSON                   |
+| Boolean / nullable boolean | tri-state selector                      | tri-state selector                 | tri-state selector when declared boolean | whole-document EJSON                   |
+| Enum / set                 | catalog enum selector; no native set    | `ENUM` selector; `SET` multiselect | not applicable                           | whole-document EJSON                   |
+| Date / time / timestamp    | exact date/time/local/offset editors    | exact date/time/local editors      | exact declared-type editor               | whole-document EJSON                   |
+| JSON                       | JSON/JSONB editor                       | JSON editor                        | declared JSON editor                     | shared structured editor in EJSON mode |
+| Native scalar array        | JSON-array editor with element metadata | not applicable outside JSON        | not applicable                           | whole-document EJSON                   |
+| Binary / unknown / XML     | explained read-only                     | explained read-only                | explained read-only                      | whole-document EJSON                   |
+
+`ColumnMetadata.allowedValues` carries authoritative enum/set values when the engine exposes them;
+`elementDataType` identifies a supported native array's element type. Missing metadata fails closed
+instead of degrading to a free-text field. These fields are advisory UI metadata only: the server
+re-introspects and validates the same contract before any adapter call.
 
 ### Out of scope (for now)
 

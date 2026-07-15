@@ -1,6 +1,7 @@
 import { Plus, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { Select } from "../../primitives/controls/select.js";
 import { useFocusTrap } from "../../primitives/use-focus-trap.js";
 import { classifyColumnKind } from "../../primitives/type-icon.js";
 
@@ -223,18 +224,15 @@ export function CreateTableDialog({
                 <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
                   Schema
                 </span>
-                <select
+                <Select
                   value={schema}
-                  onChange={(event) => onSchemaChange?.(event.target.value)}
-                  aria-label="Schema"
-                  className="rounded-[3px] border border-border bg-secondary px-2 py-1 font-mono text-[12px] text-foreground outline-none focus:border-foreground/40"
-                >
-                  {schemas.map((schemaName) => (
-                    <option key={schemaName} value={schemaName}>
-                      {schemaName}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(value) => onSchemaChange?.(value)}
+                  label="Schema"
+                  options={schemas.map((schemaName) => ({
+                    value: schemaName,
+                    label: schemaName
+                  }))}
+                />
               </label>
 
               <div className="flex flex-col gap-2">
@@ -331,18 +329,13 @@ function ColumnRow({
           aria-label="Column name"
           className="min-w-0 flex-1 rounded-[2px] border border-border bg-secondary px-1.5 py-1 font-mono text-[11px] text-foreground outline-none focus:border-foreground/40"
         />
-        <select
+        <Select
           value={column.dataType}
-          onChange={(event) => onChange({ dataType: event.target.value })}
-          aria-label="Column type"
-          className="rounded-[2px] border border-border bg-secondary px-1.5 py-1 font-mono text-[11px] text-foreground outline-none"
-        >
-          {columnTypes.map((dataType) => (
-            <option key={dataType} value={dataType}>
-              {dataType}
-            </option>
-          ))}
-        </select>
+          onValueChange={(value) => onChange({ dataType: value })}
+          label="Column type"
+          options={columnTypes.map((dataType) => ({ value: dataType, label: dataType }))}
+          className="w-40"
+        />
         <label className="flex items-center gap-1 whitespace-nowrap font-mono text-[10px] text-muted-foreground">
           <input
             type="checkbox"

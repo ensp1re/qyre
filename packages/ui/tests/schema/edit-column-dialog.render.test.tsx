@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { EditColumnDialog } from "../../src/schema/dialogs/edit-column-dialog.js";
+import { chooseSelect } from "../support/select.js";
 
 const POSTGRES_COLUMN_TYPES = ["text", "integer", "boolean"] as const;
 
@@ -19,7 +20,7 @@ describe("EditColumnDialog (component rendering, F114)", () => {
       />
     );
     expect(screen.getByLabelText("Column name")).toHaveValue("total");
-    expect(screen.getByLabelText("Column type")).toHaveValue("integer");
+    expect(screen.getByLabelText("Column type")).toHaveTextContent("integer");
     expect(screen.getByLabelText("Not null")).toBeChecked();
   });
 
@@ -75,7 +76,7 @@ describe("EditColumnDialog (component rendering, F114)", () => {
         onClose={vi.fn()}
       />
     );
-    fireEvent.change(screen.getByLabelText("Column type"), { target: { value: "text" } });
+    chooseSelect("Column type", "text");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onSave).toHaveBeenCalledWith({ changes: { dataType: "text" } });
   });

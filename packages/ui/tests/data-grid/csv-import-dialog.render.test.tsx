@@ -2,6 +2,7 @@ import type { CsvImportInspection, CsvImportResult } from "@qyre/core";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CsvImportDialog } from "../../src/data-grid/transfer/csv-import-dialog.js";
+import { chooseSelect } from "../support/select.js";
 
 const inspection: CsvImportInspection = {
   mode: "inspect",
@@ -57,8 +58,8 @@ describe("CsvImportDialog (component rendering, F117)", () => {
     fireEvent.change(screen.getByLabelText("1. Choose file"), { target: { files: [file] } });
 
     await waitFor(() => expect(onInspect).toHaveBeenCalledWith(file));
-    expect(screen.getByLabelText("Map name")).toHaveValue("name");
-    fireEvent.change(screen.getByLabelText("Map Age"), { target: { value: "age" } });
+    expect(screen.getByLabelText("Map name")).toHaveTextContent("name");
+    chooseSelect("Map Age", "age (int4)");
     fireEvent.click(screen.getByRole("button", { name: "Dry run" }));
 
     await waitFor(() =>

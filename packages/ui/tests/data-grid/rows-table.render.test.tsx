@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { RowsTable } from "../../src/data-grid/table/rows-table.js";
+import { chooseSelect } from "../support/select.js";
 
 const rowPage: RowPage = {
   columns: ["id", "name"],
@@ -119,11 +120,11 @@ describe("RowsTable whole-result export (component rendering, F118)", () => {
     const onExportAllRows = vi.fn();
     renderTable({ exportFormats: ["csv", "json"], onExportAllRows });
 
+    fireEvent.click(screen.getByLabelText("Export format"));
     expect(screen.getByRole("option", { name: "CSV" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "JSON" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "SQL INSERT" })).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Export format"), { target: { value: "json" } });
+    fireEvent.click(screen.getByRole("option", { name: "JSON" }));
     fireEvent.click(screen.getByLabelText("Export all rows as JSON"));
     expect(onExportAllRows).toHaveBeenCalledWith("json");
   });
@@ -135,7 +136,8 @@ describe("RowsTable whole-result export (component rendering, F118)", () => {
       onExportAllRows: vi.fn()
     });
 
-    expect(screen.getByRole("option", { name: "Extended JSON" })).toBeInTheDocument();
+    chooseSelect("Export format", "Extended JSON");
+    expect(screen.getByLabelText("Export format")).toHaveTextContent("Extended JSON");
   });
 
   it("hides the export button when onExportAllRows is omitted", () => {

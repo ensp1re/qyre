@@ -9,6 +9,7 @@ import { AlertTriangle, FileUp, X } from "lucide-react";
 import type { ChangeEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Spinner } from "../../feedback/spinner.js";
+import { Select } from "../../primitives/controls/select.js";
 import { useFocusTrap } from "../../primitives/use-focus-trap.js";
 import { CsvImportPreviewTable, CsvImportReport } from "./csv-import-preview.js";
 
@@ -204,26 +205,22 @@ export function CsvImportDialog({
                       {header}
                     </span>
                     <span className="py-1 text-muted-foreground">→</span>
-                    <select
-                      aria-label={`Map ${header}`}
+                    <Select
+                      label={`Map ${header}`}
                       value={mapping[header] ?? ""}
-                      onChange={(event) => changeMapping(header, event.target.value)}
+                      onValueChange={(value) => changeMapping(header, value)}
                       disabled={Boolean(busy)}
-                      className="min-w-0 rounded-[2px] border border-border bg-secondary px-1 py-0.5 outline-none focus:border-foreground/40"
-                    >
-                      <option value="">Ignore</option>
-                      {columns.map((column) => (
-                        <option
-                          key={column.name}
-                          value={column.name}
-                          disabled={
+                      options={[
+                        { value: "", label: "Ignore" },
+                        ...columns.map((column) => ({
+                          value: column.name,
+                          label: `${column.name} (${column.dataType})`,
+                          disabled:
                             mappedTargets.has(column.name) && mapping[header] !== column.name
-                          }
-                        >
-                          {column.name} ({column.dataType})
-                        </option>
-                      ))}
-                    </select>
+                        }))
+                      ]}
+                      className="min-h-6 min-w-0 py-0.5"
+                    />
                   </div>
                 ))}
               </div>

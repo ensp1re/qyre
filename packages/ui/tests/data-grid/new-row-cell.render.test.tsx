@@ -20,7 +20,7 @@ describe("NewRowCell (component rendering, F104)", () => {
       />
     );
     openEditor("Edit value");
-    const input = screen.getByLabelText("New row value");
+    const input = screen.getByLabelText("New row value - exact value");
     expect(input).toHaveValue("2024-11-03 01:30:45.123456-04:00");
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).toHaveBeenCalledWith("2024-11-03 01:30:45.123456-04:00");

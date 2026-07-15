@@ -2,11 +2,22 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 146,
+    "F": 147,
     "DF": 13
   },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
+    {
+      "id": "F146",
+      "behavior": "Continue the DF-10 audit's grid-editing polish: reuse CellValue (UTC/local date popover, long-string truncation, URL/structured chips) in EditableCell's non-editing display so editable columns no longer lose those affordances; coordinate a single active cell editor across the table instead of independent per-cell popovers stacking; add the missing timestamp/time typed-editor widget (DatePicker + HH:MM segments merged onto the precise text value, never truncating stored precision, plus a UTC-equivalent caption for timezone-aware columns); route JSON/array/multiline cell editing into a right-side drawer instead of a small popover; add table-layout:fixed column truncation with an ellipsis so long values no longer expand the grid; and replace EditorActions' text Apply/Cancel with icon-only JetBrains-style controls.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/core typecheck && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm verify:pr",
+      "state": "active",
+      "commitHash": null,
+      "evidence": "Package-scoped verification passed: pnpm --filter @qyre/ui test (389/389, including 3 new regression tests for the UTC-popover restoration, JSON-drawer routing, and single-active-editor coordination), typecheck, eslint, prettier, and both @qyre/ui and @qyre/web builds. Manually verified live against a real PostgreSQL connection: fixed-width truncated columns, the composite timestamp editor (date picker + time segments + precise-value field + UTC caption, confirmed seconds/offset survive a date-only change), JSON/multiline cells opening in the right-side drawer, and only one cell editor open at a time. Full `pnpm verify:pr` reached 34/34 package typecheck/test/build tasks and all check:state checks passing, but the SQLite E2E webServer failed to start on this machine's Node 26 (better-sqlite3 native binding built for NODE_MODULE_VERSION 127, needs 147) - the same pre-existing Node-22-only constraint AGENTS.md already documents, not a regression from this change. No PR opened yet.",
+      "blockedReason": null,
+      "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
+      "completedAt": null
+    },
     {
       "id": "DF-12",
       "behavior": "Provide one compact, accessible control and typed-editor system for Qyre's write workflows: shared Button, IconButton, Field, Select/Combobox, and editor actions; lossless text, multiline, exact numeric/decimal, identifier, tri-state boolean, enum/set, date/time/timestamp, JSON/JSONB, supported-array, and MongoDB Extended JSON editors; explicit validation and before/after feedback; and explained read-only treatment for binary and unknown values. Preserve authoritative permission, --read-only, server-validation, driver, and transaction behavior across PostgreSQL, MySQL, SQLite, and MongoDB.",

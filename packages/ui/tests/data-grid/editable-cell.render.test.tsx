@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { EditableCell } from "../../src/data-grid/cells/editable-cell.js";
 import { chooseSelect } from "../support/select.js";
@@ -212,7 +214,7 @@ describe("EditableCell (component rendering, F103)", () => {
       />
     );
     fireEvent.click(screen.getByText(value));
-    const input = screen.getByLabelText("Edit cell value");
+    const input = screen.getByLabelText("Edit cell value - exact value");
     expect(input).toHaveValue(value);
     fireEvent.change(input, { target: { value: "2024-11-03 01:30:45.123457-04:00" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -406,5 +408,87 @@ describe("EditableCell (component rendering, F103)", () => {
 
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Choose date" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the UTC/local/relative date detail affordance on an editable timestamp column (F146)", () => {
+    // Regression guard: EditableCell's non-editing display used to bypass CellValue entirely for
+    // non-structured values, so an editable date/timestamp column silently lost the "Click for
+    // UTC, local time, and more" popover that read-only columns still had (DateDetailPopover).
+    const onInspectDate = vi.fn();
+    render(
+      <EditableCell
+        displayValue="2026-03-05T19:57:11.880Z"
+        dataType="timestamptz"
+        nullable={false}
+        dirty={false}
+        onInspectDate={onInspectDate}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+    const dateLink = screen.getByTitle("Click for UTC, local time, and more");
+    fireEvent.click(dateLink);
+    expect(onInspectDate).toHaveBeenCalledWith("2026-03-05T19:57:11.880Z", expect.anything());
+    expect(screen.getByRole("button", { name: "Edit value" })).toBeInTheDocument();
+  });
+
+  it("opens JSON/array cell editing in a right-side drawer, not a small popover (F146)", () => {
+    render(
+      <EditableCell
+        columnName="profile"
+        displayValue={{ active: true }}
+        dataType="jsonb"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
+    expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
+  });
+
+  it("only one editor is active at a time when coordinated by a parent (F146)", () => {
+    function Harness(): ReactNode {
+      const [active, setActive] = useState<string | null>(null);
+      return (
+        <>
+          <EditableCell
+            columnName="first"
+            displayValue="Ada"
+            dataType="varchar"
+            nullable={false}
+            dirty={false}
+            onCommit={vi.fn()}
+            onRevert={vi.fn()}
+            isActive={active === "first"}
+            onActivate={() => setActive("first")}
+            onDeactivate={() => setActive((current) => (current === "first" ? null : current))}
+          />
+          <EditableCell
+            columnName="second"
+            displayValue="Grace"
+            dataType="varchar"
+            nullable={false}
+            dirty={false}
+            onCommit={vi.fn()}
+            onRevert={vi.fn()}
+            isActive={active === "second"}
+            onActivate={() => setActive("second")}
+            onDeactivate={() => setActive((current) => (current === "second" ? null : current))}
+          />
+        </>
+      );
+    }
+    render(<Harness />);
+    fireEvent.click(screen.getByText("Ada"));
+    expect(screen.getByLabelText("Edit cell value")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Grace"));
+    // "Ada"'s cell reverts to its plain display (still visible as text) - only "Grace" is editing,
+    // so exactly one editor surface exists, not two stacked on top of each other.
+    expect(screen.getByText("Ada")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Edit cell value")).toHaveLength(1);
   });
 });

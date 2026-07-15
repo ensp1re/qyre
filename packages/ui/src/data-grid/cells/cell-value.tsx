@@ -237,7 +237,7 @@ export function CellValue({
           onInspectDate(value, event.currentTarget.getBoundingClientRect());
         }}
         title="Click for UTC, local time, and more"
-        className="underline decoration-dotted underline-offset-2 hover:text-primary"
+        className="block max-w-full truncate underline decoration-dotted underline-offset-2 hover:text-primary"
         style={{ color: "var(--c-purple)" }}
       >
         {formatCell(value)}
@@ -275,5 +275,5 @@ export function CellValue({
       </button>
     );
   }
-  return <span>{formatCell(value)}</span>;
+  return <span className="block max-w-full truncate">{formatCell(value)}</span>;
 }

@@ -51,6 +51,10 @@ export function useRowsTableModel({
     value: unknown;
     anchorRect: DOMRect;
   } | null>(null);
+  // The one cell editor allowed open across the whole grid at a time (F146) - a stable per-cell id
+  // (see cellEditorId below), not the cell's own local state, so activating one editor closes any
+  // other and the table never shows the stacked-popover clutter of independent per-cell state.
+  const [activeEditor, setActiveEditor] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragSelectionMode = useRef<"select" | "deselect" | null>(null);
 
@@ -239,6 +243,8 @@ export function useRowsTableModel({
     setInspected,
     dateInspected,
     setDateInspected,
+    activeEditor,
+    setActiveEditor,
     scrollRef,
     columnByName,
     filtered,

@@ -12,9 +12,32 @@ import { cn } from "../../cn.js";
 import { Button } from "../../primitives/controls/button.js";
 import { Field } from "../../primitives/controls/field.js";
 import { Select } from "../../primitives/controls/select.js";
-import { DateTimeInput } from "../../primitives/date-time-input.js";
+import { DatePicker, DateTimeInput, TimeSegments } from "../../primitives/date-time-input.js";
 import { EditorActions } from "./editor-actions.js";
 import { StructuredTextEditor } from "./structured-text-editor.js";
+
+/** Splits a timestamp draft into its "YYYY-MM-DD(T| )HH:MM" prefix (what the date/time picker
+ * below can safely edit) and everything after it - seconds, fractional precision, and/or a
+ * timezone offset. The picker only ever replaces the prefix, so it can never truncate precision
+ * the way DF-11 flagged (A17): a value with seconds keeps them no matter what the picker does. */
+function splitTimestampDraft(
+  value: string
+): { date: string; time: string; separator: string; rest: string } | null {
+  const match = /^(\d{4}-\d{2}-\d{2})([T ])(\d{2}:\d{2})(.*)$/.exec(value.trim());
+  if (!match?.[1] || !match[2] || !match[3]) return null;
+  return { date: match[1], separator: match[2], time: match[3], rest: match[4] ?? "" };
+}
+
+/** The stored value's UTC equivalent, shown only for timezone-aware columns (a timestamp without
+ * a timezone has no unambiguous UTC conversion). Never touches the draft itself - display only. */
+function timestampUtcCaption(
+  value: string,
+  kind: "timestamp-local" | "timestamp-time-zone"
+): string | null {
+  if (kind !== "timestamp-time-zone") return null;
+  const parsed = new Date(value.trim().replace(" ", "T"));
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
 
 export interface TypedValueEditorProps {
   column: Pick<
@@ -187,6 +210,50 @@ export function TypedValueEditor({
         autoFocus
       />
     );
+  } else if (capability.widget === "timestamp") {
+    const parts = splitTimestampDraft(draft);
+    const utcCaption =
+      capability.kind === "timestamp-local" || capability.kind === "timestamp-time-zone"
+        ? timestampUtcCaption(draft, capability.kind)
+        : null;
+    control = (
+      <div className="grid gap-1.5">
+        <div className="flex items-center gap-1.5">
+          <DatePicker
+            value={parts?.date ?? ""}
+            onChange={(nextDate) => {
+              const { separator = "T", time = "00:00", rest = "" } = parts ?? {};
+              setDraft(`${nextDate}${separator}${time}${rest}`);
+              setError(undefined);
+            }}
+            autoFocus
+          />
+          <TimeSegments
+            value={parts?.time ?? ""}
+            onChange={(nextTime) => {
+              if (!nextTime) return;
+              const { date, separator = "T", rest = "" } = parts ?? {};
+              if (!date) return;
+              setDraft(`${date}${separator}${nextTime}${rest}`);
+              setError(undefined);
+            }}
+          />
+        </div>
+        <input
+          aria-label={`${controlLabel} - exact value`}
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setError(undefined);
+          }}
+          spellCheck={false}
+          className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 font-mono text-[10px] text-foreground outline-none focus:border-primary"
+        />
+        {utcCaption && (
+          <p className="font-mono text-[9px] text-quiet-foreground">= {utcCaption} (UTC)</p>
+        )}
+      </div>
+    );
   } else if (longText) {
     control = (
       <textarea
@@ -219,10 +286,7 @@ export function TypedValueEditor({
   }
 
   return (
-    <div
-      className="grid w-[min(32rem,calc(100vw-2rem))] max-w-full gap-2 p-2"
-      onKeyDown={handleKeyDown}
-    >
+    <div className="grid w-full max-w-full gap-2 p-2" onKeyDown={handleKeyDown}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-medium text-foreground">{column.name}</p>

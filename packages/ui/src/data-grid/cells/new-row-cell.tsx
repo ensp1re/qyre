@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { cn } from "../../cn.js";
 import { formatCell } from "../../primitives/format-cell.js";
+import { CellEditorDrawer } from "../editing/cell-editor-drawer.js";
 import { TypedValueEditor } from "../editing/typed-value-editor.js";
 import { EditorPopover } from "../editing/editor-popover.js";
 
@@ -17,6 +18,11 @@ export interface NewRowCellProps {
   engine?: DatabaseEngine;
   nullable: boolean;
   onChange: (next: unknown) => void;
+  /** Whether this cell is the table's current single active editor (F146). Optional: omitting all
+   * three falls back to self-managed local open/close state (e.g. for standalone/test usage). */
+  isActive?: boolean;
+  onActivate?: () => void;
+  onDeactivate?: () => void;
 }
 
 /** Temporary grid-hosted insert cell. It uses the same typed editor registry as updates; DF-13
@@ -29,13 +35,23 @@ export function NewRowCell({
   elementDataType,
   engine,
   nullable,
-  onChange
+  onChange,
+  isActive: isActiveProp,
+  onActivate: onActivateProp,
+  onDeactivate: onDeactivateProp
 }: NewRowCellProps): ReactNode {
-  const [editing, setEditing] = useState(false);
+  const [uncontrolledActive, setUncontrolledActive] = useState(false);
+  const isActive = isActiveProp ?? uncontrolledActive;
+  const onActivate = onActivateProp ?? (() => setUncontrolledActive(true));
+  const onDeactivate = onDeactivateProp ?? (() => setUncontrolledActive(false));
   const [anchorRect, setAnchorRect] = useState<DOMRect>();
   const activationRef = useRef<HTMLButtonElement>(null);
   const metadata = { allowedValues, elementDataType };
   const capability = mutationEditorCapability(dataType, engine, metadata);
+  const wide =
+    capability.widget === "json" ||
+    capability.widget === "array" ||
+    capability.widget === "multiline";
 
   if (!capability.editable) {
     return (
@@ -45,26 +61,37 @@ export function NewRowCell({
     );
   }
 
-  if (editing && anchorRect) {
+  function close(): void {
+    onDeactivate();
+    requestAnimationFrame(() => activationRef.current?.focus());
+  }
+
+  if (isActive && anchorRect) {
+    const editor = (
+      <TypedValueEditor
+        column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
+        engine={engine}
+        originalValue={value}
+        controlLabel="New row value"
+        onApply={(next) => {
+          onChange(next);
+          close();
+        }}
+        onCancel={close}
+      />
+    );
+
     return (
       <div className="relative h-5 min-w-0" data-testid="new-row-editor-anchor">
-        <EditorPopover anchorRect={anchorRect} testId="new-row-cell-editor-surface">
-          <TypedValueEditor
-            column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
-            engine={engine}
-            originalValue={value}
-            controlLabel="New row value"
-            onApply={(next) => {
-              onChange(next);
-              setEditing(false);
-              requestAnimationFrame(() => activationRef.current?.focus());
-            }}
-            onCancel={() => {
-              setEditing(false);
-              requestAnimationFrame(() => activationRef.current?.focus());
-            }}
-          />
-        </EditorPopover>
+        {wide ? (
+          <CellEditorDrawer title={columnName} onClose={close}>
+            {editor}
+          </CellEditorDrawer>
+        ) : (
+          <EditorPopover anchorRect={anchorRect} testId="new-row-cell-editor-surface">
+            {editor}
+          </EditorPopover>
+        )}
       </div>
     );
   }
@@ -79,10 +106,10 @@ export function NewRowCell({
           const rect = activationRef.current?.getBoundingClientRect();
           if (!rect) return;
           setAnchorRect(rect);
-          setEditing(true);
+          onActivate();
         }}
         className={cn(
-          "min-w-0 flex-1 rounded-[2px] border border-border bg-secondary px-1.5 py-0.5 text-left font-mono text-[10px] outline-none focus-visible:border-primary",
+          "min-w-0 flex-1 truncate rounded-[2px] border border-border bg-secondary px-1.5 py-0.5 text-left font-mono text-[10px] outline-none focus-visible:border-primary",
           value === undefined ? "italic text-quiet-foreground" : "text-foreground"
         )}
       >

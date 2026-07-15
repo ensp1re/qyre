@@ -18,6 +18,11 @@ import { useRowsTableModel } from "./use-rows-table.js";
 export { toCsv };
 export type { RowsTableProps };
 
+/** Fixed per-column pixel width (F146/A01) - paired with `table-layout: fixed` so a long value
+ * truncates with an ellipsis instead of expanding the column/row indefinitely. The full value
+ * stays reachable via CellValueDrawer/DateDetailPopover, never silently hidden. */
+const COLUMN_WIDTH = 220;
+
 export function RowsTable({
   rowPage,
   columns = [],
@@ -65,6 +70,8 @@ export function RowsTable({
     setInspected,
     dateInspected,
     setDateInspected,
+    activeEditor,
+    setActiveEditor,
     scrollRef,
     columnByName,
     filtered,
@@ -142,10 +149,17 @@ export function RowsTable({
         </div>
       ) : (
         <div data-testid="rows-table" ref={scrollRef} className="flex-1 overflow-auto">
-          <table className="w-full border-collapse font-mono text-[11px]">
+          <table className="border-collapse font-mono text-[11px]" style={{ tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: 32 }} />
+              <col style={{ width: canAddRow ? 56 : 32 }} />
+              {rowPage.columns.map((columnName) => (
+                <col key={columnName} style={{ width: COLUMN_WIDTH }} />
+              ))}
+            </colgroup>
             <thead className="sticky top-0 z-10 bg-card">
               <tr>
-                <th className="w-8 border-b border-r border-border px-2 py-2 text-center">
+                <th className="border-b border-r border-border px-2 py-2 text-center">
                   <label className="inline-flex cursor-pointer items-center justify-center">
                     <input
                       type="checkbox"
@@ -163,12 +177,7 @@ export function RowsTable({
                     />
                   </label>
                 </th>
-                <th
-                  className={cn(
-                    "border-b border-r border-border px-2 py-2 text-right font-normal text-quiet-foreground",
-                    canAddRow ? "w-14" : "w-8"
-                  )}
-                >
+                <th className="border-b border-r border-border px-2 py-2 text-right font-normal text-quiet-foreground">
                   #
                 </th>
                 {rowPage.columns.map((columnName) => {
@@ -177,17 +186,18 @@ export function RowsTable({
                     <th
                       key={columnName}
                       onClick={onSortChange ? () => handleSort(columnName) : undefined}
+                      title={columnName}
                       className={cn(
-                        "group whitespace-nowrap border-b border-r border-border px-3 py-1.5 text-left font-medium text-muted-foreground",
+                        "group border-b border-r border-border px-3 py-1.5 text-left font-medium text-muted-foreground",
                         onSortChange ? "cursor-pointer hover:text-foreground" : undefined
                       )}
                     >
                       <div className="flex items-center gap-1.5">
-                        {columnName}
+                        <span className="truncate">{columnName}</span>
                         {onSortChange && (
                           <ArrowUpDown
                             className={cn(
-                              "h-2.5 w-2.5 transition-opacity",
+                              "h-2.5 w-2.5 shrink-0 transition-opacity",
                               sortColumn === columnName
                                 ? "text-primary opacity-100"
                                 : "opacity-0 group-hover:opacity-40"
@@ -197,14 +207,16 @@ export function RowsTable({
                       </div>
                       <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-normal text-quiet-foreground">
                         {meta && <TypeIcon dataType={meta.dataType} />}
-                        <span>{meta ? friendlyTypeLabel(meta.dataType) : "unknown"}</span>
+                        <span className="truncate">
+                          {meta ? friendlyTypeLabel(meta.dataType) : "unknown"}
+                        </span>
                         {meta?.isPrimaryKey && (
-                          <span className="font-bold" style={{ color: "var(--c-amber)" }}>
+                          <span className="shrink-0 font-bold" style={{ color: "var(--c-amber)" }}>
                             PK
                           </span>
                         )}
                         {meta?.isForeignKey && (
-                          <span className="font-bold" style={{ color: "var(--c-blue)" }}>
+                          <span className="shrink-0 font-bold" style={{ color: "var(--c-blue)" }}>
                             FK
                           </span>
                         )}
@@ -248,7 +260,7 @@ export function RowsTable({
                       return (
                         <td
                           key={columnName}
-                          className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5"
+                          className="overflow-hidden border-r border-border-subtle px-3 py-1.5"
                         >
                           {isInsertable ? (
                             <NewRowCell
@@ -261,6 +273,15 @@ export function RowsTable({
                               nullable={meta?.nullable ?? true}
                               onChange={(next) =>
                                 pendingChanges.updateInsertValue(insert.id, columnName, next)
+                              }
+                              isActive={activeEditor === `insert:${insert.id}:${columnName}`}
+                              onActivate={() =>
+                                setActiveEditor(`insert:${insert.id}:${columnName}`)
+                              }
+                              onDeactivate={() =>
+                                setActiveEditor((current) =>
+                                  current === `insert:${insert.id}:${columnName}` ? null : current
+                                )
                               }
                             />
                           ) : (
@@ -409,7 +430,7 @@ export function RowsTable({
                               : undefined
                           }
                           className={cn(
-                            "whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80",
+                            "overflow-hidden border-r border-border-subtle px-3 py-1.5 text-foreground/80",
                             markedForDelete && "line-through opacity-60"
                           )}
                         >
@@ -424,10 +445,20 @@ export function RowsTable({
                               nullable={meta?.nullable ?? true}
                               dirty={Boolean(staged)}
                               onInspect={(value) => setInspected({ column: columnName, value })}
+                              onInspectDate={(value, anchorRect) =>
+                                setDateInspected({ value, anchorRect })
+                              }
                               onCommit={(next) =>
                                 pendingChanges.stageEdit(rowKey, columnName, row[columnName], next)
                               }
                               onRevert={() => pendingChanges.revertEdit(rowKey, columnName)}
+                              isActive={activeEditor === `${rowKey}:${columnName}`}
+                              onActivate={() => setActiveEditor(`${rowKey}:${columnName}`)}
+                              onDeactivate={() =>
+                                setActiveEditor((current) =>
+                                  current === `${rowKey}:${columnName}` ? null : current
+                                )
+                              }
                             />
                           ) : row[columnName] === null || row[columnName] === undefined ? (
                             <span className="italic text-quiet-foreground">null</span>
@@ -439,7 +470,7 @@ export function RowsTable({
                                 onNavigateToForeignKey?.(reference, row[columnName]);
                               }}
                               title={`Go to ${reference.table}.${reference.column}`}
-                              className="underline decoration-dotted underline-offset-2 hover:text-primary"
+                              className="block max-w-full truncate underline decoration-dotted underline-offset-2 hover:text-primary"
                               style={{ color: "var(--c-blue)" }}
                             >
                               {formatCell(row[columnName])}
@@ -452,7 +483,7 @@ export function RowsTable({
                                 filterToPrimaryKeyValue(columnName, row[columnName]);
                               }}
                               title={`Filter to this row (${columnName})`}
-                              className="underline decoration-dotted underline-offset-2 hover:text-primary"
+                              className="block max-w-full truncate underline decoration-dotted underline-offset-2 hover:text-primary"
                               style={{ color: "var(--c-amber)" }}
                             >
                               {formatCell(row[columnName])}

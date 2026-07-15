@@ -159,7 +159,7 @@ function CalendarGrid({
   );
 }
 
-function DatePicker({
+export function DatePicker({
   id,
   value,
   onChange,
@@ -222,7 +222,7 @@ function DatePicker({
   );
 }
 
-function TimeSegments({
+export function TimeSegments({
   id,
   value,
   onChange,

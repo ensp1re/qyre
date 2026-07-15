@@ -2,7 +2,7 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 144,
+    "F": 145,
     "DF": 10
   },
   "states": ["not_started", "active", "blocked", "passing"],
@@ -182,6 +182,16 @@
       "blockedReason": null,
       "spec": "docs/SUGGESTIONS.md",
       "completedAt": "2026-07-15T13:52:50.000Z"
+    },
+    {
+      "id": "F144",
+      "behavior": "Eliminate Playwright fixture contention without discarding cross-engine parallelism. Add an automatic E2E fixture lock that serializes each test for every underlying engine fixture it touches (including read-only/restricted projects that share the writable engine database), lets different engines continue in parallel, acquires multi-engine locks in a stable order, and safely recovers locks left by dead worker processes. Route every Playwright spec through the fixture and explicitly declare the cross-engine Postgres-to-MongoDB journey. Add focused lock/mapping tests, remove the resolved reliability debt, and document the enforced isolation contract.",
+      "verification": "pnpm --filter @qyre/testing test && pnpm --filter @qyre/web build && node scripts/with-local-env.mjs pnpm exec playwright test --grep @full --repeat-each=3",
+      "state": "active",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/RELIABILITY.md"
     }
   ]
 }

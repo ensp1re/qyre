@@ -1,5 +1,5 @@
 import { FIXTURE, requireTestDatabaseUrl, setupFixture } from "@qyre/testing";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test.js";
 
 /**
  * F105: the SQL pending-changes workflow completes end to end - a cell edit, an inserted row

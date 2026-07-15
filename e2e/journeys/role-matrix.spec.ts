@@ -10,7 +10,7 @@ import {
   setupMysqlFixture,
   setupSqliteFixture
 } from "@qyre/testing";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/test.js";
 
 const READ_ONLY_PROJECTS = new Set([
   "readonly",

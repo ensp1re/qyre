@@ -38,6 +38,8 @@ process.env.QYRE_E2E_READONLY_SQLITE_PATH = readonlySqliteFixturePath;
 
 export default defineConfig({
   testDir: "./e2e",
+  // F144's automatic fixture lock serializes tests that share an underlying engine database, so
+  // Playwright can retain cross-engine parallelism without allowing fixture resets to race.
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

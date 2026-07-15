@@ -1,5 +1,5 @@
 import { FIXTURE, requireTestDatabaseUrl, setupFixture } from "@qyre/testing";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test.js";
 
 /**
  * F096/F097 regression guard: a session forced read-only via `--read-only` renders the read-only

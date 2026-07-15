@@ -1,5 +1,5 @@
 import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@qyre/testing";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test.js";
 
 /**
  * F125: MongoDB's whole-document editor - edit a nested field and save, verifying the change

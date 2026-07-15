@@ -7,7 +7,7 @@ import {
   setupMysqlFixture,
   setupSqliteFixture
 } from "@qyre/testing";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test.js";
 
 /**
  * F013: the SQL Editor (CodeMirror 6) offers read-only SQL keyword completion and real table-name

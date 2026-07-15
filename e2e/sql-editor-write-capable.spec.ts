@@ -1,5 +1,5 @@
 import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@qyre/testing";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test.js";
 
 /**
  * F108: the SQL Editor becomes write-capable when the session allows. Runs on Postgres only -

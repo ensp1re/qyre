@@ -49,8 +49,13 @@ Each journey has a repeatable verification path and clear failure signals.
   generated fixture locally.
 - Every project uses `e2e/server.ts`, which starts the real Qyre server (API + built web app), not a
   separate `vite preview` process. SQL-only specs skip MongoDB explicitly.
+- Every spec imports `e2e/support/test.ts`. Its automatic test-scoped lock maps writable,
+  read-only, and restricted projects to the underlying Postgres/MySQL/SQLite/MongoDB fixture and
+  holds that engine lock for the complete test. Tests for different engines remain parallel;
+  multi-engine journeys declare all fixtures and acquire them in stable order. Dead-worker locks
+  are reclaimed automatically.
 - SQL fixture setup keeps tables present after their first creation and replaces rows inside a
-  transaction while holding the engine's fixture lock. Parallel browser workers therefore see a
+  transaction while holding the setup-level database lock. Browser workers therefore see a
   complete previous or next fixture, never a transient `DROP TABLE` catalog gap.
 - MongoDB fixture setup uses fixed ObjectIds and replacement upserts, so parallel browser workers
   converge on the same three documents instead of duplicating rows during reset.

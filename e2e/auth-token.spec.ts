@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test.js";
 
 /**
  * F122: a tokenless request to any /api route must be rejected, and the real browser UI must keep

@@ -3,20 +3,20 @@
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
     "F": 146,
-    "DF": 10
+    "DF": 11
   },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
     {
-      "id": "F128",
-      "behavior": "EXPLAIN viewer for the SQL editor (read-only-safe, a standard IDE capability): an Explain action runs the engine-appropriate plan statement for the current query - Postgres EXPLAIN (optionally ANALYZE behind an explicit toggle with a warning that ANALYZE executes the statement, and never for non-SELECT classifications), MySQL EXPLAIN/EXPLAIN FORMAT=TREE, SQLite EXPLAIN QUERY PLAN; MongoDB not-applicable (no SQL surface) - and renders the plan in a readable dedicated panel (text/tree; no graphical layout this slice). assertReadOnly already allows the EXPLAIN keyword, so read-only sessions get this too. Unit tests for the per-engine statement construction; e2e asserts a plan renders for a fixture query on one engine. Depends on F106 (classification decides ANALYZE eligibility); read-only parts schedulable earlier if picked up independently.",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test",
+      "id": "DF-10",
+      "behavior": "Audit Qyre's complete web experience before changing production code: exercise first-use and returning-user flows, all four engines, writable/read-only/restricted sessions, dense data, destructive and recovery states, keyboard/accessibility behavior, light/dark themes, and responsive desktop widths; record evidence-backed findings, systemic causes, and an approval-gated product-wide polish plan with bounded implementation slices and acceptance criteria.",
+      "verification": "pnpm check:state",
       "state": "passing",
-      "commitHash": "631510d",
-      "evidence": "Draft PR #138 (https://github.com/ensp1re/qyre/pull/138), pushed as 631510d. Added the optional DatabaseAdapter.explainQuery contract, authenticated POST /api/query/explain route, and normalized QueryPlanResult across PostgreSQL EXPLAIN (FORMAT TEXT), MySQL EXPLAIN FORMAT=TREE, and SQLite EXPLAIN QUERY PLAN; MongoDB is explicitly not applicable because it has no SQL editor surface. Every adapter retains its authoritative read-only backstop. PostgreSQL ANALYZE is a visibly warned opt-in, accepts only read-classified SQL, and runs inside a READ ONLY transaction. Live conformance found MySQL rejects DML planning inside START TRANSACTION READ ONLY, so Qyre limits MySQL Explain to read-classified SQL instead of weakening the guard; PostgreSQL and SQLite plain plans proved write-shaped SQL remains non-executing. The SQL Editor adds Explain/Analyze controls plus a dedicated resizable monospaced plan panel with loading, error, empty, classification, and analyzed states; changing SQL/engine or running a normal query clears stale output. Verified on Node 22 with the exact feature command (server 271 tests, UI 350 tests), live four-engine conformance, focused PostgreSQL E2E, pnpm verify:pr locally and through pre-push (34/34 package tasks, 11 smoke E2E passes, 29 full E2E passes), and both GitHub CI jobs passed.",
+      "commitHash": "c24b1b3",
+      "evidence": "Draft PR #157 (https://github.com/ensp1re/qyre/pull/157), pushed as c24b1b3. Completed a live, evidence-backed audit across all four engines, writable/read-only/restricted sessions, both themes, dense and failure states, and 320-1440px widths; captured 35 screenshots and recorded 23 findings. User review triggered a deeper editing audit that confirmed conflicting selection/edit gestures, unstable Add/Commit UI, missing structured editors and shared controls, redundant writable status, and a critical minute-only temporal mutation fidelity risk. The user approved the revised nine-slice plan. Verified with pnpm verify:pr locally and through pre-push (34/34 package tasks, 11 smoke E2E passed/4 expected skips, 29 full E2E passed/43 expected skips); both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": "docs/product-specs/sql-editor.md",
-      "completedAt": "2026-07-14T15:42:29.000Z"
+      "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
+      "completedAt": "2026-07-15T16:44:44.000Z"
     },
     {
       "id": "F129",

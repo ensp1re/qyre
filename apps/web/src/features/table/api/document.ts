@@ -8,10 +8,12 @@ import { fetchMutation } from "../../../shared/api/fetch-mutation.js";
 export async function fetchDocumentText(
   schema: string,
   table: string,
-  id: string
+  id: string,
+  signal?: AbortSignal
 ): Promise<string> {
   const { document } = await fetchJson<{ document: string }>(
-    `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/document/${encodeURIComponent(id)}`
+    `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/document/${encodeURIComponent(id)}`,
+    { signal }
   );
   return document;
 }

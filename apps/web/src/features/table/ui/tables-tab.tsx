@@ -16,7 +16,7 @@ import {
 } from "@qyre/ui";
 import { Rows3, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   deleteDocument,
   fetchDocumentText,
@@ -28,6 +28,7 @@ import { importCsv, inspectCsvImport, validateCsvImport } from "../api/csv-impor
 import { exportRowsUrl } from "../api/rows.js";
 import { buildMutationOps, buildPreviewLine } from "../model/commit-preview.js";
 import { computeDocumentEditability } from "../model/document-editability.js";
+import { createDocumentLoadCoordinator } from "../model/document-load.js";
 import { computeCsvImportability } from "../model/csv-importability.js";
 import { computeTableEditability } from "../model/editability.js";
 import { computeTableStructureEditability } from "../model/structure-editability.js";
@@ -116,6 +117,9 @@ export function TablesTab({
   const [documentDeleting, setDocumentDeleting] = useState(false);
   const [documentError, setDocumentError] = useState<string | undefined>(undefined);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const documentLoads = useRef(createDocumentLoadCoordinator()).current;
+
+  useEffect(() => () => documentLoads.cancel(), [documentLoads]);
 
   if (!selected) {
     return <p className="text-[13px] text-muted-foreground">Select a table from the sidebar.</p>;
@@ -278,28 +282,39 @@ export function TablesTab({
 
   function openEditDocument(row: Record<string, unknown>): void {
     const id = String(row._id);
+    const load = documentLoads.begin();
     setDocumentEditor({ mode: "edit", id });
     setDocumentError(undefined);
     setDocumentText(undefined);
     setDocumentLoading(true);
-    fetchDocumentText(selectedTable.schema, selectedTable.table, id)
-      .then((text) => setDocumentText(text))
-      .catch((err: unknown) =>
-        setDocumentError(err instanceof Error ? err.message : "Failed to load document.")
-      )
-      .finally(() => setDocumentLoading(false));
+    fetchDocumentText(selectedTable.schema, selectedTable.table, id, load.signal)
+      .then((text) => {
+        if (load.isCurrent()) setDocumentText(text);
+      })
+      .catch((err: unknown) => {
+        if (load.isCurrent()) {
+          setDocumentError(err instanceof Error ? err.message : "Failed to load document.");
+        }
+      })
+      .finally(() => {
+        if (load.isCurrent()) setDocumentLoading(false);
+      });
   }
 
   function openInsertDocument(): void {
+    documentLoads.cancel();
     setDocumentEditor({ mode: "insert" });
     setDocumentError(undefined);
     setDocumentText("");
+    setDocumentLoading(false);
   }
 
   function closeDocumentEditor(): void {
+    documentLoads.cancel();
     setDocumentEditor(undefined);
     setDocumentText(undefined);
     setDocumentError(undefined);
+    setDocumentLoading(false);
   }
 
   async function handleSaveDocument(text: string): Promise<void> {

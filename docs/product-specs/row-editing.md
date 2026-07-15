@@ -263,6 +263,9 @@ silently corrupts data types on save, not just at the UI layer.
   the full document as text, save the whole thing, one document at a time with its own confirmation
   - no cross-document buffer). This is F125's UI; this spec fixes the wire format and save semantics
     it must use.
+- Each editor open owns one document-load request. Opening another document, closing the drawer,
+  entering insert mode, or unmounting the Tables tab cancels and invalidates the previous request;
+  only the current request may update the editor's text, error, or loading state (F141).
 - **The editor's text format is real MongoDB Extended JSON, relaxed mode** (`bson`'s
   `EJSON.stringify(doc, { relaxed: true })`/`EJSON.parse(text, { relaxed: true })` - `bson` already
   ships as a transitive dependency of the `mongodb` driver Qyre already uses; F125 adds it as an

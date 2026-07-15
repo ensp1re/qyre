@@ -7,9 +7,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 - Date: 2026-07-15.
 - Branch: `feature/DF-12-shared-typed-editors`, based on `main` at `ab9406a` (merged PR #158).
-- Queue: DF-12 is active; DF-10 and DF-11 are passing. The next approved slice is DF-13.
-- DF-12 implementation and local verification are complete; it is not yet committed, pushed, or in
-  a PR.
+- Queue: DF-10 through DF-12 are passing. The next approved slice is DF-13.
+- DF-12 is committed at `fc57253`, pushed, and passing in draft PR #159 after both CI jobs passed.
 
 ## Completed
 
@@ -23,11 +22,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   keyboard focus, selector keyboard behavior, and 848px/640px editor collision containment.
 - Final local `pnpm verify:pr` passed: 34/34 package tasks, 11 smoke E2E (4 expected skips), and 29
   full E2E (43 expected skips), including write, read-only, structured-value, and MongoDB workflows.
+- Pre-push verification and both GitHub CI jobs passed for draft PR #159.
 
 ## In progress
 
-- Review the complete DF-12 diff, commit, push, open a draft PR, wait for both CI jobs, then record
-  PR/commit evidence and mark DF-12 passing.
+- None. DF-12 is passing and awaits merge.
 
 ## Known issues / blockers
 
@@ -39,5 +38,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Deliver DF-12 through its draft PR and CI lifecycle.
-- After DF-12 merges, return to `main` and activate DF-13, the guided Add/Duplicate row composer.
+- Merge draft PR #159.
+- Return to `main` and activate DF-13, the guided Add/Duplicate row composer.

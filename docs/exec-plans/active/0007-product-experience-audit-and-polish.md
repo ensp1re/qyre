@@ -1,11 +1,11 @@
 # Plan 0007: Product Experience Audit and Coherent UI Polish
 
 Status: Revised plan approved 2026-07-15; DF-10 audit and DF-11 editing integrity are delivered.
-DF-12 shared controls and complete typed editors is implemented and locally verified; delivery is
-in progress.
+DF-12 shared controls and complete typed editors is passing in draft PR #159. DF-13 is next after
+merge.
 Owner: current product-design engagement
 Linked features: DF-10 audit (passing), DF-11 editing integrity (passing), DF-12 typed editors
-(active)
+(passing)
 Evidence captured: 2026-07-15
 
 ## Objective
@@ -840,3 +840,5 @@ personal taste.
   expected project skips, and 29 full E2E with 43 expected project skips. Focused writable,
   MongoDB, read-only, and structured-inspector workflows also passed. Current step: review, commit,
   push, open the draft PR, and wait for CI before marking DF-12 passing.
+- 2026-07-15: DF-12 is passing in draft PR #159 at `fc57253`; the pre-push full gate and both
+  GitHub CI jobs passed. Current step: merge PR #159, return to `main`, then activate DF-13.

@@ -11,11 +11,12 @@
       "id": "DF-12",
       "behavior": "Provide one compact, accessible control and typed-editor system for Qyre's write workflows: shared Button, IconButton, Field, Select/Combobox, and editor actions; lossless text, multiline, exact numeric/decimal, identifier, tri-state boolean, enum/set, date/time/timestamp, JSON/JSONB, supported-array, and MongoDB Extended JSON editors; explicit validation and before/after feedback; and explained read-only treatment for binary and unknown values. Preserve authoritative permission, --read-only, server-validation, driver, and transaction behavior across PostgreSQL, MySQL, SQLite, and MongoDB.",
       "verification": "pnpm --filter @qyre/core test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm --filter @qyre/server test && pnpm --filter @qyre/testing-conformance test && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && node scripts/with-local-env.mjs pnpm exec playwright test e2e/row-editing-commit.spec.ts e2e/mongodb-document-editor.spec.ts e2e/read-only-mode.spec.ts",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "fc57253",
+      "evidence": "Draft PR #159 (https://github.com/ensp1re/qyre/pull/159), pushed as fc57253. Added compact shared Button, IconButton, Field, custom Select/Combobox, and editor-action primitives; lossless typed text, exact numeric, identifier, boolean, enum/set, temporal, JSON/JSONB, supported-array, and MongoDB structured editors; authoritative PostgreSQL enum/array and MySQL enum/set metadata; and server validation that preserves permission/read-only/transaction gates. Unsupported binary/XML/unknown values remain read-only. Live PostgreSQL verification covered keyboard selection, JSON line/column errors, Escape focus restoration, structured inspect/edit separation, add/commit persistence, and contained editor geometry at 848px and 640px. Focused PostgreSQL row commit, MongoDB document, read-only, and structured inspector E2E passed. Full local and pre-push pnpm verify:pr passed (34/34 package tasks, 11 smoke E2E passed/4 expected skips, 29 full E2E passed/43 expected skips). Both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md"
+      "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
+      "completedAt": "2026-07-15T18:21:24.000Z"
     },
     {
       "id": "DF-11",

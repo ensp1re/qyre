@@ -7,7 +7,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 - Date: 2026-07-16.
 - Branch: `feature/F146-grid-editing-ux-polish`, based on `main` at `fcab56c` (DF-12 merged in #159).
-  Draft PR #160 contains rounds 1-2; round 3 is the branch's latest commit on the same PR.
+  Draft PR #160 contains all four F146 review rounds.
 - Queue: DF-10 through DF-12 are passing. F146 is active, continuing the same 0007 audit plan on
   the grid-editing surface. DF-13 (guided Add/Duplicate row composer) is next after F146.
 
@@ -37,10 +37,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   text-overflow, which wasn't reliably shortening; centered the "Loading table..."/"Loading rows..."
   states and moved the Loading-rows Cancel button onto its own row below the text; updated the full
   E2E expectations for the writable status bar and column-labelled inline editors.
+- F146 round 4: moved selection/editing emphasis to the entire `<td>`; replaced the boolean toggle
+  with the shared True/False selector; kept JSON values visible while their editor is open and
+  ignored editor-internal scroll events while still dismissing on table scroll; collapsed shell-tab
+  and row-action labels below 1024px while preserving accessible names and tooltips.
 
 ## In progress
 
-- CI on draft PR #160 is the remaining delivery gate for F146.
+- Round 4 passes the complete local PR gate and is being pushed to draft PR #160. F146 remains
+  active until GitHub CI can run again.
 
 ## Known issues / blockers
 
@@ -51,6 +56,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   (F010) - rebuild `@qyre/qyre` too after changing `apps/web`, or a running `qyre <target>` session
   will keep serving the stale bundled copy instead of the fresh one.
 - Docker may require `/Applications/Docker.app/Contents/Resources/bin/docker` explicitly on macOS.
+- GitHub Actions credits are exhausted, so PR #160 cannot currently obtain CI results; local
+  `pnpm verify:pr` is the available verification evidence.
 - Deferred by explicit scoping decision, not oversight: full column resize/reorder/frozen columns,
   a complete toolbar regroup into 4 sections with an overflow menu (only a light-touch separator was
   added), full drag-to-select multi-cell copy/paste (only single-cell and best-effort TSV-block
@@ -60,6 +67,6 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- After CI on PR #160 passes, record the PR/commit, move F146 to `passing`, and run
-  `pnpm features:prune`.
+- When GitHub Actions credits return, run CI on PR #160; after it passes, record the PR/commit, move
+  F146 to `passing`, and run `pnpm features:prune`.
 - Then return to `main` and activate DF-13, the guided Add/Duplicate row composer.

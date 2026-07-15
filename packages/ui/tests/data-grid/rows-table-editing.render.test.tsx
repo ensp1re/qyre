@@ -145,6 +145,16 @@ describe("RowsTable inline cell editing (component rendering, F103)", () => {
     expect(checkbox).toBeChecked();
   });
 
+  it("draws selection around the whole table cell instead of only the value", () => {
+    render(<TestHost editable />);
+    const value = screen.getByText("Ada");
+
+    fireEvent.click(value);
+
+    expect(value.closest("td")).toHaveClass("ring-1", "ring-inset", "ring-primary");
+    expect(value.closest("div")).not.toHaveClass("ring-primary");
+  });
+
   it("does not make the primary-key cell editable even when editable is true", () => {
     render(<TestHost editable />);
     // Two "1"s render: the row-number column and the id (PK) cell's value - the PK cell is the

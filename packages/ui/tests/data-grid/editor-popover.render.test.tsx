@@ -1,9 +1,9 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { EditorPopover } from "../../src/data-grid/editing/editor-popover.js";
 
 describe("EditorPopover (component rendering, F146)", () => {
-  it("calls onDismiss when a descendant scroll container scrolls, since a fixed-position popover can't track the anchor otherwise", () => {
+  it("keeps the editor open for internal scrolling and dismisses when the anchor's container scrolls", () => {
     const onDismiss = vi.fn();
     render(
       <EditorPopover
@@ -11,15 +11,18 @@ describe("EditorPopover (component rendering, F146)", () => {
         testId="popover"
         onDismiss={onDismiss}
       >
-        <div>content</div>
+        <div data-testid="editor-scroll-area">content</div>
       </EditorPopover>
     );
 
-    const scrollable = document.createElement("div");
-    document.body.appendChild(scrollable);
-    scrollable.dispatchEvent(new Event("scroll", { bubbles: false }));
+    screen.getByTestId("editor-scroll-area").dispatchEvent(new Event("scroll", { bubbles: false }));
+    expect(onDismiss).not.toHaveBeenCalled();
 
+    const anchorScrollContainer = document.createElement("div");
+    document.body.appendChild(anchorScrollContainer);
+    anchorScrollContainer.dispatchEvent(new Event("scroll", { bubbles: false }));
     expect(onDismiss).toHaveBeenCalledOnce();
+    anchorScrollContainer.remove();
   });
 
   it("does not throw when onDismiss is omitted", () => {

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 const VIEWPORT_MARGIN = 8;
@@ -49,16 +49,25 @@ export function EditorPopover({
   width,
   onDismiss
 }: EditorPopoverProps): ReactNode {
+  const popoverRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!onDismiss) return;
     // `scroll` doesn't bubble, but a capture-phase listener on `window` still sees it fire on any
-    // descendant scrollable container (the virtualized table's own scroll area included).
-    window.addEventListener("scroll", onDismiss, true);
-    return () => window.removeEventListener("scroll", onDismiss, true);
+    // descendant scrollable container. Keep editor-owned scrolling usable while still dismissing
+    // when the virtualized table moves the fixed anchor cell away.
+    const dismissFromExternalScroll = (event: Event): void => {
+      const target = event.target;
+      if (target instanceof Node && popoverRef.current?.contains(target)) return;
+      onDismiss();
+    };
+    window.addEventListener("scroll", dismissFromExternalScroll, true);
+    return () => window.removeEventListener("scroll", dismissFromExternalScroll, true);
   }, [onDismiss]);
 
   return createPortal(
     <div
+      ref={popoverRef}
       data-testid={testId}
       className="fixed z-[80] overflow-auto rounded-[4px] border border-primary bg-popover shadow-lg"
       style={editorPopoverPosition(anchorRect, width)}

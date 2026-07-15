@@ -1,10 +1,9 @@
 import type { ColumnMetadata, DatabaseEngine } from "@qyre/core";
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import { mutationValueText, parseMutationDraft } from "@qyre/core/mutation-editor-values";
-import { Calendar, Check } from "lucide-react";
+import { Calendar } from "lucide-react";
 import type { KeyboardEvent, ReactElement, ReactNode } from "react";
 import { useRef, useState } from "react";
-import { cn } from "../../cn.js";
 import { Select } from "../../primitives/controls/select.js";
 import { DateTimeInput } from "../../primitives/date-time-input.js";
 import { EditorPopover } from "./editor-popover.js";
@@ -108,26 +107,31 @@ export function InlineCellEditor({
   let control: ReactElement;
 
   if (capability.widget === "boolean") {
-    const current = draft === "true";
     control = (
-      <button
-        type="button"
-        autoFocus
-        role="switch"
-        aria-checked={current}
-        aria-label={column.name}
-        onClick={() => commit(!current)}
+      <div
+        className="min-w-0 flex-1"
         onKeyDown={(event) => {
-          if (event.key === "Escape") onCancel();
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onCancel();
+          }
         }}
-        className={cn(
-          "flex items-center gap-1 rounded-[2px] px-1 font-mono text-[10px]",
-          current ? "text-foreground" : "text-muted-foreground hover:bg-accent"
-        )}
       >
-        <Check className={cn("h-2.5 w-2.5", current ? "opacity-100" : "opacity-0")} />
-        {String(current)}
-      </button>
+        <Select
+          autoFocus
+          label={column.name}
+          value={draft === "true" ? "true" : draft === "false" ? "false" : undefined}
+          options={[
+            { value: "true", label: "True" },
+            { value: "false", label: "False" }
+          ]}
+          onValueChange={(value) => {
+            if (value !== draft) commit(value === "true");
+            else cancelKeepingNavigation();
+          }}
+          className="min-h-0 border-0 bg-transparent px-0 py-0 focus-visible:ring-0"
+        />
+      </div>
     );
   } else if (capability.widget === "enum") {
     control = (

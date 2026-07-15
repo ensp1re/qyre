@@ -74,7 +74,7 @@ describe("InlineCellEditor (F146)", () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it("edits a boolean with an immediate switch", () => {
+  it("edits a boolean with a True/False selector", () => {
     const onApply = vi.fn();
     render(
       <InlineCellEditor
@@ -84,7 +84,7 @@ describe("InlineCellEditor (F146)", () => {
         onCancel={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByRole("switch", { name: "active" }));
+    chooseSelect("active", "True");
     expect(onApply).toHaveBeenCalledWith(true);
   });
 

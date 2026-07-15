@@ -152,47 +152,12 @@ export function EditableCell({
     );
   }
 
-  if (isActive) {
-    if (wide) {
-      if (!anchorRect) return null;
-      const editor = (
-        <TypedValueEditor
-          column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
-          engine={engine}
-          originalValue={displayValue}
-          onExpand={!expanded ? () => setExpanded(true) : undefined}
-          onApply={(next) => {
-            onCommit(next);
-            closeEditing();
-          }}
-          onCancel={closeEditing}
-        />
-      );
-
-      return (
-        <div className="relative h-5 min-w-0" data-testid="cell-editor-anchor">
-          {expanded ? (
-            <CellEditorDrawer title={columnName} onClose={closeEditing}>
-              {editor}
-            </CellEditorDrawer>
-          ) : (
-            <EditorPopover
-              anchorRect={anchorRect}
-              testId="cell-editor-surface"
-              onDismiss={closeEditing}
-            >
-              {editor}
-            </EditorPopover>
-          )}
-        </div>
-      );
-    }
-
+  if (isActive && !wide) {
     return (
       <div
         data-testid="cell-editor-anchor"
         data-cell-id={cellId}
-        className="absolute inset-0 flex items-center gap-1 border border-primary bg-background px-1.5"
+        className="absolute inset-0 flex items-center gap-1 bg-background px-1.5"
       >
         <InlineCellEditor
           column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
@@ -212,12 +177,36 @@ export function EditableCell({
     );
   }
 
+  let wideEditor: ReactNode = null;
+  if (isActive && wide && anchorRect) {
+    const editor = (
+      <TypedValueEditor
+        column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
+        engine={engine}
+        originalValue={displayValue}
+        onExpand={!expanded ? () => setExpanded(true) : undefined}
+        onApply={(next) => {
+          onCommit(next);
+          closeEditing();
+        }}
+        onCancel={closeEditing}
+      />
+    );
+    wideEditor = expanded ? (
+      <CellEditorDrawer title={columnName} onClose={closeEditing}>
+        {editor}
+      </CellEditorDrawer>
+    ) : (
+      <EditorPopover anchorRect={anchorRect} testId="cell-editor-surface" onDismiss={closeEditing}>
+        {editor}
+      </EditorPopover>
+    );
+  }
+
   return (
     <div
-      className={cn(
-        "group flex min-w-0 items-center gap-1 rounded-sm border-l-2 border-transparent pl-1",
-        isSelected && "ring-1 ring-inset ring-primary"
-      )}
+      data-selected={isSelected || undefined}
+      className="group flex min-w-0 items-center gap-1 border-l-2 border-transparent pl-1"
       style={dirty ? { borderLeftColor: "var(--c-amber)" } : undefined}
     >
       {inspectable ? (
@@ -312,6 +301,7 @@ export function EditableCell({
           <RotateCcw className="h-2.5 w-2.5" />
         </button>
       )}
+      {wideEditor}
     </div>
   );
 }

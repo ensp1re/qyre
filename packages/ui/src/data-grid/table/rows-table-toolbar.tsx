@@ -71,7 +71,7 @@ export function RowsTableToolbar({
   onRefresh
 }: RowsTableToolbarProps): ReactNode {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+    <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border px-2 py-2 lg:gap-2 lg:px-3">
       <div className="flex items-center gap-1.5 rounded-[3px] bg-accent px-2 py-1 font-mono text-[11px] text-muted-foreground">
         <Search className="h-2.5 w-2.5" />
         <input
@@ -80,7 +80,7 @@ export function RowsTableToolbar({
           placeholder="Search this page..."
           aria-label="Search this page"
           title="Searches only the rows currently loaded on this page - use Filter to query the whole table"
-          className="w-28 min-w-0 bg-transparent text-foreground outline-none placeholder:text-muted-foreground sm:w-36"
+          className="w-24 min-w-0 bg-transparent text-foreground outline-none placeholder:text-muted-foreground sm:w-28 lg:w-36"
         />
         {search && (
           <button type="button" onClick={() => onSearchChange("")} aria-label="Clear search">
@@ -107,32 +107,39 @@ export function RowsTableToolbar({
         </span>
       )}
 
-      <div className="ml-auto flex flex-wrap items-center gap-2">
+      <div className="ml-auto flex flex-wrap items-center gap-1 lg:gap-2">
         {canAddRow && (
           <button
             type="button"
             onClick={onAddRow}
-            className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Add row"
+            title="Add row"
+            className="flex items-center gap-0 rounded-[3px] p-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground lg:gap-1 lg:px-2"
           >
-            <Plus className="h-3 w-3" /> Add row
+            <Plus className="h-3 w-3" /> <span className="hidden lg:inline">Add row</span>
           </button>
         )}
         {canInsertDocument && onInsertDocument && (
           <button
             type="button"
             onClick={onInsertDocument}
-            className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Insert document"
+            title="Insert document"
+            className="flex items-center gap-0 rounded-[3px] p-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground lg:gap-1 lg:px-2"
           >
-            <Plus className="h-3 w-3" /> Insert document
+            <Plus className="h-3 w-3" />
+            <span className="hidden lg:inline">Insert document</span>
           </button>
         )}
         {canImportCsv && onImportCsv && (
           <button
             type="button"
             onClick={onImportCsv}
-            className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Import CSV"
+            title="Import CSV"
+            className="flex items-center gap-0 rounded-[3px] p-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground lg:gap-1 lg:px-2"
           >
-            <FileUp className="h-3 w-3" /> Import CSV
+            <FileUp className="h-3 w-3" /> <span className="hidden lg:inline">Import CSV</span>
           </button>
         )}
         {selected.size > 0 && (
@@ -152,19 +159,23 @@ export function RowsTableToolbar({
             <button
               type="button"
               onClick={() => void onCopySelected()}
-              className="flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Copy selected rows as CSV"
+              title="Copy selected rows as CSV"
+              className="flex items-center gap-0 rounded-[3px] p-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground lg:gap-1 lg:px-2"
             >
-              <Copy className="h-3 w-3" /> Copy as CSV
+              <Copy className="h-3 w-3" /> <span className="hidden lg:inline">Copy as CSV</span>
             </button>
             {canStageDelete && (
               <button
                 type="button"
                 onClick={onStageSelectedForDelete}
+                aria-label={`Delete ${selected.size} selected`}
                 title="Stages the selection for deletion - still reversible until Commit"
-                className="flex items-center gap-1 rounded-[3px] border-l border-border-subtle px-2 py-1 pl-2.5 text-[11px] hover:bg-accent"
+                className="flex items-center gap-0 rounded-[3px] border-l border-border-subtle p-1 text-[11px] hover:bg-accent lg:gap-1 lg:px-2 lg:pl-2.5"
                 style={{ color: "var(--c-red)" }}
               >
-                <Trash2 className="h-3 w-3" /> Delete {selected.size} selected
+                <Trash2 className="h-3 w-3" />
+                <span className="hidden lg:inline">Delete {selected.size} selected</span>
               </button>
             )}
           </>
@@ -180,7 +191,7 @@ export function RowsTableToolbar({
                   value: format,
                   label: exportFormatLabel(format, jsonExportMode)
                 }))}
-                className="min-h-6 w-24 bg-card py-0.5"
+                className="min-h-6 w-16 bg-card py-0.5 lg:w-24"
               />
             )}
             <button

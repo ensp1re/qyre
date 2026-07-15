@@ -580,6 +580,11 @@ export function RowsTable({
                         isEditableCell && rowKey
                           ? pendingChanges.getEdit(rowKey, columnName)
                           : undefined;
+                      const cellId = rowKey ? `${rowKey}:${columnName}` : undefined;
+                      const cellSelected =
+                        selectedCell?.rowIndex === virtualRow.index &&
+                        selectedCell.column === columnName;
+                      const cellActive = Boolean(cellId && activeEditor === cellId);
                       return (
                         <td
                           key={columnName}
@@ -590,12 +595,14 @@ export function RowsTable({
                           }
                           className={cn(
                             "relative overflow-hidden border-r border-border-subtle px-3 py-1.5 text-foreground/80",
-                            markedForDelete && "line-through opacity-60"
+                            markedForDelete && "line-through opacity-60",
+                            (cellSelected || cellActive) && "ring-1 ring-inset ring-primary",
+                            cellActive && "bg-background"
                           )}
                         >
                           {isEditableCell && rowKey ? (
                             <EditableCell
-                              cellId={`${rowKey}:${columnName}`}
+                              cellId={cellId}
                               displayValue={staged ? staged.next : row[columnName]}
                               columnName={columnName}
                               dataType={meta?.dataType ?? "unknown"}
@@ -612,17 +619,12 @@ export function RowsTable({
                                 pendingChanges.stageEdit(rowKey, columnName, row[columnName], next)
                               }
                               onRevert={() => pendingChanges.revertEdit(rowKey, columnName)}
-                              isActive={activeEditor === `${rowKey}:${columnName}`}
-                              onActivate={() => setActiveEditor(`${rowKey}:${columnName}`)}
+                              isActive={cellActive}
+                              onActivate={() => setActiveEditor(cellId ?? null)}
                               onDeactivate={() =>
-                                setActiveEditor((current) =>
-                                  current === `${rowKey}:${columnName}` ? null : current
-                                )
+                                setActiveEditor((current) => (current === cellId ? null : current))
                               }
-                              isSelected={
-                                selectedCell?.rowIndex === virtualRow.index &&
-                                selectedCell.column === columnName
-                              }
+                              isSelected={cellSelected}
                               onSelect={() =>
                                 setSelectedCell({ rowIndex: virtualRow.index, column: columnName })
                               }

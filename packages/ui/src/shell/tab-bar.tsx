@@ -43,13 +43,14 @@ export function TabBar({
             key={id}
             type="button"
             role="tab"
+            aria-label={label}
             aria-selected={isActive}
             aria-disabled={Boolean(disabledReason)}
             disabled={Boolean(disabledReason)}
-            title={disabledReason}
+            title={disabledReason ?? label}
             onClick={() => onChange(id)}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-[3px] px-3 py-1.5 text-[11px] font-medium transition-colors",
+              "flex shrink-0 items-center gap-0 whitespace-nowrap rounded-t-[3px] px-2 py-1.5 text-[11px] font-medium transition-colors lg:gap-1.5 lg:px-3",
               disabledReason
                 ? "cursor-not-allowed text-quiet-foreground"
                 : isActive
@@ -58,7 +59,7 @@ export function TabBar({
             )}
           >
             <Icon className="h-3 w-3" />
-            {label}
+            <span className="hidden lg:inline">{label}</span>
           </button>
         );
       })}

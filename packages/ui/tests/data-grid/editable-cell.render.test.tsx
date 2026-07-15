@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { EditableCell } from "../../src/data-grid/cells/editable-cell.js";
+import { chooseSelect } from "../support/select.js";
 
 describe("EditableCell (component rendering, F103/F146)", () => {
   it("renders the display value as plain text when not editing", () => {
@@ -248,7 +249,7 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(onCommit).toHaveBeenCalledWith("42");
   });
 
-  it("shows an immediate switch for a boolean column, with no NULL toggle to click (F146)", () => {
+  it("shows a True/False selector for a boolean column, with no NULL toggle to click (F146)", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -262,11 +263,11 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     );
     fireEvent.doubleClick(screen.getByText("true"));
     expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("switch", { name: "value" }));
+    chooseSelect("value", "False");
     expect(onCommit).toHaveBeenCalledWith(false);
   });
 
-  it("closes the editor after a boolean toggle click, instead of leaving it stuck open (F146)", () => {
+  it("closes the editor after a boolean selection, instead of leaving it stuck open (F146)", () => {
     render(
       <EditableCell
         displayValue={true}
@@ -278,8 +279,8 @@ describe("EditableCell (component rendering, F103/F146)", () => {
       />
     );
     fireEvent.doubleClick(screen.getByText("true"));
-    fireEvent.click(screen.getByRole("switch", { name: "value" }));
-    expect(screen.queryByRole("switch", { name: "value" })).not.toBeInTheDocument();
+    chooseSelect("value", "False");
+    expect(screen.queryByRole("combobox", { name: "value" })).not.toBeInTheDocument();
   });
 
   it("commits and closes on blur even without pressing Enter, so a changed cell shows dirty right away (F146)", () => {
@@ -517,6 +518,7 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
     expect(screen.getByTestId("cell-editor-surface")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "{ 1 key }" })).toBeInTheDocument();
     expect(screen.queryByTestId("cell-editor-drawer")).not.toBeInTheDocument();
   });
 

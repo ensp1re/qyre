@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { NewRowCell } from "../../src/data-grid/cells/new-row-cell.js";
+import { chooseSelect } from "../support/select.js";
 
 function openEditor(name = "Set value"): void {
   fireEvent.click(screen.getByRole("button", { name }));
@@ -79,11 +80,11 @@ describe("NewRowCell (component rendering, F104/F146)", () => {
     expect(onChange).toHaveBeenCalledWith("42");
   });
 
-  it("shows an immediate switch for a boolean column", () => {
+  it("shows a True/False selector for a boolean column", () => {
     const onChange = vi.fn();
     render(<NewRowCell value={undefined} dataType="boolean" nullable={true} onChange={onChange} />);
     openEditor();
-    fireEvent.click(screen.getByRole("switch", { name: "value" }));
+    chooseSelect("value", "True");
     expect(onChange).toHaveBeenCalledWith(true);
   });
 

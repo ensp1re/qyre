@@ -1,5 +1,6 @@
 import {
   CSV_IMPORT_MAX_COLUMNS,
+  CSV_IMPORT_MAX_ERRORS,
   CSV_IMPORT_MAX_ROWS,
   CSV_IMPORT_PREVIEW_ROWS,
   CSV_IMPORT_SQL_BATCH_SIZE
@@ -155,10 +156,31 @@ function rawPreview(headers: string[], record: string[], line: number): CsvImpor
   };
 }
 
+/**
+ * Tracks per-row import errors with a hard cap on how many are actually retained (F136/
+ * SUGGESTIONS.md V3) - `count` is the true total regardless of the cap, so `failedRows` in the
+ * final result is never wrong; `entries` is what the response actually returns.
+ */
+function createErrorSink(maxEntries: number): {
+  push(error: CsvImportRowError): void;
+  readonly entries: CsvImportRowError[];
+  count: number;
+} {
+  const entries: CsvImportRowError[] = [];
+  return {
+    count: 0,
+    push(error) {
+      this.count += 1;
+      if (entries.length < maxEntries) entries.push(error);
+    },
+    entries
+  };
+}
+
 async function commitSqlBatch(
   db: DatabaseAdapter,
   batch: PendingInsert[],
-  errors: CsvImportRowError[]
+  errors: ReturnType<typeof createErrorSink>
 ): Promise<number> {
   const result = await db.mutations!.commitBatch!(batch.map(({ op }) => op));
   if (result.committed) return batch.length;
@@ -213,7 +235,7 @@ export async function processCsvImport(
   let validRows = 0;
   let insertedRows = 0;
   const preview: CsvImportPreviewRow[] = [];
-  const errors: CsvImportRowError[] = [];
+  const errors = createErrorSink(CSV_IMPORT_MAX_ERRORS);
   let batch: PendingInsert[] = [];
 
   async function flushBatch(): Promise<void> {
@@ -309,8 +331,10 @@ export async function processCsvImport(
     rowCount,
     validRows,
     insertedRows,
-    failedRows: mode === "validate" ? errors.length : rowCount - insertedRows,
+    // The true total, not errors.entries.length - failedRows must stay accurate even once the
+    // stored error list itself is capped (F136).
+    failedRows: mode === "validate" ? errors.count : rowCount - insertedRows,
     preview,
-    errors
+    errors: errors.entries
   };
 }

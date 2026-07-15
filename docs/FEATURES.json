@@ -187,11 +187,12 @@
       "id": "F136",
       "behavior": "Close SUGGESTIONS.md V3: packages/server/src/services/csv-import.ts documents a 'bounded error list' but applies no cap - a fully-invalid 10k-row CSV returns a 10,000-entry errors array in one JSON response. Cap stored per-row errors (e.g. first 100) while keeping failedRows as the true total, and surface 'showing first N of M errors' in the CsvImportDialog results step.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "7b5c43e",
+      "evidence": "Closed SUGGESTIONS.md V3: added CSV_IMPORT_MAX_ERRORS (100, packages/core) and a small createErrorSink helper in packages/server/src/services/csv-import.ts - tracks the true failure count separately from the capped stored list, so failedRows in the response is never wrong even once the errors array itself stops growing. Every push site (row-coercion failures, MongoDB per-document rejections, a rolled-back SQL batch's per-row entries) goes through the sink. packages/ui's CsvImportReport shows 'Showing the first N of M errors.' whenever errors.length is less than failedRows. New tests: a 150-bad-row CSV asserting errors is capped at 100 while failedRows still reports 150 (server), and the notice appears/doesn't across capped, uncapped, and zero-error cases (ui). Updated one pre-existing test whose own 250-entry expectation was the exact unbounded behavior this closes. Real browser file-upload automation wasn't feasible with available tools (browsers block programmatic .files assignment on <input type=file>), so verification relied on integration tests exercising the real processCsvImport function against real CSV streams plus component tests using the exact CsvImportResult shape the server produces. pnpm --filter @qyre/server test (295 tests) and @qyre/ui test (365 tests) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-15T02:05:00.000Z"
     },
     {
       "id": "F137",

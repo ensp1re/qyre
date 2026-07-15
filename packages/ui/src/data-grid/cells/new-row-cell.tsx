@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { cn } from "../../cn.js";
 import { formatCell } from "../../primitives/format-cell.js";
-import { LONG_STRING_THRESHOLD, truncateForDisplay } from "./cell-value.js";
+import { truncateForDisplay } from "./cell-value.js";
 import { CellEditorDrawer } from "../editing/cell-editor-drawer.js";
 import { InlineCellEditor } from "../editing/inline-cell-editor.js";
 import { TypedValueEditor } from "../editing/typed-value-editor.js";
@@ -51,12 +51,8 @@ export function NewRowCell({
   const activationRef = useRef<HTMLButtonElement>(null);
   const metadata = { allowedValues, elementDataType };
   const capability = mutationEditorCapability(dataType, engine, metadata);
-  const valueLength = typeof value === "string" ? value.length : String(value ?? "").length;
   const wide =
-    capability.widget === "json" ||
-    capability.widget === "array" ||
-    capability.widget === "set" ||
-    valueLength > LONG_STRING_THRESHOLD;
+    capability.widget === "json" || capability.widget === "array" || capability.widget === "set";
 
   if (!capability.editable) {
     return (
@@ -96,7 +92,11 @@ export function NewRowCell({
             {editor}
           </CellEditorDrawer>
         ) : (
-          <EditorPopover anchorRect={anchorRect} testId="new-row-cell-editor-surface">
+          <EditorPopover
+            anchorRect={anchorRect}
+            testId="new-row-cell-editor-surface"
+            onDismiss={close}
+          >
             {editor}
           </EditorPopover>
         )}
@@ -106,12 +106,18 @@ export function NewRowCell({
 
   if (isActive) {
     return (
-      <div data-testid="new-row-editor-anchor">
+      <div
+        data-testid="new-row-editor-anchor"
+        className="absolute inset-0 flex items-center gap-1 border border-primary bg-background px-1.5"
+      >
         <InlineCellEditor
           column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
           engine={engine}
           originalValue={value}
-          onApply={(next) => onChange(next)}
+          onApply={(next) => {
+            onChange(next);
+            close();
+          }}
           onCancel={close}
           onCommitKey={close}
         />

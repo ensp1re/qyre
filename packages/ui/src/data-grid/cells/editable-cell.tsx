@@ -8,9 +8,7 @@ import { formatCell, isClickableDateType } from "../../primitives/format-cell.js
 import {
   CellValue,
   isBinaryValue,
-  isLongString,
   isStructuredValue,
-  LONG_STRING_THRESHOLD,
   truncateForDisplay,
   type InspectableValue
 } from "./cell-value.js";
@@ -19,10 +17,11 @@ import { EditorPopover } from "../editing/editor-popover.js";
 import { type CommitDirection, InlineCellEditor } from "../editing/inline-cell-editor.js";
 import { TypedValueEditor } from "../editing/typed-value-editor.js";
 
-/** Whether CellValue would render `displayValue` as an interactive inspect chip (long string,
- * structured, binary) or clickable date rather than plain text - determines whether editing needs
- * its own separate activation control alongside the chip, instead of the chip/value itself
- * doubling as the edit button. URLs render as plain text (F146) - no special chip/preview. */
+/** Whether CellValue would render `displayValue` as an interactive inspect chip (structured,
+ * binary) or clickable date rather than plain text - determines whether editing needs its own
+ * separate activation control alongside the chip, instead of the chip/value itself doubling as
+ * the edit button. Long text and URLs both render as plain text (F146) - no special chip/preview,
+ * so they use the plain-button edit path like any other string. */
 function hasInspectAffordance(
   displayValue: unknown,
   dataType: string,
@@ -31,7 +30,6 @@ function hasInspectAffordance(
   return (
     isBinaryValue(displayValue) ||
     isStructuredValue(displayValue) ||
-    isLongString(displayValue) ||
     (hasDateInspect && isClickableDateType(dataType) && typeof displayValue === "string")
   );
 }
@@ -112,13 +110,8 @@ export function EditableCell({
   const metadata = { allowedValues, elementDataType };
   const capability = mutationEditorCapability(dataType, engine, metadata);
   const inspectable = hasInspectAffordance(displayValue, dataType, Boolean(onInspectDate));
-  const valueLength =
-    typeof displayValue === "string" ? displayValue.length : String(displayValue ?? "").length;
   const wide =
-    capability.widget === "json" ||
-    capability.widget === "array" ||
-    capability.widget === "set" ||
-    valueLength > LONG_STRING_THRESHOLD;
+    capability.widget === "json" || capability.widget === "array" || capability.widget === "set";
 
   useEffect(() => {
     if (!isActive && restoreFocusRef.current) {
@@ -183,7 +176,11 @@ export function EditableCell({
               {editor}
             </CellEditorDrawer>
           ) : (
-            <EditorPopover anchorRect={anchorRect} testId="cell-editor-surface">
+            <EditorPopover
+              anchorRect={anchorRect}
+              testId="cell-editor-surface"
+              onDismiss={closeEditing}
+            >
               {editor}
             </EditorPopover>
           )}
@@ -195,13 +192,16 @@ export function EditableCell({
       <div
         data-testid="cell-editor-anchor"
         data-cell-id={cellId}
-        className="flex h-5 min-w-0 items-center rounded-sm border border-primary px-1"
+        className="absolute inset-0 flex items-center gap-1 border border-primary bg-background px-1.5"
       >
         <InlineCellEditor
           column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
           engine={engine}
           originalValue={displayValue}
-          onApply={(next) => onCommit(next)}
+          onApply={(next) => {
+            onCommit(next);
+            closeEditing();
+          }}
           onCancel={closeEditing}
           onCommitKey={(direction) => {
             closeEditing();

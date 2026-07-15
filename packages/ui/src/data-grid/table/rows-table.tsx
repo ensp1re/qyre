@@ -419,7 +419,7 @@ export function RowsTable({
                       return (
                         <td
                           key={columnName}
-                          className="overflow-hidden border-r border-border-subtle px-3 py-1.5"
+                          className="relative overflow-hidden border-r border-border-subtle px-3 py-1.5"
                         >
                           {isInsertable ? (
                             <NewRowCell
@@ -589,7 +589,7 @@ export function RowsTable({
                               : undefined
                           }
                           className={cn(
-                            "overflow-hidden border-r border-border-subtle px-3 py-1.5 text-foreground/80",
+                            "relative overflow-hidden border-r border-border-subtle px-3 py-1.5 text-foreground/80",
                             markedForDelete && "line-through opacity-60"
                           )}
                         >

@@ -168,7 +168,6 @@ test("@full @role-matrix writable engines create and drop a table or collection"
   const isMongo = project === "mongodb";
 
   await page.goto("/");
-  await expect(page.getByTestId("access-badge")).toHaveAttribute("data-access", "read-write");
   await page.getByRole("tab", { name: "Schema" }).click();
   await page.getByRole("button", { name: "New table" }).click();
 

@@ -1,4 +1,4 @@
-import { Binary, Braces, Brackets, Type } from "lucide-react";
+import { Binary, Braces, Brackets } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { formatCell, isClickableDateType } from "../../primitives/format-cell.js";
 
@@ -35,13 +35,10 @@ export function isBinaryValue(value: unknown): value is BinaryValue {
 /** Anything CellValue can render as an inspectable chip - a structured value, binary, or a long string. */
 export type InspectableValue = StructuredValue | BinaryValue | string;
 
-/** Above this length a plain string cell truncates to one line instead of stretching its row (F069),
- * and cell editing routes to the anchored popover editor instead of inline (F146). */
+/** Above this length, plain string display hard-truncates via `truncateForDisplay` (F069). Text/
+ * multiline columns still edit inline regardless of length (F146) - only JSON/array/set route to
+ * the anchored popover editor. */
 export const LONG_STRING_THRESHOLD = 100;
-
-export function isLongString(value: unknown): value is string {
-  return typeof value === "string" && value.length > LONG_STRING_THRESHOLD;
-}
 
 /** Hard-caps display text to `max` characters plus a literal "...", independent of CSS layout
  * (F146) - a JS substring always shortens the visible text, unlike `overflow`/`text-overflow`
@@ -150,11 +147,11 @@ function InspectChip({
 }
 
 /**
- * Renders one table cell value: a short plain string/number/boolean renders exactly like
- * formatCell's flat text (unchanged); a binary value (see BinaryValue) or a plain object/array
- * renders as a compact single-line chip that never grows the row; a string past
- * LONG_STRING_THRESHOLD truncates to one line instead (F069); a value in a date/timestamp column
- * (see `dataType`) renders as a clickable underlined date instead (F070). All click-to-inspect
+ * Renders one table cell value: a plain string/number/boolean renders as flat text, hard-truncated
+ * past LONG_STRING_THRESHOLD (F069) - long text is never a special chip, it looks exactly like
+ * short text (F146); a binary value (see BinaryValue) or a plain object/array renders as a compact
+ * single-line chip that never grows the row; a value in a date/timestamp column (see `dataType`)
+ * renders as a clickable underlined date instead (F070). All click-to-inspect
  * cases report the value via `onInspect`/`onInspectDate`; the caller opens a CellValueDrawer or
  * DateDetailPopover to show it in full (see docs/product-specs/structured-cell-values.md). An
  * earlier version expanded structured values inline inside the cell, which blew up row heights and
@@ -216,24 +213,6 @@ export function CellValue({
         style={{ color: "var(--c-purple)" }}
       >
         {formatCell(value)}
-      </button>
-    );
-  }
-  if (isLongString(value)) {
-    return (
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onInspect(value);
-        }}
-        title="Click to view full value"
-        className="block max-w-full truncate rounded-[2px] border border-border bg-muted/40 px-1.5 py-0.5 text-left font-mono text-[10px] text-foreground/80 hover:border-primary/50 hover:bg-accent/50"
-      >
-        <span className="inline-flex max-w-full items-center gap-1.5">
-          <Type className="h-3 w-3 shrink-0" style={{ color: "var(--c-blue)" }} />
-          <span className="truncate">{truncateForDisplay(value)}</span>
-        </span>
       </button>
     );
   }

@@ -79,7 +79,7 @@ export function CommitBar({
         </div>
       )}
 
-      <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
@@ -90,7 +90,7 @@ export function CommitBar({
           {parts.join(", ")}
         </button>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={onDiscard}

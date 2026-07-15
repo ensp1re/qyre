@@ -32,23 +32,23 @@ function isWritable(capabilities: ConnectionCapabilities): boolean {
   );
 }
 
-/** Read-only/read-write access badge (F097) - a visible, always-explained indicator of the
- * session's write capability, independent of the underlying connection status dot. */
+/** Read-only access badge (F097) - a visible, always-explained warning when the session can't
+ * write, independent of the underlying connection status dot. Writable is the common case and
+ * already implied elsewhere (editable cells, the Commit button), so it renders nothing there -
+ * only the read-only exception is worth calling out in the footer (F146). */
 function AccessBadge({ capabilities }: { capabilities?: ConnectionCapabilities }): ReactNode {
-  if (!capabilities) return null;
-  const writable = isWritable(capabilities);
-  const title = writable
-    ? "This session can modify data"
-    : ((capabilities.readOnlyReason && READ_ONLY_REASON_LABEL[capabilities.readOnlyReason]) ??
-      "Read-only");
+  if (!capabilities || isWritable(capabilities)) return null;
+  const title =
+    (capabilities.readOnlyReason && READ_ONLY_REASON_LABEL[capabilities.readOnlyReason]) ??
+    "Read-only";
   return (
     <span
       data-testid="access-badge"
-      data-access={writable ? "read-write" : "read-only"}
+      data-access="read-only"
       title={title}
-      style={{ color: writable ? "var(--c-green)" : "var(--c-red)" }}
+      style={{ color: "var(--c-red)" }}
     >
-      {writable ? "read-write" : "read-only"}
+      read-only
     </span>
   );
 }

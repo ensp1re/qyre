@@ -208,6 +208,7 @@ export function InlineCellEditor({
             anchorRect={pickerAnchorRef.current.getBoundingClientRect()}
             testId="inline-timestamp-picker"
             width={264}
+            onDismiss={() => setPickerOpen(false)}
           >
             <div className="p-2">
               <DateTimeInput
@@ -234,7 +235,7 @@ export function InlineCellEditor({
     );
   } else {
     control = (
-      <div className="flex min-w-0 flex-1 items-center gap-1">
+      <div className="flex min-w-0 max-w-[700px] flex-1 items-center gap-1">
         <input
           autoFocus
           aria-label={column.name}

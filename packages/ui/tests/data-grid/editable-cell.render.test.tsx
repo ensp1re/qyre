@@ -266,6 +266,82 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(onCommit).toHaveBeenCalledWith(false);
   });
 
+  it("closes the editor after a boolean toggle click, instead of leaving it stuck open (F146)", () => {
+    render(
+      <EditableCell
+        displayValue={true}
+        dataType="boolean"
+        nullable={true}
+        dirty={false}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("true"));
+    fireEvent.click(screen.getByRole("switch", { name: "value" }));
+    expect(screen.queryByRole("switch", { name: "value" })).not.toBeInTheDocument();
+  });
+
+  it("commits and closes on blur even without pressing Enter, so a changed cell shows dirty right away (F146)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    const input = screen.getByLabelText("value");
+    fireEvent.change(input, { target: { value: "Grace" } });
+    fireEvent.blur(input);
+    expect(onCommit).toHaveBeenCalledWith("Grace");
+    expect(screen.queryByLabelText("value")).not.toBeInTheDocument();
+  });
+
+  it("does not stage a no-op blur when the draft is unchanged", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.blur(screen.getByLabelText("value"));
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("value")).not.toBeInTheDocument();
+  });
+
+  it("edits long plain text inline like any other text, not in a JSON-style popover (F146)", () => {
+    const onCommit = vi.fn();
+    const long = "a".repeat(320);
+    render(
+      <EditableCell
+        displayValue={long}
+        dataType="text"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText(`${"a".repeat(100)}...`));
+    expect(screen.queryByTestId("cell-editor-surface")).not.toBeInTheDocument();
+    const input = screen.getByLabelText("value") as HTMLInputElement;
+    expect(input.value).toBe(long);
+    fireEvent.change(input, { target: { value: "short now" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith("short now");
+  });
+
   it("auto-stages NULL for a nullable text column left empty, instead of an explicit toggle (F146)", () => {
     const onCommit = vi.fn();
     render(

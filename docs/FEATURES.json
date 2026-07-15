@@ -13,7 +13,7 @@
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/core typecheck && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/web typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm --filter @qyre/qyre build && pnpm verify:pr",
       "state": "active",
       "commitHash": null,
-      "evidence": "Round 3 (this session, visual/behavioral refinements requested after live review of round 2): shrank the timestamp mini-picker popover to 264px (was the shared 512px default) so it reads as attached to a compact column; moved the 'editing' indicator from a bordered/backgrounded box around the input to a border around the whole cell, and stripped the input down to a borderless, transparent control that fills the cell exactly; removed the inline NULL toggle/chip entirely - a nullable field's draft auto-commits NULL when left empty (blur/Enter/Tab), and Delete/Backspace on a selected (non-editing) cell already nulls any nullable cell without needing edit mode at all; found and fixed a live bug where the same input-blurs-before-click-runs timing issue also affected the (now-removed) NULL button; URLs render as plain text with no special chip/preview; long text now hard-truncates to exactly 100 characters plus a literal '...' via a JS substring (LONG_STRING_THRESHOLD dropped 300->100) instead of relying on CSS overflow/text-overflow, which the user found wasn't reliably shortening; centered the 'Loading table...'/'Loading rows...' states in their container and moved the Loading-rows Cancel button onto its own row below the text instead of sharing it. Package-scoped verification passed: pnpm --filter @qyre/ui test (410/410), typecheck (core/ui/web), eslint, prettier, and @qyre/ui + @qyre/web + @qyre/qyre builds. Manually verified live against a real PostgreSQL connection: the cell-sized borderless input, the compact timestamp picker, and console free of errors. Full `pnpm verify:pr` reaches 34/34 package typecheck/test/build tasks and all check:state checks passing; the SQLite E2E webServer still fails to start on this machine's Node 26 (better-sqlite3 needs Node 22, NODE_MODULE_VERSION 127 vs 147) - the same pre-existing constraint AGENTS.md documents, not a regression. Pushed as a second commit onto draft PR #160 (no third commit pushed yet as of this record).",
+      "evidence": "Round 3 (visual/behavioral refinements requested after live review of round 2): shrank the timestamp mini-picker popover to 264px; moved the editing indicator to a border around the whole cell and made the input borderless/transparent; removed the inline NULL toggle so clearing a nullable draft commits NULL while Delete/Backspace still nulls a selected cell; rendered URLs as plain text; hard-truncated long text to exactly 100 characters plus '...'; centered table/row loading states and moved the loading-rows Cancel button below the text. Updated full E2E expectations for writable sessions no longer showing a redundant access badge and for the column-labelled inline editors. Package-scoped verification passed: @qyre/ui test (410/410), core/ui/web typechecks, eslint, prettier, and ui/web/qyre builds. Manually verified against PostgreSQL: the cell-sized borderless input, compact timestamp picker, and console free of errors. Full `pnpm verify:pr` passed on Node 22 with 34/34 package tasks, check:state, smoke E2E (11 passed, 4 skipped), and full E2E (29 passed, 43 skipped) across PostgreSQL, MySQL, SQLite, and MongoDB.",
       "blockedReason": null,
       "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
       "completedAt": null
@@ -52,28 +52,6 @@
       "completedAt": "2026-07-15T16:44:44.000Z"
     },
     {
-      "id": "F129",
-      "behavior": "Close SUGGESTIONS.md S1: the F122 session token is currently served unauthenticated to any local requester - GET / (and the SPA fallback) returns index.html with window.__QYRE_TOKEN__ embedded (packages/server/src/plugins/static-web.ts), so any local process or other OS user can curl the port and gain full API access, contradicting SECURITY.md's 'stops any other local process/user' claim. Decide and implement: either harden the handout (e.g. one-time token mint on first page load, subsequent tokenless loads rejected) or explicitly document same-machine trust as an accepted limitation in docs/SECURITY.md so the claim matches the implementation. Either way SECURITY.md, the static-web plugin comment, and tests must end up consistent.",
-      "verification": "pnpm --filter @qyre/server test && pnpm test:e2e:smoke",
-      "state": "passing",
-      "commitHash": "941612a",
-      "evidence": "Reviewed the harden-vs-document tradeoff (SUGGESTIONS.md S1) and chose to document: closing the unauthenticated GET / token handout would need session-claim infrastructure (a cookie or one-time handshake) with real UX regressions for a single-developer local tool - page refresh, reopening a closed tab, and multiple tabs must all keep working with no separate login step. docs/SECURITY.md's bearer-token bullet now precisely scopes what the token defends (cross-origin/CSRF-shaped requests) and adds an explicit 'Accepted limitation' note; auth-guard.ts and static-web.ts's comments (which previously claimed the token stops 'any other local process/user') now match. `pnpm --filter @qyre/server test` (271 tests, unchanged - comment/doc-only) and `pnpm test:e2e` smoke suite (11 passed, including auth-token.spec.ts) both green on Node 22.",
-      "blockedReason": null,
-      "spec": "docs/SECURITY.md",
-      "completedAt": "2026-07-14T20:05:00.000Z"
-    },
-    {
-      "id": "F130",
-      "behavior": "Close SUGGESTIONS.md S2 (+C2): with --verbose the export download URL's ?token=<session token> is logged verbatim by Fastify's request logging, writing the live bearer token into terminal output/captured logs. Add pino redaction (redact paths or a serializer) for the token query param when packages/cli builds the logger options, so verbose logs never contain the token while query-param auth keeps working. Cover with a server test asserting the logged request line masks the token.",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/cli test",
-      "state": "passing",
-      "commitHash": "4f2f5e6",
-      "evidence": "Closed SUGGESTIONS.md S2/C2: added packages/server/src/services/log-redaction.ts (redactSensitiveQueryParams masks the export URL's ?token= query param; buildLoggerOptions normalizes every CreateServerOptions.logger form - true, {level}, false - into a Fastify logger config that always attaches the redacting req serializer) and wired it into createServer, so --verbose can no longer bypass it. New tests: log-redaction.test.ts (5 unit tests on the pure masking function) and app-logging.test.ts (3 integration tests against a captured pino stream, asserting a real request through /api/health?token=... never writes the live token while unrelated params and the non-verbose/no-logger path stay unchanged). pnpm --filter @qyre/server test (279 tests) and pnpm --filter @qyre/qyre test (46 tests, CLI unaffected) both green; full pnpm check:quiet (34/34 tasks) and check:state also green on Node 22.",
-      "blockedReason": null,
-      "spec": "docs/SECURITY.md",
-      "completedAt": "2026-07-14T20:15:00.000Z"
-    },
-    {
       "id": "F131",
       "behavior": "Close SUGGESTIONS.md S3: describeError output (packages/server/src/services/connection-display.ts) flows unredacted into POST /api/connect 400 bodies, /api/health lastError, the EventLog, and the CLI's connect-failure message - driver-generated text (notably MongoDB URI parse errors) can echo connection-string fragments containing credentials. Apply a credential-masking pass (userinfo and credential-named query params anywhere in the string, same pattern family as redactConnectionString) to describeError output before it is returned, logged, or printed.",
       "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/cli test",
@@ -105,17 +83,6 @@
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md",
       "completedAt": "2026-07-15T01:25:00.000Z"
-    },
-    {
-      "id": "F134",
-      "behavior": "Close SUGGESTIONS.md V1: PATCH /api/tables/:schema/:table/ddl/columns/:column (packages/server/src/routes/schema-ddl.ts) runs rename then alter as two independent steps - when alter fails after rename succeeded, the rename silently persists while the route reports total failure, and a retry hits 'Unknown column'. Make the combined request atomic where the engine supports transactional DDL (Postgres, SQLite), or return a structured partial-success body ({ renamed, altered, error }) that EditColumnDialog renders honestly; MySQL (no transactional DDL) takes whichever path fits.",
-      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/postgres test && pnpm --filter @qyre/sqlite test",
-      "state": "passing",
-      "commitHash": "15d5c2e",
-      "evidence": "Closed SUGGESTIONS.md V1: added SchemaDdlApi.renameAndAlterColumn (one call, ColumnUpdateResult: { column, renamed, altered, alterError? }) per engine. Postgres: one client + BEGIN/COMMIT/ROLLBACK around both statements - any failure rolls back everything (verified live: a forced incompatible-cast alter after a real rename leaves the original column name intact). SQLite: both steps nested inside one db.transaction() (better-sqlite3 uses SAVEPOINTs for nested transaction functions, confirmed live) - same all-or-nothing guarantee around alterColumn's 12-step rebuild. MySQL: DDL auto-commits per statement, so no transaction can span two ALTER TABLE statements - genuinely can't be atomic; runs sequentially and returns { renamed: true, altered: false, alterError } instead of throwing when a post-rename alter fails (verified live against a real strict-mode cast failure). packages/server/src/routes/schema-ddl.ts's PATCH route now makes one combined call and returns the full result at 200, including the partial-outcome case (matching CSV import's precedent for a partial-success body over a special status code). apps/web's editColumn refreshes table metadata before surfacing an alterError as a thrown error, so a dialog retry after a MySQL partial success targets the now-current column name instead of the original bug's stale one. New tests: server route tests for the combined call and the partial-success response; live-DB driver integration tests on all three engines (rollback verification for Postgres/SQLite, partial-success verification for MySQL). pnpm --filter @qyre/server test (280), @qyre/postgres test (70), @qyre/sqlite test (50), @qyre/mysql test (60), @qyre/web test (134), and @qyre/ui test (350) all green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/schema-editing.md",
-      "completedAt": "2026-07-14T21:00:00.000Z"
     },
     {
       "id": "F135",
@@ -160,17 +127,6 @@
       "blockedReason": null,
       "spec": "docs/CONNECTING.md",
       "completedAt": "2026-07-15T12:44:00.000Z"
-    },
-    {
-      "id": "F139",
-      "behavior": "Close SUGGESTIONS.md U1: apps/web/src/features/query/api/query.ts's runQuery and explainQuery hand-build their errors and never route non-2xx bodies through apiResponseError, so a structured permission-denied 403 from the SQL Editor never fires subscribePermissionDenied and the F120 capability/table-permission cache refresh is skipped - stale write affordances persist until the 30s overview poll. Route both fetchers' error bodies through apiResponseError (keeping the 409-destructive, cancelled, and reason:'read-only' special cases first) and unit-test that a permission-denied body notifies the listener.",
-      "verification": "pnpm --filter @qyre/web test",
-      "state": "passing",
-      "commitHash": "0d77b9a",
-      "evidence": "Closed SUGGESTIONS.md U1: apps/web/src/features/query/api/query.ts's runQuery and explainQuery now route every non-2xx body that isn't already special-cased (DestructiveConfirmationRequiredError on 409, QueryCancelledError, ReadOnlySessionRejectionError) through the shared apiResponseError helper, so a structured permission-denied 403 from POST /api/query or /api/query/explain notifies subscribePermissionDenied and triggers the same F120 capability/table-permission cache refresh every other fetcher's error path already gets. Rendered error text is unchanged for every existing case - verified live against a running Postgres preview: a normal query still returns its result, and a genuine SQL error (unknown relation) still shows the same message with Retry. New unit tests assert both fetchers notify the listener with the structured denial and throw PermissionDeniedApiError. pnpm --filter @qyre/web test (136 tests, 2 new) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
-      "blockedReason": null,
-      "spec": "docs/product-specs/permissions-and-capabilities.md",
-      "completedAt": "2026-07-14T21:30:00.000Z"
     },
     {
       "id": "F140",

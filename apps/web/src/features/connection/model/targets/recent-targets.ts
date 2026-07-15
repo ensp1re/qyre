@@ -1,6 +1,6 @@
 import type { RecentTarget } from "@qyre/ui";
 
-// Substring match (F132/SUGGESTIONS.md S4), not anchored to the whole key - a compound name like
+// Substring match (F132 review finding S4), not anchored to the whole key - a compound name like
 // `sslpassword` (a real libpq param), `access_token`, or `authSecret` must still be caught, the
 // same way @qyre/core's own CREDENTIAL_QUERY_PARAM_PATTERN (`/password|pwd|secret|token/i`)
 // already matches connection-string redaction; this keeps that exact set plus the two additional

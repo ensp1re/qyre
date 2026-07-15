@@ -12,7 +12,7 @@ export interface FilesOverview {
   readonly tree: FileNode[];
 }
 
-/** Above this size (F133/SUGGESTIONS.md S5), `GET /api/files/content` returns only the file's
+/** Above this size (F133 review finding S5), `GET /api/files/content` returns only the file's
  * first `FILES_PREVIEW_MAX_BYTES` bytes instead of reading the whole file into memory - a large
  * dump file (`.sql` files near a launch target commonly are) would otherwise block the event loop
  * and ship as one multi-gigabyte JSON string. */

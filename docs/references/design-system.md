@@ -30,8 +30,7 @@ to v3 config + CSS custom properties, not copy-pasted v4 syntax.
 ## Color tokens
 
 Semantic tokens, not raw hex, in component code - `bg-background`, `text-muted-foreground`, etc.
-Both themes below must exist; **dark is the primary/default theme** for this product (it's a
-developer tool, per the earlier suggestions in `.local/suggestions.md`).
+Both themes below must exist; **dark is the primary/default theme** for this developer tool.
 
 | Token                        | Light                 | Dark                     | Use                                             |
 | ---------------------------- | --------------------- | ------------------------ | ----------------------------------------------- |
@@ -42,23 +41,30 @@ developer tool, per the earlier suggestions in `.local/suggestions.md`).
 | `primary`                    | `#2563eb`             | `#4a9eff`                | primary actions, links, active states           |
 | `primary-foreground`         | `#ffffff`             | `#0a0d12`                | text on `primary`                               |
 | `secondary`                  | `#eef0f3`             | `#161d27`                | secondary surfaces                              |
-| `muted` / `muted-foreground` | `#eef0f3` / `#64748b` | `#161d27` / `#5a6880`    | de-emphasized text/surfaces                     |
+| `muted` / `muted-foreground` | `#eef0f3` / `#4f5e71` | `#161d27` / `#7f8ea6`    | de-emphasized text/surfaces                     |
+| `quiet-foreground`           | `#566579`             | `#7d8ca4`                | secondary metadata and placeholders             |
 | `accent`                     | `#e8eaed`             | `#1a2535`                | hover states                                    |
 | `destructive`                | `#dc2626`             | `#e05c6a`                | delete/error actions                            |
 | `border`                     | `rgba(0,0,0,0.08)`    | `rgba(255,255,255,0.06)` | hairlines                                       |
 | `sidebar`                    | `#eff1f4`             | `#0d1219`                | sidebar background (distinct from `background`) |
 | `sidebar-accent`             | `#e4e6ea`             | `#161d27`                | sidebar hover                                   |
 
+`quiet-foreground` replaces opacity-modified text colors. Its light value retains at least 4.76:1
+contrast and its dark value at least 4.53:1 across every solid surface above, including accent and
+sidebar-accent. `muted-foreground` is the slightly more prominent secondary level. Keep hierarchy
+through these semantic levels, type size, weight, italics, or placement; do not reduce a foreground
+token's opacity below WCAG AA contrast.
+
 **Semantic accent colors** (`--c-*`) - used for data-type icons, status dots, badges, syntax
 highlighting - not part of shadcn's default token set, specific to this design:
 
 | Token        | Light     | Dark      | Use                                                                     |
 | ------------ | --------- | --------- | ----------------------------------------------------------------------- |
-| `--c-green`  | `#16a34a` | `#4fc46a` | connected/success, boolean `true`, numeric literals in SQL highlighting |
-| `--c-amber`  | `#b45309` | `#e09a40` | numeric/id columns, PK badges, warnings                                 |
+| `--c-green`  | `#127334` | `#4fc46a` | connected/success, boolean `true`, numeric literals in SQL highlighting |
+| `--c-amber`  | `#92400e` | `#e09a40` | numeric/id columns, PK badges, warnings                                 |
 | `--c-purple` | `#7c3aed` | `#c47eff` | admin/role badges, SQL keyword highlighting                             |
-| `--c-blue`   | `#2563eb` | `#4a9eff` | string/varchar columns, FK badges, links (same as `primary`)            |
-| `--c-red`    | `#dc2626` | `#e05c6a` | errors, destructive (same as `destructive`)                             |
+| `--c-blue`   | `#1d4ed8` | `#4a9eff` | string/varchar columns, FK badges, links                                |
+| `--c-red`    | `#b91c1c` | `#e36471` | errors and destructive status text                                      |
 
 Chart colors (`--chart-1..5`) mirror `--c-blue/green/amber/purple/red` in that order - use them if a
 chart/graph is ever added rather than inventing new hues.

@@ -12,11 +12,10 @@
  *
  * Color tokens are "R G B" triplets (not hex/rgba) so Tailwind's opacity modifiers work
  * (bg-primary/10, text-foreground/70, ...) - Tailwind can only substitute <alpha-value> into a
- * space-separated rgb() triplet, not into a var() holding a full color string. See
- * apps/web/SUGGESTIONS.md #1 for the bug this fixes: every alpha-modified class on a themed color
- * was silently compiling to nothing. `--border`/`--sidebar-border` are the one exception - they
- * carry a fixed hairline alpha baked in on purpose (see --border-subtle below for the one softer
- * variant actually needed, rather than letting every callsite invent its own alpha).
+ * space-separated rgb() triplet, not into a var() holding a full color string. A var() containing
+ * a complete color made every alpha-modified themed class compile to nothing. `--border` and
+ * `--sidebar-border` are the one exception - they carry a fixed hairline alpha baked in on purpose
+ * (see --border-subtle below for the one softer variant actually needed).
  */
 :root {
   color-scheme: light;
@@ -32,7 +31,8 @@
   --secondary: 238 240 243;
   --secondary-foreground: 26 29 35;
   --muted: 238 240 243;
-  --muted-foreground: 91 107 128;
+  --muted-foreground: 79 94 113;
+  --quiet-foreground: 86 101 121;
   --accent: 232 234 237;
   --accent-foreground: 26 29 35;
   --destructive: 220 38 38;
@@ -48,11 +48,11 @@
   --sidebar-accent-foreground: 26 29 35;
   --sidebar-border: rgba(0, 0, 0, 0.06);
   /* semantic accent colors (data-type icons, status dots, badges, SQL syntax highlighting) */
-  --c-green: #16a34a;
-  --c-amber: #b45309;
+  --c-green: #127334;
+  --c-amber: #92400e;
   --c-purple: #7c3aed;
-  --c-blue: #2563eb;
-  --c-red: #dc2626;
+  --c-blue: #1d4ed8;
+  --c-red: #b91c1c;
 }
 
 /* Dark is the primary/default theme for this product - see docs/references/design-system.md. */
@@ -70,6 +70,7 @@
   --secondary-foreground: 205 214 228;
   --muted: 22 29 39;
   --muted-foreground: 127 142 166;
+  --quiet-foreground: 125 140 164;
   --accent: 26 37 53;
   --accent-foreground: 205 214 228;
   --destructive: 224 92 106;
@@ -87,7 +88,7 @@
   --c-amber: #e09a40;
   --c-purple: #c47eff;
   --c-blue: #4a9eff;
-  --c-red: #e05c6a;
+  --c-red: #e36471;
 }
 
 html {

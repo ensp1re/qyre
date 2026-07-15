@@ -105,7 +105,7 @@ export function resolveSqlFilePath(rootDir: string, relativePath: string): strin
 }
 
 /**
- * Reads at most `maxBytes` of `path` (F133/SUGGESTIONS.md S5) - a plain `readFileSync` reads the
+ * Reads at most `maxBytes` of `path` (F133 review finding S5) - a plain `readFileSync` reads the
  * whole file into memory regardless of size, so a multi-gigabyte dump under `--files-dir` would
  * otherwise block the event loop and ship as one giant JSON string. A file at or under the limit
  * is read in full via the ordinary path (no open/close overhead for the common case); a larger

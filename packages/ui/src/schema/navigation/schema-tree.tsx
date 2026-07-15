@@ -140,7 +140,7 @@ function TreeRow({
           <svg
             viewBox="0 0 24 24"
             className={cn(
-              "h-2.5 w-2.5 shrink-0 text-muted-foreground/60 transition-transform",
+              "h-2.5 w-2.5 shrink-0 text-quiet-foreground transition-transform",
               open && "rotate-90"
             )}
             fill="none"
@@ -168,7 +168,7 @@ function TreeRow({
         </span>
 
         {node.type === "schema" && node.children && (
-          <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground/50">
+          <span className="ml-auto shrink-0 font-mono text-[10px] text-quiet-foreground">
             {node.children.length}
           </span>
         )}
@@ -246,7 +246,7 @@ export function SchemaTree({
         <div className="flex items-center gap-1.5 rounded-[3px] border border-border bg-background px-2 py-1.5">
           <svg
             viewBox="0 0 24 24"
-            className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50"
+            className="h-2.5 w-2.5 shrink-0 text-quiet-foreground"
             fill="none"
             stroke="currentColor"
             strokeWidth={2}
@@ -260,7 +260,7 @@ export function SchemaTree({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search tables, schemas..."
             aria-label="Search tables"
-            className="w-full min-w-0 bg-transparent font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40"
+            className="w-full min-w-0 bg-transparent font-mono text-[11px] text-foreground outline-none placeholder:text-quiet-foreground"
           />
         </div>
         {canManageSchemas && onRequestCreateSchema && (
@@ -286,15 +286,15 @@ export function SchemaTree({
         return (
           <nav role={hasRows ? "tree" : undefined} className="flex-1 overflow-y-auto py-1">
             {schemaNodes.length === 0 ? (
-              <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+              <div className="px-3 py-4 text-center font-mono text-[11px] text-quiet-foreground">
                 No tables found.
               </div>
             ) : trimmedQuery.length === 1 ? (
-              <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+              <div className="px-3 py-4 text-center font-mono text-[11px] text-quiet-foreground">
                 keep typing - search needs 2+ characters
               </div>
             ) : trimmedQuery.length > 1 && matchIds.size === 0 ? (
-              <div className="px-3 py-4 text-center font-mono text-[11px] text-muted-foreground/40">
+              <div className="px-3 py-4 text-center font-mono text-[11px] text-quiet-foreground">
                 no results
               </div>
             ) : (

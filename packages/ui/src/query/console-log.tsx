@@ -40,11 +40,11 @@ export function ConsoleLog({ events, onClear }: ConsoleLogProps): ReactNode {
 
       <div className="flex-1 space-y-0.5 overflow-auto p-3">
         {events.length === 0 ? (
-          <p className="font-mono text-[11px] text-muted-foreground/50">No events yet.</p>
+          <p className="font-mono text-[11px] text-quiet-foreground">No events yet.</p>
         ) : (
           events.map((event) => (
             <div key={event.id} className="flex items-start gap-3 py-0.5 font-mono text-[11px]">
-              <span className="shrink-0 tabular-nums text-muted-foreground/30">
+              <span className="shrink-0 tabular-nums text-quiet-foreground">
                 {formatTime(event.timestamp)}
               </span>
               <span
@@ -52,7 +52,7 @@ export function ConsoleLog({ events, onClear }: ConsoleLogProps): ReactNode {
                 style={{ color: LEVEL_COLOR[event.level] }}
               >
                 {event.level === "info" ? (
-                  <span className="text-muted-foreground/40">{event.level}</span>
+                  <span className="text-quiet-foreground">{event.level}</span>
                 ) : (
                   event.level
                 )}
@@ -70,7 +70,7 @@ export function ConsoleLog({ events, onClear }: ConsoleLogProps): ReactNode {
           <span className="font-mono text-[11px]" style={{ color: "var(--c-green)" }}>
             ❯
           </span>
-          <span className="animate-pulse font-mono text-[11px] text-muted-foreground/25">█</span>
+          <span className="animate-pulse font-mono text-[11px] text-quiet-foreground">█</span>
         </div>
       </div>
     </div>

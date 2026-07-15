@@ -33,7 +33,7 @@ export const EMPTY_DRAFT: Draft = { value: "" };
 /** One muted keyboard-hint line at the popover's foot. */
 export function HintFooter({ text }: { text: string }): ReactNode {
   return (
-    <div className="border-t border-border px-2 py-1 text-[9px] tracking-wide text-muted-foreground/50">
+    <div className="border-t border-border px-2 py-1 text-[9px] tracking-wide text-quiet-foreground">
       {text}
     </div>
   );

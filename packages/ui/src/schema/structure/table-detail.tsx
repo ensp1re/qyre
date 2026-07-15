@@ -88,8 +88,8 @@ export function TableDetail({ table }: TableDetailProps): ReactNode {
                 FK
               </span>
             )}
-            <span className="ml-auto text-[9px] text-muted-foreground/40">{column.dataType}</span>
-            {column.nullable && <span className="text-[9px] text-muted-foreground/30">null</span>}
+            <span className="ml-auto text-[9px] text-quiet-foreground">{column.dataType}</span>
+            {column.nullable && <span className="text-[9px] text-quiet-foreground">null</span>}
           </div>
         ))}
       </div>

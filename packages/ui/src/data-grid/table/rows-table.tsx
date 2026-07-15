@@ -164,7 +164,7 @@ export function RowsTable({
                 </th>
                 <th
                   className={cn(
-                    "border-b border-r border-border px-2 py-2 text-right font-normal text-muted-foreground/40",
+                    "border-b border-r border-border px-2 py-2 text-right font-normal text-quiet-foreground",
                     canAddRow ? "w-14" : "w-8"
                   )}
                 >
@@ -194,7 +194,7 @@ export function RowsTable({
                           />
                         )}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-normal text-muted-foreground/60">
+                      <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-normal text-quiet-foreground">
                         {meta && <TypeIcon dataType={meta.dataType} />}
                         <span>{meta ? friendlyTypeLabel(meta.dataType) : "unknown"}</span>
                         {meta?.isPrimaryKey && (
@@ -260,7 +260,7 @@ export function RowsTable({
                               }
                             />
                           ) : (
-                            <span className="italic text-muted-foreground/30">not editable</span>
+                            <span className="italic text-quiet-foreground">not editable</span>
                           )}
                         </td>
                       );
@@ -310,7 +310,7 @@ export function RowsTable({
                     </td>
                     <td
                       className={cn(
-                        "border-r border-border-subtle px-1 py-1.5 text-right text-muted-foreground/30",
+                        "border-r border-border-subtle px-1 py-1.5 text-right text-quiet-foreground",
                         canAddRow || markedForDelete || canEditDocument ? "w-14" : "w-8"
                       )}
                     >
@@ -338,7 +338,7 @@ export function RowsTable({
                             }}
                             aria-label={`Edit document ${virtualRow.index + 1}`}
                             title="Edit document"
-                            className="text-muted-foreground/60 hover:text-foreground"
+                            className="text-quiet-foreground hover:text-foreground"
                           >
                             <Pencil className="h-2.5 w-2.5" />
                           </button>
@@ -352,7 +352,7 @@ export function RowsTable({
                               }}
                               aria-label={`Duplicate row ${virtualRow.index + 1}`}
                               title="Duplicate row"
-                              className="text-muted-foreground/60 hover:text-foreground"
+                              className="text-quiet-foreground hover:text-foreground"
                             >
                               <CopyPlus className="h-2.5 w-2.5" />
                             </button>
@@ -404,7 +404,7 @@ export function RowsTable({
                               onRevert={() => pendingChanges.revertEdit(rowKey, columnName)}
                             />
                           ) : row[columnName] === null || row[columnName] === undefined ? (
-                            <span className="italic text-muted-foreground/30">null</span>
+                            <span className="italic text-quiet-foreground">null</span>
                           ) : reference ? (
                             <button
                               type="button"

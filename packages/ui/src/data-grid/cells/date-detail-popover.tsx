@@ -61,7 +61,7 @@ function DetailRow({
 }): ReactNode {
   return (
     <div className="flex items-center justify-between gap-2 py-0.5">
-      <span className="shrink-0 text-muted-foreground/50">{label}</span>
+      <span className="shrink-0 text-quiet-foreground">{label}</span>
       <div className="flex min-w-0 items-center gap-1">
         <span className="truncate text-foreground/80">{text}</span>
         <button
@@ -133,7 +133,7 @@ export function DateDetailPopover({
         className="fixed z-50 rounded-[3px] border border-border bg-card p-2 font-mono text-[11px] shadow-lg"
       >
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-[9px] uppercase tracking-widest text-muted-foreground/60">
+          <span className="text-[9px] uppercase tracking-widest text-quiet-foreground">
             Date Value
           </span>
           <button
@@ -174,7 +174,7 @@ export function DateDetailPopover({
             />
           </div>
         ) : (
-          <p className="text-muted-foreground/50">
+          <p className="text-quiet-foreground">
             Could not parse &quot;{String(value)}&quot; as a date.
           </p>
         )}

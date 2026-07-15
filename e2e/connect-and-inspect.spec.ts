@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { parseConnectionTarget } from "@qyre/core";
 import { resolveAdapter } from "@qyre/driver-contract";
 import { mongodbAdapterFactory } from "@qyre/mongodb";
@@ -19,6 +18,7 @@ import {
   setupSqliteFixture
 } from "@qyre/testing";
 import { expect, test } from "./support/test.js";
+import { expectNoAccessibilityViolations } from "./support/accessibility.js";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -95,14 +95,8 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
     await page.getByRole("button", { name: "Close cell value" }).click();
   }
 
-  // F056: a baseline accessibility scan of the fully-loaded, data-rich state (sidebar tree, Schema
-  // grid, Tables tab) - a broader surface than smoke.spec.ts's disconnected-screen scan.
-  // color-contrast is disabled - see smoke.spec.ts's comment for why.
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa"])
-    .disableRules(["color-contrast"])
-    .analyze();
-  expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
+  // F056/F145: the connected data-rich state clears WCAG A/AA in both supported themes.
+  await expectNoAccessibilityViolations(page, "connected database screen");
 });
 
 test.describe("cross-engine connection switching", () => {

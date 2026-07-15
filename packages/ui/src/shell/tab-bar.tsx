@@ -51,7 +51,7 @@ export function TabBar({
             className={cn(
               "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-[3px] px-3 py-1.5 text-[11px] font-medium transition-colors",
               disabledReason
-                ? "cursor-not-allowed text-muted-foreground/40"
+                ? "cursor-not-allowed text-quiet-foreground"
                 : isActive
                   ? "-mb-px border border-border border-b-background bg-background text-foreground"
                   : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"

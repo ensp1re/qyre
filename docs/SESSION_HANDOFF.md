@@ -6,9 +6,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-15.
-- Branch: `feature/F144-e2e-fixture-isolation`, based on `main` at `3f5e0bf` through merged PR #154
-  (F143).
-- Queue: F128-F144 are `passing`; `nextIds.F` is 145.
+- Branch: `feature/F145-accessible-muted-text-contrast`, based on `main` at `885abd5` through merged
+  PR #155 (F144).
+- Queue: F128-F145 are `passing`; there is no active feature; `nextIds.F` is 146.
 
 ## Completed
 
@@ -20,19 +20,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   streamed multi-format export, roles-and-grants viewer, permission-denied hardening, the
   role-aware E2E matrix, and the SQL EXPLAIN viewer. Per-feature evidence lives in the plan's
   progress log and PR history; every slice passed local/pre-push `pnpm verify:pr` and GitHub CI.
-- A deep read-only code review of the product workspace (2026-07-14) produced
-  `docs/SUGGESTIONS.md` (14 findings: security, server, UI, CLI) and queued F129-F143. F129
-  (PR #140), F130 (#141), F134 (#142), F139 (#143), F140 (#144), F131 (#145), F132 (#146),
-  F133 (#147), and F135 (#148) are merged: the session-token handout is documented as an accepted
-  local-trust limitation (S1); `--verbose` logs mask the export URL's token (S2/C2); combined
-  column rename+alter is atomic on Postgres/SQLite with an honest partial-success result on MySQL
-  (V1); the SQL Editor's write-attempt errors now trigger the F120 capability-cache refresh (U1);
-  `EditableCell`/`NewRowCell` gained NULL/empty-string reachability, Escape-to-cancel on date
-  editors, and bigint-precision rejection (U2/U4/U5); `describeError()` redacts credentials
-  embedded in driver error text (S3); recent-targets persistence catches compound credential-param
-  names (S4); `GET /api/files/content` caps a preview read at 1 MiB (S5); and batch-commit
-  introspects each staged table once instead of once per op (V2). See each id's evidence in
-  `docs/FEATURES.json` for full reasoning/test detail.
+- A deep read-only code review of the product workspace (2026-07-14) queued F129-F143 across
+  security, server, UI, CLI, and structure. Every finding is merged and passing; F145 retires the
+  completed review artifact after repointing each live record to its durable owning spec. See each
+  id's evidence in `docs/FEATURES.json` for full reasoning and verification detail.
 - F142 (merged PR #153) adds an explicit SQL schema selector to New table, defaulted from the current
   sidebar selection when available, and routes creation to the chosen schema. UI 366/366, web
   140/140, both full local gates, and both GitHub CI jobs passed; exact evidence is in
@@ -42,15 +33,20 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   place. The largest production source is now 488 lines and no production source folder has more
   than eight direct files. Local/pre-push full gates and both GitHub CI jobs passed; exact evidence
   is in `docs/FEATURES.json`.
-- F144 (draft PR #155) holds a cross-process lock for each underlying engine fixture throughout a
+- F144 (merged PR #155) holds a cross-process lock for each underlying engine fixture throughout a
   Playwright test, shares locks across writable/read-only/restricted projects, retains cross-engine
   parallelism, and safely handles multi-engine journeys and dead workers. Focused tests, a
   three-pass full-E2E stress run, both full local gates, and both GitHub CI jobs passed; exact
   evidence is in `docs/FEATURES.json`.
+- F145 (draft PR #156) replaces low-contrast muted-text opacity with compliant semantic tokens in
+  both themes, enables Axe contrast enforcement, removes the resolved accessibility debt, deletes
+  the completed review artifact, and repoints its findings to durable specs. UI 366/366, web
+  140/140, both full local gates, and both GitHub CI jobs passed; exact evidence is in
+  `docs/FEATURES.json`.
 
 ## In progress
 
-- None.
+- None. F145 is the final scheduled task and is passing in draft PR #156.
 
 ## Known issues / blockers
 
@@ -85,4 +81,4 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Merge draft PR #155 for F144 fixture isolation.
+- Merge draft PR #156. No further feature is scheduled.

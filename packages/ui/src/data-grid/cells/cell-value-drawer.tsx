@@ -53,7 +53,7 @@ function HexDump({ value }: { value: BinaryValue }): ReactNode {
     <div>
       {text !== null && (
         <div className="mb-3">
-          <p className="mb-1 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+          <p className="mb-1 font-mono text-[9px] uppercase tracking-widest text-quiet-foreground">
             Text (UTF-8)
           </p>
           <p className="whitespace-pre-wrap break-all" style={{ color: "var(--c-blue)" }}>
@@ -61,19 +61,19 @@ function HexDump({ value }: { value: BinaryValue }): ReactNode {
           </p>
         </div>
       )}
-      <p className="mb-1 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+      <p className="mb-1 font-mono text-[9px] uppercase tracking-widest text-quiet-foreground">
         Hex
       </p>
       <div className="space-y-0.5 overflow-x-auto whitespace-pre">
         {rows.map((row, rowIndex) => (
           <div key={rowIndex} className="flex gap-3">
-            <span className="text-muted-foreground/40">
+            <span className="text-quiet-foreground">
               {(rowIndex * HEX_DUMP_BYTES_PER_ROW).toString(16).padStart(6, "0")}
             </span>
             <span className="text-foreground/80">
               {row.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}
             </span>
-            <span className="text-muted-foreground/60">
+            <span className="text-quiet-foreground">
               {row
                 .map((byte) => (byte >= 0x20 && byte <= 0x7e ? String.fromCharCode(byte) : "."))
                 .join("")}
@@ -82,7 +82,7 @@ function HexDump({ value }: { value: BinaryValue }): ReactNode {
         ))}
       </div>
       {bytes.length > HEX_DUMP_BYTE_LIMIT && (
-        <p className="mt-1 text-muted-foreground/50">
+        <p className="mt-1 text-quiet-foreground">
           Showing the first {HEX_DUMP_BYTE_LIMIT} of {bytes.length} bytes.
         </p>
       )}
@@ -99,7 +99,7 @@ export interface CellValueDrawerProps {
 
 function PrimitiveValue({ value }: { value: unknown }): ReactNode {
   if (value === null || value === undefined) {
-    return <span className="italic text-muted-foreground/50">null</span>;
+    return <span className="italic text-quiet-foreground">null</span>;
   }
   if (typeof value === "string") {
     // JSON.stringify keeps the quotes, so "3" stays visually distinct from the number 3.
@@ -192,7 +192,7 @@ function TreeNode({
       >
         <svg
           viewBox="0 0 24 24"
-          className={`h-2.5 w-2.5 shrink-0 text-muted-foreground/60 transition-transform ${open ? "rotate-90" : ""}`}
+          className={`h-2.5 w-2.5 shrink-0 text-quiet-foreground transition-transform ${open ? "rotate-90" : ""}`}
           fill="none"
           stroke="currentColor"
           strokeWidth={2}
@@ -259,14 +259,14 @@ export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps
           ) : (
             <Braces className="h-3 w-3 text-muted-foreground" />
           )}
-          <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-quiet-foreground">
             Cell Value
           </span>
           {column && (
             <span className="truncate font-mono text-[10px] text-foreground/70">{column}</span>
           )}
           {plainString !== null && (
-            <span className="shrink-0 font-mono text-[9px] text-muted-foreground/50">
+            <span className="shrink-0 font-mono text-[9px] text-quiet-foreground">
               {plainString.length.toLocaleString()} chars
             </span>
           )}

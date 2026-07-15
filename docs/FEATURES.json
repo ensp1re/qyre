@@ -2,7 +2,7 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 145,
+    "F": 146,
     "DF": 10
   },
   "states": ["not_started", "active", "blocked", "passing"],
@@ -26,7 +26,7 @@
       "commitHash": "941612a",
       "evidence": "Reviewed the harden-vs-document tradeoff (SUGGESTIONS.md S1) and chose to document: closing the unauthenticated GET / token handout would need session-claim infrastructure (a cookie or one-time handshake) with real UX regressions for a single-developer local tool - page refresh, reopening a closed tab, and multiple tabs must all keep working with no separate login step. docs/SECURITY.md's bearer-token bullet now precisely scopes what the token defends (cross-origin/CSRF-shaped requests) and adds an explicit 'Accepted limitation' note; auth-guard.ts and static-web.ts's comments (which previously claimed the token stops 'any other local process/user') now match. `pnpm --filter @qyre/server test` (271 tests, unchanged - comment/doc-only) and `pnpm test:e2e` smoke suite (11 passed, including auth-token.spec.ts) both green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/SECURITY.md",
       "completedAt": "2026-07-14T20:05:00.000Z"
     },
     {
@@ -37,7 +37,7 @@
       "commitHash": "4f2f5e6",
       "evidence": "Closed SUGGESTIONS.md S2/C2: added packages/server/src/services/log-redaction.ts (redactSensitiveQueryParams masks the export URL's ?token= query param; buildLoggerOptions normalizes every CreateServerOptions.logger form - true, {level}, false - into a Fastify logger config that always attaches the redacting req serializer) and wired it into createServer, so --verbose can no longer bypass it. New tests: log-redaction.test.ts (5 unit tests on the pure masking function) and app-logging.test.ts (3 integration tests against a captured pino stream, asserting a real request through /api/health?token=... never writes the live token while unrelated params and the non-verbose/no-logger path stay unchanged). pnpm --filter @qyre/server test (279 tests) and pnpm --filter @qyre/qyre test (46 tests, CLI unaffected) both green; full pnpm check:quiet (34/34 tasks) and check:state also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/SECURITY.md",
       "completedAt": "2026-07-14T20:15:00.000Z"
     },
     {
@@ -48,7 +48,7 @@
       "commitHash": "636d6d9",
       "evidence": "Closed SUGGESTIONS.md S3: added packages/server/src/services/connection-display.ts's redactErrorMessage() and applied it to every describeError() return path (Error, AggregateError unwrapping, and non-Error String() fallback) so a driver-generated error can never flow unredacted into POST /api/connect's 400 body, /api/health's lastError, the EventLog, or the CLI's connect-failure message. Masks a URL-shaped ://user:password@ fragment (password half only, mirroring @qyre/core's redactConnectionString) and any credential-named query param found anywhere in the text (same substring rule redactConnectionString uses), operating on free text that may only contain a connection string as a substring rather than text that must parse as one URL. New tests: userinfo redaction, query-param redaction, an ordinary message left untouched, AggregateError unwrapping still redacted, and a non-Error value's string form. pnpm --filter @qyre/server test (287 tests, 7 new) and @qyre/qyre test (46, CLI unaffected) both green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/error-handling.md",
       "completedAt": "2026-07-15T00:50:00.000Z"
     },
     {
@@ -59,7 +59,7 @@
       "commitHash": "789ac3e",
       "evidence": "Closed SUGGESTIONS.md S4: apps/web/src/features/connection/model/recent-targets.ts's SENSITIVE_PARAMETER regex was anchored to the whole key (^...$), so a compound name like sslpassword (a real libpq param), access_token, or authSecret never matched and the target was judged safe to persist to localStorage, violating the 'persisted recent targets must be credential-free' rule. Dropped the anchors so every existing branch matches as a substring, at least as strict as @qyre/core's own CREDENTIAL_QUERY_PARAM_PATTERN (/password|pwd|secret|token/i) while keeping the two additional patterns (api key, credential) this check has always covered beyond core's set. New test cases cover sslpassword, access_token, authSecret, and tlsCertificateKeyFilePassword, plus a confirming case that an unrelated param still persists normally. pnpm --filter @qyre/web test (137 tests, 5 new assertions) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/database-switching.md",
       "completedAt": "2026-07-15T01:05:00.000Z"
     },
     {
@@ -70,7 +70,7 @@
       "commitHash": "0172fb2",
       "evidence": "Closed SUGGESTIONS.md S5: GET /api/files/content previously readFileSync'd the whole target with no size limit. Added readFilePreview() (packages/server/src/services/files.ts): stats first, reads in full at or under FILES_PREVIEW_MAX_BYTES (1 MiB, packages/core), otherwise reads only the first maxBytes via a bounded readSync into a fixed-size buffer, never loading the whole file. FileContent gains a truncated flag; packages/ui's FilesBrowser renders an explicit truncation notice and hides 'Run in editor' for a truncated preview (its SQL is incomplete); apps/web's FilesTab threads the flag through. New tests: readFilePreview's full/bounded-read paths, a route-level test with a real 2 MiB+ file confirming an exact byte-capped truncated response, and FilesBrowser's notice/button-hiding behavior. Live-verified against a running server (curl against real >1 MiB and small files, since the SQLite connect UI wasn't easily automatable in this session): the truncated response is exactly FILES_PREVIEW_MAX_BYTES bytes with truncated: true; a small file returns in full with truncated: false. pnpm --filter @qyre/server test (290 tests, 3 new) and @qyre/ui test (362 tests, 3 new) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/dashboard-ui.md",
       "completedAt": "2026-07-15T01:25:00.000Z"
     },
     {
@@ -81,7 +81,7 @@
       "commitHash": "15d5c2e",
       "evidence": "Closed SUGGESTIONS.md V1: added SchemaDdlApi.renameAndAlterColumn (one call, ColumnUpdateResult: { column, renamed, altered, alterError? }) per engine. Postgres: one client + BEGIN/COMMIT/ROLLBACK around both statements - any failure rolls back everything (verified live: a forced incompatible-cast alter after a real rename leaves the original column name intact). SQLite: both steps nested inside one db.transaction() (better-sqlite3 uses SAVEPOINTs for nested transaction functions, confirmed live) - same all-or-nothing guarantee around alterColumn's 12-step rebuild. MySQL: DDL auto-commits per statement, so no transaction can span two ALTER TABLE statements - genuinely can't be atomic; runs sequentially and returns { renamed: true, altered: false, alterError } instead of throwing when a post-rename alter fails (verified live against a real strict-mode cast failure). packages/server/src/routes/schema-ddl.ts's PATCH route now makes one combined call and returns the full result at 200, including the partial-outcome case (matching CSV import's precedent for a partial-success body over a special status code). apps/web's editColumn refreshes table metadata before surfacing an alterError as a thrown error, so a dialog retry after a MySQL partial success targets the now-current column name instead of the original bug's stale one. New tests: server route tests for the combined call and the partial-success response; live-DB driver integration tests on all three engines (rollback verification for Postgres/SQLite, partial-success verification for MySQL). pnpm --filter @qyre/server test (280), @qyre/postgres test (70), @qyre/sqlite test (50), @qyre/mysql test (60), @qyre/web test (134), and @qyre/ui test (350) all green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/schema-editing.md",
       "completedAt": "2026-07-14T21:00:00.000Z"
     },
     {
@@ -92,7 +92,7 @@
       "commitHash": "48e5ae5",
       "evidence": "Closed SUGGESTIONS.md V2: added resolveBatchOps() (packages/server/src/services/row-mutation-validation.ts) - groups staged ops by schema.table, introspects each distinct target exactly once via getTable, then resolves every op synchronously against the shared metadata (assertMutable + the matching resolve* helper, factored into a new resolveOneOp helper both entry points share). Ops keep their original relative order in the returned array (result.failedIndex and the route's own ops[] lookups both depend on it), and a validation failure on any op still throws before commitBatch is ever called - the reported failure is now deterministic (first array-order op with a problem) instead of whichever of N concurrent per-op promises happened to reject first. Removed the old per-op resolveBatchOp entry point since the route was its only caller and it's now fully superseded. New tests: shared-introspection call counting at both the service layer (single- and multi-table batches) and the route layer (a live HTTP request through the whole stack), plus a multi-op-failure ordering test. pnpm --filter @qyre/server test (294 tests) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/row-editing.md",
       "completedAt": "2026-07-15T01:45:00.000Z"
     },
     {
@@ -103,7 +103,7 @@
       "commitHash": "7b5c43e",
       "evidence": "Closed SUGGESTIONS.md V3: added CSV_IMPORT_MAX_ERRORS (100, packages/core) and a small createErrorSink helper in packages/server/src/services/csv-import.ts - tracks the true failure count separately from the capped stored list, so failedRows in the response is never wrong even once the errors array itself stops growing. Every push site (row-coercion failures, MongoDB per-document rejections, a rolled-back SQL batch's per-row entries) goes through the sink. packages/ui's CsvImportReport shows 'Showing the first N of M errors.' whenever errors.length is less than failedRows. New tests: a 150-bad-row CSV asserting errors is capped at 100 while failedRows still reports 150 (server), and the notice appears/doesn't across capped, uncapped, and zero-error cases (ui). Updated one pre-existing test whose own 250-entry expectation was the exact unbounded behavior this closes. Real browser file-upload automation wasn't feasible with available tools (browsers block programmatic .files assignment on <input type=file>), so verification relied on integration tests exercising the real processCsvImport function against real CSV streams plus component tests using the exact CsvImportResult shape the server produces. pnpm --filter @qyre/server test (295 tests) and @qyre/ui test (365 tests) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/csv-import.md",
       "completedAt": "2026-07-15T02:05:00.000Z"
     },
     {
@@ -114,7 +114,7 @@
       "commitHash": "4704f34",
       "evidence": "PR #150 (https://github.com/ensp1re/qyre/pull/150), pushed as 4704f34. Closed SUGGESTIONS.md V4 by rejecting any null primary-key member in the shared resolveKey validation path before update or delete reaches an adapter, returning 400 `Rows with a NULL primary key cannot be targeted.` instead of the misleading stale-row result produced by SQL `pk = NULL`. Added service coverage, update/delete route coverage proving adapters are not called, and a real SQLite nullable non-INTEGER primary-key fixture. Postgres, MySQL, and MongoDB are protected by the same shared validation path; the legal nullable-primary-key fixture is SQLite-specific. Verified with pnpm --filter @qyre/server test (298 tests), pnpm --filter @qyre/sqlite test (51 tests in the required non-root environment), pnpm verify:pr (34/34 check tasks, 11 smoke E2E passed/4 skipped, 29 full E2E passed/43 skipped), and both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/row-editing.md",
       "completedAt": "2026-07-15T12:22:29.000Z"
     },
     {
@@ -125,7 +125,7 @@
       "commitHash": "8de2896",
       "evidence": "PR #151 (https://github.com/ensp1re/qyre/pull/151), merged as ddafc95. Closed SUGGESTIONS.md V5+C1: `--port` now accepts only decimal integers from 0 through 65535 and reports Commander's friendly `commander.invalidArgument` error for malformed, partial-numeric, fractional, negative, and out-of-range values; masked password prompts restore cooked terminal mode before Ctrl-C exits 130, with an ordered regression assertion proving raw mode is disabled before exit. Corrected the feature verification filter from nonexistent `@qyre/cli` to the actual `@qyre/qyre` package. Verified on Node 22 with the CLI suite (52/52), `pnpm check:quiet` (34/34 tasks), local and pre-push `pnpm verify:pr` (11 smoke E2E passed/4 skipped; 29 full E2E passed/43 skipped), and both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/CONNECTING.md",
       "completedAt": "2026-07-15T12:44:00.000Z"
     },
     {
@@ -136,7 +136,7 @@
       "commitHash": "0d77b9a",
       "evidence": "Closed SUGGESTIONS.md U1: apps/web/src/features/query/api/query.ts's runQuery and explainQuery now route every non-2xx body that isn't already special-cased (DestructiveConfirmationRequiredError on 409, QueryCancelledError, ReadOnlySessionRejectionError) through the shared apiResponseError helper, so a structured permission-denied 403 from POST /api/query or /api/query/explain notifies subscribePermissionDenied and triggers the same F120 capability/table-permission cache refresh every other fetcher's error path already gets. Rendered error text is unchanged for every existing case - verified live against a running Postgres preview: a normal query still returns its result, and a genuine SQL error (unknown relation) still shows the same message with Retry. New unit tests assert both fetchers notify the listener with the structured denial and throw PermissionDeniedApiError. pnpm --filter @qyre/web test (136 tests, 2 new) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/permissions-and-capabilities.md",
       "completedAt": "2026-07-14T21:30:00.000Z"
     },
     {
@@ -147,7 +147,7 @@
       "commitHash": "214929d",
       "evidence": "Closed SUGGESTIONS.md U2+U4+U5 in packages/ui/src/data-grid/editable-cell.tsx and new-row-cell.tsx. U2: added a null button to the nullable text/number editor (onMouseDown preventDefault so it doesn't blur-commit and unmount itself before its own click fires) and made an empty text draft commit '' explicitly instead of silently cancelling; an empty number draft still cancels (empty string isn't a valid number), with the null button as the explicit way to clear it. U4: added an Escape handler on the date/time/datetime editor's wrapping container (fires regardless of which internal DateTimeInput segment has focus) - no commit-on-blur counterpart, since DateTimeInput is a compound multi-input widget and Safari doesn't focus a <button> on click by default, making a naive blur check unable to distinguish a real blur from clicking the null button. U5: both components now reject a numeric draft whose integer value exceeds Number.MAX_SAFE_INTEGER instead of silently rounding it (SQLite safeIntegers/Postgres bigint deliver exact large values as strings precisely to avoid this) - red border, draft preserved, stays in edit mode. New unit tests: 9 in editable-cell, 2 in new-row-cell; all existing tests unaffected. Live-verified against a running Postgres preview (rebuilt @qyre/ui and @qyre/web): committed an explicit empty string via the text editor, confirmed the null button appears and commits null, and confirmed a bigint value beyond 2^53 gets the red-border rejection with the draft preserved rather than silently rounding. pnpm --filter @qyre/ui test (359 tests, 11 new) and @qyre/web test (136) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/row-editing.md",
       "completedAt": "2026-07-15T00:35:00.000Z"
     },
     {
@@ -158,7 +158,7 @@
       "commitHash": "3768500",
       "evidence": "Draft PR #152 (https://github.com/ensp1re/qyre/pull/152), pushed as 3768500. Closed SUGGESTIONS.md U3 with an app-owned document-load coordinator: every edit open aborts and invalidates the previous request, while closing the drawer, entering insert mode, and unmounting the Tables tab cancel the current one. The document API now accepts an AbortSignal, and text, error, and loading completions are identity-gated so an older response cannot overwrite the drawer for a newer `_id`. Added mirrored coordinator tests for replacement and close cancellation, and documented the one-active-load contract in the row-editing spec. Verified on Node 22 with the web suite (139/139), `pnpm check:quiet` (34/34 tasks), local and pre-push `pnpm verify:pr` (11 smoke E2E passed/4 skipped; 29 full E2E passed/43 skipped), and both GitHub CI jobs passed.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/row-editing.md",
       "completedAt": "2026-07-15T12:59:43.000Z"
     },
     {
@@ -169,7 +169,7 @@
       "commitHash": "56ac0b9",
       "evidence": "Draft PR #153 (https://github.com/ensp1re/qyre/pull/153), pushed as 56ac0b9. Closed SUGGESTIONS.md U6 by adding a controlled SQL schema selector to CreateTableDialog. SchemaTab seeds it from the current sidebar table's schema when that schema is available, otherwise from the first introspected schema, and useCreateTable now carries the chosen schema in each mutation to POST /api/schemas/:schema/tables. MongoDB's collection dialog remains unchanged. Added UI coverage for the default and selectable schema list plus a web API test proving the selected schema owns the request route. Verified on Node 22 with @qyre/ui 366/366, @qyre/web 140/140, pnpm check:quiet 34/34, local and pre-push pnpm verify:pr (11 smoke E2E passed/4 skipped; 29 full E2E passed/43 skipped), and both GitHub CI jobs passed. The first push attempt hit the repository's documented transient Postgres autocomplete /api/tables timeout; its normal retry passed the complete gate.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/product-specs/schema-editing.md",
       "completedAt": "2026-07-15T13:19:35.000Z"
     },
     {
@@ -180,7 +180,7 @@
       "commitHash": "747e625",
       "evidence": "Draft PR #154 (https://github.com/ensp1re/qyre/pull/154), pushed as 747e625. Reorganized production source across apps/web, packages/ui, packages/server, packages/core, packages/drivers/contract, and all four engine drivers into cohesive responsibility folders while preserving package public exports and leaving every test file in place. Split the four production files over 500 lines: RowsTable into table state, toolbar, footer, export, and types modules; FilterBar into filter-editor pieces; TableStructure into row renderers; and the schema DDL route into table, column, index, and shared-support groups. Updated current structure/security/product documentation and extended the web structure check so an intentionally unmoved test must directly import its moved same-named source owner. Final audit found no production source file over 500 lines (largest 488) and no production source folder with more than 8 direct files. Verified on Node 22 with pnpm check:quiet (34/34 tasks), local and pre-push pnpm verify:pr (11 smoke E2E passed/4 skipped; 29 full E2E passed/43 skipped), and both GitHub CI jobs passed. Postgres, MySQL, SQLite, and MongoDB were covered by the repository gate.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md",
+      "spec": "docs/CODE_ORGANIZATION.md",
       "completedAt": "2026-07-15T13:52:50.000Z"
     },
     {
@@ -193,6 +193,17 @@
       "blockedReason": null,
       "spec": "docs/RELIABILITY.md",
       "completedAt": "2026-07-15T14:54:37.000Z"
+    },
+    {
+      "id": "F145",
+      "behavior": "Close the final active review/debt slice by making de-emphasized UI text WCAG AA compliant in both themes without flattening the IDE visual hierarchy. Add a documented semantic quiet-foreground token for light and dark surfaces, replace opacity-modified muted text/placeholder classes, and re-enable Axe color-contrast checks for disconnected and connected screens in both themes. Remove the resolved accessibility debt entry. Retire docs/SUGGESTIONS.md now that all F129-F143 findings are passing: repoint their live feature records to durable owning specs and remove obsolete source/handoff references before deleting the file.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && node scripts/with-local-env.mjs pnpm exec playwright test e2e/smoke.spec.ts e2e/connect-and-inspect.spec.ts",
+      "state": "passing",
+      "commitHash": "cbcf91e",
+      "evidence": "Draft PR #156 (https://github.com/ensp1re/qyre/pull/156), pushed as cbcf91e. Added documented light/dark quiet-foreground tokens, replaced all 66 opacity-modified muted text and placeholder usages, and adjusted semantic foreground/accent tokens so the affected UI clears WCAG AA without flattening its hierarchy. Axe color-contrast coverage now runs for disconnected and connected screens in both themes. Removed the resolved accessibility debt, deleted docs/SUGGESTIONS.md, and repointed F129-F143 to durable owning specs. The requested standalone package contrast guard was removed; contrast remains exercised by the real browser accessibility scans. Verified on Node 22 with @qyre/ui 366/366, @qyre/web 140/140, focused two-theme E2E 11 passed/4 expected skips, pnpm check:quiet 34/34, local and both pre-push pnpm verify:pr runs (11 smoke E2E passed/4 skipped; 29 full E2E passed/43 skipped), and both GitHub CI jobs passed.",
+      "blockedReason": null,
+      "spec": "docs/references/design-system.md",
+      "completedAt": "2026-07-15T15:32:47.000Z"
     }
   ]
 }

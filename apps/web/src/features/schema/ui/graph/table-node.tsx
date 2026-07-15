@@ -87,7 +87,7 @@ export function TableNode({ data, selected }: NodeProps<TableFlowNode>): ReactNo
             {column.isForeignKey && (
               <Link className="h-2 w-2 shrink-0" style={{ color: "var(--c-blue)" }} />
             )}
-            <span className="ml-auto shrink-0 truncate text-[9px] text-muted-foreground/50">
+            <span className="ml-auto shrink-0 truncate text-[9px] text-quiet-foreground">
               {column.dataType}
             </span>
             {/* Outgoing FK edges leave from the specific column's row (see graph-model's

@@ -10,7 +10,7 @@ import { formatCell } from "../../primitives/format-cell.js";
 /** A whole-number-looking draft whose value exceeds `Number.MAX_SAFE_INTEGER` - `Number(draft)`
  * would silently round it (SQLite `safeIntegers`/Postgres `bigint` deliver exact values beyond
  * 2^53 as strings precisely to avoid this). Only integer-shaped drafts are checked - ordinary
- * fractional precision loss is expected float behavior, not this bug (F140/SUGGESTIONS.md U5).
+ * fractional precision loss is expected float behavior, not this bug (F140 review finding U5).
  * Exported so `NewRowCell` applies the identical rule to insert drafts. */
 export function isUnsafeIntegerDraft(draft: string): boolean {
   return /^-?\d+$/.test(draft) && !Number.isSafeInteger(Number(draft));
@@ -279,7 +279,7 @@ export function EditableCell({
       <span
         className={cn(
           displayValue === null || displayValue === undefined
-            ? "italic text-muted-foreground/30"
+            ? "italic text-quiet-foreground"
             : undefined
         )}
       >

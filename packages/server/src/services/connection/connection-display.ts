@@ -24,7 +24,7 @@ const USERINFO_PATTERN = /(:\/\/[^\s"'@/:]*):([^\s"'@/]*)@/g;
 const QUERY_PARAM_PATTERN = /([?&])([^=&\s"']+)=([^&\s"')]*)/g;
 
 /**
- * Best-effort credential redaction for arbitrary error text (SUGGESTIONS.md S3) - driver-generated
+ * Best-effort credential redaction for arbitrary error text (F131 review finding S3) - driver-generated
  * messages (MongoDB's `MongoParseError` family especially) can echo pieces of the connection
  * string verbatim, including its embedded userinfo or a credential-bearing query param, which
  * SECURITY.md requires redacted "in logs, errors, screenshots, and diagnostics" the same as any

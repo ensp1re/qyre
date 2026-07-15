@@ -95,7 +95,7 @@ export function DatabasePanel({
   return (
     <div className="mt-5">
       <div className="flex items-center justify-between gap-2">
-        <p className="m-0 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+        <p className="m-0 font-mono text-[9px] uppercase tracking-widest text-quiet-foreground">
           Databases on this server
         </p>
         {canManage && (
@@ -112,7 +112,7 @@ export function DatabasePanel({
         )}
       </div>
       {!canManage && hiddenReason && (
-        <p className="mt-1 font-mono text-[10px] text-muted-foreground/50" title={hiddenReason}>
+        <p className="mt-1 font-mono text-[10px] text-quiet-foreground" title={hiddenReason}>
           Create/drop hidden: {hiddenReason}
         </p>
       )}
@@ -136,7 +136,7 @@ export function DatabasePanel({
                   {database}
                 </span>
                 {isCurrent ? (
-                  <span className="shrink-0 font-mono text-[9px] uppercase tracking-wide text-muted-foreground/50">
+                  <span className="shrink-0 font-mono text-[9px] uppercase tracking-wide text-quiet-foreground">
                     current
                   </span>
                 ) : (

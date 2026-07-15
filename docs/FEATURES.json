@@ -176,11 +176,12 @@
       "id": "F135",
       "behavior": "Close SUGGESTIONS.md V2: POST /api/mutations/commit validates staged ops via Promise.all(ops.map(resolveBatchOp)), firing one full getTable introspection per op even though a batch is almost always many ops against one table - 200 staged edits mean 200 concurrent identical introspection query sets before the transaction starts. Group ops by schema.table, introspect each table once, and validate every op against the shared metadata; behavior (including per-op validation failures aborting the whole commit) is unchanged.",
       "verification": "pnpm --filter @qyre/server test",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "48e5ae5",
+      "evidence": "Closed SUGGESTIONS.md V2: added resolveBatchOps() (packages/server/src/services/row-mutation-validation.ts) - groups staged ops by schema.table, introspects each distinct target exactly once via getTable, then resolves every op synchronously against the shared metadata (assertMutable + the matching resolve* helper, factored into a new resolveOneOp helper both entry points share). Ops keep their original relative order in the returned array (result.failedIndex and the route's own ops[] lookups both depend on it), and a validation failure on any op still throws before commitBatch is ever called - the reported failure is now deterministic (first array-order op with a problem) instead of whichever of N concurrent per-op promises happened to reject first. Removed the old per-op resolveBatchOp entry point since the route was its only caller and it's now fully superseded. New tests: shared-introspection call counting at both the service layer (single- and multi-table batches) and the route layer (a live HTTP request through the whole stack), plus a multi-op-failure ordering test. pnpm --filter @qyre/server test (294 tests) green; full pnpm check:quiet (34/34 tasks) also green on Node 22.",
       "blockedReason": null,
-      "spec": "docs/SUGGESTIONS.md"
+      "spec": "docs/SUGGESTIONS.md",
+      "completedAt": "2026-07-15T01:45:00.000Z"
     },
     {
       "id": "F136",

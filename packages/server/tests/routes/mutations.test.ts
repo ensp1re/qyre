@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createServer } from "../../src/index.js";
 import { authHeaders } from "../helpers/auth.js";
 import { makeFakeAdapter } from "../support/fake-adapter.js";
@@ -236,6 +236,50 @@ describe("POST /api/mutations/commit (F102)", () => {
     });
 
     expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it("introspects the target table once for a whole batch, not once per op (F135)", async () => {
+    const getTable = vi.fn(async () => ({
+      schema: "public",
+      name: "users",
+      kind: "table" as const,
+      columns: mutableColumns,
+      permissions: { select: true, insert: true, update: true, delete: true }
+    }));
+    const adapter = makeFakeAdapter({
+      getTable,
+      mutations: {
+        commitBatch: async () => ({
+          committed: true,
+          results: [{ row: {} }, { matched: 1 }, { deleted: 1 }]
+        })
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/mutations/commit",
+      headers: authHeaders(app),
+      payload: {
+        ops: [
+          { type: "insert", schema: "public", table: "users", values: { name: "Ada" } },
+          {
+            type: "update",
+            schema: "public",
+            table: "users",
+            key: { id: 1 },
+            changes: { name: "Grace" }
+          },
+          { type: "delete", schema: "public", table: "users", keys: [{ id: 2 }] }
+        ]
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(getTable).toHaveBeenCalledTimes(1);
+    expect(getTable).toHaveBeenCalledWith("public", "users");
     await app.close();
   });
 });

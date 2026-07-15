@@ -487,6 +487,34 @@ describe("MysqlAdapter integration", () => {
     }
   });
 
+  it("round-trips binary edits through bound Buffer values", async () => {
+    const pool = mysql.createPool(databaseUrl);
+    await pool.query("DROP TABLE IF EXISTS qyre_test_binary_edits");
+    await pool.query(
+      "CREATE TABLE qyre_test_binary_edits (id INT PRIMARY KEY, bytes BLOB NOT NULL)"
+    );
+    await pool.query("INSERT INTO qyre_test_binary_edits (id, bytes) VALUES (1, ?)", [
+      Buffer.from([0])
+    ]);
+
+    try {
+      await expect(
+        adapter.mutations.updateRowByKey?.(
+          databaseName,
+          "qyre_test_binary_edits",
+          { id: 1 },
+          { bytes: Buffer.from([0, 202, 254, 255]) }
+        )
+      ).resolves.toEqual({ matched: 1 });
+
+      const page = await adapter.getRows(databaseName, "qyre_test_binary_edits", 0, 10);
+      expect(page.rows[0]?.bytes).toEqual(Buffer.from([0, 202, 254, 255]));
+    } finally {
+      await pool.query("DROP TABLE IF EXISTS qyre_test_binary_edits");
+      await pool.end();
+    }
+  });
+
   it("reports matched: 0 for a key that no longer matches any row (F100)", async () => {
     const result = await adapter.mutations.updateRowByKey?.(
       databaseName,

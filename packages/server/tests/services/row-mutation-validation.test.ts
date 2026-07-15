@@ -65,6 +65,29 @@ const MONGO_TABLE: TableMetadata = {
   permissions: { select: true, insert: true, update: true, delete: true }
 };
 
+const POSTGRES_SPECIAL_TYPES_TABLE: TableMetadata = {
+  ...SQL_TABLE,
+  columns: [
+    ...SQL_TABLE.columns,
+    { name: "bytes", dataType: "bytea", nullable: false, isPrimaryKey: false, isForeignKey: false },
+    {
+      name: "bits",
+      dataType: "bit varying",
+      nullable: false,
+      isPrimaryKey: false,
+      isForeignKey: false
+    },
+    {
+      name: "address",
+      dataType: "inet",
+      nullable: false,
+      isPrimaryKey: false,
+      isForeignKey: false
+    },
+    { name: "document", dataType: "xml", nullable: false, isPrimaryKey: false, isForeignKey: false }
+  ]
+};
+
 describe("assertMutable (F099)", () => {
   it("allows a table with insert permission", () => {
     expect(() => assertMutable(SQL_TABLE, "insert")).not.toThrow();
@@ -175,6 +198,51 @@ describe("resolveInsertValues (F099)", () => {
     expect(resolveInsertValues(SQL_TABLE, { created_at: timestamp }, "postgres")).toEqual({
       created_at: timestamp
     });
+  });
+
+  it("coerces hexadecimal bytea text to a bound Buffer and preserves native text types", () => {
+    expect(
+      resolveInsertValues(
+        POSTGRES_SPECIAL_TYPES_TABLE,
+        {
+          bytes: "00cafeff",
+          bits: "00101",
+          address: "2001:db8::1/64",
+          document: "<root><value>one</value></root>"
+        },
+        "postgres"
+      )
+    ).toEqual({
+      bytes: Buffer.from([0, 202, 254, 255]),
+      bits: "00101",
+      address: "2001:db8::1/64",
+      document: "<root><value>one</value></root>"
+    });
+  });
+
+  it.each([
+    ["mysql", "blob"],
+    ["sqlite", "BLOB"]
+  ] as const)("coerces %s %s hexadecimal text to a bound Buffer", (engine, dataType) => {
+    const table: TableMetadata = {
+      ...SQL_TABLE,
+      columns: [
+        ...SQL_TABLE.columns,
+        { name: "bytes", dataType, nullable: false, isPrimaryKey: false, isForeignKey: false }
+      ]
+    };
+    expect(resolveInsertValues(table, { bytes: "00ff" }, engine)).toEqual({
+      bytes: Buffer.from([0, 255])
+    });
+  });
+
+  it("rejects malformed byte and bit drafts before reaching PostgreSQL", () => {
+    expect(() =>
+      resolveInsertValues(POSTGRES_SPECIAL_TYPES_TABLE, { bytes: "abc" }, "postgres")
+    ).toThrow(expect.objectContaining({ statusCode: 400 }));
+    expect(() =>
+      resolveInsertValues(POSTGRES_SPECIAL_TYPES_TABLE, { bits: "1201" }, "postgres")
+    ).toThrow(expect.objectContaining({ statusCode: 400 }));
   });
 
   it("rejects a local timestamp carrying an unexpected timezone offset", () => {

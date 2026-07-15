@@ -5,6 +5,7 @@ import {
   isExactNumericText,
   isExactTimeText,
   isExactTimestampText,
+  mutationValueText,
   parseMutationDraft,
   validateMutationValue
 } from "../../src/mutation/editor-values.js";
@@ -75,5 +76,38 @@ describe("mutation editor exact values", () => {
     ).toMatchObject({
       valid: true
     });
+  });
+
+  it("round-trips binary wire values through canonical hexadecimal text", () => {
+    const capability = mutationEditorCapability("bytea", "postgres");
+    expect(mutationValueText({ type: "Buffer", data: [0, 15, 255] }, capability)).toBe("000fff");
+    expect(parseMutationDraft("\\xCAFE", capability, "postgres")).toEqual({
+      valid: true,
+      value: "cafe"
+    });
+    expect(parseMutationDraft("abc", capability, "postgres")).toMatchObject({
+      valid: false,
+      error: expect.stringMatching(/even number/i)
+    });
+  });
+
+  it("validates PostgreSQL bit strings without numeric coercion", () => {
+    const capability = mutationEditorCapability("bit varying", "postgres");
+    expect(parseMutationDraft("00101", capability, "postgres")).toEqual({
+      valid: true,
+      value: "00101"
+    });
+    expect(parseMutationDraft("102", capability, "postgres")).toMatchObject({ valid: false });
+  });
+
+  it("preserves PostgreSQL network and XML text exactly", () => {
+    const inet = "2001:db8::1/64";
+    const xml = "<root>\n  <value>one</value>\n</root>";
+    expect(
+      parseMutationDraft(inet, mutationEditorCapability("inet", "postgres"), "postgres")
+    ).toEqual({ valid: true, value: inet });
+    expect(
+      parseMutationDraft(xml, mutationEditorCapability("xml", "postgres"), "postgres")
+    ).toEqual({ valid: true, value: xml });
   });
 });

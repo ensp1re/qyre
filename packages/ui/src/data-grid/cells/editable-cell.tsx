@@ -71,8 +71,9 @@ export interface EditableCellProps {
 }
 
 /** One mutation-safe grid cell (F146): single click selects, double-click/Enter/F2 edits. Simple
- * types edit directly in place; JSON/arrays open in the right-side drawer, while SET uses the
- * anchored popover with an optional drawer expansion. Nothing here resizes the table or row. */
+ * types edit directly in place; JSON/arrays/binary/XML open in the right-side drawer, while SET
+ * uses the anchored popover with an optional drawer expansion. Nothing here resizes the table or
+ * row. */
 export function EditableCell({
   cellId,
   columnName = "value",
@@ -109,7 +110,8 @@ export function EditableCell({
   const capability = mutationEditorCapability(dataType, engine, metadata);
   const inspectable = hasInspectAffordance(displayValue, dataType, Boolean(onInspectDate));
   const structured = capability.widget === "json" || capability.widget === "array";
-  const wide = structured || capability.widget === "set";
+  const drawer = structured || capability.widget === "binary" || capability.widget === "xml";
+  const wide = drawer || capability.widget === "set";
 
   useEffect(() => {
     if (!isActive && restoreFocusRef.current) {
@@ -182,8 +184,8 @@ export function EditableCell({
         column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
         engine={engine}
         originalValue={displayValue}
-        presentation={structured ? "drawer" : "popover"}
-        onExpand={!structured && !expanded ? () => setExpanded(true) : undefined}
+        presentation={drawer ? "drawer" : "popover"}
+        onExpand={!drawer && !expanded ? () => setExpanded(true) : undefined}
         onApply={(next) => {
           onCommit(next);
           closeEditing();
@@ -192,7 +194,7 @@ export function EditableCell({
       />
     );
     wideEditor =
-      structured || expanded ? (
+      drawer || expanded ? (
         <CellEditorDrawer title={columnName} onClose={closeEditing}>
           {editor}
         </CellEditorDrawer>

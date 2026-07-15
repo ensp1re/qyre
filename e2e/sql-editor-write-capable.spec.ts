@@ -50,6 +50,7 @@ test("@full a write-capable session runs a mutation directly and confirms a dest
   await page.getByRole("button", { name: "Run" }).click();
   await expect(page.getByTestId("query-result")).toContainText("rows affected.");
   await expect(page.getByTestId("confirm-destructive-statement-dialog")).toHaveCount(0);
+  await expect(page.getByRole("treeitem", { name: "qyre_e2e_write_scratch" })).toBeVisible();
 
   await editor.click();
   await editor.fill("INSERT INTO qyre_e2e_write_scratch (note) VALUES ('x')");

@@ -43,8 +43,9 @@ capabilities.md`) **and** the table's own `TablePermissions.insert`/`update`/`de
 - Non-editable **columns** within an otherwise-editable table are decided by the mutation-specific
   editor capability matrix, not the filter classifier. Filtering and mutation have different
   fidelity requirements: a filter may safely accept a coarse search value that would be lossy as a
-  stored replacement. JSON and supported native arrays use dedicated validated editors; binary and
-  unknown types stay read-only because Qyre never guesses a coercion. Time and timestamp values are
+  stored replacement. JSON and supported native arrays use dedicated validated editors. Binary
+  values use an exact hexadecimal contract; unknown types stay read-only because Qyre never guesses
+  a coercion. Time and timestamp values are
   editable only through the exact temporal editor that preserves seconds, fractional precision,
   and timezone/offset semantics without a JavaScript `Date` conversion. A primary-key column is always editable
   when inserting a new row (it must be supplied, unless the engine auto-generates it - see below) but
@@ -61,8 +62,6 @@ capabilities.md`) **and** the table's own `TablePermissions.insert`/`update`/`de
 - Column-level edit permissions finer than what `TablePermissions` already expresses - same
   exclusion `permissions-and-capabilities.md` already states for column-level grants generally; a
   column-level rejection surfaces as a real database error, friendly-mapped (F120).
-- A dedicated binary value editor. Binary columns remain read-only until Qyre has a lossless authoring
-  contract; JSON and supported arrays use the structured editor defined below.
 - Changing a row's primary key value via update (see above) - delete-and-reinsert is the only path,
   and this spec doesn't wire a combined "rekey" operation for it.
 
@@ -196,12 +195,22 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
     PostgreSQL native scalar arrays use the same full-value surface but require a JSON array and
     remain native arrays at the driver boundary. SQLite has no native array contract; MySQL arrays
     remain JSON values rather than a separate native array kind.
+  - `binary`: the right-side drawer displays canonical lowercase hexadecimal text. It also accepts
+    an optional `\\x` prefix, rejects non-hex or odd-length drafts, and normalizes the value before
+    staging. The server converts the validated hex to a bound `Buffer`; PostgreSQL `bytea`, MySQL
+    binary/blob families, and SQLite `BLOB` therefore share one lossless byte contract.
+  - PostgreSQL `bit` / `bit varying`: a scalar string containing only `0` and `1`, preserving
+    leading zeroes. MySQL `BIT` remains read-only until column bit length is carried with the row
+    value so its Buffer representation can be decoded without guessing.
+  - PostgreSQL `inet` / `cidr` / `macaddr`: exact text bound unchanged. PostgreSQL remains
+    authoritative for address syntax and range semantics.
+  - `XML`: raw multiline text in the right-side drawer, bound unchanged. The native database type
+    remains authoritative for XML validity.
   - `objectId` (MongoDB only): JSON string, further validated as a syntactically valid 24-hex-char
     ObjectId before the adapter constructs a real `ObjectId` from it.
   - `null`: only accepted when the column is `nullable`; identical to how `RowFilter`'s `isNull`
     already respects nullability.
-  - `binary` / `unknown`: never accepted - see "Row identity and editability" above. Unsupported
-    structured families such as XML also remain read-only until they have a lossless contract.
+  - `unknown`: never accepted - see "Row identity and editability" above.
 - Only one grid editor is active at a time. Clicking a different body cell dismisses any scalar,
   structured, or inserted-row editor after the current scalar input has had a chance to stage its
   blur result; interaction inside the active cell or its portalled editor does not dismiss it.
@@ -213,16 +222,20 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
 
 ### Per-engine editor matrix
 
-| Editor kind                | PostgreSQL                              | MySQL                              | SQLite                                   | MongoDB                                |
-| -------------------------- | --------------------------------------- | ---------------------------------- | ---------------------------------------- | -------------------------------------- |
-| Text / multiline / UUID    | scalar cell                             | scalar cell                        | scalar cell                              | whole-document EJSON                   |
-| Exact integer / decimal    | decimal-string binding                  | decimal-string binding             | decimal-string binding                   | whole-document EJSON                   |
-| Boolean / nullable boolean | tri-state selector                      | tri-state selector                 | tri-state selector when declared boolean | whole-document EJSON                   |
-| Enum / set                 | catalog enum selector; no native set    | `ENUM` selector; `SET` multiselect | not applicable                           | whole-document EJSON                   |
-| Date / time / timestamp    | exact date/time/local/offset editors    | exact date/time/local editors      | exact declared-type editor               | whole-document EJSON                   |
-| JSON                       | JSON/JSONB editor                       | JSON editor                        | declared JSON editor                     | shared structured editor in EJSON mode |
-| Native scalar array        | JSON-array editor with element metadata | not applicable outside JSON        | not applicable                           | whole-document EJSON                   |
-| Binary / unknown / XML     | explained read-only                     | explained read-only                | explained read-only                      | whole-document EJSON                   |
+| Editor kind                | PostgreSQL                              | MySQL                                 | SQLite                                   | MongoDB                                |
+| -------------------------- | --------------------------------------- | ------------------------------------- | ---------------------------------------- | -------------------------------------- |
+| Text / multiline / UUID    | scalar cell                             | scalar cell                           | scalar cell                              | whole-document EJSON                   |
+| Exact integer / decimal    | decimal-string binding                  | decimal-string binding                | decimal-string binding                   | whole-document EJSON                   |
+| Boolean / nullable boolean | tri-state selector                      | tri-state selector                    | tri-state selector when declared boolean | whole-document EJSON                   |
+| Enum / set                 | catalog enum selector; no native set    | `ENUM` selector; `SET` multiselect    | not applicable                           | whole-document EJSON                   |
+| Date / time / timestamp    | exact date/time/local/offset editors    | exact date/time/local editors         | exact declared-type editor               | whole-document EJSON                   |
+| JSON                       | JSON/JSONB editor                       | JSON editor                           | declared JSON editor                     | shared structured editor in EJSON mode |
+| Native scalar array        | JSON-array editor with element metadata | not applicable outside JSON           | not applicable                           | whole-document EJSON                   |
+| Binary                     | hex drawer -> bound `Buffer`            | hex drawer -> bound `Buffer`          | hex drawer -> bound `Buffer`             | whole-document EJSON                   |
+| Bit string                 | validated `0`/`1` scalar                | read-only pending bit-length metadata | not applicable                           | whole-document EJSON                   |
+| Network                    | exact native text                       | not applicable                        | not applicable                           | whole-document EJSON                   |
+| XML                        | raw multiline drawer                    | not applicable natively               | declared XML text drawer                 | whole-document EJSON                   |
+| Unknown                    | explained read-only                     | explained read-only                   | explained read-only                      | whole-document EJSON                   |
 
 `ColumnMetadata.allowedValues` carries authoritative enum/set values when the engine exposes them;
 `elementDataType` identifies a supported native array's element type. Missing metadata fails closed

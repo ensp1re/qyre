@@ -11,6 +11,8 @@ const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const LOCAL_TIME = /^(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?$/;
 const OFFSET = /(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/i;
 const MYSQL_TIME = /^-?(?:(?:\d{1,2}|[0-7]\d{2}|8[0-2]\d|83[0-8])):[0-5]\d:[0-5]\d(?:\.\d{1,6})?$/;
+const BIT_STRING = /^[01]+$/;
+const BINARY_HEX = /^(?:[0-9a-f]{2})*$/i;
 
 function invalid(error: string): MutationValueResult {
   return { valid: false, error };
@@ -84,6 +86,18 @@ export function jsonErrorWithLocation(error: unknown, source: string): string {
 
 export function mutationValueText(value: unknown, capability: MutationEditorCapability): string {
   if (value === null || value === undefined) return "";
+  if (
+    capability.kind === "binary" &&
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    value.type === "Buffer" &&
+    "data" in value &&
+    Array.isArray(value.data) &&
+    value.data.every((byte) => Number.isInteger(byte) && byte >= 0 && byte <= 255)
+  ) {
+    return value.data.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
   if (capability.widget === "json" || capability.widget === "array") {
     if (typeof value === "string" && /^[[{]/.test(value.trim())) {
       try {
@@ -106,7 +120,13 @@ export function validateMutationValue(
 ): MutationValueResult {
   switch (capability.kind) {
     case "text":
+    case "network":
+    case "xml":
       return typeof value === "string" ? { valid: true, value } : invalid("Expected text.");
+    case "bit-string":
+      return typeof value === "string" && BIT_STRING.test(value)
+        ? { valid: true, value }
+        : invalid("Use only 0 and 1, with at least one digit.");
     case "identifier":
       if (typeof value !== "string" || !UUID.test(value)) return invalid("Enter a valid UUID.");
       return { valid: true, value };
@@ -162,8 +182,14 @@ export function validateMutationValue(
       } catch {
         return invalid("Enter a JSON-serializable value.");
       }
+    case "binary": {
+      if (typeof value !== "string") return invalid("Enter bytes as hexadecimal text.");
+      const normalized = value.trim().replace(/^\\x/i, "");
+      return BINARY_HEX.test(normalized)
+        ? { valid: true, value: normalized.toLowerCase() }
+        : invalid("Use an even number of hexadecimal digits (0-9, A-F).");
+    }
     case "null":
-    case "binary":
     case "unknown":
     case "object-id":
       return invalid(capability.unavailableReason ?? "This value is not editable.");

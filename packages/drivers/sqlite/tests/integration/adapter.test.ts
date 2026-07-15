@@ -465,6 +465,33 @@ describe("SqliteAdapter integration", () => {
     }
   });
 
+  it("round-trips BLOB edits through bound Buffer values", async () => {
+    const seed = new Database(dbPath);
+    seed.exec("CREATE TABLE qyre_test_binary_edits (id INTEGER PRIMARY KEY, bytes BLOB NOT NULL)");
+    seed
+      .prepare("INSERT INTO qyre_test_binary_edits (id, bytes) VALUES (?, ?)")
+      .run(1, Buffer.from([0]));
+    seed.close();
+
+    try {
+      await expect(
+        adapter.mutations.updateRowByKey?.(
+          "main",
+          "qyre_test_binary_edits",
+          { id: 1 },
+          { bytes: Buffer.from([0, 202, 254, 255]) }
+        )
+      ).resolves.toEqual({ matched: 1 });
+
+      const page = await adapter.getRows("main", "qyre_test_binary_edits", 0, 10);
+      expect(page.rows[0]?.bytes).toEqual(Buffer.from([0, 202, 254, 255]));
+    } finally {
+      const cleanup = new Database(dbPath);
+      cleanup.exec("DROP TABLE IF EXISTS qyre_test_binary_edits");
+      cleanup.close();
+    }
+  });
+
   it("reports matched: 0 for a key that no longer matches any row (F100)", async () => {
     const result = await adapter.mutations.updateRowByKey?.(
       "main",

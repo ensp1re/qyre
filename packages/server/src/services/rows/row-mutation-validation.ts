@@ -3,6 +3,7 @@ import { classifyFilterColumnKind, type FilterColumnKind } from "@qyre/core/filt
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import { isExactNumericText, validateMutationValue } from "@qyre/core/mutation-editor-values";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
+import { Buffer } from "node:buffer";
 
 function badRequest(message: string): Error {
   return Object.assign(new Error(message), { statusCode: 400 });
@@ -98,6 +99,7 @@ function resolveEditableValue(
 
   if (capability.widget === "json") return JSON.stringify(result.value);
   if (capability.widget === "set") return (result.value as string[]).join(",");
+  if (capability.widget === "binary") return Buffer.from(result.value as string, "hex");
   return result.value;
 }
 

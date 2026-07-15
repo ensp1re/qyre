@@ -13,6 +13,9 @@ export type MutationEditorKind =
   | "set"
   | "structured"
   | "binary"
+  | "bit-string"
+  | "network"
+  | "xml"
   | "unknown"
   | "null"
   | "object-id";
@@ -28,7 +31,9 @@ export type MutationEditorWidget =
   | "enum"
   | "set"
   | "json"
-  | "array";
+  | "array"
+  | "binary"
+  | "xml";
 
 export interface MutationEditorMetadata {
   readonly allowedValues?: readonly string[];
@@ -104,10 +109,26 @@ export function mutationEditorCapability(
       : unavailable("structured", "Native array editing is supported only for PostgreSQL.");
   }
   if (type.includes("xml")) {
-    return unavailable("structured", "XML does not yet have a lossless mutation editor.");
+    return available("xml", "xml");
   }
   if (type.includes("blob") || type.includes("binary") || type.includes("bytea")) {
-    return unavailable("binary", "Binary values do not yet have a safe mutation editor.");
+    return available("binary", "binary");
+  }
+  if (
+    engine === "postgres" &&
+    (type === "bit" ||
+      type.startsWith("bit(") ||
+      type.startsWith("bit varying") ||
+      type === "varbit" ||
+      type.startsWith("varbit("))
+  ) {
+    return available("bit-string", "text");
+  }
+  if (
+    engine === "postgres" &&
+    (type === "inet" || type === "cidr" || type === "macaddr" || type === "macaddr8")
+  ) {
+    return available("network", "text");
   }
 
   if (type.includes("char") || type.includes("text") || type.includes("clob")) {

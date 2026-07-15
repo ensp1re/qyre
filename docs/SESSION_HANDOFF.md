@@ -6,8 +6,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-16.
-- Branch: `feature/F146-grid-editing-ux-polish`, based on `main` at `fcab56c` (DF-12 merged in #159).
-  Draft PR #160 contains all six F146 review rounds.
+- Branch: `feature/F146-grid-editing-ux-polish`; draft PR #160 contains F146.
 - Queue: DF-10 through DF-12 are passing. F146 is active, continuing the same 0007 audit plan on
   the grid-editing surface. DF-13 (guided Add/Duplicate row composer) is next after F146.
 
@@ -49,11 +48,20 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   drawer for existing and inserted rows. The mutation surface names the column once and keeps only
   the full-value editor, Format, validation, nullable selection, Cancel, and Apply; the intermediate
   popover, Expand step, duplicated type/value labels, helper copy, Minify, and Copy are removed.
+- F146 round 7: successful mutation/DDL/destructive SQL now invalidates catalog, selected-table,
+  and row caches so created tables appear in the sidebar without reload. PostgreSQL `bytea`, `bit`,
+  `bit varying`, `inet`/network, and XML are mutation-safe: binary uses validated hex converted to a
+  bound Buffer, bit strings preserve leading zeroes, network/XML bind exact text, and binary/XML use
+  the streamlined right-side drawer. The same binary contract is live-verified for MySQL blob and
+  SQLite BLOB; MongoDB remains whole-document EJSON.
 
 ## In progress
 
-- Round 6 passes the complete local PR gate and is being pushed to draft PR #160. F146 remains
-  active until GitHub CI can run again.
+- Round 7 focused core/server/UI/web and SQL-driver suites pass; focused PostgreSQL browser E2E
+  proves sidebar refresh plus bytea/bit/bit-varying/inet/XML persistence. Full local `pnpm verify:pr`
+  passes 34/34 package tasks, 11 smoke E2E with four expected skips, and 30 full E2E with 47
+  expected skips. Current step: commit and push to draft PR #160. F146 remains active until GitHub
+  CI can run again.
 
 ## Known issues / blockers
 

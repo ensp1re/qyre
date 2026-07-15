@@ -142,6 +142,53 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(screen.getByRole("textbox", { name: "JSON editor" })).toBeInTheDocument();
   });
 
+  it("opens bytea as hexadecimal text in the right-side drawer", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        columnName="payload"
+        displayValue={{ type: "Buffer", data: [0, 202, 254] }}
+        dataType="bytea"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit payload" }));
+    expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
+    const editor = screen.getByRole("textbox", { name: "Edit cell value" });
+    expect(editor).toHaveValue("00cafe");
+    fireEvent.change(editor, { target: { value: "00ff" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onCommit).toHaveBeenCalledWith("00ff");
+  });
+
+  it("opens XML as raw multiline text in the right-side drawer", () => {
+    const onCommit = vi.fn();
+    const value = "<root><value>one</value></root>";
+    render(
+      <EditableCell
+        columnName="document"
+        displayValue={value}
+        dataType="xml"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+
+    fireEvent.doubleClick(screen.getByText(value));
+    const editor = screen.getByRole("textbox", { name: "Edit cell value" });
+    fireEvent.change(editor, { target: { value: "<root>\n  <value>two</value>\n</root>" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onCommit).toHaveBeenCalledWith("<root>\n  <value>two</value>\n</root>");
+  });
+
   it("Escape cancels the edit without committing", () => {
     const onCommit = vi.fn();
     render(

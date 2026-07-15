@@ -855,3 +855,10 @@ personal taste.
   step and remove duplicated metadata, helper copy, Minify, and Copy while retaining Format,
   validation, nullable selection, Cancel, and Apply. Current step: full local PR gate and push to
   draft PR #160; GitHub Actions credits remain unavailable.
+- 2026-07-16: F146 round 7 invalidates catalog/table/row caches after successful non-read SQL so
+  DDL-created tables appear without reload, and adds lossless mutation contracts for binary hex
+  across PostgreSQL/MySQL/SQLite plus PostgreSQL bit strings, network text, and raw XML. Focused
+  SQL-driver and browser E2E proves bound-value round trips, sidebar refresh, and persistence;
+  full local `pnpm verify:pr` passes 34/34 package tasks, 11 smoke E2E with four expected skips, and
+  30 full E2E with 47 expected skips. Current step: commit and push to draft PR #160; GitHub Actions
+  credits remain unavailable.

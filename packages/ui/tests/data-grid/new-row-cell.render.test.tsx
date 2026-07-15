@@ -130,4 +130,23 @@ describe("NewRowCell (component rendering, F104/F146)", () => {
     expect(screen.getByRole("textbox", { name: "JSON editor" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Expand to full panel" })).not.toBeInTheDocument();
   });
+
+  it("authors bytea as hexadecimal text in the right-side drawer", () => {
+    const onChange = vi.fn();
+    render(
+      <NewRowCell
+        columnName="payload"
+        value={undefined}
+        dataType="bytea"
+        engine="postgres"
+        nullable={false}
+        onChange={onChange}
+      />
+    );
+    openEditor("Set payload");
+    const editor = screen.getByRole("textbox", { name: "New row value" });
+    fireEvent.change(editor, { target: { value: "cafe" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onChange).toHaveBeenCalledWith("cafe");
+  });
 });

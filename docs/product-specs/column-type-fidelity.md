@@ -83,6 +83,12 @@ single-line text input. PostgreSQL native arrays remain arrays; MySQL and SQLite
 rather than being misidentified as native arrays. MongoDB uses the same syntax/formatting/error
 surface in relaxed Extended JSON mode so BSON wrappers remain unambiguous.
 
+Binary mutation uses canonical hexadecimal text in the full-value drawer and converts validated,
+even-length hex to a bound Buffer at the server boundary for PostgreSQL `bytea`, MySQL binary/blob
+families, and SQLite `BLOB`. PostgreSQL bit strings preserve leading zeroes as validated `0`/`1`
+text; native network values bind exact text; XML uses a raw multiline drawer and native database
+validation. Unknown families still fail closed.
+
 ## Scope
 
 In scope: the four defects above, confirmed via a live fixture across all three engines and fixed

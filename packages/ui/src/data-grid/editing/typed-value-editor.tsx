@@ -40,8 +40,9 @@ function setInitialValue(value: unknown): string[] {
 }
 
 /**
- * The full-value editor for widgets too large for in-place editing (F146). JSON/arrays use its
- * streamlined drawer presentation; SET retains the anchored popover and optional drawer expansion.
+ * The full-value editor for widgets too large for in-place editing (F146). JSON/arrays/binary/XML
+ * use its streamlined drawer presentation; SET retains the anchored popover and optional drawer
+ * expansion.
  */
 export function TypedValueEditor({
   column,
@@ -102,7 +103,7 @@ export function TypedValueEditor({
   }
 
   const structured = capability.widget === "json" || capability.widget === "array";
-  const minimalStructuredDrawer = structured && presentation === "drawer";
+  const minimalDrawer = presentation === "drawer";
 
   let control: ReactElement;
   if (nullDraft) {
@@ -153,11 +154,11 @@ export function TypedValueEditor({
           setDraft(value);
           setError(undefined);
         }}
-        label={minimalStructuredDrawer ? "JSON editor" : "New value"}
+        label={minimalDrawer ? "JSON editor" : "New value"}
         error={error}
         autoFocus
-        minHeightClassName={minimalStructuredDrawer ? "min-h-[calc(100vh-9rem)]" : "min-h-40"}
-        variant={minimalStructuredDrawer ? "minimal" : "full"}
+        minHeightClassName={minimalDrawer ? "min-h-[calc(100vh-9rem)]" : "min-h-40"}
+        variant={minimalDrawer ? "minimal" : "full"}
       />
     );
   } else {
@@ -170,23 +171,26 @@ export function TypedValueEditor({
           setDraft(event.target.value);
           setError(undefined);
         }}
-        spellCheck
-        className="min-h-32 max-h-72 w-full resize-y overflow-auto rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary"
+        spellCheck={false}
+        className={cn(
+          "w-full resize-y overflow-auto rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary",
+          minimalDrawer ? "min-h-[calc(100vh-9rem)]" : "min-h-32 max-h-72"
+        )}
       />
     );
   }
 
   return (
     <div className="grid w-full max-w-full gap-2 p-2" onKeyDown={handleKeyDown}>
-      {(!minimalStructuredDrawer || column.nullable) && (
+      {(!minimalDrawer || column.nullable) && (
         <div className="flex items-start gap-2">
-          {!minimalStructuredDrawer && (
+          {!minimalDrawer && (
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-medium text-foreground">{column.name}</p>
               <p className="font-mono text-[9px] text-quiet-foreground">{column.dataType}</p>
             </div>
           )}
-          {onExpand && !minimalStructuredDrawer && (
+          {onExpand && !minimalDrawer && (
             <Button
               variant="ghost"
               size="sm"
@@ -206,14 +210,14 @@ export function TypedValueEditor({
                 setNullDraft((current) => !current);
                 setError(undefined);
               }}
-              className={minimalStructuredDrawer ? "ml-auto" : undefined}
+              className={minimalDrawer ? "ml-auto" : undefined}
             >
               NULL
             </Button>
           )}
         </div>
       )}
-      {structured ? (
+      {structured || minimalDrawer ? (
         control
       ) : (
         <Field
@@ -223,6 +227,11 @@ export function TypedValueEditor({
         >
           {control}
         </Field>
+      )}
+      {!structured && minimalDrawer && error && (
+        <p className="font-mono text-[9px]" style={{ color: "var(--c-red)" }}>
+          {error}
+        </p>
       )}
       <EditorActions onApply={apply} onCancel={onCancel} />
     </div>

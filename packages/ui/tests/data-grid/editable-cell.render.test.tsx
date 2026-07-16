@@ -409,6 +409,9 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(screen.queryByTestId("cell-editor-surface")).not.toBeInTheDocument();
     const input = screen.getByLabelText("value") as HTMLInputElement;
     expect(input.value).toBe(long);
+    const widthReserve = screen.getByTestId("cell-editor-width-reserve");
+    expect(widthReserve).toHaveTextContent(`${"a".repeat(100)}...`);
+    expect(widthReserve).toHaveClass("invisible", "w-max");
     fireEvent.change(input, { target: { value: "short now" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onCommit).toHaveBeenCalledWith("short now");

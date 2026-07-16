@@ -156,28 +156,44 @@ export function EditableCell({
     );
   }
 
+  const cellDisplayText =
+    displayValue === null || displayValue === undefined
+      ? "null"
+      : displayValue === ""
+        ? '""'
+        : truncateForDisplay(formatCell(displayValue));
+
   if (isActive && !wide) {
     return (
-      <div
-        data-testid="cell-editor-anchor"
-        data-cell-id={cellId}
-        className="absolute inset-0 flex items-center gap-1 bg-background px-1.5"
-      >
-        <InlineCellEditor
-          column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
-          engine={engine}
-          originalValue={displayValue}
-          onApply={(next) => {
-            onCommit(next);
-            closeEditing();
-          }}
-          onCancel={closeEditing}
-          onCommitKey={(direction) => {
-            closeEditing();
-            onCommitKey?.(direction);
-          }}
-        />
-      </div>
+      <>
+        <div
+          aria-hidden="true"
+          data-testid="cell-editor-width-reserve"
+          className="invisible flex w-max items-center gap-1 whitespace-nowrap border-l-2 border-transparent pl-1"
+        >
+          <span className="rounded-sm px-0.5">{cellDisplayText}</span>
+        </div>
+        <div
+          data-testid="cell-editor-anchor"
+          data-cell-id={cellId}
+          className="absolute inset-0 flex items-center gap-1 bg-background px-1.5"
+        >
+          <InlineCellEditor
+            column={{ name: columnName, dataType, nullable, allowedValues, elementDataType }}
+            engine={engine}
+            originalValue={displayValue}
+            onApply={(next) => {
+              onCommit(next);
+              closeEditing();
+            }}
+            onCancel={closeEditing}
+            onCommitKey={(direction) => {
+              closeEditing();
+              onCommitKey?.(direction);
+            }}
+          />
+        </div>
+      </>
     );
   }
 
@@ -290,11 +306,7 @@ export function EditableCell({
               : "text-foreground"
           )}
         >
-          {displayValue === null || displayValue === undefined
-            ? "null"
-            : displayValue === ""
-              ? '""'
-              : truncateForDisplay(formatCell(displayValue))}
+          {cellDisplayText}
         </button>
       )}
       {dirty && (

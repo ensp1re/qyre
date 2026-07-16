@@ -923,4 +923,5 @@ personal taste.
   the live DOM input value instead of a potentially one-render-old React draft, so leaving a cell
   cannot drop the final edit while Enter succeeds. All 421 UI tests pass with a timing regression,
   and rebuilt production browser checks stage the changed value on click-away in MongoDB and
-  PostgreSQL. The user approved commit and push; run the Node 22 full gate and deliver normally.
+  PostgreSQL. Rounds 12-16 are pushed to draft PR #160 as `b06a89d`; the Node 22 local and pre-push
+  gates pass. Both hosted CI jobs still fail before any steps while Actions credits are unavailable.

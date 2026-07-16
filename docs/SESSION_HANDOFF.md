@@ -19,38 +19,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   editing, cross-engine byte handling, enum selectors, containment filters, and post-write refresh.
 - Rounds 9-11: stable long-text geometry, plain substring SQL JSON/array filters, invalid-Apply
   blocking, legacy interval normalization, and insert-safe binary duplication.
+- Rounds 12-16: shared MongoDB grid writes and BSON editors, stable ObjectId compatibility, and
+  live-value click-away staging. Delivered to draft PR #160 as `b06a89d`; local and pre-push gates
+  pass.
 
 ## In progress
 
-- Round 12 is implemented locally and intentionally uncommitted/unpushed pending user UI approval.
-  MongoDB now uses the shared typed grid for Add/Duplicate/edit/delete/Commit, previews JSON
-  operations, preserves BSON types in field-level `$set` updates, and rejects same-field concurrent
-  edits. Focused core/UI/web/server tests, live MongoDB integration, and MongoDB browser E2E pass.
-  The full local `pnpm verify:pr` gate passes with 34/34 package tasks, check:state, smoke E2E
-  (11 passed, 4 skipped), and full E2E (30 passed, 47 skipped). Current step: rebuild the CLI bundle,
-  open the UI, and wait for user approval before any commit or push.
-- Round 13 is in progress locally: MongoDB regex, timestamp, code, MinKey, and MaxKey fields now
-  receive dedicated validated JSON drawer editors instead of `unsupported`; Add row prefills valid
-  type templates, and the server/driver round-trip them as native BSON values. The full local
-  `pnpm verify:pr` gate passes with 34/34 package tasks, check:state, smoke E2E (11 passed, 4
-  skipped), and full E2E (30 passed, 47 skipped). Current step: rebuild and reopen the UI, then wait
-  for user approval. Do not commit or push before approval.
-- Round 14 fixes MongoDB row commits that received `_id` as an ObjectId/Extended JSON object instead
-  of plain text. The adapter now emits ObjectIds as stable lowercase hex row keys across BSON
-  package boundaries, while server validation safely accepts and normalizes `$oid`. Server tests
-  pass 308/308, live MongoDB passes 77/77, the focused Mongo browser commit journey passes, and the
-  full local gate passes with 34/34 package tasks, smoke E2E (11 passed, 4 skipped), and full E2E
-  (30 passed, 47 skipped). Current step: reopen the rebuilt app and wait for user validation; do not
-  commit or push before approval.
-- Round 15 handles a pre-fix browser page that still submits the exact legacy 12-byte ObjectId
-  buffer shape. The rebuilt production server accepted that payload and restored the edited demo
-  row, then the rebuilt browser UI committed and restored the row again without error. Server tests
-  pass 309/309 and the Node 22 full gate passes unchanged. Port 7717 is running the rebuilt CLI;
-  do not commit or push before approval.
-- Round 16 fixes fast click-away staging for inline scalar inputs by committing the DOM input's live
-  value instead of a potentially one-render-old React draft. All 421 UI tests pass, and rebuilt
-  production browser checks stage the changed value on click-away in MongoDB and PostgreSQL. The
-  user approved commit and push; run the Node 22 full gate, commit, and push normally.
+- F146 remains active only because draft PR #160 cannot obtain hosted CI results while GitHub
+  Actions credits are unavailable. The implementation is pushed as `b06a89d` and its local and
+  pre-push verification is green.
 
 ## Known issues / blockers
 

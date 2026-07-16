@@ -872,3 +872,9 @@ personal taste.
   smoke E2E with four expected skips, and 30 full E2E with 47 expected skips. Round 8 is pushed to
   draft PR #160 as `bdf2667`; both GitHub jobs fail before any steps because Actions credits remain
   unavailable. Current step: rerun CI when credits return, then move F146 to passing.
+- 2026-07-16: F146 round 9 keeps the shortened scalar display value invisibly in table layout while
+  its absolute inline editor is active, preventing long-text columns from collapsing on
+  double-click. Component coverage and a real-browser fixture verify identical before/edit widths;
+  local `pnpm verify:pr` again passes 34/34 package tasks, 11 smoke E2E with four expected skips,
+  and 30 full E2E with 47 expected skips. Implemented as `c74d70a`; current step remains rerunning
+  CI when Actions credits return.

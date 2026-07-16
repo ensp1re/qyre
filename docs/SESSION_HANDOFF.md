@@ -36,13 +36,17 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   `bytes` in grid/filter chrome while preserving the schema's real type. PostgreSQL JSON/native
   arrays, MySQL JSON, and MongoDB objects/arrays gained native `contains` filters; enum equality
   filters reuse the enum selector. SQLite structured containment remains explicitly unavailable.
+- F146 round 9: inline scalar editing keeps an invisible copy of the shortened display value in
+  table layout while the input overlays it, so double-clicking a long value no longer collapses
+  the column. Component coverage and a real-browser long-text fixture verify stable geometry.
 
 ## In progress
 
-- Round 8 is pushed as `bdf2667` to draft PR #160. Focused core/server/UI and driver
+- Round 9 is implemented as `c74d70a` on draft PR #160. Focused core/server/UI and driver
   unit/live-integration suites pass. Focused PostgreSQL
   browser E2E proves date/time/time-zone/interval/binary persistence, and 1280x720 visual QA proves
-  JSON and bytes editor utilities plus Apply/Cancel remain visible. Full local `pnpm verify:pr`
+  JSON and bytes editor utilities plus Apply/Cancel remain visible; a dedicated browser fixture
+  verifies stable long-text width before and during editing. Full local `pnpm verify:pr`
   passes 34/34 package tasks, 11 smoke E2E with four expected skips, and 30 full E2E with 47
   expected skips, locally and in the pre-push hook. Current step: wait for GitHub Actions credits,
   rerun CI, and move F146 to passing after both jobs succeed.

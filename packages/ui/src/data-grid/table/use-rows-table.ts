@@ -1,4 +1,6 @@
 import type { ColumnMetadata, RowExportFormat, RowPage } from "@qyre/core";
+import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
+import { mutationValueText } from "@qyre/core/mutation-editor-values";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { PointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +12,7 @@ import type { RowsTableProps } from "./rows-table-types.js";
 interface RowsTableModelInput {
   rowPage: RowPage;
   columns: ColumnMetadata[];
+  engine: RowsTableProps["engine"];
   sortColumn: string | undefined;
   sortDirection: "asc" | "desc" | undefined;
   onSortChange: RowsTableProps["onSortChange"];
@@ -27,6 +30,7 @@ interface RowsTableModelInput {
 export function useRowsTableModel({
   rowPage,
   columns,
+  engine,
   sortColumn,
   sortDirection,
   onSortChange,
@@ -219,7 +223,13 @@ export function useRowsTableModel({
     for (const columnName of insertableColumns) {
       if (primaryKeyColumns?.includes(columnName)) continue;
       const value = row[columnName];
-      if (value !== null && value !== undefined) initialValues[columnName] = value;
+      if (value === null || value === undefined) continue;
+      const column = columnByName.get(columnName);
+      const capability = column
+        ? mutationEditorCapability(column.dataType, engine, column)
+        : undefined;
+      initialValues[columnName] =
+        capability?.widget === "binary" ? mutationValueText(value, capability) : value;
     }
     pendingChanges.addInsert(initialValues);
   }

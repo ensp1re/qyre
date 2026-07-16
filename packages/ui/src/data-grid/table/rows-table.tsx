@@ -107,6 +107,7 @@ export function RowsTable({
   } = useRowsTableModel({
     rowPage,
     columns,
+    engine,
     sortColumn,
     sortDirection,
     onSortChange,

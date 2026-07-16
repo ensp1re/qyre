@@ -22,19 +22,31 @@ const columns: ColumnMetadata[] = [
  * `RowsTable`) without importing apps/web's implementation, which packages/ui can't depend on. */
 function TestHost({
   canInsert,
-  insertableColumns = new Set(["id", "name"])
+  insertableColumns = new Set(["id", "name"]),
+  pageData = rowPage,
+  columnMetadata = columns,
+  engine,
+  onAddInsert
 }: {
   canInsert: boolean;
   insertableColumns?: ReadonlySet<string>;
+  pageData?: RowPage;
+  columnMetadata?: ColumnMetadata[];
+  engine?: ComponentProps<typeof RowsTable>["engine"];
+  onAddInsert?: (initialValues: Record<string, unknown> | undefined) => void;
 }): ReactNode {
   const [inserts, setInserts] = useState<{ id: string; values: Record<string, unknown> }[]>([]);
   const nextId = useRef(0);
 
-  const addInsert = useCallback((initialValues?: Record<string, unknown>) => {
-    const id = `insert-${nextId.current++}`;
-    setInserts((current) => [...current, { id, values: initialValues ?? {} }]);
-    return id;
-  }, []);
+  const addInsert = useCallback(
+    (initialValues?: Record<string, unknown>) => {
+      onAddInsert?.(initialValues);
+      const id = `insert-${nextId.current++}`;
+      setInserts((current) => [...current, { id, values: initialValues ?? {} }]);
+      return id;
+    },
+    [onAddInsert]
+  );
 
   const updateInsertValue = useCallback((id: string, column: string, value: unknown) => {
     setInserts((current) =>
@@ -50,8 +62,9 @@ function TestHost({
 
   return (
     <RowsTable
-      rowPage={rowPage}
-      columns={columns}
+      rowPage={pageData}
+      columns={columnMetadata}
+      engine={engine}
       page={0}
       canGoPrevious={false}
       canGoNext={false}
@@ -135,6 +148,43 @@ describe("RowsTable Add-row / Duplicate-row (component rendering, F104)", () => 
     fireEvent.click(screen.getByRole("button", { name: "Duplicate row 1" }));
     expect(screen.getByRole("button", { name: "Edit name" })).toHaveTextContent("Ada");
     expect(screen.getByRole("button", { name: "Set id" })).toBeInTheDocument();
+  });
+
+  it("normalizes duplicated bytea values to hexadecimal text before staging", () => {
+    const onAddInsert = vi.fn();
+    render(
+      <TestHost
+        canInsert
+        engine="postgres"
+        pageData={{
+          columns: ["id", "bytea_value"],
+          rows: [{ id: 1, bytea_value: { type: "Buffer", data: [0, 202, 254] } }],
+          page: 0,
+          pageSize: 25
+        }}
+        columnMetadata={[
+          {
+            name: "id",
+            dataType: "int4",
+            nullable: false,
+            isPrimaryKey: true,
+            isForeignKey: false
+          },
+          {
+            name: "bytea_value",
+            dataType: "bytea",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]}
+        insertableColumns={new Set(["id", "bytea_value"])}
+        onAddInsert={onAddInsert}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate row 1" }));
+    expect(onAddInsert).toHaveBeenCalledWith({ bytea_value: "00cafe" });
   });
 
   it("hides the Duplicate row action when canInsert is false", () => {

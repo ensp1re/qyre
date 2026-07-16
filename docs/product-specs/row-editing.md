@@ -202,7 +202,9 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
     prefixes and whitespace, rejects non-hex or incomplete bytes, and normalizes the value before
     staging. The server converts the validated hex to a bound `Buffer`; PostgreSQL `bytea`, MySQL
     binary/blob families, and SQLite `BLOB` therefore share one lossless byte contract. Grid chrome
-    uses the friendly type label `bytes`; schema details retain the exact engine type.
+    uses the friendly type label `bytes`; schema details retain the exact engine type. Duplicate row
+    converts the source row's transport-level Buffer object to the same canonical hex draft before
+    staging, so an untouched duplicated binary value remains insertable.
   - PostgreSQL `interval`: the driver preserves raw database text. If an already-open or legacy
     connection still returns `pg`'s parsed object shape, the editor converts its year/month/day/time
     fields back to PostgreSQL interval text instead of displaying `[object Object]`. The right-side

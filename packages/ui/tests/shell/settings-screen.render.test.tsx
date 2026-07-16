@@ -35,6 +35,7 @@ describe("SettingsScreen", () => {
   it("applies a theme change immediately, with no save/discard step", () => {
     const { onThemeChange } = renderScreen();
 
+    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
     fireEvent.click(screen.getByRole("button", { name: "Light" }));
     expect(onThemeChange).toHaveBeenCalledWith("light");
     expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
@@ -44,6 +45,7 @@ describe("SettingsScreen", () => {
   it("reflects the given theme as the pressed segment", () => {
     renderScreen({ theme: "light" });
 
+    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
     expect(screen.getByRole("button", { name: "Light" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Dark" })).toHaveAttribute("aria-pressed", "false");
   });
@@ -51,6 +53,7 @@ describe("SettingsScreen", () => {
   it("clears locally-stored lists and disables the control when empty", () => {
     const { onClearQueryHistory } = renderScreen({ recentConnectionsCount: 0 });
 
+    fireEvent.click(screen.getByRole("button", { name: "Data & history" }));
     fireEvent.click(screen.getByRole("button", { name: "Clear query history" }));
     expect(onClearQueryHistory).toHaveBeenCalledTimes(1);
 
@@ -72,9 +75,19 @@ describe("SettingsScreen", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("centers the top-aligned preference column within the workspace pane", () => {
+    renderScreen();
+
+    const section = screen
+      .getByRole("heading", { name: "Connection", level: 3 })
+      .closest("section");
+    expect(section?.parentElement).toHaveClass("mx-auto", "mt-10", "max-w-4xl");
+  });
+
   it("renders access identity, roles, grants, and facts", () => {
     renderScreen();
 
+    fireEvent.click(screen.getByRole("button", { name: "Access" }));
     expect(screen.getAllByText("app_user")).toHaveLength(2);
     expect(screen.getByText("reader")).toBeVisible();
     expect(screen.getByText("SELECT on public.users")).toBeVisible();

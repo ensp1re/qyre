@@ -179,6 +179,12 @@ export interface DatabaseAdminApi {
   dropSchema?(name: string): Promise<void>;
 }
 
+/** A whole-table free-text search after the server has validated and resolved table metadata. */
+export interface ResolvedRowSearch {
+  readonly value: string;
+  readonly columns: readonly ColumnMetadata[];
+}
+
 /** A live, engine-specific connection to a single database. */
 export interface DatabaseAdapter {
   /** The engine identifier, e.g. "postgres". */
@@ -226,6 +232,7 @@ export interface DatabaseAdapter {
     pageSize: number,
     sort?: RowSort,
     filters?: RowFilter[],
+    search?: ResolvedRowSearch,
     operationId?: string
   ): Promise<RowPage>;
   /**
@@ -240,7 +247,8 @@ export interface DatabaseAdapter {
     table: string,
     columns: readonly ColumnMetadata[],
     sort?: RowSort,
-    filters?: RowFilter[]
+    filters?: RowFilter[],
+    search?: ResolvedRowSearch
   ): AsyncIterable<Record<string, unknown>>;
   /** Adapter-owned SQL INSERT formatter. Present only when `rowExportFormats` contains `sql`, so
    * identifier and literal escaping never leaks into the server layer. */

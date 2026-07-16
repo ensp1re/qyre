@@ -43,12 +43,14 @@ describe("CellValue (component rendering, F055)", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("renders a long string as plain text, hard-truncated to 100 chars + '...' (F146), with no chip or click affordance", () => {
+  it("opens a long string for read-only inspection on double-click", () => {
     const onInspect = vi.fn();
     const long = "a".repeat(320);
     render(<CellValue value={long} onInspect={onInspect} />);
     expect(screen.getByText(`${"a".repeat(100)}...`)).toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    const button = screen.getByRole("button", { name: `${"a".repeat(100)}...` });
+    fireEvent.doubleClick(button);
+    expect(onInspect).toHaveBeenCalledWith(long);
   });
 
   it("renders a URL as plain text, with no special chip or preview (F146)", () => {

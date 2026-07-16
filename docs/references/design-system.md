@@ -3,12 +3,12 @@
 Source: Figma Make export at `github.com/ensp1re/UserDashboard` (private), generated from
 `figma.com/design/5ZS5L8NXHrmZxnIR3bhTYY/User-dashboard`. Captured 2026-07-02.
 
-The source design is a VS Code-style Postgres/SQL IDE - title bar, collapsible searchable sidebar
-tree, a tab bar (SQL Editor / Tables / Schema / Files / Console), and a status bar. It is Qyre's
-target UI, not a generic dashboard: every panel maps onto a real Qyre concept (connection tree ->
-`DatabaseOverview`, Tables tab -> `RowsTable`, Schema tab -> `TableMetadata` across all tables, SQL
-Editor -> the read-only query runner). See `docs/product-specs/dashboard-ui.md` for the product
-contract and `docs/exec-plans/active/0003-dashboard-ui.md` for the DF-## work breakdown.
+The source design began as a VS Code-style database workspace. Qyre's current shell evolves it
+toward a DataGrip-class IDE: a searchable database explorer beside a flush workspace, docked tabs
+(SQL Editor / Tables / Schema / Files / Console), and compact contextual command bars. Connection
+identity/status lives in the explorer footer and global actions live in the workspace tab strip;
+there is no separate website header or global status footer. Every pane maps to a real Qyre concept
+instead of generic dashboard content.
 
 Stack in the source: React + Vite, Tailwind v4 (CSS-first `@theme inline`), shadcn/ui components on
 Radix primitives, `lucide-react` icons, `class-variance-authority` for variants. Qyre's `apps/web`
@@ -99,6 +99,23 @@ chart/graph is ever added rather than inventing new hues.
 - Density is tight throughout: `px-3 py-1.5` / `px-2 py-1` on most interactive rows, `text-[11px]`
   or `text-[10px]` (below Tailwind's default `text-xs`) for secondary/metadata text. This is
   deliberate - an IDE, not a marketing page. Don't default to shadcn's roomier out-of-the-box sizing.
+- Use a 4px rhythm inside related control groups and 8px between groups. Prefer a 1px semantic
+  hairline over extra whitespace when separating adjacent IDE regions.
+
+## IDE shell geometry
+
+- Workspace tab strip: 36px high, flat tabs, 1px partitions, and a 2px primary active indicator.
+- Context/view and command bars: 32px high, single row, no wrapping. Pane content begins directly
+  below them.
+- Sidebar tree rows: 24px minimum height with 14px nesting increments, subtle vertical guides, and
+  no card container around the tree.
+- Desktop commands: 24-28px target height. This compact desktop density is intentional; do not
+  substitute mobile touch sizing inside the database workspace.
+- Icons: Lucide outline only. Use 12px for tree/type context, 13px for pane commands, and 14px for
+  workspace actions; use a consistent 1.8-2 stroke weight within each layer.
+- Workspace panes are edge-to-edge and border-partitioned. Page padding belongs only to true empty,
+  loading, error, or prose states—not around SQL editors, grids, schema canvases, file browsers, or
+  consoles.
 
 ## Motion and surface polish
 
@@ -107,7 +124,8 @@ chart/graph is ever added rather than inventing new hues.
   `transition-all`: layout and transform changes should only animate when a component explicitly
   owns that behavior.
 - Focus-visible state is a one-pixel `ring` outline with a one-pixel offset. Mouse interaction does
-  not show it; keyboard focus always does.
+  not show it; keyboard focus always does. Composite command-bar searches use a 2px primary inset
+  on the containing control surface, never a second box around the embedded input.
 - Inputs use the primary token for the caret and softly strengthen their border on hover. Text
   selection uses a low-opacity primary background rather than the browser's saturated default.
 - Body text uses antialiased/grayscale font smoothing and optimized legibility.
@@ -131,11 +149,65 @@ chart/graph is ever added rather than inventing new hues.
   text), not a single Qyre-normalized enum, so the type-icon helper does its own prefix matching
   per engine's naming (`int*`/`numeric*` etc. for Postgres, `INTEGER`/`REAL` etc. for SQLite) -
   document any per-engine special-casing right next to that helper, don't scatter it.
-- **Status/connection dot**: a filled `Circle` (green when connected) rather than a text badge in
-  chrome-level UI (title bar, status bar); `StatusBadge` (`@qyre/ui`) remains the right component
-  for the more prominent "Database connection" panel state.
+- **Status/connection dot**: a small semantic dot paired with database/engine text in the sidebar
+  footer. The footer is also the connection-switch affordance; status must remain available in its
+  accessible name and never rely on color alone.
 - Search-and-highlight in the sidebar tree: matched substrings wrapped in `<mark>` with a tinted
   `--c-blue` background - matching nodes force their ancestor path open.
+
+## Workspace navigation and commands
+
+- The tab strip owns global navigation and workspace utility actions. Tabs are flat, docked, and
+  keyboard-roving; active state uses surface, text, and a primary indicator rather than a rounded
+  pill.
+- `CommandToolbar`, `CommandGroup`, and `CommandSeparator` are the shared grammar for pane actions.
+  Keep search/filter first, row/context actions next, and transfer/refresh utilities last.
+- Search uses progressive scope: typing narrows the loaded page; Enter searches the whole table.
+  Show a compact spinner in the field while the server query runs and report exact matching totals in the
+  docked footer. Do not present an unfiltered catalog estimate as a filtered count.
+- Long grid text stays a plain, truncated value. Double-click (or Enter/F2) opens the read-only
+  value inspector; avoid chip styling for ordinary text.
+- Selection is a mode: show the count and replace normal row actions with copy/delete/export/clear
+  controls. Do not append a second action bar or move the grid when selection changes.
+- Low-frequency actions belong in an accessible `More` overflow. Commands use tooltip/accessibility
+  labels and Left/Right/Home/End navigation; destructive commands keep semantic red and spatial
+  separation.
+- SQL Editor uses the same command grammar for Run, Cancel, and History; Explain remains hidden
+  until its interaction is revisited. Results, Plan, and Messages stay docked below the editor as
+  keyboard-roving output tabs. Non-empty result sets expose CSV and JSON downloads in a compact
+  result action bar; empty and affected-row-only responses do not render export controls.
+- Console exposes compact level filters and utility commands instead of imitating an interactive
+  terminal prompt. Files uses the same 32px command bar and the explorer's selected-row language.
+
+## Settings workspace
+
+- Settings is an IDE preference pane, not a centered website settings card. A persistent left rail
+  selects Connection, Access, Appearance, or Data & history; the right pane keeps a horizontally
+  centered preference column with a 40px top inset and flat divided rows.
+- The active category uses the same selected surface and 2px primary inset as the database explorer.
+  Changes apply immediately, with destructive local-history actions visually separated.
+
+## Database explorer
+
+- Explorer header contains Qyre identity, region label, and collapse control. Search and schema
+  creation are compact commands, not website-style full-width calls to action.
+- Rows use precise indentation, vertical guides with short branch connectors, 11-12px icons, and a
+  flat selected surface with a 2px primary inset. Support Enter/Space activation, Left/Right
+  expansion, and Up/Down/Home/End movement.
+- The sidebar footer shows the database name, engine/version, and connection state and opens the
+  connection switcher. Never repeat credentials or the full target in persistent chrome.
+
+## Driver-aware data types
+
+- `ColumnMetadata.dataType` remains engine-reported. Central classifiers map it to presentation and
+  editor capabilities; components do not scatter Postgres/MySQL/SQLite/MongoDB string checks.
+- Preserve the same interaction grammar across drivers while choosing widgets from actual metadata:
+  booleans, numeric values, date/time, enums/sets, arrays, JSON/EJSON, binary, XML/interval, and
+  MongoDB structured values may require different editors.
+- Unknown or extension types use the neutral type icon and a reversible text/full-value editor.
+  Never infer a lossy coercion just to make every engine look identical.
+- Type icon, filter operators, formatting, inline editing, full-value editing, and validation must
+  share the same classification/capability source so the UI never gives conflicting signals.
 
 ## Shared control contract
 

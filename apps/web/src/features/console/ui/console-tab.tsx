@@ -11,7 +11,7 @@ export interface ConsoleTabProps {
 export function ConsoleTab({ consoleEvents, onClear }: ConsoleTabProps): ReactNode {
   if (consoleEvents.isLoading) {
     return (
-      <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+      <p className="flex items-center gap-1.5 p-4 text-[13px] text-muted-foreground">
         <Spinner /> Loading console...
       </p>
     );

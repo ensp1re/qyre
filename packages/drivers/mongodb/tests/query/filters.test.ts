@@ -19,27 +19,37 @@ const columns = [
 ] as const;
 
 describe("MongoDB structured filters", () => {
-  it("matches partial object fields and required array members", () => {
-    expect(
-      buildMongoFilter(
-        [
-          {
-            column: "profile",
-            op: "contains",
-            value: '{"role":"admin"}',
-            columnDataType: "object"
-          },
-          {
-            column: "tags",
-            op: "contains",
-            value: '["one","two"]',
-            columnDataType: "array"
-          }
-        ],
-        columns
-      )
-    ).toEqual({
-      $and: [{ $and: [{ "profile.role": "admin" }] }, { tags: { $all: ["one", "two"] } }]
-    });
+  it("builds native recursive text matching for object keys, values, and array members", () => {
+    const filter = buildMongoFilter(
+      [
+        {
+          column: "profile",
+          op: "contains",
+          value: "role",
+          columnDataType: "object"
+        },
+        {
+          column: "tags",
+          op: "contains",
+          value: "one",
+          columnDataType: "array"
+        }
+      ],
+      columns
+    );
+    const serialized = JSON.stringify(filter);
+    expect(serialized).toContain("$objectToArray");
+    expect(serialized).toContain("$anyElementTrue");
+    expect(serialized).toContain('"regex":"role"');
+    expect(serialized).toContain('"regex":"one"');
+    expect(serialized).not.toContain("$function");
+  });
+
+  it("searches every non-binary column with the same recursive expression", () => {
+    const serialized = JSON.stringify(
+      buildMongoFilter(undefined, columns, { value: "needle", columns })
+    );
+    expect(serialized).toContain('"$or"');
+    expect(serialized.match(/"regex":"needle"/g)?.length).toBeGreaterThan(1);
   });
 });

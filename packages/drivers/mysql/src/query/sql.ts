@@ -1,5 +1,6 @@
 import type { FilterOp, RowFilter } from "@qyre/core";
-import { escapeLikePattern } from "@qyre/driver-contract";
+import { classifyFilterColumnKind } from "@qyre/core/filter-capabilities";
+import { escapeLikePattern, type ResolvedRowSearch } from "@qyre/driver-contract";
 
 export function quoteIdent(name: string): string {
   return `\`${name.replace(/`/g, "``")}\``;
@@ -14,13 +15,15 @@ const COMPARE_OPERATORS: Partial<Record<FilterOp, string>> = {
   gte: ">="
 };
 
-export function buildFilterClause(filters: RowFilter[] | undefined): {
+export function buildFilterClause(
+  filters: RowFilter[] | undefined,
+  search?: ResolvedRowSearch
+): {
   clause: string;
   params: unknown[];
 } {
-  if (!filters || filters.length === 0) return { clause: "", params: [] };
   const params: unknown[] = [];
-  const conditions = filters.map((filter) => {
+  const conditions = (filters ?? []).map((filter) => {
     const column = quoteIdent(filter.column);
     if (filter.op === "isNull") return `${column} IS NULL`;
     if (filter.op === "isNotNull") return `${column} IS NOT NULL`;
@@ -35,5 +38,20 @@ export function buildFilterClause(filters: RowFilter[] | undefined): {
     params.push(filter.value);
     return `${column} ${COMPARE_OPERATORS[filter.op]} ?`;
   });
+  const searchable = search?.columns.filter(
+    (column) => classifyFilterColumnKind(column.dataType, "mysql") !== "binary"
+  );
+  if (search && searchable && searchable.length > 0) {
+    const pattern = `%${escapeLikePattern(search.value)}%`;
+    conditions.push(
+      `(${searchable
+        .map((column) => {
+          params.push(pattern);
+          return `CAST(${quoteIdent(column.name)} AS CHAR) LIKE ? ESCAPE '\\\\'`;
+        })
+        .join(" OR ")})`
+    );
+  }
+  if (conditions.length === 0) return { clause: "", params: [] };
   return { clause: ` WHERE ${conditions.join(" AND ")}`, params };
 }

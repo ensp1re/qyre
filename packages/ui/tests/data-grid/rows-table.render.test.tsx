@@ -81,10 +81,48 @@ describe("RowsTable server-side sort (component rendering, F065)", () => {
 
   it("filters rows by the search box, case-insensitively", () => {
     renderTable();
-    fireEvent.change(screen.getByLabelText("Search this page"), { target: { value: "ali" } });
+    fireEvent.change(screen.getByLabelText("Search rows"), { target: { value: "ali" } });
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.queryByText("Bob")).not.toBeInTheDocument();
     expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
+  });
+
+  it("keeps typing page-local and commits whole-table search with Enter", () => {
+    const onTableSearchChange = vi.fn();
+    renderTable({ onTableSearchChange });
+    const search = screen.getByLabelText("Search rows");
+    fireEvent.change(search, { target: { value: "ali" } });
+    expect(onTableSearchChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(onTableSearchChange).toHaveBeenCalledWith("ali");
+  });
+
+  it("shows search progress without an inline scope badge", () => {
+    renderTable({ tableSearch: "ali", searchLoading: true });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Searching all rows");
+    expect(screen.getByLabelText("Search rows")).toHaveValue("ali");
+    expect(screen.queryByText("All")).not.toBeInTheDocument();
+  });
+
+  it("uses one composite focus surface for the compact table search", () => {
+    renderTable();
+
+    expect(screen.getByLabelText("Search rows").parentElement).toHaveAttribute(
+      "data-focus-surface"
+    );
+  });
+
+  it("labels exact server-side matching totals without showing the catalog estimate", () => {
+    renderTable({
+      rowPage: { ...rowPage, total: 178 },
+      matchingRowCount: 178,
+      approxRowCount: 50_000,
+      filters: [{ column: "name", op: "contains", value: "a" }],
+      onFiltersChange: vi.fn()
+    });
+    expect(screen.getByText(/3 of 178 matching rows/)).toBeInTheDocument();
+    expect(screen.queryByText(/50,000/)).not.toBeInTheDocument();
   });
 });
 

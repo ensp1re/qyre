@@ -7,7 +7,9 @@ const BASE_PROPS = {
   schemas: [],
   onSelect: vi.fn(),
   open: true,
-  onOpenChange: vi.fn()
+  onOpenChange: vi.fn(),
+  status: "connected" as const,
+  onOpenConnection: vi.fn()
 };
 
 describe("Sidebar resizing (F071)", () => {
@@ -37,6 +39,19 @@ describe("Sidebar resizing (F071)", () => {
   });
 });
 
+describe("Sidebar schema loading", () => {
+  it("shows an accessible recovery state when schemas fail to load", () => {
+    const onRetry = vi.fn();
+    render(<Sidebar {...BASE_PROPS} isError onRetry={onRetry} />);
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Schemas unavailable");
+    expect(alert).toHaveTextContent("Check the connection");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+});
+
 describe("Sidebar schema management (F116)", () => {
   const schemas: SchemaMetadata[] = [{ name: "public", tables: ["users"] }];
 
@@ -45,7 +60,7 @@ describe("Sidebar schema management (F116)", () => {
     render(
       <Sidebar {...BASE_PROPS} schemas={schemas} canManageSchemas onCreateSchema={onCreateSchema} />
     );
-    fireEvent.click(screen.getByText("New schema"));
+    fireEvent.click(screen.getByRole("button", { name: "New schema" }));
     const dialog = screen.getByTestId("create-named-dialog");
     fireEvent.change(within(dialog).getByLabelText("Schema name"), {
       target: { value: "reporting" }
@@ -80,7 +95,7 @@ describe("Sidebar schema management (F116)", () => {
     render(
       <Sidebar {...BASE_PROPS} schemas={schemas} canManageSchemas onCreateSchema={onCreateSchema} />
     );
-    fireEvent.click(screen.getByText("New schema"));
+    fireEvent.click(screen.getByRole("button", { name: "New schema" }));
     const dialog = screen.getByTestId("create-named-dialog");
     fireEvent.change(within(dialog).getByLabelText("Schema name"), {
       target: { value: "reporting" }
@@ -92,7 +107,7 @@ describe("Sidebar schema management (F116)", () => {
 
   it("hides schema controls when canManageSchemas is false", () => {
     render(<Sidebar {...BASE_PROPS} schemas={schemas} canManageSchemas={false} />);
-    expect(screen.queryByText("New schema")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New schema" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Drop schema public")).not.toBeInTheDocument();
   });
 });

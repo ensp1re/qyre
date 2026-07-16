@@ -1,6 +1,14 @@
 import type { ConsoleEvent } from "@qyre/core";
 import { Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
+import { cn } from "../cn.js";
+import {
+  CommandGroup,
+  CommandSeparator,
+  CommandToolbar
+} from "../primitives/controls/command-toolbar.js";
+import { IconButton } from "../primitives/controls/icon-button.js";
 
 export interface ConsoleLogProps {
   events: ConsoleEvent[];
@@ -19,30 +27,55 @@ function formatTime(timestamp: string): string {
 
 /** A read-only stream of recent connection/query events (DF-07), with a client-side Clear action. */
 export function ConsoleLog({ events, onClear }: ConsoleLogProps): ReactNode {
+  const [level, setLevel] = useState<"all" | ConsoleEvent["level"]>("all");
+  const visibleEvents = level === "all" ? events : events.filter((event) => event.level === level);
+
   return (
-    <div
-      data-testid="console-log"
-      className="flex h-full flex-col overflow-hidden rounded-[3px] border border-border"
-    >
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
-          Console
+    <div data-testid="console-log" className="flex h-full flex-col overflow-hidden">
+      <CommandToolbar label="Console commands">
+        <CommandGroup label="Event level">
+          {(["all", "info", "warn", "error"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              data-command-item
+              aria-pressed={level === option}
+              onClick={() => setLevel(option)}
+              className={cn(
+                "h-6 rounded-[3px] px-2 font-mono text-[10px] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-primary",
+                level === option
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+              )}
+            >
+              {option === "all" ? "All" : option}
+            </button>
+          ))}
+        </CommandGroup>
+        <CommandSeparator />
+        <span className="font-mono text-[10px] text-quiet-foreground">
+          {visibleEvents.length} event{visibleEvents.length === 1 ? "" : "s"}
         </span>
-        <button
-          type="button"
-          onClick={onClear}
-          className="ml-auto flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent"
-        >
-          <Trash2 className="h-2.5 w-2.5" />
-          Clear
-        </button>
-      </div>
+        <CommandGroup label="Console utilities" className="ml-auto">
+          <IconButton
+            data-command-item
+            variant="ghost"
+            label="Clear console"
+            onClick={onClear}
+            disabled={events.length === 0}
+            icon={<Trash2 className="h-3 w-3" />}
+            className="h-6 w-6"
+          />
+        </CommandGroup>
+      </CommandToolbar>
 
       <div className="flex-1 space-y-0.5 overflow-auto p-3">
-        {events.length === 0 ? (
-          <p className="font-mono text-[11px] text-quiet-foreground">No events yet.</p>
+        {visibleEvents.length === 0 ? (
+          <p className="font-mono text-[11px] text-quiet-foreground">
+            {level === "all" ? "No events yet." : `No ${level} events.`}
+          </p>
         ) : (
-          events.map((event) => (
+          visibleEvents.map((event) => (
             <div key={event.id} className="flex items-start gap-3 py-0.5 font-mono text-[11px]">
               <span className="shrink-0 tabular-nums text-quiet-foreground">
                 {formatTime(event.timestamp)}
@@ -66,12 +99,6 @@ export function ConsoleLog({ events, onClear }: ConsoleLogProps): ReactNode {
             </div>
           ))
         )}
-        <div className="flex items-center gap-1.5 pt-2">
-          <span className="font-mono text-[11px]" style={{ color: "var(--c-green)" }}>
-            ❯
-          </span>
-          <span className="animate-pulse font-mono text-[11px] text-quiet-foreground">█</span>
-        </div>
       </div>
     </div>
   );

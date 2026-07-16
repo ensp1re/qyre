@@ -36,31 +36,44 @@ export function useRows(
   table: string | undefined,
   page: number,
   sort?: RowSort,
-  filters?: RowFilter[]
+  filters?: RowFilter[],
+  search?: string
 ) {
   // F126: the current fetch's operationId, so cancel() knows what to cancel - a ref since it's
   // only ever read by an event handler, never rendered. Only the main rowPage fetch is tagged, not
   // the tiny LIMIT 1 next-page probe below.
   const operationIdRef = useRef<string | undefined>(undefined);
   const query = useQuery({
-    queryKey: ["rows", schema, table, page, sort?.column, sort?.direction, filters],
+    queryKey: ["rows", schema, table, page, sort?.column, sort?.direction, filters, search],
     queryFn: async (): Promise<RowsResult> => {
       const operationId = crypto.randomUUID();
       operationIdRef.current = operationId;
-      const [rowPage, nextPageProbe] = await Promise.all([
-        fetchRows(
-          schema as string,
-          table as string,
-          page,
-          UI_PAGE_SIZE,
-          sort,
-          filters,
-          operationId
-        ),
-        fetchRows(schema as string, table as string, (page + 1) * UI_PAGE_SIZE, 1, sort, filters)
-      ]);
+      const rowPage = await fetchRows(
+        schema as string,
+        table as string,
+        page,
+        UI_PAGE_SIZE,
+        sort,
+        filters,
+        search,
+        operationId
+      );
+      const hasMore =
+        rowPage.total !== undefined
+          ? (page + 1) * UI_PAGE_SIZE < rowPage.total
+          : (
+              await fetchRows(
+                schema as string,
+                table as string,
+                (page + 1) * UI_PAGE_SIZE,
+                1,
+                sort,
+                filters,
+                search
+              )
+            ).rows.length > 0;
       operationIdRef.current = undefined;
-      return { rowPage, hasMore: nextPageProbe.rows.length > 0 };
+      return { rowPage, hasMore };
     },
     enabled: Boolean(schema && table),
     ...QUERY_RETRY,

@@ -103,11 +103,11 @@ describe("filterCapabilityForColumn", () => {
     });
   });
 
-  it("keeps native MongoDB containment on its JSON candidate editor", () => {
+  it("searches MongoDB objects and arrays with ordinary text", () => {
     const [metadata, engine] = column("object", false, "mongodb");
     expect(filterCapabilityForColumn(metadata, engine)).toMatchObject({
       operators: ["contains"],
-      valueInput: "json"
+      valueInput: "text"
     });
   });
 });

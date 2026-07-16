@@ -34,6 +34,7 @@ describe("workspaceReducer", () => {
       page: 2,
       sort: { column: "name", direction: "desc" as const },
       filters: [{ column: "id", op: "eq" as const, value: "1" }],
+      tableSearch: "admin",
       querySql: "SELECT * FROM users",
       selectedFilePath: "/tmp/query.sql",
       lastQueryMs: 42,
@@ -45,11 +46,19 @@ describe("workspaceReducer", () => {
       page: 0,
       sort: undefined,
       filters: undefined,
+      tableSearch: undefined,
       querySql: "SELECT * FROM users",
       selectedFilePath: undefined,
       lastQueryMs: undefined,
       connectOpen: false
     });
+  });
+
+  it("commits whole-table search and resets pagination", () => {
+    const initial = { ...createInitialWorkspaceState(1200), page: 4 };
+    expect(
+      workspaceReducer(initial, { type: "tableSearchChanged", search: "admin" })
+    ).toMatchObject({ page: 0, tableSearch: "admin" });
   });
 
   it("moves off the SQL editor when the current connection does not support SQL", () => {

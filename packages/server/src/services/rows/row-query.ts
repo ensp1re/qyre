@@ -1,6 +1,6 @@
 import type { RowFilter, RowSort, SortDirection, TableMetadata } from "@qyre/core";
 import { filterCapabilityForColumn } from "@qyre/core/filter-capabilities";
-import type { DatabaseAdapter } from "@qyre/driver-contract";
+import type { DatabaseAdapter, ResolvedRowSearch } from "@qyre/driver-contract";
 
 /**
  * Validates a requested sort column against the table's real columns before it's ever used in a
@@ -82,6 +82,14 @@ export function resolveRowFilters(
   });
 }
 
+export function resolveRowSearch(
+  tableMetadata: TableMetadata,
+  search: string | undefined
+): ResolvedRowSearch | undefined {
+  const value = search?.trim();
+  return value ? { value, columns: tableMetadata.columns } : undefined;
+}
+
 /**
  * Resolves sort and filters together, sharing a single `getTable` introspection call between them
  * - and skipping that call entirely when neither was requested, matching `resolveRowSort`'s
@@ -94,12 +102,14 @@ export async function resolveRowQuery(
   table: string,
   sortColumn: string | undefined,
   sortDirection: SortDirection,
-  filters: RowFilter[] | undefined
-): Promise<{ sort?: RowSort; filters?: RowFilter[] }> {
-  if (!sortColumn && (!filters || filters.length === 0)) return {};
+  filters: RowFilter[] | undefined,
+  search?: string
+): Promise<{ sort?: RowSort; filters?: RowFilter[]; search?: ResolvedRowSearch }> {
+  if (!sortColumn && (!filters || filters.length === 0) && !search?.trim()) return {};
   const tableMetadata = await db.getTable(schema, table);
   return {
     sort: resolveRowSort(tableMetadata, sortColumn, sortDirection),
-    filters: resolveRowFilters(tableMetadata, filters, db.engine)
+    filters: resolveRowFilters(tableMetadata, filters, db.engine),
+    search: resolveRowSearch(tableMetadata, search)
   };
 }

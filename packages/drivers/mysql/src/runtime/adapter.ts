@@ -27,6 +27,7 @@ import type {
   CancellationRegistry,
   DatabaseAdapter,
   DatabaseAdminApi,
+  ResolvedRowSearch,
   RowMutationApi,
   SchemaDdlApi
 } from "@qyre/driver-contract";
@@ -121,9 +122,18 @@ export class MysqlAdapter implements DatabaseAdapter {
     table: string,
     _columns: readonly ColumnMetadata[],
     sort?: RowSort,
-    filters?: RowFilter[]
+    filters?: RowFilter[],
+    search?: ResolvedRowSearch
   ): AsyncIterable<Record<string, unknown>> {
-    return streamRows(this.getPool(), schema, table, this.statementTimeoutMs, sort, filters);
+    return streamRows(
+      this.getPool(),
+      schema,
+      table,
+      this.statementTimeoutMs,
+      sort,
+      filters,
+      search
+    );
   }
 
   formatSqlInsert(
@@ -245,13 +255,14 @@ export class MysqlAdapter implements DatabaseAdapter {
     pageSize: number,
     sort?: RowSort,
     filters?: RowFilter[],
+    search?: ResolvedRowSearch,
     operationId?: string
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     const orderBy = sort
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
       : "";
-    const { clause: whereClause, params: filterParams } = buildFilterClause(filters);
+    const { clause: whereClause, params: filterParams } = buildFilterClause(filters, search);
     return withCancellableConnection(
       this.getPool(),
       this.operationRegistry,
@@ -265,11 +276,21 @@ export class MysqlAdapter implements DatabaseAdapter {
             },
             [...filterParams, safePageSize, offset]
           );
+          const [countRows] = whereClause
+            ? await connection.query<mysql.RowDataPacket[]>(
+                {
+                  sql: `SELECT COUNT(*) AS total FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}`,
+                  timeout: this.statementTimeoutMs
+                },
+                filterParams
+              )
+            : [[]];
           return {
             columns: fields.map((field) => field.name),
             rows: rows as Array<Record<string, unknown>>,
             page: safePage,
-            pageSize: safePageSize
+            pageSize: safePageSize,
+            ...(whereClause ? { total: Number(countRows[0]?.total ?? 0) } : {})
           };
         } catch (error) {
           if (isMysqlCancelError(error) && wasCancelledByUser())

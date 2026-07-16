@@ -217,9 +217,26 @@ export function CellValue({
     );
   }
   const text = formatCellDisplay(value, dataType);
-  return (
-    <span className="block max-w-full truncate">
-      {typeof value === "string" ? truncateForDisplay(text) : text}
-    </span>
-  );
+  if (typeof value === "string" && text.length > LONG_STRING_THRESHOLD) {
+    return (
+      <button
+        type="button"
+        onDoubleClick={(event) => {
+          event.stopPropagation();
+          onInspect(value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === "F2") {
+            event.preventDefault();
+            onInspect(value);
+          }
+        }}
+        title="Double-click to inspect the full value"
+        className="block max-w-full truncate text-left"
+      >
+        {truncateForDisplay(text)}
+      </button>
+    );
+  }
+  return <span className="block max-w-full truncate">{text}</span>;
 }

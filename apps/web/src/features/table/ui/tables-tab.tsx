@@ -44,6 +44,8 @@ export interface TablesTabProps {
   onSortChange: (sort: RowSort | undefined) => void;
   filters: RowFilter[] | undefined;
   onFiltersChange: (filters: RowFilter[] | undefined) => void;
+  search: string | undefined;
+  onSearchChange: (search: string | undefined) => void;
   /** F114: keeps the workspace's selected table in sync after a rename/drop in the Structure view -
    * `TablesTab` has no reach into `App.tsx`'s selection state on its own. */
   onTableRenamed?: (newName: string) => void;
@@ -89,6 +91,8 @@ export function TablesTab({
   onSortChange,
   filters,
   onFiltersChange,
+  search,
+  onSearchChange,
   onTableRenamed,
   onTableDropped
 }: TablesTabProps): ReactNode {
@@ -116,7 +120,9 @@ export function TablesTab({
   }, []);
 
   if (!selected) {
-    return <p className="text-[13px] text-muted-foreground">Select a table from the sidebar.</p>;
+    return (
+      <p className="p-4 text-[13px] text-muted-foreground">Select a table from the sidebar.</p>
+    );
   }
   // A plain `const`, not the `selected` prop itself: TypeScript only retains narrowing across a
   // nested function's closure boundary for locals it can prove are never reassigned, not for
@@ -125,8 +131,8 @@ export function TablesTab({
   const selectedTable = selected;
 
   const viewToggle = (
-    <div className="flex shrink-0 items-center gap-1 pb-3">
-      <div className="flex items-center gap-0.5 rounded-[3px] border border-border bg-card p-0.5">
+    <div className="flex h-8 shrink-0 items-center border-b border-border bg-card px-2">
+      <div className="flex h-full items-stretch">
         <ViewButton
           active={view === "rows"}
           onClick={() => setView("rows")}
@@ -140,6 +146,9 @@ export function TablesTab({
           label="Structure"
         />
       </div>
+      <span className="ml-auto truncate font-mono text-[10px] text-quiet-foreground">
+        {selected.schema}.<span className="text-foreground/75">{selected.table}</span>
+      </span>
     </div>
   );
 
@@ -303,6 +312,7 @@ export function TablesTab({
           engine={engine}
           tableName={selected.table}
           approxRowCount={table.data?.rowCount}
+          matchingRowCount={rows.data.rowPage.total}
           page={page}
           canGoPrevious={page > 0}
           canGoNext={rows.data.hasMore}
@@ -316,13 +326,18 @@ export function TablesTab({
           exportFormats={capabilities?.rowExportFormats}
           jsonExportMode={capabilities?.jsonExportMode}
           onExportAllRows={(format) =>
-            downloadExport(exportRowsUrl(selected.schema, selected.table, format, sort, filters))
+            downloadExport(
+              exportRowsUrl(selected.schema, selected.table, format, sort, filters, search)
+            )
           }
           onExportSelectedRows={(csv) => downloadCsv(`${selected.table}-selected.csv`, csv)}
           canImportCsv={csvImportability.canImport && ops.length === 0}
           onImportCsv={() => setCsvImportOpen(true)}
           filters={filters}
           onFiltersChange={onFiltersChange}
+          tableSearch={search}
+          onTableSearchChange={onSearchChange}
+          searchLoading={Boolean(search) && rows.isFetching}
           editable={editability.editable}
           editableColumns={editability.editableColumns}
           editingDisabledReason={editability.reason}

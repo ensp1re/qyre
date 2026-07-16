@@ -8,9 +8,8 @@ import {
   Sidebar,
   SIDEBAR_DEFAULT_WIDTH,
   Spinner,
-  StatusBar,
   TabBar,
-  TitleBar
+  WorkspaceActions
 } from "@qyre/ui";
 import type { ReactNode } from "react";
 import { useEffect, useReducer, useRef, useState } from "react";
@@ -65,6 +64,7 @@ export function App(): ReactNode {
     page,
     sort,
     filters,
+    tableSearch,
     querySql,
     tab,
     sidebarOpen,
@@ -128,7 +128,7 @@ export function App(): ReactNode {
     }
   }, [status, supportsSql]);
   const table = useTable(selected?.schema, selected?.table);
-  const rows = useRows(selected?.schema, selected?.table, page, sort, filters);
+  const rows = useRows(selected?.schema, selected?.table, page, sort, filters, tableSearch);
   const allTables = useAllTables({ enabled: status === "connected" });
   // F127: reuses the already-fetched /api/tables metadata (no new server surface) for the SQL
   // Editor's column-level autocomplete - the same data the Schema tab renders.
@@ -252,18 +252,13 @@ export function App(): ReactNode {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-background text-foreground">
-      <TitleBar
-        status={status}
-        target={health?.target ?? null}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onRefresh={refresh}
-        isRefreshing={healthLoading}
-        onToggleSidebar={() => dispatch({ type: "sidebarChanged", open: !sidebarOpen })}
-        onOpenConnection={() => dispatch({ type: "connectChanged", open: true })}
-        onOpenSettings={() => dispatch({ type: "settingsChanged", open: true })}
-      />
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <a
+        href="#workspace-content"
+        className="fixed left-2 top-2 z-[100] -translate-y-16 rounded-[3px] bg-primary px-2 py-1 text-[11px] text-primary-foreground focus:translate-y-0"
+      >
+        Skip to workspace
+      </a>
 
       {settingsOpen ? (
         <SettingsScreen
@@ -299,6 +294,12 @@ export function App(): ReactNode {
             canManageSchemas={canManageSchemas}
             onCreateSchema={canManageSchemas ? databaseAdmin.createSchema : undefined}
             onDropSchema={canManageSchemas ? databaseAdmin.dropSchema : undefined}
+            status={status}
+            target={health?.target ?? null}
+            engine={overview.data?.engine}
+            engineVersion={health?.engineVersion}
+            capabilities={capabilities.data}
+            onOpenConnection={() => dispatch({ type: "connectChanged", open: true })}
           />
 
           <div className="flex min-w-0 flex-1 flex-col">
@@ -306,15 +307,31 @@ export function App(): ReactNode {
               active={tab}
               onChange={(nextTab) => dispatch({ type: "tabChanged", tab: nextTab })}
               hiddenTabs={!supportsSql ? ["sql-editor"] : undefined}
+              actions={
+                <WorkspaceActions
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onRefresh={refresh}
+                  isRefreshing={healthLoading}
+                  onToggleSidebar={() => dispatch({ type: "sidebarChanged", open: !sidebarOpen })}
+                  onOpenConnection={() => dispatch({ type: "connectChanged", open: true })}
+                  onOpenSettings={() => dispatch({ type: "settingsChanged", open: true })}
+                  lastQueryMs={lastQueryMs}
+                />
+              }
             />
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+            <main
+              id="workspace-content"
+              tabIndex={-1}
+              className="min-h-0 flex-1 overflow-hidden outline-none"
+            >
               <ErrorBoundary
                 key={tab}
                 fallbackMessage="This tab hit an unexpected error rendering its content. Try switching tabs and back, or reload if it persists."
               >
                 {status !== "connected" ? (
-                  <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                  <p className="flex items-center gap-1.5 p-4 text-[13px] text-muted-foreground">
                     {healthLoading ? (
                       <>
                         <Spinner /> Checking connection...
@@ -365,6 +382,8 @@ export function App(): ReactNode {
                     onFiltersChange={(nextFilters) =>
                       dispatch({ type: "filtersChanged", filters: nextFilters })
                     }
+                    search={tableSearch}
+                    onSearchChange={(search) => dispatch({ type: "tableSearchChanged", search })}
                     onTableRenamed={(newName) => dispatch({ type: "tableRenamed", newName })}
                     onTableDropped={() => dispatch({ type: "tableDropped" })}
                   />
@@ -395,22 +414,10 @@ export function App(): ReactNode {
                   <ConsoleTab consoleEvents={consoleEvents} onClear={() => clearConsole.mutate()} />
                 ) : null}
               </ErrorBoundary>
-            </div>
+            </main>
           </div>
         </div>
       )}
-
-      <StatusBar
-        status={status}
-        engine={overview.data?.engine}
-        engineVersion={health?.engineVersion}
-        schema={selected?.schema}
-        target={health?.target ?? null}
-        lastQueryMs={lastQueryMs}
-        pingLatencyMs={health?.pingLatencyMs}
-        lastError={health?.lastError}
-        capabilities={capabilities.data}
-      />
 
       <QueryHistoryDrawer
         open={historyOpen}

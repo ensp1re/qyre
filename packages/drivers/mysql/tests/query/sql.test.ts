@@ -12,4 +12,31 @@ describe("MySQL structured filters", () => {
       params: ["%one%"]
     });
   });
+
+  it("parameterizes whole-table search and skips binary columns", () => {
+    expect(
+      buildFilterClause(undefined, {
+        value: "admin",
+        columns: [
+          {
+            name: "name",
+            dataType: "varchar",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          },
+          {
+            name: "blob",
+            dataType: "blob",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]
+      })
+    ).toEqual({
+      clause: " WHERE (CAST(`name` AS CHAR) LIKE ? ESCAPE '\\\\')",
+      params: ["%admin%"]
+    });
+  });
 });

@@ -1,10 +1,8 @@
 # Product Contract: Server-Side Row Filtering
 
-`RowsTable` (`packages/ui/src/components/rows-table.tsx`) has no server-side filtering at all -
-`GET /api/tables/:schema/:table/rows` supports only pagination (F047) and sort (F065). The
-existing "Filter this page" search box is client-side only, narrowing whatever page happened to
-already be loaded. Clicking a primary-key value does nothing; clicking a foreign-key value
-switches to the referenced table but doesn't narrow it to the referencing row.
+`RowsTable` supports both quick page-local narrowing and database-backed whole-table queries.
+Typing in Search narrows the loaded page immediately; Enter commits the same text as a
+whole-table search. Structured filters remain the precise, column-aware query path.
 
 ## One-sentence promise
 
@@ -25,6 +23,10 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
   ignore it.
 - Multiple filters combine with `AND` (matching the "+ add filter" UI below - there's no UI
   affordance for `OR`, so the API doesn't need to represent it either).
+- `search=<text>` is an optional whole-table free-text query. The server resolves it against the
+  real table metadata, then each adapter ORs case-insensitive textual matching across every
+  non-binary column. It combines with structured filters using `AND`, is honored by export, and
+  returns an exact `RowPage.total` just like an active filter.
 - Each filter's `column` is validated server-side against the table's real columns (the same
   `getTable` introspection `resolveRowSort` already uses for `sortColumn` - see
   `server-side-sort-export.md`'s injection-surface note) before use. An unrecognized column is
@@ -61,8 +63,9 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
     per-field type inference `getTable`'s `inferColumns` already performs (F068) before building
     the filter document. BSON sentinels such as MinKey and MaxKey remain displayable as normalized
     structured values but are not exposed as normal scalar filter types in metadata or the UI.
-    Top-level object containment maps candidate keys onto validated dotted field paths, while array
-    containment uses `$all`; mixed/sentinel BSON kinds remain unavailable.
+    Object/array `contains` accepts ordinary text and recursively searches object keys, values,
+    nested objects, and array members with native aggregation expressions. It does not use
+    deprecated server-side JavaScript (`$where`/`$function`). Binary values remain unavailable.
 - `RowsTable`'s toolbar gets a `Filter` button (funnel icon) sitting next to the page-local
   `Search this page` box, which stays a distinct, page-local free-text narrow (F065's spec already
   flagged this as a "distinct, filter-shaped feature, not addressed here"; this is that feature).
@@ -78,8 +81,8 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
      each shows a readable word (`equals`, `greater than`) with the SQL symbol as a muted hint.
      Picking `is null`/`is not null` applies immediately (no value step).
   3. **Value** - a type-appropriate control: text/ObjectId text, number, true/false, date, time,
-     datetime, a catalog-backed enum selector for equality, ordinary text for SQL JSON/array
-     substring search, or a validated JSON candidate for MongoDB's native structured containment.
+     datetime, a catalog-backed enum selector for equality, or ordinary text for structured
+     key/value/array substring search on every engine.
      The column and operator already chosen show as breadcrumb tokens at
      the popover's head, each clickable to re-pick that step. Escape walks one step back, then
      closes.
@@ -95,6 +98,13 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
 - Adding, editing, or removing a filter resets pagination to page 0 and refetches, the same way
   changing sort already does. Changing the selected table clears all active filters, matching
   sort's existing reset-on-table-change behavior.
+- Typing in Search filters only the currently loaded page without a request. Pressing Enter commits
+  the trimmed value to `search`, resets pagination, and searches the whole table. The field shows
+  transient progress while that server query runs; exact footer totals communicate its scope without
+  a persistent badge. Clearing removes both the draft and committed search.
+- With an active server filter/search, the footer uses exact `RowPage.total` (for example,
+  `25 of 438 matching rows`), never the unfiltered catalog estimate. With only page-local search it
+  reports both page matches and the available table/matching total.
 - Accessibility/keyboard: the popover is a focus-trapped `dialog` (focus restored to the trigger on
   close), the column and operator lists use proper `listbox`/`option` roles, and the whole compose
   flow is operable without a mouse.
@@ -121,9 +131,12 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
 - `contains` matches case-insensitively and correctly handles a searched-for value that itself
   contains a literal `%`/`_` (Postgres/MySQL/SQLite) or regex metacharacter (MongoDB) instead of
   treating it as a wildcard.
-- Structured `contains` validates JSON before the adapter runs and uses native containment for
-  PostgreSQL JSON/arrays, MySQL JSON, and MongoDB top-level objects/arrays; SQLite is explicitly not
-  applicable.
+- Structured `contains` accepts ordinary text and matches nested keys, values, and array members
+  across PostgreSQL JSON/arrays, MySQL JSON, declared SQLite JSON, and MongoDB objects/arrays.
+- Typing search text changes only the current page; pressing Enter searches every non-binary
+  column across the whole table and resets to page 0.
+- Active server filters/searches return an exact matching total and the footer does not display the
+  unfiltered estimate as though it were the filtered count.
 - `isNull`/`isNotNull` filter correctly without a `value` param.
 - Two filters combine with `AND` (verified with two filters that individually match more rows
   than they do together).

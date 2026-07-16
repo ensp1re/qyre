@@ -23,6 +23,7 @@ import {
 import {
   resolveRowFilters,
   resolveRowQuery,
+  resolveRowSearch,
   resolveRowSort
 } from "../../services/rows/row-query.js";
 
@@ -82,12 +83,21 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
       if (!parsed.success) {
         return reply
           .status(400)
-          .send({ error: "Invalid page/pageSize/sort/filters query parameters." });
+          .send({ error: "Invalid page/pageSize/sort/filters/search query parameters." });
       }
       const { schema, table } = request.params;
-      const { page, pageSize, sortColumn, sortDirection, filters, operationId } = parsed.data;
+      const { page, pageSize, sortColumn, sortDirection, filters, search, operationId } =
+        parsed.data;
       const db = requireAdapter(ctx.adapter);
-      const resolved = await resolveRowQuery(db, schema, table, sortColumn, sortDirection, filters);
+      const resolved = await resolveRowQuery(
+        db,
+        schema,
+        table,
+        sortColumn,
+        sortDirection,
+        filters,
+        search
+      );
       try {
         return await db.getRows(
           schema,
@@ -96,6 +106,7 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
           pageSize,
           resolved.sort,
           resolved.filters,
+          resolved.search,
           operationId
         );
       } catch (error) {
@@ -294,12 +305,12 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
       return reply.status(400).send({ error: "Export format must be csv, json, or sql." });
     }
     const parsed = rowsQuerySchema
-      .pick({ sortColumn: true, sortDirection: true, filters: true })
+      .pick({ sortColumn: true, sortDirection: true, filters: true, search: true })
       .safeParse(request.query);
     if (!parsed.success) {
       return reply
         .status(400)
-        .send({ error: "Invalid sortColumn/sortDirection/filters query parameters." });
+        .send({ error: "Invalid sortColumn/sortDirection/filters/search query parameters." });
     }
     const { schema, table } = request.params;
     const db = requireAdapter(ctx.adapter);
@@ -316,8 +327,9 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
 
     const sort = resolveRowSort(metadata, parsed.data.sortColumn, parsed.data.sortDirection);
     const filters = resolveRowFilters(metadata, parsed.data.filters, db.engine);
+    const search = resolveRowSearch(metadata, parsed.data.search);
     const columns = metadata.columns.map((column) => column.name);
-    const rows = db.streamRows(schema, table, metadata.columns, sort, filters);
+    const rows = db.streamRows(schema, table, metadata.columns, sort, filters, search);
 
     reply.header("Content-Type", EXPORT_CONTENT_TYPES[format]);
     reply.header("Content-Disposition", `attachment; filename="${exportFilename(table, format)}"`);

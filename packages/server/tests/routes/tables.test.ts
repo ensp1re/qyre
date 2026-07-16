@@ -57,6 +57,43 @@ describe("/api/tables", () => {
 });
 
 describe("GET /api/tables/:schema/:table/rows", () => {
+  it("resolves whole-table search against validated column metadata", async () => {
+    let receivedSearch: unknown;
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "x",
+        columns: [
+          {
+            name: "payload",
+            dataType: "jsonb",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]
+      }),
+      getRows: async (_schema, _table, _page, _pageSize, _sort, _filters, search) => {
+        receivedSearch = search;
+        return { columns: ["payload"], rows: [], page: 0, pageSize: 50, total: 0 };
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/tables/public/x/rows?search=admin",
+      headers: authHeaders(app)
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(receivedSearch).toEqual({
+      value: "admin",
+      columns: [expect.objectContaining({ name: "payload", dataType: "jsonb" })]
+    });
+    await app.close();
+  });
+
   it("returns 400 (not 500) for invalid pagination params", async () => {
     // F022: rowsQuerySchema.parse() used to throw straight into Fastify's default handler on bad
     // input, returning 500 with a raw stringified Zod issue dump - /api/query's safeParse pattern
@@ -103,7 +140,7 @@ describe("GET /api/tables/:schema/:table/rows", () => {
         capabilities: { supportsSql: true }
       }),
       getTable: async () => ({ schema: "public", name: "x", columns: [] }),
-      getRows: async (_schema, _table, _page, _pageSize, _sort, _filters, operationId) => {
+      getRows: async (_schema, _table, _page, _pageSize, _sort, _filters, _search, operationId) => {
         receivedOperationId = operationId;
         throw new OperationCancelledError();
       },

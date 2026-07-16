@@ -163,6 +163,13 @@ body {
   outline-offset: 1px;
 }
 
+/* Composite search controls own the visible focus surface. Avoid drawing a second outline around
+   the embedded text field, which makes the compact command bar look like nested form controls. */
+[data-focus-surface] :where(input, textarea):focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
 /* Thin, theme-colored scrollbars everywhere (tree, grid, editor, ...) instead of the OS default -
    an IDE-density UI needs quiet scrollbars. Firefox via scrollbar-width/-color, WebKit/Blink via
    the ::-webkit-scrollbar pseudo-elements. */

@@ -18,12 +18,16 @@ const RESULT = { columns: ["a"], rows: [{ a: 1 }], page: 0, pageSize: 25 };
 describe("QueryRunner results panel resizing (F071)", () => {
   it("does not render a resize handle when there is no result yet", () => {
     render(<QueryRunner {...BASE_PROPS} resultsHeight={256} onResultsHeightChange={vi.fn()} />);
-    expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("separator", { name: "Resize query results panel" })
+    ).not.toBeInTheDocument();
   });
 
   it("does not render a resize handle when resultsHeight/onResultsHeightChange are omitted", () => {
     render(<QueryRunner {...BASE_PROPS} result={RESULT} />);
-    expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("separator", { name: "Resize query results panel" })
+    ).not.toBeInTheDocument();
   });
 
   it("renders a resize handle reflecting resultsHeight once a result exists", () => {
@@ -65,7 +69,9 @@ describe("QueryRunner results panel resizing (F071)", () => {
         onResultsHeightChange={vi.fn()}
       />
     );
-    expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("separator", { name: "Resize query results panel" })
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -94,6 +100,43 @@ describe("QueryRunner write-capable result rendering (F108)", () => {
     expect(screen.queryByText(/row.*affected/)).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "a" })).toBeInTheDocument();
   });
+
+  it("offers CSV and JSON downloads only when query rows exist", () => {
+    const onExportResults = vi.fn();
+    const { rerender } = render(
+      <QueryRunner {...BASE_PROPS} result={RESULT} onExportResults={onExportResults} />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Export query results as CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export query results as JSON" }));
+    expect(onExportResults).toHaveBeenNthCalledWith(1, "csv");
+    expect(onExportResults).toHaveBeenNthCalledWith(2, "json");
+
+    rerender(
+      <QueryRunner
+        {...BASE_PROPS}
+        result={{ columns: [], rows: [], page: 0, pageSize: 25 }}
+        onExportResults={onExportResults}
+      />
+    );
+    expect(screen.queryByRole("toolbar", { name: "Query result actions" })).not.toBeInTheDocument();
+  });
+});
+
+describe("QueryRunner long result inspection", () => {
+  it("opens a read-only full-value drawer on double-click", () => {
+    const value = "long query result ".repeat(20);
+    render(
+      <QueryRunner
+        {...BASE_PROPS}
+        result={{ columns: ["body"], rows: [{ body: value }], page: 0, pageSize: 25 }}
+      />
+    );
+
+    fireEvent.doubleClick(screen.getByTitle("Double-click to inspect the full value"));
+    expect(screen.getByTestId("cell-value-drawer")).toHaveTextContent("Cell Value");
+    expect(screen.getByTestId("cell-value-drawer")).toHaveTextContent(value.trim());
+  });
 });
 
 describe("QueryRunner Cancel button (F126)", () => {
@@ -112,11 +155,9 @@ describe("QueryRunner Cancel button (F126)", () => {
 });
 
 describe("QueryRunner query plans (F128)", () => {
-  it("requests a plan from the Explain button", () => {
-    const onExplain = vi.fn();
-    render(<QueryRunner {...BASE_PROPS} onExplain={onExplain} />);
-    fireEvent.click(screen.getByRole("button", { name: "Explain" }));
-    expect(onExplain).toHaveBeenCalledTimes(1);
+  it("temporarily hides the Explain command while retaining plan rendering support", () => {
+    render(<QueryRunner {...BASE_PROPS} />);
+    expect(screen.queryByRole("button", { name: "Explain" })).not.toBeInTheDocument();
   });
 
   it("does not offer ANALYZE in the SQL Editor", () => {
@@ -144,5 +185,21 @@ describe("QueryRunner query plans (F128)", () => {
       "aria-valuenow",
       "300"
     );
+  });
+
+  it("keeps results and a query plan available as docked output tabs", () => {
+    render(
+      <QueryRunner
+        {...BASE_PROPS}
+        result={RESULT}
+        explainResult={{ lines: ["Result"], classification: "read", analyzed: false }}
+      />
+    );
+
+    const planTab = screen.getByRole("tab", { name: "Plan" });
+    expect(planTab).toHaveAttribute("aria-selected", "true");
+    planTab.focus();
+    fireEvent.keyDown(planTab, { key: "ArrowLeft" });
+    expect(screen.getByRole("columnheader", { name: "a" })).toBeInTheDocument();
   });
 });

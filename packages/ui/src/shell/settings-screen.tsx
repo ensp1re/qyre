@@ -1,8 +1,10 @@
 import type { AccessOverview, ConnectionStatus } from "@qyre/core";
-import { Database, History, Moon, Sun, Trash2, X } from "lucide-react";
+import { Database, History, Moon, Palette, ShieldCheck, Sun, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { cn } from "../cn.js";
 import { AccessViewer } from "../access/access-viewer.js";
+import { IconButton } from "../primitives/controls/icon-button.js";
 import { Segmented } from "../primitives/segmented.js";
 
 export interface SettingsScreenProps {
@@ -36,6 +38,15 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
   unconfigured: "No database"
 };
 
+type SettingsCategory = "connection" | "access" | "appearance" | "data";
+
+const SETTINGS_CATEGORIES = [
+  { id: "connection", label: "Connection", icon: Database },
+  { id: "access", label: "Access", icon: ShieldCheck },
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "data", label: "Data & history", icon: History }
+] as const;
+
 /**
  * A full-screen, grouped configuration view (F087). Every control applies immediately - there is
  * no separate save/discard step. It replaces the old one-off panel where the title-bar gear
@@ -59,103 +70,140 @@ export function SettingsScreen({
   accessError,
   onRetryAccess
 }: SettingsScreenProps): ReactNode {
+  const [category, setCategory] = useState<SettingsCategory>("connection");
+  const categoryLabel = SETTINGS_CATEGORIES.find((item) => item.id === category)?.label;
+
   return (
     <div data-testid="settings-screen" className="flex min-h-0 flex-1 flex-col bg-background">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5">
-        <h2 className="m-0 text-[13px] font-medium text-foreground">Settings</h2>
-        <button
-          type="button"
-          aria-label="Close settings"
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border bg-card px-2.5">
+        <h2 className="m-0 text-[12px] font-medium text-foreground">Settings</h2>
+        <span className="h-4 w-px bg-border" aria-hidden="true" />
+        <span className="text-[10px] text-muted-foreground">{categoryLabel}</span>
+        <IconButton
+          variant="ghost"
+          label="Close settings"
           onClick={onClose}
-          className="ml-auto rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
+          icon={<X className="h-3.5 w-3.5" />}
+          className="ml-auto h-7 w-7"
+        />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 sm:p-6">
-          <Section
-            title="Connection"
-            description="The database this Qyre instance is currently attached to."
-          >
-            <Row label="Active database" hint={STATUS_LABEL[connectionStatus]}>
-              <div className="flex min-w-0 items-center gap-2">
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 shrink-0 rounded-full",
-                    STATUS_DOT_COLOR[connectionStatus]
-                  )}
-                />
-                <span className="truncate font-mono text-[11px] text-foreground/80">
-                  {connectionTarget ?? "Not connected"}
-                </span>
-              </div>
-            </Row>
-            <Row label="Switch database" hint="Point this instance at a different connection.">
-              <ActionButton icon={<Database className="h-3 w-3" />} onClick={onOpenConnection}>
-                Switch
-              </ActionButton>
-            </Row>
-          </Section>
-
-          <Section
-            title="Access"
-            description="Current identity, active roles, effective grants, and read-only access facts."
-          >
-            <AccessViewer
-              connectionStatus={connectionStatus}
-              supported={accessSupported}
-              overview={accessOverview}
-              isLoading={accessLoading}
-              isError={accessError}
-              onRetry={onRetryAccess}
-            />
-          </Section>
-
-          <Section title="Appearance" description="How the workspace looks.">
-            <Row label="Theme" hint="Dark is the default for this developer tool.">
-              <Segmented
-                value={theme}
-                onChange={onThemeChange}
-                options={[
-                  { value: "light", label: "Light", icon: <Sun className="h-3 w-3" /> },
-                  { value: "dark", label: "Dark", icon: <Moon className="h-3 w-3" /> }
-                ]}
-              />
-            </Row>
-          </Section>
-
-          <Section
-            title="Data & history"
-            description="Locally-stored lists. Clearing removes them from this browser only."
-          >
-            <Row
-              label="Query history"
-              hint={`${queryHistoryCount} saved ${plural(queryHistoryCount, "query", "queries")}`}
+      <div className="flex min-h-0 flex-1">
+        <nav
+          aria-label="Settings categories"
+          className="w-44 shrink-0 border-r border-border bg-sidebar py-1.5"
+        >
+          {SETTINGS_CATEGORIES.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              aria-current={category === id ? "page" : undefined}
+              onClick={() => setCategory(id)}
+              className={cn(
+                "mx-1 flex min-h-7 w-[calc(100%-0.5rem)] items-center gap-2 rounded-[2px] px-2 text-left text-[11px] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
+                category === id
+                  ? "bg-sidebar-accent text-foreground shadow-[inset_2px_0_0_rgb(var(--primary))]"
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              )}
             >
-              <ActionButton
-                icon={<History className="h-3 w-3" />}
-                onClick={onClearQueryHistory}
-                disabled={queryHistoryCount === 0}
-                ariaLabel="Clear query history"
-                destructive
+              <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+              <span className="truncate">{label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto mt-10 w-full max-w-4xl">
+            {category === "connection" && (
+              <Section
+                title="Connection"
+                description="The database this Qyre instance is currently attached to."
               >
-                Clear
-              </ActionButton>
-            </Row>
-            <Row label="Recent connections" hint={`${recentConnectionsCount} remembered`}>
-              <ActionButton
-                icon={<Trash2 className="h-3 w-3" />}
-                onClick={onClearRecentConnections}
-                disabled={recentConnectionsCount === 0}
-                ariaLabel="Clear recent connections"
-                destructive
+                <Row label="Active database" hint={STATUS_LABEL[connectionStatus]}>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 shrink-0 rounded-full",
+                        STATUS_DOT_COLOR[connectionStatus]
+                      )}
+                    />
+                    <span className="truncate font-mono text-[11px] text-foreground/80">
+                      {connectionTarget ?? "Not connected"}
+                    </span>
+                  </div>
+                </Row>
+                <Row label="Switch database" hint="Point this instance at a different connection.">
+                  <ActionButton icon={<Database className="h-3 w-3" />} onClick={onOpenConnection}>
+                    Switch
+                  </ActionButton>
+                </Row>
+              </Section>
+            )}
+
+            {category === "access" && (
+              <Section
+                title="Access"
+                description="Current identity, active roles, effective grants, and read-only access facts."
               >
-                Clear
-              </ActionButton>
-            </Row>
-          </Section>
+                <AccessViewer
+                  connectionStatus={connectionStatus}
+                  supported={accessSupported}
+                  overview={accessOverview}
+                  isLoading={accessLoading}
+                  isError={accessError}
+                  onRetry={onRetryAccess}
+                />
+              </Section>
+            )}
+
+            {category === "appearance" && (
+              <Section title="Appearance" description="How the workspace looks.">
+                <Row label="Theme" hint="Dark is the default for this developer tool.">
+                  <Segmented
+                    value={theme}
+                    onChange={onThemeChange}
+                    options={[
+                      { value: "light", label: "Light", icon: <Sun className="h-3 w-3" /> },
+                      { value: "dark", label: "Dark", icon: <Moon className="h-3 w-3" /> }
+                    ]}
+                  />
+                </Row>
+              </Section>
+            )}
+
+            {category === "data" && (
+              <Section
+                title="Data & history"
+                description="Locally-stored lists. Clearing removes them from this browser only."
+              >
+                <Row
+                  label="Query history"
+                  hint={`${queryHistoryCount} saved ${plural(queryHistoryCount, "query", "queries")}`}
+                >
+                  <ActionButton
+                    icon={<History className="h-3 w-3" />}
+                    onClick={onClearQueryHistory}
+                    disabled={queryHistoryCount === 0}
+                    ariaLabel="Clear query history"
+                    destructive
+                  >
+                    Clear
+                  </ActionButton>
+                </Row>
+                <Row label="Recent connections" hint={`${recentConnectionsCount} remembered`}>
+                  <ActionButton
+                    icon={<Trash2 className="h-3 w-3" />}
+                    onClick={onClearRecentConnections}
+                    disabled={recentConnectionsCount === 0}
+                    ariaLabel="Clear recent connections"
+                    destructive
+                  >
+                    Clear
+                  </ActionButton>
+                </Row>
+              </Section>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -176,12 +224,12 @@ function Section({
   children: ReactNode;
 }): ReactNode {
   return (
-    <section className="rounded-[4px] border border-border bg-card">
-      <div className="border-b border-border px-3 py-2">
+    <section>
+      <div className="border-b border-border bg-card px-4 py-3">
         <h3 className="m-0 text-[12px] font-medium text-foreground">{title}</h3>
         <p className="mt-0.5 text-[11px] text-muted-foreground">{description}</p>
       </div>
-      <div className="flex flex-col divide-y divide-border">{children}</div>
+      <div className="flex flex-col divide-y divide-border-subtle">{children}</div>
     </section>
   );
 }
@@ -196,7 +244,7 @@ function Row({
   children: ReactNode;
 }): ReactNode {
   return (
-    <div className="flex items-center justify-between gap-4 px-3 py-2.5">
+    <div className="flex min-h-12 items-center justify-between gap-4 px-4 py-2.5">
       <div className="min-w-0">
         <p className="m-0 text-[12px] text-foreground">{label}</p>
         <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">{hint}</p>

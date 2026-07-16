@@ -263,7 +263,7 @@ export function FilterBar({
         aria-expanded={open}
         title="Filter the whole table server-side"
         className={cn(
-          "flex items-center gap-0 rounded-[3px] border border-border p-1 font-mono text-[11px] transition-colors disabled:opacity-30 lg:gap-1.5 lg:px-2",
+          "flex h-6 items-center gap-0 rounded-[3px] border border-border px-1.5 font-mono text-[11px] transition-colors disabled:opacity-30 lg:gap-1.5 lg:px-2",
           active.length > 0
             ? "text-primary hover:bg-accent"
             : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -326,7 +326,10 @@ export function FilterBar({
 
             {step === "column" && (
               <>
-                <div className="flex items-center gap-1.5 border-b border-border px-2 py-1.5 text-muted-foreground">
+                <div
+                  data-focus-surface
+                  className="flex items-center gap-1.5 border-b border-border px-2 py-1.5 text-muted-foreground transition-colors focus-within:bg-accent/60 focus-within:shadow-[inset_2px_0_0_rgb(var(--primary))]"
+                >
                   <Search className="h-2.5 w-2.5 shrink-0" />
                   <input
                     value={query}

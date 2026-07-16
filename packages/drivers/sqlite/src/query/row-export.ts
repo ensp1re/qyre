@@ -1,5 +1,6 @@
 import type { RowFilter, RowSort } from "@qyre/core";
 import type Database from "better-sqlite3";
+import type { ResolvedRowSearch } from "@qyre/driver-contract";
 import { normalizeRow } from "../runtime/row-values.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
@@ -7,9 +8,10 @@ export async function* streamRows(
   db: Database.Database,
   table: string,
   sort?: RowSort,
-  filters?: RowFilter[]
+  filters?: RowFilter[],
+  search?: ResolvedRowSearch
 ): AsyncIterable<Record<string, unknown>> {
-  const { clause, params } = buildFilterClause(filters);
+  const { clause, params } = buildFilterClause(filters, search);
   const orderBy = sort
     ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
     : "";

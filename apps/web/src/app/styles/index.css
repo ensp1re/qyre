@@ -20,79 +20,80 @@
 :root {
   color-scheme: light;
   --font-size: 13px;
-  --background: 245 246 248;
-  --foreground: 26 29 35;
-  --card: 255 255 255;
-  --card-foreground: 26 29 35;
+  --background: 243 245 247;
+  --foreground: 36 42 51;
+  --card: 250 251 252;
+  --card-foreground: 36 42 51;
   --popover: 255 255 255;
-  --popover-foreground: 26 29 35;
-  --primary: 37 99 235;
+  --popover-foreground: 36 42 51;
+  --primary: 62 108 150;
   --primary-foreground: 255 255 255;
-  --secondary: 238 240 243;
-  --secondary-foreground: 26 29 35;
-  --muted: 238 240 243;
-  --muted-foreground: 79 94 113;
-  --quiet-foreground: 86 101 121;
-  --accent: 232 234 237;
-  --accent-foreground: 26 29 35;
-  --destructive: 220 38 38;
+  --secondary: 233 237 242;
+  --secondary-foreground: 36 42 51;
+  --muted: 233 237 242;
+  --muted-foreground: 77 92 110;
+  --quiet-foreground: 88 102 120;
+  --accent: 226 232 240;
+  --accent-foreground: 36 42 51;
+  --destructive: 169 59 70;
   --destructive-foreground: 255 255 255;
-  --border: rgba(0, 0, 0, 0.08);
-  --border-subtle: rgba(0, 0, 0, 0.04);
-  --input: 238 240 243;
-  --ring: 37 99 235;
+  --border: rgba(27, 39, 53, 0.1);
+  --border-subtle: rgba(27, 39, 53, 0.05);
+  --input: 233 237 242;
+  --ring: 62 108 150;
   --radius: 0.25rem;
-  --sidebar: 239 241 244;
-  --sidebar-foreground: 26 29 35;
-  --sidebar-accent: 228 230 234;
-  --sidebar-accent-foreground: 26 29 35;
-  --sidebar-border: rgba(0, 0, 0, 0.06);
+  --sidebar: 236 239 243;
+  --sidebar-foreground: 36 42 51;
+  --sidebar-accent: 221 227 234;
+  --sidebar-accent-foreground: 36 42 51;
+  --sidebar-border: rgba(27, 39, 53, 0.08);
   /* semantic accent colors (data-type icons, status dots, badges, SQL syntax highlighting) */
-  --c-green: #127334;
-  --c-amber: #92400e;
-  --c-purple: #7c3aed;
-  --c-blue: #1d4ed8;
-  --c-red: #b91c1c;
+  --c-green: #1f6f43;
+  --c-amber: #8e5b1d;
+  --c-purple: #7354a3;
+  --c-blue: #2f6794;
+  --c-red: #a93b46;
 }
 
 /* Dark is the primary/default theme for this product - see docs/references/design-system.md. */
 .dark {
   color-scheme: dark;
-  --background: 10 13 18;
-  --foreground: 205 214 228;
-  --card: 16 21 28;
-  --card-foreground: 205 214 228;
-  --popover: 22 29 39;
-  --popover-foreground: 205 214 228;
-  --primary: 74 158 255;
-  --primary-foreground: 10 13 18;
-  --secondary: 22 29 39;
-  --secondary-foreground: 205 214 228;
-  --muted: 22 29 39;
-  --muted-foreground: 127 142 166;
-  --quiet-foreground: 125 140 164;
-  --accent: 26 37 53;
-  --accent-foreground: 205 214 228;
-  --destructive: 224 92 106;
+  --background: 24 26 32;
+  --foreground: 216 220 228;
+  --card: 27 30 36;
+  --card-foreground: 216 220 228;
+  --popover: 32 36 43;
+  --popover-foreground: 216 220 228;
+  --primary: 134 169 204;
+  --primary-foreground: 24 26 32;
+  --secondary: 29 32 38;
+  --secondary-foreground: 216 220 228;
+  --muted: 29 32 38;
+  --muted-foreground: 157 165 178;
+  --quiet-foreground: 142 152 166;
+  --accent: 37 43 53;
+  --accent-foreground: 216 220 228;
+  --destructive: 223 133 140;
   --destructive-foreground: 255 255 255;
-  --border: rgba(255, 255, 255, 0.06);
-  --border-subtle: rgba(255, 255, 255, 0.03);
-  --input: 22 29 39;
-  --ring: 74 158 255;
-  --sidebar: 13 18 25;
-  --sidebar-foreground: 205 214 228;
-  --sidebar-accent: 22 29 39;
-  --sidebar-accent-foreground: 205 214 228;
-  --sidebar-border: rgba(255, 255, 255, 0.06);
-  --c-green: #4fc46a;
-  --c-amber: #e09a40;
-  --c-purple: #c47eff;
-  --c-blue: #4a9eff;
-  --c-red: #e36471;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-subtle: rgba(255, 255, 255, 0.035);
+  --input: 29 32 38;
+  --ring: 134 169 204;
+  --sidebar: 22 24 29;
+  --sidebar-foreground: 216 220 228;
+  --sidebar-accent: 32 36 43;
+  --sidebar-accent-foreground: 216 220 228;
+  --sidebar-border: rgba(255, 255, 255, 0.055);
+  --c-green: #72be8a;
+  --c-amber: #d8ae68;
+  --c-purple: #ad9acf;
+  --c-blue: #7fa5cb;
+  --c-red: #df858c;
 }
 
 html {
   font-size: var(--font-size);
+  background: rgb(var(--background));
 }
 
 body {
@@ -109,6 +110,57 @@ body {
     sans-serif;
   background: rgb(var(--background));
   color: rgb(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgb(var(--primary) / 0.24);
+  color: rgb(var(--foreground));
+}
+
+:where(
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  [role="button"],
+  [role="combobox"],
+  [role="menuitem"],
+  [role="option"],
+  [role="tab"],
+  [role="treeitem"]
+) {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:where(input, textarea, select, [role="combobox"]) {
+  caret-color: rgb(var(--primary));
+}
+
+:where(input, textarea, select, [role="combobox"]):hover:not(:disabled) {
+  border-color: rgb(var(--muted-foreground) / 0.45);
+}
+
+:where(
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  [role="button"],
+  [role="combobox"],
+  [role="menuitem"],
+  [role="option"],
+  [role="tab"],
+  [role="treeitem"]
+):focus-visible {
+  outline: 1px solid rgb(var(--ring) / 0.85);
+  outline-offset: 1px;
 }
 
 /* Thin, theme-colored scrollbars everywhere (tree, grid, editor, ...) instead of the OS default -
@@ -116,7 +168,7 @@ body {
    the ::-webkit-scrollbar pseudo-elements. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgb(var(--muted-foreground) / 0.3) transparent;
+  scrollbar-color: rgb(var(--muted-foreground) / 0.32) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -128,11 +180,38 @@ body {
   background: transparent;
 }
 
-*::-webkit-scrollbar-tqyre {
-  background-color: rgb(var(--muted-foreground) / 0.3);
+*::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  background-color: rgb(var(--muted-foreground) / 0.28);
+  background-clip: padding-box;
+  border: 2px solid transparent;
   border-radius: 9999px;
+  transition: background-color 150ms ease-in-out;
 }
 
-*::-webkit-scrollbar-tqyre:hover {
-  background-color: rgb(var(--muted-foreground) / 0.5);
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--muted-foreground) / 0.48);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(
+    a,
+    button,
+    input,
+    textarea,
+    select,
+    [role="button"],
+    [role="combobox"],
+    [role="menuitem"],
+    [role="option"],
+    [role="tab"],
+    [role="treeitem"]
+  ),
+  *::-webkit-scrollbar-thumb {
+    transition-duration: 0.01ms;
+  }
 }

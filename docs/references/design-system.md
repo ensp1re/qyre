@@ -32,22 +32,44 @@ to v3 config + CSS custom properties, not copy-pasted v4 syntax.
 Semantic tokens, not raw hex, in component code - `bg-background`, `text-muted-foreground`, etc.
 Both themes below must exist; **dark is the primary/default theme** for this developer tool.
 
-| Token                        | Light                 | Dark                     | Use                                             |
-| ---------------------------- | --------------------- | ------------------------ | ----------------------------------------------- |
-| `background`                 | `#f5f6f8`             | `#0a0d12`                | page background                                 |
-| `foreground`                 | `#1a1d23`             | `#cdd6e4`                | default text                                    |
-| `card`                       | `#ffffff`             | `#10151c`                | panel/card surfaces                             |
-| `popover`                    | `#ffffff`             | `#161d27`                | popovers/menus                                  |
-| `primary`                    | `#2563eb`             | `#4a9eff`                | primary actions, links, active states           |
-| `primary-foreground`         | `#ffffff`             | `#0a0d12`                | text on `primary`                               |
-| `secondary`                  | `#eef0f3`             | `#161d27`                | secondary surfaces                              |
-| `muted` / `muted-foreground` | `#eef0f3` / `#4f5e71` | `#161d27` / `#7f8ea6`    | de-emphasized text/surfaces                     |
-| `quiet-foreground`           | `#566579`             | `#7d8ca4`                | secondary metadata and placeholders             |
-| `accent`                     | `#e8eaed`             | `#1a2535`                | hover states                                    |
-| `destructive`                | `#dc2626`             | `#e05c6a`                | delete/error actions                            |
-| `border`                     | `rgba(0,0,0,0.08)`    | `rgba(255,255,255,0.06)` | hairlines                                       |
-| `sidebar`                    | `#eff1f4`             | `#0d1219`                | sidebar background (distinct from `background`) |
-| `sidebar-accent`             | `#e4e6ea`             | `#161d27`                | sidebar hover                                   |
+| Token                        | Light                 | Dark                      | Use                                             |
+| ---------------------------- | --------------------- | ------------------------- | ----------------------------------------------- |
+| `background`                 | `#f3f5f7`             | `#181a20`                 | page/editor background                          |
+| `foreground`                 | `#242a33`             | `#d8dce4`                 | default text                                    |
+| `card`                       | `#fafbfc`             | `#1b1e24`                 | panel and chrome surfaces                       |
+| `popover`                    | `#ffffff`             | `#20242b`                 | elevated menus and popovers                     |
+| `primary`                    | `#3e6c96`             | `#86a9cc`                 | primary actions, links, active states           |
+| `primary-foreground`         | `#ffffff`             | `#181a20`                 | text on `primary`                               |
+| `secondary`                  | `#e9edf2`             | `#1d2026`                 | secondary and input surfaces                    |
+| `muted` / `muted-foreground` | `#e9edf2` / `#4d5c6e` | `#1d2026` / `#9da5b2`     | de-emphasized text/surfaces                     |
+| `quiet-foreground`           | `#586678`             | `#8e98a6`                 | secondary metadata and placeholders             |
+| `accent`                     | `#e2e8f0`             | `#252b35`                 | hover and selected-row surfaces                 |
+| `destructive`                | `#a93b46`             | `#df858c`                 | delete/error actions                            |
+| `border`                     | `rgba(27,39,53,0.10)` | `rgba(255,255,255,0.07)`  | hairlines                                       |
+| `border-subtle`              | `rgba(27,39,53,0.05)` | `rgba(255,255,255,0.035)` | dense grid and repeated-row separators          |
+| `sidebar`                    | `#eceff3`             | `#16181d`                 | sidebar background (distinct from `background`) |
+| `sidebar-accent`             | `#dde3ea`             | `#20242b`                 | sidebar hover and selected tree rows            |
+| `sidebar-border`             | `rgba(27,39,53,0.08)` | `rgba(255,255,255,0.055)` | sidebar partition                               |
+
+The dark palette is a restrained blue-black ramp, not a visible stack of gray panels. The editor,
+card, sidebar, and input surfaces use only single-digit RGB steps; only popovers and active states
+lift further. This mirrors the surface strategy visible in Cursor and Codex: large regions read as
+one continuous workspace, while hierarchy comes from spacing, text, and hairlines instead of
+progressively brighter gray slabs. The `#181a20` base remains almost twice as luminous as the
+rejected near-black `#0e1116`, without the glare introduced by the interim `#202328` / `#30353d`
+graphite ramp.
+
+Research references:
+
+- [Cursor product screenshot](https://cursor.com/changelog/0-48-x): a continuous blue-black
+  workspace with subtle input/popover lift and sparse borders.
+- [Cursor theme documentation](https://cursor.com/docs): Cursor inherits VS Code's theming model
+  rather than imposing a highly segmented custom surface ramp.
+- [Codex product interface](https://openai.com/codex/): large continuous canvases, sparse
+  separators, and hierarchy carried primarily by content rather than card color.
+
+CSS stores every solid color as an `R G B` triplet so Tailwind opacity modifiers keep working;
+fixed-alpha hairlines remain complete `rgba()` values by design.
 
 `quiet-foreground` replaces opacity-modified text colors. Its light value retains at least 4.76:1
 contrast and its dark value at least 4.53:1 across every solid surface above, including accent and
@@ -60,11 +82,11 @@ highlighting - not part of shadcn's default token set, specific to this design:
 
 | Token        | Light     | Dark      | Use                                                                     |
 | ------------ | --------- | --------- | ----------------------------------------------------------------------- |
-| `--c-green`  | `#127334` | `#4fc46a` | connected/success, boolean `true`, numeric literals in SQL highlighting |
-| `--c-amber`  | `#92400e` | `#e09a40` | numeric/id columns, PK badges, warnings                                 |
-| `--c-purple` | `#7c3aed` | `#c47eff` | admin/role badges, SQL keyword highlighting                             |
-| `--c-blue`   | `#1d4ed8` | `#4a9eff` | string/varchar columns, FK badges, links                                |
-| `--c-red`    | `#b91c1c` | `#e36471` | errors and destructive status text                                      |
+| `--c-green`  | `#1f6f43` | `#72be8a` | connected/success, boolean `true`, numeric literals in SQL highlighting |
+| `--c-amber`  | `#8e5b1d` | `#d8ae68` | numeric/id columns, PK badges, warnings                                 |
+| `--c-purple` | `#7354a3` | `#ad9acf` | admin/role badges, SQL keyword highlighting                             |
+| `--c-blue`   | `#2f6794` | `#7fa5cb` | string/varchar columns, FK badges, links                                |
+| `--c-red`    | `#a93b46` | `#df858c` | errors and destructive status text                                      |
 
 Chart colors (`--chart-1..5`) mirror `--c-blue/green/amber/purple/red` in that order - use them if a
 chart/graph is ever added rather than inventing new hues.
@@ -77,6 +99,21 @@ chart/graph is ever added rather than inventing new hues.
 - Density is tight throughout: `px-3 py-1.5` / `px-2 py-1` on most interactive rows, `text-[11px]`
   or `text-[10px]` (below Tailwind's default `text-xs`) for secondary/metadata text. This is
   deliberate - an IDE, not a marketing page. Don't default to shadcn's roomier out-of-the-box sizing.
+
+## Motion and surface polish
+
+- Buttons, links, inputs, tabs, tree rows, menu items, options, and comboboxes transition color,
+  background, border, shadow, and opacity over `150ms` with the standard ease-in-out curve. Avoid
+  `transition-all`: layout and transform changes should only animate when a component explicitly
+  owns that behavior.
+- Focus-visible state is a one-pixel `ring` outline with a one-pixel offset. Mouse interaction does
+  not show it; keyboard focus always does.
+- Inputs use the primary token for the caret and softly strengthen their border on hover. Text
+  selection uses a low-opacity primary background rather than the browser's saturated default.
+- Body text uses antialiased/grayscale font smoothing and optimized legibility.
+- Scrollbars are eight pixels wide, transparent-track, and use a padded pill thumb derived from
+  `muted-foreground`; hover raises thumb opacity without introducing a new color.
+- `prefers-reduced-motion: reduce` collapses these global transition durations.
 
 ## Component patterns observed in the source
 

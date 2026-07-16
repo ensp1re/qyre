@@ -39,14 +39,16 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - F146 round 9: inline scalar editing keeps an invisible copy of the shortened display value in
   table layout while the input overlays it, so double-clicking a long value no longer collapses
   the column. Component coverage and a real-browser long-text fixture verify stable geometry.
+- F146 round 10: SQL JSON/array `contains` accepts ordinary substring text on PostgreSQL, MySQL,
+  and SQLite; MongoDB retains native structured containment. Legacy PostgreSQL interval objects
+  reopen as interval text, and invalid drawer drafts disable click and keyboard Apply.
 
 ## In progress
 
-- Round 9 is implemented as `c74d70a` on draft PR #160. Focused core/server/UI and driver
-  unit/live-integration suites pass. Focused PostgreSQL
-  browser E2E proves date/time/time-zone/interval/binary persistence, and 1280x720 visual QA proves
-  JSON and bytes editor utilities plus Apply/Cancel remain visible; a dedicated browser fixture
-  verifies stable long-text width before and during editing. Full local `pnpm verify:pr`
+- Round 10 is implemented as `148d4b7` on draft PR #160. Focused core/server/UI and driver
+  unit/live-integration suites pass. PostgreSQL browser QA proves ordinary JSON substring filtering,
+  readable interval editing, and invalid-to-valid interval/bytes Apply states; prior focused E2E
+  covers temporal/interval/binary persistence and stable long-text geometry. Full local `pnpm verify:pr`
   passes 34/34 package tasks, 11 smoke E2E with four expected skips, and 30 full E2E with 47
   expected skips, locally and in the pre-push hook. Current step: wait for GitHub Actions credits,
   rerun CI, and move F146 to passing after both jobs succeed.

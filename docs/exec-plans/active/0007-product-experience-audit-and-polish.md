@@ -878,3 +878,10 @@ personal taste.
   local `pnpm verify:pr` again passes 34/34 package tasks, 11 smoke E2E with four expected skips,
   and 30 full E2E with 47 expected skips. Implemented as `c74d70a`; current step remains rerunning
   CI when Actions credits return.
+- 2026-07-16: F146 round 10 changes SQL structured `contains` to ordinary escaped substring text
+  for PostgreSQL JSON/arrays, MySQL JSON, and SQLite JSON while retaining MongoDB's native JSON
+  candidate contract. Legacy PostgreSQL interval objects serialize back to editable interval text,
+  and every drawer disables click and keyboard Apply from the same parser used for staging. Focused
+  component/driver tests and PostgreSQL browser QA pass; local `pnpm verify:pr` passes 34/34 package
+  tasks, 11 smoke E2E with four expected skips, and 30 full E2E with 47 expected skips. Implemented
+  as `148d4b7`; current step remains rerunning CI when Actions credits return.

@@ -925,3 +925,11 @@ personal taste.
   and rebuilt production browser checks stage the changed value on click-away in MongoDB and
   PostgreSQL. Rounds 12-16 are pushed to draft PR #160 as `b06a89d`; the Node 22 local and pre-push
   gates pass. Both hosted CI jobs still fail before any steps while Actions credits are unavailable.
+- 2026-07-16: F147 addresses post-merge Tables smoke-QA findings. Inline Enter/Tab and filter
+  keyboard actions now read the live input value instead of render-lagged state; returning to the
+  filter's column step restores search focus so Escape closes predictably; and declared SQLite
+  BOOLEAN values display as true/false without changing MySQL TINYINT(1) or raw copy/export data.
+  UI tests pass 426/426 and five focused PostgreSQL browser journeys cover the immediate-input race,
+  filter keyboard flow, and existing edit/connect behavior. The Node 22 full local PR gate passes
+  with 34/34 package tasks, smoke E2E (11 passed, 4 skipped), and full E2E (32 passed, 55 skipped).
+  Current step: review, commit, push, and open the draft PR.

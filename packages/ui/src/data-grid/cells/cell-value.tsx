@@ -1,6 +1,6 @@
 import { Binary, Braces, Brackets } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
-import { formatCell, isClickableDateType } from "../../primitives/format-cell.js";
+import { formatCellDisplay, isClickableDateType } from "../../primitives/format-cell.js";
 
 /** A non-null object or array cell value - the shape CellValue/CellValueDrawer render as a tree. */
 export type StructuredValue = Record<string, unknown> | unknown[];
@@ -212,11 +212,11 @@ export function CellValue({
         className="block max-w-full truncate underline decoration-dotted underline-offset-2 hover:text-primary"
         style={{ color: "var(--c-purple)" }}
       >
-        {formatCell(value)}
+        {formatCellDisplay(value, dataType)}
       </button>
     );
   }
-  const text = formatCell(value);
+  const text = formatCellDisplay(value, dataType);
   return (
     <span className="block max-w-full truncate">
       {typeof value === "string" ? truncateForDisplay(text) : text}

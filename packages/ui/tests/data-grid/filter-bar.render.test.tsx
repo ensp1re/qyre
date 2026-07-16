@@ -82,6 +82,36 @@ describe("FilterBar (F072)", () => {
     expect(screen.getByRole("listbox", { name: "Operators" })).toBeInTheDocument();
   });
 
+  it("uses the live search value when Enter arrives before the query render", () => {
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
+
+    openPopover();
+    const search = screen.getByLabelText("Search columns") as HTMLInputElement;
+    search.value = "name";
+    fireEvent.keyDown(search, { key: "Enter" });
+
+    const options = within(screen.getByRole("listbox", { name: "Operators" })).getAllByRole(
+      "option"
+    );
+    expect(options[0]).toHaveTextContent("contains");
+  });
+
+  it("applies the live filter value when Enter arrives before the value render", () => {
+    const onFiltersChange = vi.fn();
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={onFiltersChange} />);
+
+    openPopover();
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("name"));
+    fireEvent.click(screen.getByRole("option", { name: /contains/ }));
+    const value = screen.getByLabelText("Filter value") as HTMLInputElement;
+    value.value = "Ada";
+    fireEvent.keyDown(value, { key: "Enter" });
+
+    expect(onFiltersChange).toHaveBeenCalledWith([
+      { column: "name", op: "contains", value: "Ada" }
+    ]);
+  });
+
   it("orders operators by column kind (contains first for text)", () => {
     render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
 
@@ -163,6 +193,10 @@ describe("FilterBar (F072)", () => {
     // Esc from the operator step returns to the column step, not straight to closed.
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(screen.getByRole("listbox", { name: "Columns" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Search columns")).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByLabelText("Search columns"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("disables the trigger when the table has no columns", () => {

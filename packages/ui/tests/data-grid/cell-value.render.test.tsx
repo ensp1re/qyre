@@ -8,6 +8,17 @@ describe("CellValue (component rendering, F055)", () => {
     expect(screen.getByText("42")).toBeInTheDocument();
   });
 
+  it("renders SQLite declared BOOLEAN numeric storage as true/false labels", () => {
+    const { rerender } = render(<CellValue value={1} dataType="BOOLEAN" onInspect={vi.fn()} />);
+    expect(screen.getByText("true")).toBeInTheDocument();
+
+    rerender(<CellValue value={0} dataType="BOOLEAN" onInspect={vi.fn()} />);
+    expect(screen.getByText("false")).toBeInTheDocument();
+
+    rerender(<CellValue value={1} dataType="tinyint" onInspect={vi.fn()} />);
+    expect(screen.getByText("1")).toBeInTheDocument();
+  });
+
   it("renders a structured (object/array) value as an inspect chip, not the raw JSON", () => {
     render(<CellValue value={{ a: 1, b: 2 }} onInspect={vi.fn()} />);
     expect(screen.getByText("{ 2 keys }")).toBeInTheDocument();

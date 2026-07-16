@@ -4,7 +4,7 @@ import { Pencil, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../../cn.js";
-import { formatCell, isClickableDateType } from "../../primitives/format-cell.js";
+import { formatCellDisplay, isClickableDateType } from "../../primitives/format-cell.js";
 import {
   CellValue,
   isBinaryValue,
@@ -151,7 +151,7 @@ export function EditableCell({
       >
         {displayValue === null || displayValue === undefined
           ? "null"
-          : truncateForDisplay(formatCell(displayValue))}
+          : truncateForDisplay(formatCellDisplay(displayValue, dataType))}
       </span>
     );
   }
@@ -161,7 +161,7 @@ export function EditableCell({
       ? "null"
       : displayValue === ""
         ? '""'
-        : truncateForDisplay(formatCell(displayValue));
+        : truncateForDisplay(formatCellDisplay(displayValue, dataType));
 
   if (isActive && !wide) {
     return (

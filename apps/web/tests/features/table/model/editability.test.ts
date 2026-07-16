@@ -29,6 +29,36 @@ const EDITABLE_TABLE: TableMetadata = {
   permissions: { select: true, insert: true, update: true, delete: true }
 };
 
+const EDITABLE_COLLECTION: TableMetadata = {
+  schema: "app",
+  name: "users",
+  kind: "collection",
+  columns: [
+    {
+      name: "_id",
+      dataType: "objectId",
+      nullable: false,
+      isPrimaryKey: true,
+      isForeignKey: false
+    },
+    {
+      name: "name",
+      dataType: "string",
+      nullable: false,
+      isPrimaryKey: false,
+      isForeignKey: false
+    },
+    {
+      name: "profile",
+      dataType: "object",
+      nullable: true,
+      isPrimaryKey: false,
+      isForeignKey: false
+    }
+  ],
+  permissions: { select: true, insert: true, update: true, delete: true }
+};
+
 describe("computeTableEditability (F103)", () => {
   it("allows editing a table with full write access, excluding the primary key", () => {
     const result = computeTableEditability(EDITABLE_TABLE, WRITABLE_CAPABILITIES, "postgres");
@@ -38,10 +68,10 @@ describe("computeTableEditability (F103)", () => {
     expect(result.editableColumns.has("tags")).toBe(true);
   });
 
-  it("disables editing entirely for MongoDB - its editing surface is F125's document editor", () => {
-    const result = computeTableEditability(EDITABLE_TABLE, WRITABLE_CAPABILITIES, "mongodb");
-    expect(result.editable).toBe(false);
-    expect(result.editableColumns.size).toBe(0);
+  it("uses the shared typed grid for MongoDB collections", () => {
+    const result = computeTableEditability(EDITABLE_COLLECTION, WRITABLE_CAPABILITIES, "mongodb");
+    expect(result.editable).toBe(true);
+    expect(result.editableColumns).toEqual(new Set(["name", "profile"]));
   });
 
   it("disables editing for a view, with a reason", () => {
@@ -175,10 +205,10 @@ describe("computeTableEditability insert gating (F104)", () => {
     expect(result.insertableColumns.size).toBe(0);
   });
 
-  it("disables insert entirely for MongoDB", () => {
-    const result = computeTableEditability(EDITABLE_TABLE, WRITABLE_CAPABILITIES, "mongodb");
-    expect(result.canInsert).toBe(false);
-    expect(result.insertableColumns.size).toBe(0);
+  it("uses Add row for MongoDB and permits an optional _id", () => {
+    const result = computeTableEditability(EDITABLE_COLLECTION, WRITABLE_CAPABILITIES, "mongodb");
+    expect(result.canInsert).toBe(true);
+    expect(result.insertableColumns).toEqual(new Set(["_id", "name", "profile"]));
   });
 
   it("disables insert for a view, with the same reason as editing", () => {
@@ -238,9 +268,9 @@ describe("computeTableEditability delete gating (F105)", () => {
     expect(result.canDelete).toBe(false);
   });
 
-  it("disables delete entirely for MongoDB", () => {
-    const result = computeTableEditability(EDITABLE_TABLE, WRITABLE_CAPABILITIES, "mongodb");
-    expect(result.canDelete).toBe(false);
+  it("uses shared row selection and staged delete for MongoDB", () => {
+    const result = computeTableEditability(EDITABLE_COLLECTION, WRITABLE_CAPABILITIES, "mongodb");
+    expect(result.canDelete).toBe(true);
   });
 
   it("disables delete for a view", () => {

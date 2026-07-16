@@ -8,9 +8,7 @@ export interface CommitBarProps {
   insertCount: number;
   updateCount: number;
   deleteCount: number;
-  /** One generated-statement preview line per staged op, in the same order the commit request will
-   * submit them (docs/product-specs/row-editing.md's "generated-statement preview" - the buffer's
-   * own review step, and this feature's confirmation surface for non-destructive ops). */
+  /** One SQL-statement or MongoDB-JSON preview line per staged op, in request order. */
   previewLines: readonly string[];
   onCommit: () => void;
   onDiscard: () => void;
@@ -79,7 +77,7 @@ export function CommitBar({
         </div>
       )}
 
-      <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
@@ -90,7 +88,7 @@ export function CommitBar({
           {parts.join(", ")}
         </button>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={onDiscard}
@@ -103,7 +101,9 @@ export function CommitBar({
             type="button"
             onClick={onCommit}
             disabled={committing}
-            className="flex items-center gap-1.5 rounded-[3px] bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            title="Commit (Ctrl/Cmd+S)"
+            className="flex items-center gap-1.5 rounded-[3px] px-3 py-1 text-[11px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: "var(--c-green)" }}
           >
             {committing ? (
               <Spinner className="h-2.5 w-2.5 text-primary-foreground" />

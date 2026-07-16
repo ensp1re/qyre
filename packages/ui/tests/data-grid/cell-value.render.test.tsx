@@ -32,38 +32,21 @@ describe("CellValue (component rendering, F055)", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("renders a long string as a clickable truncated button and calls onInspect with the full value", () => {
+  it("renders a long string as plain text, hard-truncated to 100 chars + '...' (F146), with no chip or click affordance", () => {
     const onInspect = vi.fn();
-    const long = "a".repeat(200);
+    const long = "a".repeat(320);
     render(<CellValue value={long} onInspect={onInspect} />);
-    const button = screen.getByRole("button");
-    expect(button).toHaveTextContent(long);
-    expect(button).toHaveClass("bg-muted/40");
-    fireEvent.click(button);
-    expect(onInspect).toHaveBeenCalledWith(long);
+    expect(screen.getByText(`${"a".repeat(100)}...`)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("renders a plain URL as an inspectable link chip", () => {
+  it("renders a URL as plain text, with no special chip or preview (F146)", () => {
     const onInspect = vi.fn();
     const value = "https://example.com/docs";
     render(<CellValue value={value} onInspect={onInspect} />);
 
-    const button = screen.getByRole("button", { name: /inspect link url example.com\/docs/i });
-    expect(button).toHaveTextContent("example.com/docs");
-    expect(button).not.toHaveTextContent("link");
-    fireEvent.click(button);
-
-    expect(onInspect).toHaveBeenCalledWith(value);
-  });
-
-  it("renders an image URL with a thumbnail preview", () => {
-    const value = "https://example.com/assets/photo.png";
-    render(<CellValue value={value} onInspect={vi.fn()} />);
-
-    const button = screen.getByRole("button", {
-      name: /inspect image url example.com\/assets\/photo.png/i
-    });
-    expect(button.querySelector("img")).toHaveAttribute("src", value);
+    expect(screen.getByText(value)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("renders a date-column string as a clickable date and calls onInspectDate with its bounding rect (F070)", () => {

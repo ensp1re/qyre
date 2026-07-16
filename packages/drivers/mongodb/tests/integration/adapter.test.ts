@@ -7,10 +7,10 @@
  */
 import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@qyre/testing";
 import { EJSON } from "bson";
-import { Binary, Long, MongoClient, ObjectId } from "mongodb";
+import { Binary, BSONRegExp, Code, Long, MaxKey, MinKey, MongoClient, Timestamp } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { isMongoCancelError, registerMongoCancellation } from "../../src/runtime/cancellation.js";
-import { MongodbAdapter } from "../../src/index.js";
+import { MongodbAdapter, normalizeBsonValue } from "../../src/index.js";
 
 describe("MongodbAdapter integration", () => {
   let adapter: MongodbAdapter;
@@ -79,13 +79,12 @@ describe("MongodbAdapter integration", () => {
     expect(column("profile")).toMatchObject({ dataType: "object", nullable: true });
   });
 
-  it("returns a page of documents; _id stays a live ObjectId at this layer, serializing to its hex string only once JSON-encoded (same precedent as Buffer/Date elsewhere)", async () => {
+  it("returns MongoDB _id values as stable hexadecimal row keys", async () => {
     const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
     expect(page.rows).toHaveLength(FIXTURE.rowCount);
     expect(page.columns).toEqual(expect.arrayContaining(["_id", "name", "email"]));
     for (const row of page.rows) {
-      expect(row._id).toBeInstanceOf(ObjectId);
-      expect(JSON.stringify(row._id)).toMatch(/^"[0-9a-f]{24}"$/);
+      expect(row._id).toMatch(/^[0-9a-f]{24}$/);
     }
   });
 
@@ -110,6 +109,18 @@ describe("MongodbAdapter integration", () => {
     const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10);
     const ada = page.rows.find((row) => row.name === "Ada Lovelace");
     expect(ada?.profile).toEqual({ account: { tags: ["admin", "beta"] } });
+  });
+
+  it("filters a top-level object by semantic containment", async () => {
+    const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10, undefined, [
+      {
+        column: "profile",
+        op: "contains",
+        value: '{"account":{"tags":["admin","beta"]}}',
+        columnDataType: "object"
+      }
+    ]);
+    expect(page.rows.map((row) => row.name)).toEqual(["Ada Lovelace"]);
   });
 
   it("normalizes BSON types that don't serialize usefully over JSON to plain values", async () => {
@@ -362,6 +373,115 @@ describe("MongodbAdapter integration", () => {
       // The concurrent write is preserved - the stale replace never ran.
       const after = await collection.findOne({ _id: inserted.insertedId });
       expect(after?.name).toBe("Concurrent");
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("updates staged grid fields, preserves unrelated data and BSON types, and rejects stale originals", async () => {
+    const client = new MongoClient(mongoUrl);
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(FIXTURE.table);
+      const joinedAt = new Date("2024-01-01T00:00:00.000Z");
+      const bytes = new Binary(Buffer.from([0]));
+      const inserted = await collection.insertOne({
+        name: "Grid Original",
+        joinedAt,
+        bytes,
+        unrelated: { keep: true }
+      });
+      const key = { _id: String(inserted.insertedId) };
+
+      const result = await adapter.mutations.updateFieldsByKey?.(
+        databaseName,
+        FIXTURE.table,
+        key,
+        {
+          name: "Grid Changed",
+          joinedAt: "2025-02-03T04:05:06.000Z",
+          bytes: "00cafe"
+        },
+        {
+          name: "Grid Original",
+          joinedAt: joinedAt.toISOString(),
+          bytes: { type: "Buffer", data: [0] }
+        },
+        []
+      );
+      expect(result).toEqual({ matched: 1 });
+
+      const after = await collection.findOne({ _id: inserted.insertedId });
+      expect(after?.name).toBe("Grid Changed");
+      expect(after?.joinedAt).toBeInstanceOf(Date);
+      expect((after?.joinedAt as Date).toISOString()).toBe("2025-02-03T04:05:06.000Z");
+      expect(Array.from((after?.bytes as Binary).buffer)).toEqual([0, 202, 254]);
+      expect(after?.unrelated).toEqual({ keep: true });
+
+      await collection.updateOne({ _id: inserted.insertedId }, { $set: { name: "Concurrent" } });
+      const conflict = await adapter.mutations.updateFieldsByKey?.(
+        databaseName,
+        FIXTURE.table,
+        key,
+        { name: "My stale edit" },
+        { name: "Grid Changed" },
+        []
+      );
+      expect(conflict).toEqual({ matched: 0 });
+      expect((await collection.findOne({ _id: inserted.insertedId }))?.name).toBe("Concurrent");
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("updates regex, timestamp, code, MinKey, and MaxKey fields without degrading BSON types", async () => {
+    const client = new MongoClient(mongoUrl);
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(FIXTURE.table);
+      const originalTimestamp = Timestamp.fromBits(1, 100);
+      const inserted = await collection.insertOne({
+        regexField: new BSONRegExp("^old", "i"),
+        timestampField: originalTimestamp,
+        codeField: new Code("return x;", { x: 1 }),
+        minKeyField: new MinKey(),
+        maxKeyField: new MaxKey()
+      });
+      const result = await adapter.mutations.updateFieldsByKey?.(
+        databaseName,
+        FIXTURE.table,
+        { _id: String(inserted.insertedId) },
+        {
+          regexField: { pattern: "^new", options: "im" },
+          timestampField: { t: 200, i: 2 },
+          codeField: { code: "return x + 1;", scope: { x: 2 } },
+          minKeyField: { $minKey: 1 },
+          maxKeyField: { $maxKey: 1 }
+        },
+        {
+          regexField: { pattern: "^old", options: "i" },
+          timestampField: { t: 100, i: 1 },
+          codeField: { code: "return x;", scope: { x: 1 } },
+          minKeyField: { $minKey: 1 },
+          maxKeyField: { $maxKey: 1 }
+        },
+        []
+      );
+      expect(result).toEqual({ matched: 1 });
+
+      const after = await collection.findOne({ _id: inserted.insertedId });
+      expect(after?.regexField).toBeInstanceOf(RegExp);
+      expect((after?.regexField as RegExp).source).toBe("^new");
+      expect((after?.regexField as RegExp).flags).toBe("im");
+      expect(after?.timestampField).toBeInstanceOf(Timestamp);
+      expect(normalizeBsonValue(after?.timestampField)).toEqual({ t: 200, i: 2 });
+      expect(after?.codeField).toBeInstanceOf(Code);
+      expect(normalizeBsonValue(after?.codeField)).toEqual({
+        code: "return x + 1;",
+        scope: { x: 2 }
+      });
+      expect(after?.minKeyField).toBeInstanceOf(MinKey);
+      expect(after?.maxKeyField).toBeInstanceOf(MaxKey);
     } finally {
       await client.close();
     }

@@ -1,7 +1,8 @@
 import type { ColumnMetadata } from "./types/query/table.js";
 import type { FilterOp } from "./types/query/query.js";
 
-export type FilterValueInput = "text" | "number" | "boolean" | "date" | "time" | "datetime-local";
+export type FilterValueInput =
+  "text" | "number" | "boolean" | "date" | "time" | "datetime-local" | "json";
 
 export type FilterColumnKind =
   | "text"
@@ -153,6 +154,22 @@ export function filterCapabilityForColumn(
     case "null":
       return { kind, label: "null", operators: NULL_OPS, valueInput: null };
     case "structured":
+      if (
+        (engine === "postgres" &&
+          (column.dataType.toLowerCase().includes("json") ||
+            column.dataType.toLowerCase().includes("array") ||
+            column.dataType.endsWith("[]"))) ||
+        ((engine === "mysql" || engine === "sqlite") &&
+          column.dataType.toLowerCase().includes("json")) ||
+        (engine === "mongodb" && ["object", "array"].includes(column.dataType.toLowerCase()))
+      ) {
+        return {
+          kind,
+          label: "structured",
+          operators: withNullability(["contains"], column),
+          valueInput: engine === "mongodb" ? "json" : "text"
+        };
+      }
       return {
         kind,
         label: "structured",

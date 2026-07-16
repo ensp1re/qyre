@@ -44,7 +44,9 @@ describe("buildMutationOps (F105)", () => {
         schema: "public",
         table: "users",
         key: { id: 1 },
-        changes: { name: "Grace", email: "b@x.com" }
+        changes: { name: "Grace", email: "b@x.com" },
+        originalValues: { name: "Ada", email: "a@x.com" },
+        missingOriginalFields: []
       }
     ]);
   });
@@ -134,5 +136,21 @@ describe("buildPreviewLine (F105)", () => {
     expect(buildPreviewLine(op)).toBe(
       `INSERT INTO "public"."users" (active, note) VALUES (true, NULL)`
     );
+  });
+
+  it("renders MongoDB operations as JSON rather than SQL", () => {
+    const op: MutationOp = {
+      type: "update",
+      schema: "app",
+      table: "users",
+      key: { _id: "507f1f77bcf86cd799439011" },
+      changes: { name: "Grace" }
+    };
+    expect(JSON.parse(buildPreviewLine(op, "mongodb"))).toEqual({
+      updateOne: {
+        filter: { _id: "507f1f77bcf86cd799439011" },
+        update: { $set: { name: "Grace" } }
+      }
+    });
   });
 });

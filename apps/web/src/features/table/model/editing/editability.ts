@@ -67,16 +67,18 @@ export function computeTableEditability(
   capabilities: ConnectionCapabilities | undefined,
   engine: DatabaseEngine | undefined
 ): TableEditability {
-  // MongoDB's editing surface is F125's document editor, not this grid.
-  if (!table || engine === "mongodb") return NOT_EDITABLE;
+  if (!table) return NOT_EDITABLE;
 
-  if (table.kind !== "table") {
+  const expectedKind = engine === "mongodb" ? "collection" : "table";
+  if (table.kind !== expectedKind) {
     const reason =
       table.kind === "view"
         ? "Views are read-only - they have no rows of their own to update."
         : table.kind === "materialized-view"
           ? "Materialized views are refreshed, not edited row-by-row."
-          : "This isn't editable.";
+          : engine === "mongodb"
+            ? "Only MongoDB collections can be edited."
+            : "This isn't editable.";
     return {
       editable: false,
       reason,
@@ -118,9 +120,17 @@ export function computeTableEditability(
   const canInsert = tableAllows(table.permissions, "insert");
   const canDelete = tableAllows(table.permissions, "delete");
 
-  const mutationEditableColumns = table.columns.filter(
-    (column) => mutationEditorCapability(column.dataType, engine, column).editable
-  );
+  const mutationEditableColumns = table.columns.filter((column) => {
+    if (
+      engine === "mongodb" &&
+      (column.name.includes(".") ||
+        column.name.startsWith("$") ||
+        ["__proto__", "constructor", "prototype"].includes(column.name))
+    ) {
+      return false;
+    }
+    return mutationEditorCapability(column.dataType, engine, column).editable;
+  });
 
   const editableColumns = canUpdate
     ? new Set(

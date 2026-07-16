@@ -1,9 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { EditableCell } from "../../src/data-grid/cells/editable-cell.js";
 import { chooseSelect } from "../support/select.js";
 
-describe("EditableCell (component rendering, F103)", () => {
+describe("EditableCell (component rendering, F103/F146)", () => {
   it("renders the display value as plain text when not editing", () => {
     render(
       <EditableCell
@@ -30,6 +32,20 @@ describe("EditableCell (component rendering, F103)", () => {
       />
     );
     expect(screen.getByText("null")).toBeInTheDocument();
+  });
+
+  it("renders an empty string distinctly from null", () => {
+    render(
+      <EditableCell
+        displayValue=""
+        dataType="varchar"
+        nullable={true}
+        dirty={false}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+    expect(screen.getByText('""')).toBeInTheDocument();
   });
 
   it("shows no revert button when the cell isn't dirty", () => {
@@ -60,10 +76,10 @@ describe("EditableCell (component rendering, F103)", () => {
     );
     fireEvent.click(screen.getByLabelText("Revert cell to original value"));
     expect(onRevert).toHaveBeenCalledOnce();
-    expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("value")).not.toBeInTheDocument();
   });
 
-  it("click opens a text editor pre-filled with the current value, and Enter commits it", () => {
+  it("a single click selects without opening the editor", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -76,34 +92,29 @@ describe("EditableCell (component rendering, F103)", () => {
       />
     );
     fireEvent.click(screen.getByText("Ada"));
-    const input = screen.getByLabelText("Edit cell value") as HTMLInputElement;
-    expect(input.value).toBe("Ada");
-
-    fireEvent.change(input, { target: { value: "Grace" } });
-    fireEvent.keyDown(input, { key: "Enter" });
-    expect(onCommit).toHaveBeenCalledWith("Grace");
+    expect(screen.queryByLabelText("value")).not.toBeInTheDocument();
+    expect(screen.getByText("Ada")).toBeInTheDocument();
   });
 
-  it("keeps Enter for multiline text and applies with Ctrl/Cmd+Enter", () => {
+  it("double-click opens a text editor pre-filled with the current value, and Enter commits it", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
         displayValue="Ada"
-        dataType="text"
+        dataType="varchar"
         nullable={false}
         dirty={false}
         onCommit={onCommit}
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("Ada"));
-    const input = screen.getByLabelText("Edit cell value");
-    fireEvent.change(input, { target: { value: "Grace\nHopper" } });
-    fireEvent.keyDown(input, { key: "Enter" });
-    expect(onCommit).not.toHaveBeenCalled();
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    const input = screen.getByLabelText("value") as HTMLInputElement;
+    expect(input.value).toBe("Ada");
 
-    fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
-    expect(onCommit).toHaveBeenCalledWith("Grace\nHopper");
+    fireEvent.change(input, { target: { value: "Grace" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith("Grace");
   });
 
   it("keeps structured inspection and editing as distinct actions", () => {
@@ -125,10 +136,101 @@ describe("EditableCell (component rendering, F103)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "{ 1 key }" }));
     expect(onInspect).toHaveBeenCalledWith(value);
-    expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "New value" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
-    expect(screen.getByRole("textbox", { name: "New value" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "JSON editor" })).toBeInTheDocument();
+  });
+
+  it("opens bytea as hexadecimal text in the right-side drawer", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        columnName="payload"
+        displayValue={{ type: "Buffer", data: [0, 202, 254] }}
+        dataType="bytea"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit payload" }));
+    expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
+    const editor = screen.getByRole("textbox", { name: "Edit cell value" });
+    expect(editor).toHaveValue("00 ca fe");
+    expect(screen.getByText("3 bytes")).toBeInTheDocument();
+    fireEvent.change(editor, { target: { value: "00 ff" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onCommit).toHaveBeenCalledWith("00ff");
+  });
+
+  it("opens XML as raw multiline text in the right-side drawer", () => {
+    const onCommit = vi.fn();
+    const value = "<root><value>one</value></root>";
+    render(
+      <EditableCell
+        columnName="document"
+        displayValue={value}
+        dataType="xml"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+
+    fireEvent.doubleClick(screen.getByText(value));
+    const editor = screen.getByRole("textbox", { name: "Edit cell value" });
+    fireEvent.change(editor, { target: { value: "<root>\n  <value>two</value>\n</root>" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onCommit).toHaveBeenCalledWith("<root>\n  <value>two</value>\n</root>");
+  });
+
+  it("opens PostgreSQL intervals as lossless text in the right-side drawer", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        columnName="duration"
+        displayValue="1 day 02:03:04.5"
+        dataType="interval"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+
+    fireEvent.doubleClick(screen.getByText("1 day 02:03:04.5"));
+    const editor = screen.getByRole("textbox", { name: "Edit cell value" });
+    expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
+    fireEvent.change(editor, { target: { value: "2 days 03:04:05.75" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onCommit).toHaveBeenCalledWith("2 days 03:04:05.75");
+  });
+
+  it("converts a legacy PostgreSQL interval object into editable text", () => {
+    render(
+      <EditableCell
+        columnName="duration"
+        displayValue={{ days: 5, hours: 10, minutes: 15 }}
+        dataType="interval"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit duration" }));
+    expect(screen.getByRole("textbox", { name: "Edit cell value" })).toHaveValue(
+      "5 days 10 hours 15 minutes"
+    );
   });
 
   it("Escape cancels the edit without committing", () => {
@@ -144,14 +246,14 @@ describe("EditableCell (component rendering, F103)", () => {
       />
     );
     const activation = screen.getByText("Ada");
-    fireEvent.click(activation);
-    fireEvent.keyDown(screen.getByLabelText("Edit cell value"), { key: "Escape" });
+    fireEvent.doubleClick(activation);
+    fireEvent.keyDown(screen.getByLabelText("value"), { key: "Escape" });
     expect(onCommit).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("value")).not.toBeInTheDocument();
     expect(screen.getByText("Ada")).toHaveFocus();
   });
 
-  it("Enter on the display cell also starts editing", () => {
+  it("Enter on the selected display cell also starts editing", () => {
     render(
       <EditableCell
         displayValue="Ada"
@@ -163,10 +265,10 @@ describe("EditableCell (component rendering, F103)", () => {
       />
     );
     fireEvent.keyDown(screen.getByText("Ada"), { key: "Enter" });
-    expect(screen.getByLabelText("Edit cell value")).toBeInTheDocument();
+    expect(screen.getByLabelText("value")).toBeInTheDocument();
   });
 
-  it("F2 on the display cell starts editing", () => {
+  it("F2 on the selected display cell starts editing", () => {
     render(
       <EditableCell
         displayValue="Ada"
@@ -178,26 +280,26 @@ describe("EditableCell (component rendering, F103)", () => {
       />
     );
     fireEvent.keyDown(screen.getByText("Ada"), { key: "F2" });
-    expect(screen.getByLabelText("Edit cell value")).toBeInTheDocument();
+    expect(screen.getByLabelText("value")).toBeInTheDocument();
   });
 
-  it("anchors the editor in an overlay without changing the cell's layout footprint", () => {
+  it("Delete on a nullable selected cell commits NULL immediately", () => {
+    const onCommit = vi.fn();
     render(
       <EditableCell
         displayValue="Ada"
         dataType="varchar"
-        nullable={false}
+        nullable={true}
         dirty={false}
-        onCommit={vi.fn()}
+        onCommit={onCommit}
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("Ada"));
-    expect(screen.getByTestId("cell-editor-anchor")).toHaveClass("relative", "h-5");
-    expect(screen.getByTestId("cell-editor-surface")).toHaveClass("fixed");
+    fireEvent.keyDown(screen.getByText("Ada"), { key: "Delete" });
+    expect(onCommit).toHaveBeenCalledWith(null);
   });
 
-  it("edits a precision-bearing timestamp without normalizing it", () => {
+  it("edits a precision-bearing timestamp in place without normalizing it", () => {
     const onCommit = vi.fn();
     const value = "2024-11-03 01:30:45.123456-04:00";
     render(
@@ -211,15 +313,15 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText(value));
-    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.doubleClick(screen.getByText(value));
+    const input = screen.getByLabelText("value");
     expect(input).toHaveValue(value);
     fireEvent.change(input, { target: { value: "2024-11-03 01:30:45.123457-04:00" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onCommit).toHaveBeenCalledWith("2024-11-03 01:30:45.123457-04:00");
   });
 
-  it("commits a valid number and cancels on an invalid one, for a numeric column", () => {
+  it("commits a valid number and keeps an invalid one open with an inline error", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -231,14 +333,14 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("1"));
-    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.doubleClick(screen.getByText("1"));
+    const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "42" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onCommit).toHaveBeenCalledWith("42");
   });
 
-  it("shows true/false/null buttons for a boolean column, and commits the picked value", () => {
+  it("shows a True/False selector for a boolean column, with no NULL toggle to click (F146)", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -250,29 +352,92 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("true"));
-    chooseSelect("Edit cell value", "false");
-    expect(screen.getByRole("button", { name: "NULL" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.doubleClick(screen.getByText("true"));
+    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
+    chooseSelect("value", "False");
     expect(onCommit).toHaveBeenCalledWith(false);
   });
 
-  it("hides the null option for a boolean column when the column isn't nullable", () => {
+  it("closes the editor after a boolean selection, instead of leaving it stuck open (F146)", () => {
     render(
       <EditableCell
         displayValue={true}
         dataType="boolean"
-        nullable={false}
+        nullable={true}
         dirty={false}
         onCommit={vi.fn()}
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("true"));
-    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
+    fireEvent.doubleClick(screen.getByText("true"));
+    chooseSelect("value", "False");
+    expect(screen.queryByRole("combobox", { name: "value" })).not.toBeInTheDocument();
   });
 
-  it("commits an explicit empty string for a nullable text column, instead of cancelling (F140/U2)", () => {
+  it("commits and closes on blur even without pressing Enter, so a changed cell shows dirty right away (F146)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    const input = screen.getByLabelText("value");
+    fireEvent.change(input, { target: { value: "Grace" } });
+    fireEvent.blur(input);
+    expect(onCommit).toHaveBeenCalledWith("Grace");
+    expect(screen.queryByLabelText("value")).not.toBeInTheDocument();
+  });
+
+  it("does not stage a no-op blur when the draft is unchanged", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.blur(screen.getByLabelText("value"));
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("value")).not.toBeInTheDocument();
+  });
+
+  it("edits long plain text inline like any other text, not in a JSON-style popover (F146)", () => {
+    const onCommit = vi.fn();
+    const long = "a".repeat(320);
+    render(
+      <EditableCell
+        displayValue={long}
+        dataType="text"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText(`${"a".repeat(100)}...`));
+    expect(screen.queryByTestId("cell-editor-surface")).not.toBeInTheDocument();
+    const input = screen.getByLabelText("value") as HTMLInputElement;
+    expect(input.value).toBe(long);
+    const widthReserve = screen.getByTestId("cell-editor-width-reserve");
+    expect(widthReserve).toHaveTextContent(`${"a".repeat(100)}...`);
+    expect(widthReserve).toHaveClass("invisible", "w-max");
+    fireEvent.change(input, { target: { value: "short now" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith("short now");
+  });
+
+  it("auto-stages NULL for a nullable text column left empty, instead of an explicit toggle (F146)", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -284,47 +449,34 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("Ada"));
-    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
+    const input = screen.getByLabelText("value");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith(null);
+  });
+
+  it("commits an empty string as-is for a non-nullable text column (there is no NULL to fall back to)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue="Ada"
+        dataType="varchar"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onCommit).toHaveBeenCalledWith("");
   });
 
-  it("shows a null button for a nullable text column and commits null (F140/U2)", () => {
-    const onCommit = vi.fn();
-    render(
-      <EditableCell
-        displayValue="Ada"
-        dataType="varchar"
-        nullable={true}
-        dirty={false}
-        onCommit={onCommit}
-        onRevert={vi.fn()}
-      />
-    );
-    fireEvent.click(screen.getByText("Ada"));
-    fireEvent.click(screen.getByRole("button", { name: "NULL" }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-    expect(onCommit).toHaveBeenCalledWith(null);
-  });
-
-  it("hides the null button for a non-nullable text column", () => {
-    render(
-      <EditableCell
-        displayValue="Ada"
-        dataType="varchar"
-        nullable={false}
-        dirty={false}
-        onCommit={vi.fn()}
-        onRevert={vi.fn()}
-      />
-    );
-    fireEvent.click(screen.getByText("Ada"));
-    expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
-  });
-
-  it("keeps an invalid empty numeric draft open, then permits an explicit NULL (F140/U2)", () => {
+  it("auto-stages NULL for a nullable numeric column left empty, without a validation error (F146)", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -336,16 +488,31 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("1"));
-    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.doubleClick(screen.getByText("1"));
+    const input = screen.getByLabelText("value");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith(null);
+  });
+
+  it("keeps a non-nullable numeric column's empty draft open with a validation error (nothing to fall back to)", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        displayValue={1}
+        dataType="int4"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.doubleClick(screen.getByText("1"));
+    const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onCommit).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Edit cell value")).toHaveAttribute("aria-invalid", "true");
-
-    fireEvent.click(screen.getByRole("button", { name: "NULL" }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-    expect(onCommit).toHaveBeenCalledWith(null);
+    expect(screen.getByLabelText("value")).toHaveAttribute("aria-invalid", "true");
   });
 
   it("commits an integer draft beyond Number.MAX_SAFE_INTEGER as exact text (F140/U5)", () => {
@@ -360,8 +527,8 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("9007199254740991"));
-    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.doubleClick(screen.getByText("9007199254740991"));
+    const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "9007199254740993" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
@@ -380,8 +547,8 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("1"));
-    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.doubleClick(screen.getByText("1"));
+    const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "42" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onCommit).toHaveBeenCalledWith("42");
@@ -399,12 +566,103 @@ describe("EditableCell (component rendering, F103)", () => {
         onRevert={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("2024-03-05"));
-    expect(screen.getByRole("button", { name: "Choose date" })).toBeInTheDocument();
+    fireEvent.doubleClick(screen.getByText("2024-03-05"));
+    expect(screen.getByRole("button", { name: "Open date picker" })).toBeInTheDocument();
 
-    fireEvent.keyDown(screen.getByRole("button", { name: "Choose date" }), { key: "Escape" });
+    fireEvent.keyDown(screen.getByLabelText("value"), { key: "Escape" });
 
     expect(onCommit).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "Choose date" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open date picker" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the UTC/local/relative date detail affordance on an editable timestamp column (F146)", () => {
+    // Regression guard: EditableCell's non-editing display used to bypass CellValue entirely for
+    // non-structured values, so an editable date/timestamp column silently lost the "Click for
+    // UTC, local time, and more" popover that read-only columns still had (DateDetailPopover).
+    const onInspectDate = vi.fn();
+    render(
+      <EditableCell
+        displayValue="2026-03-05T19:57:11.880Z"
+        dataType="timestamptz"
+        nullable={false}
+        dirty={false}
+        onInspectDate={onInspectDate}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+    const dateLink = screen.getByTitle("Click for UTC, local time, and more");
+    fireEvent.click(dateLink);
+    expect(onInspectDate).toHaveBeenCalledWith("2026-03-05T19:57:11.880Z", expect.anything());
+    expect(screen.getByRole("button", { name: "Edit value" })).toBeInTheDocument();
+  });
+
+  it("opens JSON/array cell editing directly in the right-side drawer (F146)", () => {
+    render(
+      <EditableCell
+        columnName="profile"
+        displayValue={{ active: true }}
+        dataType="jsonb"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
+    expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "{ 1 key }" })).toBeInTheDocument();
+    expect(screen.queryByTestId("cell-editor-surface")).not.toBeInTheDocument();
+    expect(screen.queryByText("jsonb")).not.toBeInTheDocument();
+    expect(screen.queryByText("New value")).not.toBeInTheDocument();
+    expect(screen.queryByText(/JSON is validated before Apply/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Minify" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Format" })).toBeInTheDocument();
+  });
+
+  it("only one editor is active at a time when coordinated by a parent (F146)", () => {
+    function Harness(): ReactNode {
+      const [active, setActive] = useState<string | null>(null);
+      return (
+        <>
+          <EditableCell
+            columnName="first"
+            displayValue="Ada"
+            dataType="varchar"
+            nullable={false}
+            dirty={false}
+            onCommit={vi.fn()}
+            onRevert={vi.fn()}
+            isActive={active === "first"}
+            onActivate={() => setActive("first")}
+            onDeactivate={() => setActive((current) => (current === "first" ? null : current))}
+          />
+          <EditableCell
+            columnName="second"
+            displayValue="Grace"
+            dataType="varchar"
+            nullable={false}
+            dirty={false}
+            onCommit={vi.fn()}
+            onRevert={vi.fn()}
+            isActive={active === "second"}
+            onActivate={() => setActive("second")}
+            onDeactivate={() => setActive((current) => (current === "second" ? null : current))}
+          />
+        </>
+      );
+    }
+    render(<Harness />);
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    expect(screen.getByLabelText("first")).toBeInTheDocument();
+
+    fireEvent.doubleClick(screen.getByText("Grace"));
+    // "Ada"'s cell reverts to its plain display (still visible as text) - only "Grace" is editing,
+    // so exactly one editor surface exists, not two stacked on top of each other.
+    expect(screen.getByText("Ada")).toBeInTheDocument();
+    expect(screen.queryByLabelText("first")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("second")).toBeInTheDocument();
   });
 });

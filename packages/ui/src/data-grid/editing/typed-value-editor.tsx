@@ -3,16 +3,16 @@ import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilitie
 import {
   mutationValueText,
   parseMutationDraft,
+  type MutationValueResult,
   validateMutationValue
 } from "@qyre/core/mutation-editor-values";
-import { Check } from "lucide-react";
+import { Check, Maximize2 } from "lucide-react";
 import type { KeyboardEvent, ReactElement, ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "../../cn.js";
 import { Button } from "../../primitives/controls/button.js";
 import { Field } from "../../primitives/controls/field.js";
-import { Select } from "../../primitives/controls/select.js";
-import { DateTimeInput } from "../../primitives/date-time-input.js";
+import { BinaryTextEditor, formatBinaryHex } from "./binary-text-editor.js";
 import { EditorActions } from "./editor-actions.js";
 import { StructuredTextEditor } from "./structured-text-editor.js";
 
@@ -26,6 +26,12 @@ export interface TypedValueEditorProps {
   controlLabel?: string;
   onApply: (value: unknown) => void;
   onCancel: () => void;
+  /** The drawer already names the edited column, so structured editors can omit duplicate
+   * metadata and explanatory chrome. */
+  presentation?: "popover" | "drawer";
+  /** Reveals a small "Expand" action opening the same value in the full right-side drawer instead
+   * of this anchored popover (F146) - an explicit, occasional escape hatch, never the default. */
+  onExpand?: () => void;
 }
 
 function setInitialValue(value: unknown): string[] {
@@ -35,13 +41,20 @@ function setInitialValue(value: unknown): string[] {
   return [];
 }
 
+/**
+ * The full-value editor for widgets too large for in-place editing (F146). JSON, arrays, binary,
+ * XML, and PostgreSQL intervals use its streamlined drawer presentation; SET retains the anchored
+ * popover and optional drawer expansion.
+ */
 export function TypedValueEditor({
   column,
   engine,
   originalValue,
   controlLabel = "Edit cell value",
   onApply,
-  onCancel
+  onCancel,
+  presentation = "popover",
+  onExpand
 }: TypedValueEditorProps): ReactNode {
   const metadata = {
     allowedValues: column.allowedValues,
@@ -49,38 +62,31 @@ export function TypedValueEditor({
   };
   const capability = mutationEditorCapability(column.dataType, engine, metadata);
   const initialText = mutationValueText(originalValue, capability);
-  const [draft, setDraft] = useState(initialText);
+  const [draft, setDraft] = useState(() =>
+    capability.widget === "binary" ? formatBinaryHex(initialText) : initialText
+  );
   const [selectedSet, setSelectedSet] = useState(() => setInitialValue(originalValue));
   const [nullDraft, setNullDraft] = useState(originalValue === null);
   const [error, setError] = useState<string>();
 
-  function candidate(): unknown {
-    if (nullDraft) return null;
-    if (capability.widget === "boolean") return draft === "true";
-    if (capability.widget === "enum") return draft;
-    if (capability.widget === "set") return selectedSet;
-    const result = parseMutationDraft(draft, capability, engine, metadata);
-    if (!result.valid) throw new Error(result.error);
-    return result.value;
+  function candidateResult(): MutationValueResult {
+    if (nullDraft) return { valid: true, value: null };
+    if (capability.widget === "set") {
+      return validateMutationValue(capability, selectedSet, engine, metadata);
+    }
+    return parseMutationDraft(draft, capability, engine, metadata);
   }
 
+  const validation = candidateResult();
+  const visibleError = error ?? (validation.valid ? undefined : validation.error);
+
   function apply(): void {
-    if (nullDraft) {
-      onApply(null);
+    if (!validation.valid) {
+      setError(validation.error);
       return;
     }
-    try {
-      const value = candidate();
-      const result = validateMutationValue(capability, value, engine, metadata);
-      if (!result.valid) {
-        setError(result.error);
-        return;
-      }
-      setError(undefined);
-      onApply(result.value);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Invalid value.");
-    }
+    setError(undefined);
+    onApply(validation.value);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
@@ -90,22 +96,11 @@ export function TypedValueEditor({
     } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       apply();
-    } else if (
-      event.key === "Enter" &&
-      !event.defaultPrevented &&
-      event.target instanceof HTMLInputElement
-    ) {
-      event.preventDefault();
-      apply();
     }
   }
 
   const structured = capability.widget === "json" || capability.widget === "array";
-  const longText = capability.widget === "multiline";
-  const originalText =
-    originalValue === null || originalValue === undefined
-      ? "NULL"
-      : mutationValueText(originalValue, capability);
+  const minimalDrawer = presentation === "drawer";
 
   let control: ReactElement;
   if (nullDraft) {
@@ -113,33 +108,6 @@ export function TypedValueEditor({
       <div className="rounded-[3px] border border-border bg-secondary px-2 py-2 font-mono text-[10px] italic text-muted-foreground">
         NULL will be staged.
       </div>
-    );
-  } else if (capability.widget === "boolean") {
-    control = (
-      <Select
-        label={controlLabel}
-        value={draft === "false" ? "false" : "true"}
-        options={[
-          { value: "true", label: "true" },
-          { value: "false", label: "false" }
-        ]}
-        onValueChange={(value) => {
-          setDraft(value);
-          setError(undefined);
-        }}
-      />
-    );
-  } else if (capability.widget === "enum") {
-    control = (
-      <Select
-        label={controlLabel}
-        value={draft}
-        options={(column.allowedValues ?? []).map((value) => ({ value, label: value }))}
-        onValueChange={(value) => {
-          setDraft(value);
-          setError(undefined);
-        }}
-      />
     );
   } else if (capability.widget === "set") {
     control = (
@@ -175,19 +143,35 @@ export function TypedValueEditor({
         })}
       </div>
     );
-  } else if (capability.widget === "date") {
+  } else if (structured) {
     control = (
-      <DateTimeInput
-        kind="date"
-        value={draft}
+      <StructuredTextEditor
+        text={draft}
         onChange={(value) => {
           setDraft(value);
           setError(undefined);
         }}
+        label={minimalDrawer ? "JSON editor" : "New value"}
+        error={visibleError}
+        autoFocus
+        minHeightClassName="min-h-40"
+        variant={minimalDrawer ? "minimal" : "full"}
+      />
+    );
+  } else if (capability.widget === "binary") {
+    control = (
+      <BinaryTextEditor
+        text={draft}
+        onChange={(value) => {
+          setDraft(value);
+          setError(undefined);
+        }}
+        label={controlLabel}
+        error={visibleError}
         autoFocus
       />
     );
-  } else if (longText) {
+  } else {
     control = (
       <textarea
         autoFocus
@@ -197,80 +181,77 @@ export function TypedValueEditor({
           setDraft(event.target.value);
           setError(undefined);
         }}
-        spellCheck={!structured}
-        className="min-h-32 w-full resize-y rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary"
-      />
-    );
-  } else {
-    control = (
-      <input
-        autoFocus
-        aria-label={controlLabel}
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          setError(undefined);
-        }}
-        inputMode={capability.widget === "decimal" ? "decimal" : undefined}
         spellCheck={false}
-        className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 font-mono text-[10px] text-foreground outline-none focus:border-primary"
+        className={cn(
+          "w-full resize-y overflow-auto rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary",
+          minimalDrawer ? "h-full min-h-40 resize-none" : "min-h-32 max-h-72"
+        )}
       />
     );
   }
 
   return (
     <div
-      className="grid w-[min(32rem,calc(100vw-2rem))] max-w-full gap-2 p-2"
+      className={cn(
+        "w-full max-w-full p-2",
+        minimalDrawer ? "flex h-full min-h-0 flex-col gap-2" : "grid gap-2"
+      )}
       onKeyDown={handleKeyDown}
     >
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-medium text-foreground">{column.name}</p>
-          <p className="font-mono text-[9px] text-quiet-foreground">{column.dataType}</p>
+      {(!minimalDrawer || column.nullable) && (
+        <div className="flex items-start gap-2">
+          {!minimalDrawer && (
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium text-foreground">{column.name}</p>
+              <p className="font-mono text-[9px] text-quiet-foreground">{column.dataType}</p>
+            </div>
+          )}
+          {onExpand && !minimalDrawer && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onExpand}
+              aria-label="Expand to full panel"
+              title="Expand to full panel"
+            >
+              <Maximize2 className="h-2.5 w-2.5" />
+            </Button>
+          )}
+          {column.nullable && (
+            <Button
+              variant={nullDraft ? "primary" : "outline"}
+              size="sm"
+              aria-pressed={nullDraft}
+              onClick={() => {
+                setNullDraft((current) => !current);
+                setError(undefined);
+              }}
+              className={minimalDrawer ? "ml-auto" : undefined}
+            >
+              NULL
+            </Button>
+          )}
         </div>
-        {column.nullable && (
-          <Button
-            variant={nullDraft ? "primary" : "outline"}
-            size="sm"
-            aria-pressed={nullDraft}
-            onClick={() => {
-              setNullDraft((current) => !current);
-              setError(undefined);
-            }}
-          >
-            NULL
-          </Button>
-        )}
-      </div>
-      <div className="grid gap-0.5">
-        <span className="font-mono text-[9px] uppercase tracking-wide text-quiet-foreground">
-          Original
-        </span>
-        <pre className="max-h-20 overflow-auto whitespace-pre-wrap break-all rounded-[2px] bg-background px-2 py-1 font-mono text-[9px] text-muted-foreground">
-          {originalText}
-        </pre>
-      </div>
-      {structured ? (
-        <StructuredTextEditor
-          text={draft}
-          onChange={(value) => {
-            setDraft(value);
-            setError(undefined);
-          }}
-          label="New value"
-          error={error}
-          autoFocus
-        />
+      )}
+      {structured || minimalDrawer ? (
+        <div className={minimalDrawer ? "min-h-0 flex-1 overflow-hidden" : undefined}>
+          {control}
+        </div>
       ) : (
         <Field
           label="New value"
           description="Ctrl/Cmd+Enter applies; Escape cancels."
-          error={error}
+          error={visibleError}
         >
           {control}
         </Field>
       )}
-      <EditorActions onApply={apply} onCancel={onCancel} />
+      {!structured && capability.widget !== "binary" && minimalDrawer && visibleError && (
+        <p className="font-mono text-[9px]" style={{ color: "var(--c-red)" }}>
+          {visibleError}
+        </p>
+      )}
+      <EditorActions onApply={apply} onCancel={onCancel} applyDisabled={!validation.valid} />
     </div>
   );
 }

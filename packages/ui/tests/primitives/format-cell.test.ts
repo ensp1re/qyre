@@ -60,4 +60,10 @@ describe("friendlyTypeLabel", () => {
     expect(friendlyTypeLabel("character varying")).toBe("character varying");
     expect(friendlyTypeLabel("integer")).toBe("integer");
   });
+
+  it("uses a friendly bytes label for engine-native binary families", () => {
+    expect(friendlyTypeLabel("bytea")).toBe("bytes");
+    expect(friendlyTypeLabel("longblob")).toBe("bytes");
+    expect(friendlyTypeLabel("BLOB")).toBe("bytes");
+  });
 });

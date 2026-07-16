@@ -18,4 +18,11 @@ describe("TabBar", () => {
     expect(onChange).toHaveBeenCalledWith("tables");
     expect(screen.queryByRole("tab", { name: "SQL Editor" })).not.toBeInTheDocument();
   });
+
+  it("keeps accessible tab names while hiding visible labels below the desktop breakpoint", () => {
+    render(<TabBar active="tables" onChange={vi.fn()} />);
+
+    expect(screen.getByRole("tab", { name: "Tables" })).toBeInTheDocument();
+    expect(screen.getByText("Tables")).toHaveClass("hidden", "lg:inline");
+  });
 });

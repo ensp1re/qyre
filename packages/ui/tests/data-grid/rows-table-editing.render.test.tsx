@@ -116,12 +116,12 @@ describe("RowsTable inline cell editing (component rendering, F103)", () => {
     expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
   });
 
-  it("click on an editable, non-PK cell opens the editor and stages the edit on commit", () => {
+  it("double-click on an editable, non-PK cell opens the editor and stages the edit on commit", () => {
     const onStageEdit = vi.fn();
     render(<TestHost editable onStageEdit={onStageEdit} />);
 
-    fireEvent.click(screen.getByText("Ada"));
-    const input = screen.getByLabelText("Edit cell value");
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    const input = screen.getByLabelText("name");
     fireEvent.change(input, { target: { value: "Grace" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
@@ -134,15 +134,91 @@ describe("RowsTable inline cell editing (component rendering, F103)", () => {
     const cellButton = screen.getByText("Ada");
 
     fireEvent.pointerDown(cellButton, { button: 0 });
-    fireEvent.click(cellButton);
+    fireEvent.doubleClick(cellButton);
     expect(checkbox).not.toBeChecked();
-    expect(screen.getByLabelText("Edit cell value")).toBeInTheDocument();
+    expect(screen.getByLabelText("name")).toBeInTheDocument();
 
-    fireEvent.keyDown(screen.getByLabelText("Edit cell value"), { key: "Escape" });
+    fireEvent.keyDown(screen.getByLabelText("name"), { key: "Escape" });
     const row = screen.getByText("Ada").closest("tr");
     expect(row).not.toBeNull();
     fireEvent.pointerDown(row as HTMLTableRowElement, { button: 0 });
     expect(checkbox).toBeChecked();
+  });
+
+  it("draws selection around the whole table cell instead of only the value", () => {
+    render(<TestHost editable />);
+    const value = screen.getByText("Ada");
+
+    fireEvent.click(value);
+
+    expect(value.closest("td")).toHaveClass("ring-1", "ring-inset", "ring-primary");
+    expect(value.closest("div")).not.toHaveClass("ring-primary");
+  });
+
+  it("dismisses structured and scalar editors when another table cell is clicked", () => {
+    const jsonPage: RowPage = {
+      columns: ["id", "profile", "enabled"],
+      rows: [{ id: 1, profile: { active: true }, enabled: true }],
+      page: 0,
+      pageSize: 25
+    };
+    render(
+      <RowsTable
+        {...baseProps({
+          rowPage: jsonPage,
+          columns: [
+            {
+              name: "id",
+              dataType: "int4",
+              nullable: false,
+              isPrimaryKey: true,
+              isForeignKey: false
+            },
+            {
+              name: "profile",
+              dataType: "jsonb",
+              nullable: false,
+              isPrimaryKey: false,
+              isForeignKey: false
+            },
+            {
+              name: "enabled",
+              dataType: "boolean",
+              nullable: false,
+              isPrimaryKey: false,
+              isForeignKey: false
+            }
+          ],
+          editable: true,
+          editableColumns: new Set(["profile", "enabled"]),
+          pendingChanges: {
+            getEdit: () => undefined,
+            stageEdit: vi.fn(),
+            revertEdit: vi.fn(),
+            inserts: [],
+            addInsert: () => "",
+            updateInsertValue: vi.fn(),
+            removeInsert: vi.fn(),
+            deletes: new Set(),
+            stageDelete: vi.fn(),
+            unstageDelete: vi.fn()
+          }
+        })}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
+    expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("true"));
+    expect(screen.queryByTestId("cell-editor-drawer")).not.toBeInTheDocument();
+
+    fireEvent.doubleClick(screen.getByText("true"));
+    expect(screen.getByRole("combobox", { name: "enabled" })).toBeInTheDocument();
+
+    const [, primaryKeyValue] = screen.getAllByText("1");
+    fireEvent.click(primaryKeyValue as HTMLElement);
+    expect(screen.queryByRole("combobox", { name: "enabled" })).not.toBeInTheDocument();
   });
 
   it("does not make the primary-key cell editable even when editable is true", () => {
@@ -150,16 +226,16 @@ describe("RowsTable inline cell editing (component rendering, F103)", () => {
     // Two "1"s render: the row-number column and the id (PK) cell's value - the PK cell is the
     // second one in document order.
     const [, pkCell] = screen.getAllByText("1");
-    fireEvent.click(pkCell as HTMLElement);
-    expect(screen.queryByLabelText("Edit cell value")).not.toBeInTheDocument();
+    fireEvent.doubleClick(pkCell as HTMLElement);
+    expect(screen.queryByLabelText("id")).not.toBeInTheDocument();
   });
 
   it("shows the staged value and a revert button for a dirty cell", () => {
     render(<TestHost editable />);
 
-    fireEvent.click(screen.getByText("Ada"));
-    fireEvent.change(screen.getByLabelText("Edit cell value"), { target: { value: "Grace" } });
-    fireEvent.keyDown(screen.getByLabelText("Edit cell value"), { key: "Enter" });
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.change(screen.getByLabelText("name"), { target: { value: "Grace" } });
+    fireEvent.keyDown(screen.getByLabelText("name"), { key: "Enter" });
 
     expect(screen.getByText("Grace")).toBeInTheDocument();
     expect(screen.getByLabelText("Revert cell to original value")).toBeInTheDocument();
@@ -169,9 +245,9 @@ describe("RowsTable inline cell editing (component rendering, F103)", () => {
     const onRevertEdit = vi.fn();
     render(<TestHost editable onRevertEdit={onRevertEdit} />);
 
-    fireEvent.click(screen.getByText("Ada"));
-    fireEvent.change(screen.getByLabelText("Edit cell value"), { target: { value: "Grace" } });
-    fireEvent.keyDown(screen.getByLabelText("Edit cell value"), { key: "Enter" });
+    fireEvent.doubleClick(screen.getByText("Ada"));
+    fireEvent.change(screen.getByLabelText("name"), { target: { value: "Grace" } });
+    fireEvent.keyDown(screen.getByLabelText("name"), { key: "Enter" });
     fireEvent.click(screen.getByLabelText("Revert cell to original value"));
 
     expect(onRevertEdit).toHaveBeenCalledWith(expect.any(String), "name");

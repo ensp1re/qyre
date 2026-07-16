@@ -34,7 +34,7 @@ export function resolveRowFilters(
   engine?: DatabaseAdapter["engine"]
 ): RowFilter[] | undefined {
   if (!filters || filters.length === 0) return undefined;
-  for (const filter of filters) {
+  return filters.map((filter) => {
     const column = tableMetadata.columns.find((candidate) => candidate.name === filter.column);
     if (!column) {
       throw Object.assign(new Error(`Unknown filter column "${filter.column}".`), {
@@ -50,8 +50,36 @@ export function resolveRowFilters(
         { statusCode: 400 }
       );
     }
-  }
-  return filters;
+    if (capability.valueInput === "json" && filter.value !== undefined) {
+      let candidate: unknown;
+      try {
+        candidate = JSON.parse(filter.value);
+      } catch {
+        throw Object.assign(
+          new Error(`Filter value for column "${filter.column}" must be valid JSON.`),
+          { statusCode: 400 }
+        );
+      }
+      const type = column.dataType.toLowerCase();
+      if ((type.includes("array") || type.endsWith("[]")) && !Array.isArray(candidate)) {
+        throw Object.assign(
+          new Error(`Filter value for array column "${filter.column}" must be a JSON array.`),
+          { statusCode: 400 }
+        );
+      }
+      if (
+        engine === "mongodb" &&
+        type === "object" &&
+        (!candidate || typeof candidate !== "object" || Array.isArray(candidate))
+      ) {
+        throw Object.assign(
+          new Error(`Filter value for object column "${filter.column}" must be a JSON object.`),
+          { statusCode: 400 }
+        );
+      }
+    }
+    return { ...filter, columnDataType: column.dataType };
+  });
 }
 
 /**

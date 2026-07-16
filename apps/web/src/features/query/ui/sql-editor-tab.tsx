@@ -2,7 +2,7 @@ import type { ConnectionCapabilities, DatabaseEngine, StatementClassification } 
 import type { CompletionTable } from "@qyre/ui";
 import { ConfirmDestructiveStatementDialog, QueryRunner, READ_ONLY_REASON_LABEL } from "@qyre/ui";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   DestructiveConfirmationRequiredError,
   QueryCancelledError,
@@ -56,11 +56,9 @@ export function SqlEditorTab({
 }: SqlEditorTabProps): ReactNode {
   const explainQuery = useExplainQuery();
   const resetExplainQuery = explainQuery.reset;
-  const [explainAnalyze, setExplainAnalyze] = useState(false);
 
   useEffect(() => {
     resetExplainQuery();
-    if (engine !== "postgres") setExplainAnalyze(false);
   }, [engine, resetExplainQuery, sql]);
 
   if (sqlDisabled) {
@@ -104,12 +102,10 @@ export function SqlEditorTab({
         isRunning={runQuery.isPending}
         result={runQuery.data}
         error={error}
-        onExplain={() => explainQuery.mutate({ sql, analyze: explainAnalyze })}
+        onExplain={() => explainQuery.mutate({ sql, analyze: false })}
         isExplaining={explainQuery.isPending}
         explainResult={explainQuery.data}
         explainError={explainError}
-        explainAnalyze={explainAnalyze}
-        onExplainAnalyzeChange={setExplainAnalyze}
         onOpenHistory={onOpenHistory}
         tables={tables}
         engine={engine}

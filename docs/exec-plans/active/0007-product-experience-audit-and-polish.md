@@ -62,7 +62,7 @@ clear semantic and visual contract.
 | Read and explore rows              | loading, populated, dense/long data, sorting, filtering, pagination, responsive widths                        | PostgreSQL/MySQL/SQLite, MongoDB document values  | Core workflow works; long-value sizing and keyboard model are systemic blockers                                           |
 | Edit and commit SQL rows           | row selection, inline editing, typed values, add/duplicate row, delete, required fields, cancel/review/commit | writable PostgreSQL plus source-level type matrix | Editing changes geometry and conflicts with selection; type fidelity, add-row, and commit review need a cohesive redesign |
 | Edit MongoDB documents             | collection table, nested value drawer, document surface                                                       | MongoDB                                           | Engine-specific model is appropriate and preserved                                                                        |
-| Run SQL                            | results, history, error, retry, Explain, Analyze warning, destructive confirmation                            | PostgreSQL/MySQL/SQLite; MongoDB N/A              | Strong destructive guard; feedback semantics and hidden drawer lifecycle need work                                        |
+| Run SQL                            | results, history, error, retry, Explain, destructive confirmation                                             | PostgreSQL/MySQL/SQLite; MongoDB N/A              | Strong destructive guard; feedback semantics and hidden drawer lifecycle need work                                        |
 | Inspect files and console          | empty files, event history                                                                                    | all connected modes                               | Functional; empty and live-status semantics are underdeveloped                                                            |
 | Understand access and preferences  | large roles/grants list, notices, theme, history settings                                                     | writable PostgreSQL                               | Accurate but unscalable information architecture                                                                          |
 | Restricted operation               | forced read-only and restricted database role                                                                 | PostgreSQL                                        | Clear reason and hidden write affordances; inert row selection remains                                                    |
@@ -544,6 +544,8 @@ Acceptance criteria:
   each explicit part change has a visible before/after representation.
 - Single row click selects only. Cell edit activation is consistent by pointer and `Enter`/`F2`.
 - Scalar editors preserve row height and column geometry; Escape cancels and Enter applies the draft.
+- Clicking another body cell dismisses any active scalar, structured, or inserted-row editor.
+- Timestamp date selection reuses the filter calendar and preserves the exact stored time suffix.
 - PostgreSQL, MySQL, and SQLite temporal round-trip tests cover precision, offsets, null, invalid,
   and DST-boundary values; MongoDB is explicitly not applicable to SQL cell editing.
 
@@ -561,7 +563,9 @@ Acceptance criteria:
 - Text/multiline, exact numeric/decimal, UUID/identifier, tri-state boolean, enum/set, date/time,
   timestamp, JSON/JSONB, and supported array editors each validate without silent coercion.
 - Structured editing provides syntax error location, formatting, full-value space, and lossless
-  before/after preview. MongoDB reuses the structured editor while preserving Extended JSON.
+  before/after preview. SQL JSON/array editing opens directly in the shared right-side drawer with
+  no intermediate popover or duplicated metadata. MongoDB reuses the structured editor while
+  preserving Extended JSON.
 - Binary and unknown types remain read-only unless an engine-specific lossless contract is approved;
   the cell explains the limitation.
 - Server validation and all applicable drivers gain conformance coverage for newly editable
@@ -842,3 +846,82 @@ personal taste.
   push, open the draft PR, and wait for CI before marking DF-12 passing.
 - 2026-07-15: DF-12 is passing in draft PR #159 at `fc57253`; the pre-push full gate and both
   GitHub CI jobs passed. Current step: merge PR #159, return to `main`, then activate DF-13.
+- 2026-07-16: F146 follow-up removed SQL Editor Analyze, made all grid editors dismiss when another
+  body cell is clicked, and replaced the nested timestamp date/time popup with the shared filter
+  calendar panel while preserving the complete stored time suffix. Current step: local PR gate and
+  push to draft PR #160; GitHub Actions credits remain unavailable.
+- 2026-07-16: User approved simplifying SQL JSON/array mutation editing to the existing right-side
+  drawer. Existing-row and inserted-row structured editors now skip the anchored popover/Expand
+  step and remove duplicated metadata, helper copy, Minify, and Copy while retaining Format,
+  validation, nullable selection, Cancel, and Apply. Current step: full local PR gate and push to
+  draft PR #160; GitHub Actions credits remain unavailable.
+- 2026-07-16: F146 round 7 invalidates catalog/table/row caches after successful non-read SQL so
+  DDL-created tables appear without reload, and adds lossless mutation contracts for binary hex
+  across PostgreSQL/MySQL/SQLite plus PostgreSQL bit strings, network text, and raw XML. Focused
+  SQL-driver and browser E2E proves bound-value round trips, sidebar refresh, and persistence;
+  full local `pnpm verify:pr` passes 34/34 package tasks, 11 smoke E2E with four expected skips, and
+  30 full E2E with 47 expected skips. Current step: commit and push to draft PR #160; GitHub Actions
+  credits remain unavailable.
+- 2026-07-16: F146 round 8 restores lossless date/time/time-zone editing, adds a raw PostgreSQL
+  interval drawer, bounds JSON/binary drawers to the viewport with fixed actions, restores JSON
+  Format/Minify/Copy, and adds a grouped bytes editor with byte count and ASCII preview. Native
+  structured containment now covers PostgreSQL JSON/arrays, MySQL JSON, and MongoDB objects/arrays;
+  enum equality filters use the shared selector, while SQLite remains explicitly unsupported.
+  Focused unit/live-integration and PostgreSQL browser E2E pass; compact 1280x720 visual QA confirms
+  the editor controls remain visible. Full local `pnpm verify:pr` passes 34/34 package tasks, 11
+  smoke E2E with four expected skips, and 30 full E2E with 47 expected skips. Round 8 is pushed to
+  draft PR #160 as `bdf2667`; both GitHub jobs fail before any steps because Actions credits remain
+  unavailable. Current step: rerun CI when credits return, then move F146 to passing.
+- 2026-07-16: F146 round 9 keeps the shortened scalar display value invisibly in table layout while
+  its absolute inline editor is active, preventing long-text columns from collapsing on
+  double-click. Component coverage and a real-browser fixture verify identical before/edit widths;
+  local `pnpm verify:pr` again passes 34/34 package tasks, 11 smoke E2E with four expected skips,
+  and 30 full E2E with 47 expected skips. Implemented as `c74d70a`; current step remains rerunning
+  CI when Actions credits return.
+- 2026-07-16: F146 round 10 changes SQL structured `contains` to ordinary escaped substring text
+  for PostgreSQL JSON/arrays, MySQL JSON, and SQLite JSON while retaining MongoDB's native JSON
+  candidate contract. Legacy PostgreSQL interval objects serialize back to editable interval text,
+  and every drawer disables click and keyboard Apply from the same parser used for staging. Focused
+  component/driver tests and PostgreSQL browser QA pass; local `pnpm verify:pr` passes 34/34 package
+  tasks, 11 smoke E2E with four expected skips, and 30 full E2E with 47 expected skips. Implemented
+  as `148d4b7`; current step remains rerunning CI when Actions credits return.
+- 2026-07-16: F146 round 11 normalizes transport-level Buffer objects to canonical hex while
+  staging Duplicate row, preventing untouched PostgreSQL bytea, MySQL binary/blob, and SQLite BLOB
+  values from failing insert validation. Component regression coverage, all 426 UI tests, and local
+  `pnpm verify:pr` pass; implemented as `6bd5276`. Current step remains rerunning CI when Actions
+  credits return.
+- 2026-07-16: F146 round 12 replaces MongoDB's separate whole-document editor with the shared
+  Add/Duplicate/edit/delete/Commit grid. The commit endpoint accepts JSON operations; MongoDB
+  updates apply only changed top-level fields through `$set`, preserve current BSON types, and use
+  original-value guards for same-field conflict detection. SQL preview lines remain statements;
+  MongoDB preview lines are JSON operations. Focused unit/live-integration and MongoDB browser E2E
+  pass. The full local `pnpm verify:pr` gate passes with 34/34 package tasks, check:state, smoke E2E
+  (11 passed, 4 skipped), and full E2E (30 passed, 47 skipped). This round remains intentionally
+  uncommitted and unpushed pending user UI approval.
+- 2026-07-16: F146 round 13 maps MongoDB regex, timestamp, code, MinKey, and MaxKey fields to exact
+  validated JSON drawer shapes, preloads valid Add-row templates, converts inserts to canonical
+  Extended JSON, and preserves native BSON types during field-level updates. Focused core/UI/server
+  suites pass with 124/420/307 tests, live MongoDB passes 76 tests, and the full local
+  `pnpm verify:pr` gate passes with 34/34 package tasks, check:state, smoke E2E (11 passed, 4
+  skipped), and full E2E (30 passed, 47 skipped). This round remains intentionally uncommitted and
+  unpushed pending user UI approval.
+- 2026-07-16: F146 round 14 fixes MongoDB row commits whose `_id` crossed the UI boundary as an
+  ObjectId/Extended JSON object instead of a 24-hex string. The adapter now normalizes ObjectIds to
+  stable lowercase hex across BSON package instances, and server validation accepts the safe
+  `{ "$oid": "..." }` form as a fallback. Server tests pass 308/308, live MongoDB passes 77/77,
+  the focused Mongo browser commit journey passes, and the full local gate passes with 34/34 package
+  tasks, smoke E2E (11 passed, 4 skipped), and full E2E (30 passed, 47 skipped). This remains
+  intentionally uncommitted and unpushed pending user approval.
+- 2026-07-16: F146 round 15 accepts the exact legacy `{ buffer: { "0": byte, ... "11": byte } }`
+  ObjectId shape retained by an already-open pre-fix browser page, while rejecting every other
+  object shape. The rebuilt production endpoint committed and restored a real MongoDB demo row
+  with that payload; the rebuilt browser UI then committed and restored the row again. Server tests
+  pass 309/309, and the Node 22 full gate passes with 34/34 package tasks, smoke E2E (11 passed, 4
+  skipped), and full E2E (30 passed, 47 skipped). This remains intentionally uncommitted and
+  unpushed pending user approval.
+- 2026-07-16: F146 round 16 fixes fast click-away staging for inline scalar inputs. Blur now reads
+  the live DOM input value instead of a potentially one-render-old React draft, so leaving a cell
+  cannot drop the final edit while Enter succeeds. All 421 UI tests pass with a timing regression,
+  and rebuilt production browser checks stage the changed value on click-away in MongoDB and
+  PostgreSQL. Rounds 12-16 are pushed to draft PR #160 as `b06a89d`; the Node 22 local and pre-push
+  gates pass. Both hosted CI jobs still fail before any steps while Actions credits are unavailable.

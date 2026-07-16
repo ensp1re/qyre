@@ -1,14 +1,20 @@
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
-import { ArrowUpDown, CopyPlus, Pencil, Trash2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { parseMutationDraft } from "@qyre/core/mutation-editor-values";
+import { ArrowUpDown, CopyPlus, Trash2 } from "lucide-react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  ReactNode
+} from "react";
 import { cn } from "../../cn.js";
 import { formatCell, friendlyTypeLabel } from "../../primitives/format-cell.js";
 import { TypeIcon } from "../../primitives/type-icon.js";
 import { CellValueDrawer } from "../cells/cell-value-drawer.js";
-import { CellValue } from "../cells/cell-value.js";
+import { CellValue, truncateForDisplay } from "../cells/cell-value.js";
 import { DateDetailPopover } from "../cells/date-detail-popover.js";
 import { EditableCell } from "../cells/editable-cell.js";
 import { NewRowCell } from "../cells/new-row-cell.js";
+import type { CommitDirection } from "../editing/inline-cell-editor.js";
 import { computeRowKey, DEFAULT_EXPORT_FORMATS, toCsv } from "./row-export.js";
 import type { RowsTableProps } from "./rows-table-types.js";
 import { RowsTableFooter } from "./rows-table-footer.js";
@@ -17,6 +23,11 @@ import { useRowsTableModel } from "./use-rows-table.js";
 
 export { toCsv };
 export type { RowsTableProps };
+
+/** Fixed per-column pixel width (F146/A01) - paired with `table-layout: fixed` so a long value
+ * truncates with an ellipsis instead of expanding the column/row indefinitely. The full value
+ * stays reachable via CellValueDrawer/DateDetailPopover, never silently hidden. */
+const COLUMN_WIDTH = 220;
 
 export function RowsTable({
   rowPage,
@@ -49,11 +60,7 @@ export function RowsTable({
   pendingChanges,
   canInsert,
   insertableColumns,
-  canDelete,
-  canEditDocument,
-  onEditDocument,
-  canInsertDocument,
-  onInsertDocument
+  canDelete
 }: RowsTableProps): ReactNode {
   const {
     search,
@@ -65,6 +72,11 @@ export function RowsTable({
     setInspected,
     dateInspected,
     setDateInspected,
+    activeEditor,
+    setActiveEditor,
+    selectedCell,
+    setSelectedCell,
+    rowVirtualizer,
     scrollRef,
     columnByName,
     filtered,
@@ -91,6 +103,7 @@ export function RowsTable({
   } = useRowsTableModel({
     rowPage,
     columns,
+    engine,
     sortColumn,
     sortDirection,
     onSortChange,
@@ -105,6 +118,163 @@ export function RowsTable({
     canDelete
   });
 
+  // Columns Tab/Shift+Tab may land on - editable, non-PK, and (when FK navigation is available)
+  // non-FK, mirroring `isEditableCell`'s column-level conditions below without the per-row ones.
+  const editableColumnOrder = rowPage.columns.filter((name) => {
+    const meta = columnByName.get(name);
+    if (!editableColumns?.has(name) || meta?.isPrimaryKey) return false;
+    if (meta?.isForeignKey && onNavigateToForeignKey) return false;
+    return true;
+  });
+
+  function focusCell(cellId: string): void {
+    requestAnimationFrame(() => {
+      const target = scrollRef.current?.querySelector<HTMLElement>(
+        `[data-cell-id="${CSS.escape(cellId)}"]`
+      );
+      target?.focus();
+    });
+  }
+
+  /** Moves the grid's selection after Enter/Tab/Shift+Tab commits an inline edit (F146) -
+   * spreadsheet-style "commit and advance" so editing several cells/rows in sequence never dead-
+   * ends back at a plain display cell with no next step. */
+  function moveSelection(rowIndex: number, column: string, direction: CommitDirection): void {
+    let nextRowIndex = rowIndex;
+    let nextColumn = column;
+
+    if (direction === "enter") {
+      nextRowIndex = Math.min(rowIndex + 1, filtered.length - 1);
+    } else {
+      const at = editableColumnOrder.indexOf(column);
+      const delta = direction === "tab" ? 1 : -1;
+      const next = at + delta;
+      if (next >= 0 && next < editableColumnOrder.length) {
+        nextColumn = editableColumnOrder[next] ?? column;
+      } else {
+        nextRowIndex = Math.min(Math.max(rowIndex + delta, 0), filtered.length - 1);
+        nextColumn =
+          (delta > 0
+            ? editableColumnOrder[0]
+            : editableColumnOrder[editableColumnOrder.length - 1]) ?? column;
+      }
+    }
+
+    setSelectedCell({ rowIndex: nextRowIndex, column: nextColumn });
+    rowVirtualizer.scrollToIndex(nextRowIndex);
+    const nextItem = filtered[nextRowIndex];
+    const nextRowKey =
+      nextItem && pendingChanges && primaryKeyColumns
+        ? computeRowKey(nextItem.row, primaryKeyColumns)
+        : undefined;
+    if (nextRowKey) focusCell(`${nextRowKey}:${nextColumn}`);
+  }
+
+  /** The click event starts after focus/blur processing, so an inline input can stage its draft
+   * first. Then any different table cell dismisses the old scalar, structured, or insert editor. */
+  function dismissEditorFromOtherCell(event: ReactMouseEvent<HTMLDivElement>): void {
+    if (!activeEditor || !(event.target instanceof Element)) return;
+    const clickedCell = event.target.closest<HTMLTableCellElement>("td");
+    if (clickedCell && clickedCell.dataset.editorId !== activeEditor) setActiveEditor(null);
+  }
+
+  /** Arrow-key/copy/paste/revert grid shortcuts (F146), scoped to the current `selectedCell` -
+   * attached to the scroll container so it fires regardless of which cell's control has DOM focus. */
+  function handleGridKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
+    if (!selectedCell || activeEditor) return;
+    const item = filtered[selectedCell.rowIndex];
+    if (!item) return;
+    const rowKey =
+      pendingChanges && primaryKeyColumns ? computeRowKey(item.row, primaryKeyColumns) : undefined;
+    const meta = columnByName.get(selectedCell.column);
+    const staged =
+      rowKey && pendingChanges ? pendingChanges.getEdit(rowKey, selectedCell.column) : undefined;
+    const currentValue = staged ? staged.next : item.row[selectedCell.column];
+    const isEditableSelected =
+      rowKey !== undefined && editableColumnOrder.includes(selectedCell.column);
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      const nextRowIndex = Math.min(
+        Math.max(selectedCell.rowIndex + delta, 0),
+        filtered.length - 1
+      );
+      setSelectedCell({ rowIndex: nextRowIndex, column: selectedCell.column });
+      rowVirtualizer.scrollToIndex(nextRowIndex);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      const delta = event.key === "ArrowRight" ? 1 : -1;
+      const at = rowPage.columns.indexOf(selectedCell.column);
+      const nextAt = Math.min(Math.max(at + delta, 0), rowPage.columns.length - 1);
+      const nextColumn = rowPage.columns[nextAt];
+      if (nextColumn) setSelectedCell({ rowIndex: selectedCell.rowIndex, column: nextColumn });
+    } else if (event.key === "Escape") {
+      setSelectedCell(null);
+    } else if (
+      (event.key === "Delete" || event.key === "Backspace") &&
+      isEditableSelected &&
+      rowKey &&
+      pendingChanges &&
+      meta?.nullable
+    ) {
+      event.preventDefault();
+      pendingChanges.stageEdit(rowKey, selectedCell.column, item.row[selectedCell.column], null);
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+      if (isEditableSelected && rowKey && pendingChanges && staged) {
+        event.preventDefault();
+        pendingChanges.revertEdit(rowKey, selectedCell.column);
+      }
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      void navigator.clipboard.writeText(formatCell(currentValue));
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "v") {
+      if (!isEditableSelected || !rowKey || !pendingChanges) return;
+      event.preventDefault();
+      void navigator.clipboard.readText().then((text) => {
+        const rows = text
+          .split(/\r\n|\r|\n/)
+          .filter((_, i, arr) => !(i === arr.length - 1 && arr[i] === ""));
+        rows.forEach((line, rowOffset) => {
+          const targetItem = filtered[selectedCell.rowIndex + rowOffset];
+          if (!targetItem) return;
+          const targetRowKey =
+            primaryKeyColumns && pendingChanges
+              ? computeRowKey(targetItem.row, primaryKeyColumns)
+              : undefined;
+          if (!targetRowKey) return;
+          const cells = line.split("\t");
+          const startAt = editableColumnOrder.indexOf(selectedCell.column);
+          cells.forEach((cellText, colOffset) => {
+            const targetColumn = editableColumnOrder[startAt + colOffset];
+            const targetMeta = targetColumn ? columnByName.get(targetColumn) : undefined;
+            if (!targetColumn || !targetMeta) return;
+            const targetMetadata = {
+              allowedValues: targetMeta.allowedValues,
+              elementDataType: targetMeta.elementDataType
+            };
+            const capability = mutationEditorCapability(
+              targetMeta.dataType,
+              engine,
+              targetMetadata
+            );
+            if (!capability.editable) return;
+            // Skip (never stage) a pasted value that fails type validation - safer than silently
+            // corrupting a cell with an unparseable value the user didn't mean to paste there.
+            const result = parseMutationDraft(cellText, capability, engine, targetMetadata);
+            if (!result.valid) return;
+            pendingChanges.stageEdit(
+              targetRowKey,
+              targetColumn,
+              targetItem.row[targetColumn],
+              result.value
+            );
+          });
+        });
+      });
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
       <RowsTableToolbar
@@ -118,8 +288,6 @@ export function RowsTable({
         editingDisabledReason={editingDisabledReason}
         canAddRow={canAddRow}
         onAddRow={pendingChanges ? () => pendingChanges.addInsert() : undefined}
-        canInsertDocument={canInsertDocument}
-        onInsertDocument={onInsertDocument}
         canImportCsv={canImportCsv}
         onImportCsv={onImportCsv}
         selected={selected}
@@ -141,11 +309,24 @@ export function RowsTable({
           <p className="font-mono text-[11px] text-muted-foreground">No rows in this table.</p>
         </div>
       ) : (
-        <div data-testid="rows-table" ref={scrollRef} className="flex-1 overflow-auto">
-          <table className="w-full border-collapse font-mono text-[11px]">
+        <div
+          data-testid="rows-table"
+          ref={scrollRef}
+          className="flex-1 overflow-auto"
+          onClickCapture={dismissEditorFromOtherCell}
+          onKeyDown={handleGridKeyDown}
+        >
+          <table className="border-collapse font-mono text-[11px]" style={{ tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: 32 }} />
+              <col style={{ width: canAddRow ? 56 : 32 }} />
+              {rowPage.columns.map((columnName) => (
+                <col key={columnName} style={{ width: COLUMN_WIDTH }} />
+              ))}
+            </colgroup>
             <thead className="sticky top-0 z-10 bg-card">
               <tr>
-                <th className="w-8 border-b border-r border-border px-2 py-2 text-center">
+                <th className="border-b border-r border-border px-2 py-2 text-center">
                   <label className="inline-flex cursor-pointer items-center justify-center">
                     <input
                       type="checkbox"
@@ -163,12 +344,7 @@ export function RowsTable({
                     />
                   </label>
                 </th>
-                <th
-                  className={cn(
-                    "border-b border-r border-border px-2 py-2 text-right font-normal text-quiet-foreground",
-                    canAddRow ? "w-14" : "w-8"
-                  )}
-                >
+                <th className="border-b border-r border-border px-2 py-2 text-right font-normal text-quiet-foreground">
                   #
                 </th>
                 {rowPage.columns.map((columnName) => {
@@ -177,17 +353,18 @@ export function RowsTable({
                     <th
                       key={columnName}
                       onClick={onSortChange ? () => handleSort(columnName) : undefined}
+                      title={columnName}
                       className={cn(
-                        "group whitespace-nowrap border-b border-r border-border px-3 py-1.5 text-left font-medium text-muted-foreground",
+                        "group border-b border-r border-border px-3 py-1.5 text-left font-medium text-muted-foreground",
                         onSortChange ? "cursor-pointer hover:text-foreground" : undefined
                       )}
                     >
                       <div className="flex items-center gap-1.5">
-                        {columnName}
+                        <span className="truncate">{columnName}</span>
                         {onSortChange && (
                           <ArrowUpDown
                             className={cn(
-                              "h-2.5 w-2.5 transition-opacity",
+                              "h-2.5 w-2.5 shrink-0 transition-opacity",
                               sortColumn === columnName
                                 ? "text-primary opacity-100"
                                 : "opacity-0 group-hover:opacity-40"
@@ -197,14 +374,16 @@ export function RowsTable({
                       </div>
                       <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-normal text-quiet-foreground">
                         {meta && <TypeIcon dataType={meta.dataType} />}
-                        <span>{meta ? friendlyTypeLabel(meta.dataType) : "unknown"}</span>
+                        <span className="truncate">
+                          {meta ? friendlyTypeLabel(meta.dataType) : "unknown"}
+                        </span>
                         {meta?.isPrimaryKey && (
-                          <span className="font-bold" style={{ color: "var(--c-amber)" }}>
+                          <span className="shrink-0 font-bold" style={{ color: "var(--c-amber)" }}>
                             PK
                           </span>
                         )}
                         {meta?.isForeignKey && (
-                          <span className="font-bold" style={{ color: "var(--c-blue)" }}>
+                          <span className="shrink-0 font-bold" style={{ color: "var(--c-blue)" }}>
                             FK
                           </span>
                         )}
@@ -245,10 +424,12 @@ export function RowsTable({
                     {rowPage.columns.map((columnName) => {
                       const meta = columnByName.get(columnName);
                       const isInsertable = insertableColumns?.has(columnName);
+                      const insertEditorId = `insert:${insert.id}:${columnName}`;
                       return (
                         <td
                           key={columnName}
-                          className="whitespace-nowrap border-r border-border-subtle px-3 py-1.5"
+                          data-editor-id={isInsertable ? insertEditorId : undefined}
+                          className="relative overflow-hidden border-r border-border-subtle px-3 py-1.5"
                         >
                           {isInsertable ? (
                             <NewRowCell
@@ -261,6 +442,13 @@ export function RowsTable({
                               nullable={meta?.nullable ?? true}
                               onChange={(next) =>
                                 pendingChanges.updateInsertValue(insert.id, columnName, next)
+                              }
+                              isActive={activeEditor === insertEditorId}
+                              onActivate={() => setActiveEditor(insertEditorId)}
+                              onDeactivate={() =>
+                                setActiveEditor((current) =>
+                                  current === insertEditorId ? null : current
+                                )
                               }
                             />
                           ) : (
@@ -325,7 +513,7 @@ export function RowsTable({
                     <td
                       className={cn(
                         "border-r border-border-subtle px-1 py-1.5 text-right text-quiet-foreground",
-                        canAddRow || markedForDelete || canEditDocument ? "w-14" : "w-8"
+                        canAddRow || markedForDelete ? "w-14" : "w-8"
                       )}
                     >
                       <div className="flex items-center justify-end gap-1">
@@ -342,19 +530,6 @@ export function RowsTable({
                             style={{ color: "var(--c-red)" }}
                           >
                             undo
-                          </button>
-                        ) : canEditDocument && onEditDocument ? (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onEditDocument(row);
-                            }}
-                            aria-label={`Edit document ${virtualRow.index + 1}`}
-                            title="Edit document"
-                            className="text-quiet-foreground hover:text-foreground"
-                          >
-                            <Pencil className="h-2.5 w-2.5" />
                           </button>
                         ) : (
                           canAddRow && (
@@ -400,21 +575,30 @@ export function RowsTable({
                         isEditableCell && rowKey
                           ? pendingChanges.getEdit(rowKey, columnName)
                           : undefined;
+                      const cellId = rowKey ? `${rowKey}:${columnName}` : undefined;
+                      const cellSelected =
+                        selectedCell?.rowIndex === virtualRow.index &&
+                        selectedCell.column === columnName;
+                      const cellActive = Boolean(cellId && activeEditor === cellId);
                       return (
                         <td
                           key={columnName}
+                          data-editor-id={isEditableCell ? cellId : undefined}
                           title={
                             editable && !meta?.isPrimaryKey && !reference
                               ? editorCapability?.unavailableReason
                               : undefined
                           }
                           className={cn(
-                            "whitespace-nowrap border-r border-border-subtle px-3 py-1.5 text-foreground/80",
-                            markedForDelete && "line-through opacity-60"
+                            "relative overflow-hidden border-r border-border-subtle px-3 py-1.5 text-foreground/80",
+                            markedForDelete && "line-through opacity-60",
+                            (cellSelected || cellActive) && "ring-1 ring-inset ring-primary",
+                            cellActive && "bg-background"
                           )}
                         >
                           {isEditableCell && rowKey ? (
                             <EditableCell
+                              cellId={cellId}
                               displayValue={staged ? staged.next : row[columnName]}
                               columnName={columnName}
                               dataType={meta?.dataType ?? "unknown"}
@@ -424,10 +608,25 @@ export function RowsTable({
                               nullable={meta?.nullable ?? true}
                               dirty={Boolean(staged)}
                               onInspect={(value) => setInspected({ column: columnName, value })}
+                              onInspectDate={(value, anchorRect) =>
+                                setDateInspected({ value, anchorRect })
+                              }
                               onCommit={(next) =>
                                 pendingChanges.stageEdit(rowKey, columnName, row[columnName], next)
                               }
                               onRevert={() => pendingChanges.revertEdit(rowKey, columnName)}
+                              isActive={cellActive}
+                              onActivate={() => setActiveEditor(cellId ?? null)}
+                              onDeactivate={() =>
+                                setActiveEditor((current) => (current === cellId ? null : current))
+                              }
+                              isSelected={cellSelected}
+                              onSelect={() =>
+                                setSelectedCell({ rowIndex: virtualRow.index, column: columnName })
+                              }
+                              onCommitKey={(direction) =>
+                                moveSelection(virtualRow.index, columnName, direction)
+                              }
                             />
                           ) : row[columnName] === null || row[columnName] === undefined ? (
                             <span className="italic text-quiet-foreground">null</span>
@@ -439,10 +638,10 @@ export function RowsTable({
                                 onNavigateToForeignKey?.(reference, row[columnName]);
                               }}
                               title={`Go to ${reference.table}.${reference.column}`}
-                              className="underline decoration-dotted underline-offset-2 hover:text-primary"
+                              className="block max-w-full truncate underline decoration-dotted underline-offset-2 hover:text-primary"
                               style={{ color: "var(--c-blue)" }}
                             >
-                              {formatCell(row[columnName])}
+                              {truncateForDisplay(formatCell(row[columnName]))}
                             </button>
                           ) : meta?.isPrimaryKey && onFiltersChange ? (
                             <button
@@ -452,10 +651,10 @@ export function RowsTable({
                                 filterToPrimaryKeyValue(columnName, row[columnName]);
                               }}
                               title={`Filter to this row (${columnName})`}
-                              className="underline decoration-dotted underline-offset-2 hover:text-primary"
+                              className="block max-w-full truncate underline decoration-dotted underline-offset-2 hover:text-primary"
                               style={{ color: "var(--c-amber)" }}
                             >
-                              {formatCell(row[columnName])}
+                              {truncateForDisplay(formatCell(row[columnName]))}
                             </button>
                           ) : (
                             <CellValue

@@ -9,10 +9,19 @@ export type MutationEditorKind =
   | "time"
   | "timestamp-local"
   | "timestamp-time-zone"
+  | "interval"
   | "enum"
   | "set"
   | "structured"
   | "binary"
+  | "bit-string"
+  | "network"
+  | "xml"
+  | "bson-regex"
+  | "bson-timestamp"
+  | "bson-code"
+  | "bson-min-key"
+  | "bson-max-key"
   | "unknown"
   | "null"
   | "object-id";
@@ -25,10 +34,13 @@ export type MutationEditorWidget =
   | "date"
   | "time"
   | "timestamp"
+  | "interval"
   | "enum"
   | "set"
   | "json"
-  | "array";
+  | "array"
+  | "binary"
+  | "xml";
 
 export interface MutationEditorMetadata {
   readonly allowedValues?: readonly string[];
@@ -69,10 +81,22 @@ export function mutationEditorCapability(
   const type = dataType.trim().toLowerCase();
 
   if (engine === "mongodb") {
-    if (type === "objectid") {
-      return unavailable("object-id", "MongoDB values are edited in the document editor.");
-    }
-    return unavailable("unknown", "MongoDB values are edited in the document editor.");
+    if (type === "objectid") return available("object-id", "text");
+    if (type === "string") return available("text", "text");
+    if (type === "number") return available("numeric", "decimal");
+    if (type === "boolean") return available("boolean", "boolean");
+    if (type === "date") return available("timestamp-time-zone", "timestamp");
+    if (type === "array") return available("structured", "array");
+    if (type === "object") return available("structured", "json");
+    if (type === "binary") return available("binary", "binary");
+    if (type === "regex") return available("bson-regex", "json");
+    if (type === "timestamp") return available("bson-timestamp", "json");
+    if (type === "code") return available("bson-code", "json");
+    if (type === "minkey") return available("bson-min-key", "json");
+    if (type === "maxkey") return available("bson-max-key", "json");
+    if (type === "null")
+      return unavailable("null", "A null-only sampled field has no type-safe editor.");
+    return unavailable("unknown", "This sampled MongoDB field has mixed or unsupported types.");
   }
 
   if (type === "null") return unavailable("null", "A NULL-only column has no scalar editor.");
@@ -96,6 +120,7 @@ export function mutationEditorCapability(
   }
   if (type.startsWith("time")) return available("time", "time");
   if (type.startsWith("date")) return available("date", "date");
+  if (engine === "postgres" && type === "interval") return available("interval", "interval");
 
   if (type.includes("json")) return available("structured", "json");
   if (metadata.elementDataType || type.includes("array") || type.endsWith("[]")) {
@@ -104,10 +129,26 @@ export function mutationEditorCapability(
       : unavailable("structured", "Native array editing is supported only for PostgreSQL.");
   }
   if (type.includes("xml")) {
-    return unavailable("structured", "XML does not yet have a lossless mutation editor.");
+    return available("xml", "xml");
   }
   if (type.includes("blob") || type.includes("binary") || type.includes("bytea")) {
-    return unavailable("binary", "Binary values do not yet have a safe mutation editor.");
+    return available("binary", "binary");
+  }
+  if (
+    engine === "postgres" &&
+    (type === "bit" ||
+      type.startsWith("bit(") ||
+      type.startsWith("bit varying") ||
+      type === "varbit" ||
+      type.startsWith("varbit("))
+  ) {
+    return available("bit-string", "text");
+  }
+  if (
+    engine === "postgres" &&
+    (type === "inet" || type === "cidr" || type === "macaddr" || type === "macaddr8")
+  ) {
+    return available("network", "text");
   }
 
   if (type.includes("char") || type.includes("text") || type.includes("clob")) {

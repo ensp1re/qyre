@@ -25,6 +25,15 @@ export function buildFilterClause(filters: RowFilter[] | undefined): {
     if (filter.op === "isNull") return `${column} IS NULL`;
     if (filter.op === "isNotNull") return `${column} IS NOT NULL`;
     if (filter.op === "contains") {
+      const type = filter.columnDataType?.toLowerCase() ?? "";
+      if (type.includes("array") || type.endsWith("[]")) {
+        params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
+        return `${column}::text ILIKE $${params.length} ESCAPE '\\'`;
+      }
+      if (type.includes("json")) {
+        params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
+        return `${column}::text ILIKE $${params.length} ESCAPE '\\'`;
+      }
       params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
       return `${column} ILIKE $${params.length} ESCAPE '\\'`;
     }

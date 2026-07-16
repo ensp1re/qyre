@@ -22,8 +22,10 @@ test("@full editing, inserting, and deleting rows commits together and persists"
   await expect(table.getByText("Ada Lovelace")).toBeVisible();
 
   // Edit an existing row's name.
-  await table.getByText("Grace Hopper").click();
-  const editInput = page.getByLabel("Edit cell value");
+  const graceCell = table.getByRole("button", { name: "Grace Hopper" });
+  await graceCell.click();
+  await graceCell.press("Enter");
+  const editInput = table.getByRole("textbox", { name: "name", exact: true });
   await editInput.fill("Grace Hopper-Murray");
   await editInput.press("ControlOrMeta+Enter");
   await expect(table.getByText("Grace Hopper-Murray")).toBeVisible();
@@ -31,11 +33,11 @@ test("@full editing, inserting, and deleting rows commits together and persists"
   // Insert a new row (name/email are NOT NULL with no default, so both must be filled).
   await page.getByRole("button", { name: "Add row" }).click();
   await page.getByRole("button", { name: "Set name" }).click();
-  await page.getByLabel("New row value").fill("Marie Curie");
-  await page.getByLabel("New row value").press("ControlOrMeta+Enter");
+  await page.getByRole("textbox", { name: "name", exact: true }).fill("Marie Curie");
+  await page.getByRole("textbox", { name: "name", exact: true }).press("ControlOrMeta+Enter");
   await page.getByRole("button", { name: "Set email" }).click();
-  await page.getByLabel("New row value").fill("marie@example.com");
-  await page.getByLabel("New row value").press("ControlOrMeta+Enter");
+  await page.getByRole("textbox", { name: "email", exact: true }).fill("marie@example.com");
+  await page.getByRole("textbox", { name: "email", exact: true }).press("ControlOrMeta+Enter");
 
   // Stage a row for deletion via selection - Alan Turing is row 2.
   await page.getByLabel("Select row 2").check();

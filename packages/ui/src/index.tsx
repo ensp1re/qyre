@@ -13,7 +13,6 @@ export * from "./data-grid/cells/cell-value.js";
 export * from "./data-grid/editing/commit-bar.js";
 export * from "./data-grid/transfer/csv-import-dialog.js";
 export * from "./data-grid/cells/date-detail-popover.js";
-export * from "./data-grid/editing/document-editor-drawer.js";
 export * from "./data-grid/editing/structured-text-editor.js";
 export * from "./data-grid/editing/typed-value-editor.js";
 export * from "./data-grid/table/rows-table.js";

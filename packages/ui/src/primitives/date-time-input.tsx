@@ -159,7 +159,24 @@ function CalendarGrid({
   );
 }
 
-function DatePicker({
+/** The calendar panel shared by filter values and grid timestamp editing. Consumers that already
+ * own a popover can render this directly instead of nesting DatePicker's trigger/popover pair. */
+export function CalendarPicker({
+  value,
+  onChange
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}): ReactNode {
+  return (
+    <CalendarGrid
+      selected={parseDatePart(value)}
+      onSelect={(next) => onChange(`${next.year}-${pad(next.month)}-${pad(next.day)}`)}
+    />
+  );
+}
+
+export function DatePicker({
   id,
   value,
   onChange,
@@ -208,10 +225,10 @@ function DatePicker({
             }}
             className="absolute left-0 top-full z-50 mt-1 rounded-[4px] border border-border bg-popover shadow-lg"
           >
-            <CalendarGrid
-              selected={parts}
-              onSelect={(next) => {
-                onChange(`${next.year}-${pad(next.month)}-${pad(next.day)}`);
+            <CalendarPicker
+              value={value}
+              onChange={(next) => {
+                onChange(next);
                 setOpen(false);
               }}
             />
@@ -222,7 +239,7 @@ function DatePicker({
   );
 }
 
-function TimeSegments({
+export function TimeSegments({
   id,
   value,
   onChange,

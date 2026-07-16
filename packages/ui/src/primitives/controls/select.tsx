@@ -18,6 +18,7 @@ export interface SelectProps {
   label: string;
   placeholder?: string;
   disabled?: boolean;
+  autoFocus?: boolean;
   className?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
@@ -58,6 +59,7 @@ export function Select({
   label,
   placeholder = "Select...",
   disabled,
+  autoFocus,
   className,
   "aria-describedby": ariaDescribedBy,
   "aria-invalid": ariaInvalid
@@ -255,6 +257,7 @@ export function Select({
         id={id}
         ref={triggerRef}
         type="button"
+        autoFocus={autoFocus}
         role="combobox"
         aria-label={label}
         aria-expanded={open}

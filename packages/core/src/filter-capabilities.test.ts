@@ -85,8 +85,29 @@ describe("filterCapabilityForColumn", () => {
     }
   });
 
-  it("limits structured values to null checks only when nullable", () => {
+  it("offers plain-text contains for SQL JSON and PostgreSQL arrays", () => {
     const [metadata, engine] = column("jsonb", true, "postgres");
-    expect(filterCapabilityForColumn(metadata, engine).operators).toEqual(["isNull", "isNotNull"]);
+    expect(filterCapabilityForColumn(metadata, engine)).toMatchObject({
+      operators: ["contains", "isNull", "isNotNull"],
+      valueInput: "text"
+    });
+    expect(
+      filterCapabilityForColumn(column("ARRAY", false, "postgres")[0], "postgres")
+    ).toMatchObject({
+      operators: ["contains"],
+      valueInput: "text"
+    });
+    expect(filterCapabilityForColumn(column("json", false, "sqlite")[0], "sqlite")).toMatchObject({
+      operators: ["contains"],
+      valueInput: "text"
+    });
+  });
+
+  it("keeps native MongoDB containment on its JSON candidate editor", () => {
+    const [metadata, engine] = column("object", false, "mongodb");
+    expect(filterCapabilityForColumn(metadata, engine)).toMatchObject({
+      operators: ["contains"],
+      valueInput: "json"
+    });
   });
 });

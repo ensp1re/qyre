@@ -107,18 +107,213 @@ describe("POST /api/mutations/commit (F102)", () => {
     await app.close();
   });
 
-  it("rejects with 400 for MongoDB - batch commit doesn't apply there", async () => {
-    const adapter = makeFakeAdapter({ engine: "mongodb" });
+  it("commits ordered MongoDB grid operations through JSON field mutations", async () => {
+    const insertRow = vi.fn(async () => ({ row: { _id: "new", name: "Ada" } }));
+    const updateFieldsByKey = vi.fn(async () => ({ matched: 1 }));
+    const adapter = makeFakeAdapter({
+      engine: "mongodb",
+      getTable: async () => ({
+        schema: "test",
+        name: "users",
+        kind: "collection",
+        columns: [
+          {
+            name: "_id",
+            dataType: "objectId",
+            nullable: false,
+            isPrimaryKey: true,
+            isForeignKey: false
+          },
+          {
+            name: "name",
+            dataType: "string",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          },
+          {
+            name: "joinedAt",
+            dataType: "date",
+            nullable: true,
+            isPrimaryKey: false,
+            isForeignKey: false
+          },
+          {
+            name: "bytes",
+            dataType: "binary",
+            nullable: true,
+            isPrimaryKey: false,
+            isForeignKey: false
+          },
+          {
+            name: "regexField",
+            dataType: "regex",
+            nullable: true,
+            isPrimaryKey: false,
+            isForeignKey: false
+          },
+          {
+            name: "timestampField",
+            dataType: "timestamp",
+            nullable: true,
+            isPrimaryKey: false,
+            isForeignKey: false
+          },
+          {
+            name: "codeField",
+            dataType: "code",
+            nullable: true,
+            isPrimaryKey: false,
+            isForeignKey: false
+          },
+          {
+            name: "minKeyField",
+            dataType: "minKey",
+            nullable: true,
+            isPrimaryKey: false,
+            isForeignKey: false
+          },
+          {
+            name: "maxKeyField",
+            dataType: "maxKey",
+            nullable: true,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ],
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: {
+        insertRow,
+        updateFieldsByKey,
+        deleteRowsByKey: async (_schema, _table, keys) => ({ deleted: keys.length })
+      }
+    });
     const app = createServer({ adapter });
 
     const response = await app.inject({
       method: "POST",
       url: "/api/mutations/commit",
       headers: authHeaders(app),
-      payload: { ops: [{ type: "insert", schema: "test", table: "users", values: {} }] }
+      payload: {
+        ops: [
+          {
+            type: "insert",
+            schema: "test",
+            table: "users",
+            values: {
+              name: "Ada",
+              joinedAt: "2026-07-16T10:30:00.000Z",
+              bytes: "00ff",
+              regexField: { pattern: "^qyre", options: "im" },
+              timestampField: { t: 1700000000, i: 5 },
+              codeField: { code: "return x;", scope: { x: 1 } },
+              minKeyField: { $minKey: 1 },
+              maxKeyField: { $maxKey: 1 }
+            }
+          },
+          {
+            type: "update",
+            schema: "test",
+            table: "users",
+            key: { _id: "507f1f77bcf86cd799439011" },
+            changes: { name: "Grace" },
+            originalValues: { name: "Ada" },
+            missingOriginalFields: []
+          },
+          {
+            type: "delete",
+            schema: "test",
+            table: "users",
+            keys: [{ _id: "507f191e810c19729de860ea" }]
+          }
+        ]
+      }
     });
 
-    expect(response.statusCode).toBe(400);
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ committed: true });
+    expect(insertRow).toHaveBeenCalledWith("test", "users", {
+      name: "Ada",
+      joinedAt: { $date: "2026-07-16T10:30:00.000Z" },
+      bytes: { $binary: { base64: "AP8=", subType: "00" } },
+      regexField: { $regularExpression: { pattern: "^qyre", options: "im" } },
+      timestampField: { $timestamp: { t: 1700000000, i: 5 } },
+      codeField: { $code: "return x;", $scope: { x: 1 } },
+      minKeyField: { $minKey: 1 },
+      maxKeyField: { $maxKey: 1 }
+    });
+    expect(updateFieldsByKey).toHaveBeenCalledWith(
+      "test",
+      "users",
+      { _id: "507f1f77bcf86cd799439011" },
+      { name: "Grace" },
+      { name: "Ada" },
+      []
+    );
+    await app.close();
+  });
+
+  it("reports MongoDB's first conflict and how many ordered operations already applied", async () => {
+    const updateFieldsByKey = vi
+      .fn()
+      .mockResolvedValueOnce({ matched: 1 })
+      .mockResolvedValueOnce({ matched: 0 });
+    const adapter = makeFakeAdapter({
+      engine: "mongodb",
+      getTable: async () => ({
+        schema: "test",
+        name: "users",
+        kind: "collection",
+        columns: [
+          {
+            name: "_id",
+            dataType: "objectId",
+            nullable: false,
+            isPrimaryKey: true,
+            isForeignKey: false
+          },
+          {
+            name: "name",
+            dataType: "string",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ],
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: {
+        insertRow: async () => ({}),
+        updateFieldsByKey,
+        deleteRowsByKey: async () => ({ deleted: 0 })
+      }
+    });
+    const app = createServer({ adapter });
+    const update = (id: string, original: string, next: string) => ({
+      type: "update" as const,
+      schema: "test",
+      table: "users",
+      key: { _id: id },
+      changes: { name: next },
+      originalValues: { name: original },
+      missingOriginalFields: []
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/mutations/commit",
+      headers: authHeaders(app),
+      payload: {
+        ops: [
+          update("507f1f77bcf86cd799439011", "Ada", "Grace"),
+          update("507f191e810c19729de860ea", "Alan", "Changed")
+        ]
+      }
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ committed: false, failedIndex: 1, appliedCount: 1 });
     await app.close();
   });
 

@@ -28,8 +28,22 @@ export function buildMutationOps(
 
   for (const [rowKey, rowEdits] of edits) {
     const changes: Record<string, unknown> = {};
-    for (const [column, staged] of rowEdits) changes[column] = staged.next;
-    ops.push({ type: "update", schema, table, key: parseRowKey(rowKey), changes });
+    const originalValues: Record<string, unknown> = {};
+    const missingOriginalFields: string[] = [];
+    for (const [column, staged] of rowEdits) {
+      changes[column] = staged.next;
+      if (staged.original === undefined) missingOriginalFields.push(column);
+      else originalValues[column] = staged.original;
+    }
+    ops.push({
+      type: "update",
+      schema,
+      table,
+      key: parseRowKey(rowKey),
+      changes,
+      originalValues,
+      missingOriginalFields
+    });
   }
 
   if (deletes.size > 0) {
@@ -57,7 +71,14 @@ function formatWhereClause(key: Record<string, unknown>): string {
  * placeholders shown with their bound values inline... this is a preview, not the real query text
  * sent to the driver"). Never sent anywhere; display-only.
  */
-export function buildPreviewLine(op: MutationOp): string {
+export function buildPreviewLine(op: MutationOp, engine?: "mongodb"): string {
+  if (engine === "mongodb") {
+    if (op.type === "insert") return JSON.stringify({ insertOne: { document: op.values } });
+    if (op.type === "update") {
+      return JSON.stringify({ updateOne: { filter: op.key, update: { $set: op.changes } } });
+    }
+    return JSON.stringify({ deleteMany: { keys: op.keys } });
+  }
   const target = `"${op.schema}"."${op.table}"`;
 
   if (op.type === "insert") {

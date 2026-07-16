@@ -59,7 +59,7 @@ export interface RowMutationApi {
     values: Record<string, unknown>
   ): Promise<InsertRowResult>;
   /**
-   * `expectedOriginal` (MongoDB's whole-document editor only, F125) is the document as it was
+   * `expectedOriginal` (MongoDB's legacy whole-document compatibility route) is the document as it was
    * loaded before editing, in the same shape `changes` arrives in - when present, the adapter must
    * re-fetch the current document and reject with `matched: 0` if it no longer structurally matches
    * `expectedOriginal`, per docs/product-specs/row-editing.md's lost-update protection ("the server
@@ -74,6 +74,17 @@ export interface RowMutationApi {
     changes: Record<string, unknown>,
     expectedOriginal?: Record<string, unknown>
   ): Promise<UpdateRowResult>;
+  /** MongoDB's shared grid editor updates only staged top-level fields. `originalValues` and
+   * `missingOriginalFields` provide optimistic conflict detection without replacing unrelated
+   * document data. */
+  updateFieldsByKey?(
+    schema: string,
+    table: string,
+    key: Record<string, unknown>,
+    changes: Record<string, unknown>,
+    originalValues: Record<string, unknown>,
+    missingOriginalFields: readonly string[]
+  ): Promise<UpdateRowResult>;
   deleteRowsByKey?(
     schema: string,
     table: string,
@@ -82,11 +93,8 @@ export interface RowMutationApi {
   /** SQL engines only (F102) - runs every staged op in one native transaction, all-or-nothing.
    * Absent on MongoDB; the route responds 400 explaining batch commit doesn't apply there. */
   commitBatch?(ops: MutationOp[]): Promise<CommitMutationsResult>;
-  /** MongoDB only (F125) - fetches one document by primary key as relaxed Extended JSON text
-   * (`bson`'s `EJSON.stringify(doc, { relaxed: true })`), for the whole-document editor to load
-   * fresh when it opens. Never reuses the grid's own already-fetched row data - that display format
-   * is intentionally lossy/ambiguous for `ObjectId`/`Date` (F081), which editing cannot tolerate.
-   * Returns `undefined` if no document with that key exists. */
+  /** MongoDB compatibility API: fetches one document by primary key as relaxed Extended JSON text.
+   * The Tables UI now uses field-level grid mutations instead. */
   getDocumentText?(schema: string, table: string, id: string): Promise<string | undefined>;
 }
 

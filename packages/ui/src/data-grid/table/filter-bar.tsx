@@ -5,10 +5,12 @@ import { ListFilter, Search, X } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../../cn.js";
+import { Select } from "../../primitives/controls/select.js";
 import { DateTimeInput, type DateTimeInputKind } from "../../primitives/date-time-input.js";
 import { friendlyTypeLabel } from "../../primitives/format-cell.js";
 import { TypeIcon } from "../../primitives/type-icon.js";
 import { useFocusTrap } from "../../primitives/use-focus-trap.js";
+import { StructuredTextEditor, structuredTextError } from "../editing/structured-text-editor.js";
 
 export interface FilterBarProps {
   /** The table's real columns - drives the popover's column picker and each chip's type icon. */
@@ -70,7 +72,12 @@ export function FilterBar({
     : undefined;
   const operatorOrder = draftCapability?.operators ?? [];
   const isBooleanColumn = draftCapability?.valueInput === "boolean";
+  const isEnumColumn = Boolean(
+    draft.column?.allowedValues?.length && (draft.op === "eq" || draft.op === "neq")
+  );
   const valueInputKind = draftCapability?.valueInput ?? "text";
+  const isStructuredJson = valueInputKind === "json";
+  const structuredValueError = isStructuredJson ? structuredTextError(draft.value) : undefined;
   // Native date/time/datetime-local pickers render their own wide placeholder text
   // ("dd.mm.yyyy, --:--") that collides with an inline Apply button at this popover's width -
   // stack them instead of the side-by-side layout that works fine for text/number/ObjectId.
@@ -129,6 +136,7 @@ export function FilterBar({
   function applyValue(explicitValue?: string): void {
     const value = explicitValue ?? draft.value;
     if (!draft.column || !draft.op || value === "") return;
+    if (draftCapability?.valueInput === "json" && structuredTextError(value)) return;
     apply({ column: draft.column.name, op: draft.op, value });
   }
 
@@ -238,14 +246,18 @@ export function FilterBar({
         aria-expanded={open}
         title="Filter the whole table server-side"
         className={cn(
-          "flex items-center gap-1.5 rounded-[3px] border border-border px-2 py-1 font-mono text-[11px] transition-colors disabled:opacity-30",
+          "flex items-center gap-0 rounded-[3px] border border-border p-1 font-mono text-[11px] transition-colors disabled:opacity-30 lg:gap-1.5 lg:px-2",
           active.length > 0
             ? "text-primary hover:bg-accent"
             : "text-muted-foreground hover:bg-accent hover:text-foreground"
         )}
       >
         <ListFilter className="h-3 w-3" />
-        {active.length === 0 ? "Filter rows" : active.length}
+        {active.length === 0 ? (
+          <span className="hidden lg:inline">Filter rows</span>
+        ) : (
+          active.length
+        )}
       </button>
 
       {active.length >= 2 && (
@@ -424,7 +436,56 @@ export function FilterBar({
               </>
             )}
 
-            {step === "value" && !isBooleanColumn && (
+            {step === "value" && isEnumColumn && (
+              <>
+                <div className="grid gap-1.5 p-2">
+                  <Select
+                    label="Filter value"
+                    value={draft.value || undefined}
+                    options={(draft.column?.allowedValues ?? []).map((value) => ({
+                      value,
+                      label: value
+                    }))}
+                    onValueChange={(value) => setDraft((current) => ({ ...current, value }))}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => applyValue()}
+                    disabled={draft.value === ""}
+                    className="rounded-[3px] bg-primary px-2 py-1.5 text-primary-foreground disabled:opacity-40"
+                  >
+                    Apply
+                  </button>
+                </div>
+                <HintFooter text="choose a value · ↵ apply · esc back" />
+              </>
+            )}
+
+            {step === "value" && isStructuredJson && (
+              <>
+                <div className="grid gap-1.5 p-2">
+                  <StructuredTextEditor
+                    text={draft.value}
+                    onChange={(value) => setDraft((current) => ({ ...current, value }))}
+                    label="Filter JSON value"
+                    minHeightClassName="min-h-24 max-h-40"
+                    variant="minimal"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => applyValue()}
+                    disabled={draft.value === "" || Boolean(structuredValueError)}
+                    className="rounded-[3px] bg-primary px-2 py-1.5 text-primary-foreground disabled:opacity-40"
+                  >
+                    Apply
+                  </button>
+                </div>
+                <HintFooter text="enter JSON · click Apply · esc back" />
+              </>
+            )}
+
+            {step === "value" && !isBooleanColumn && !isEnumColumn && !isStructuredJson && (
               <>
                 <div
                   className={cn("flex gap-1.5 p-2", isDateValueInput ? "flex-col" : "items-center")}

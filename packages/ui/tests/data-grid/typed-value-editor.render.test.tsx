@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TypedValueEditor } from "../../src/data-grid/editing/typed-value-editor.js";
-import { chooseSelect } from "../support/select.js";
 
 describe("TypedValueEditor", () => {
   it("reports JSON syntax location and preserves the draft", () => {
@@ -17,7 +16,8 @@ describe("TypedValueEditor", () => {
     );
     const textarea = screen.getByLabelText("New value");
     fireEvent.change(textarea, { target: { value: '{\n  "active":\n}' } });
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
     expect(onApply).not.toHaveBeenCalled();
     expect(screen.getByText(/line 3/i)).toBeInTheDocument();
     expect(textarea).toHaveValue('{\n  "active":\n}');
@@ -34,7 +34,7 @@ describe("TypedValueEditor", () => {
         onCancel={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Format JSON" }));
+    fireEvent.click(screen.getByRole("button", { name: "Format" }));
     expect(screen.getByLabelText("New value")).toHaveValue('{\n  "count": 1\n}');
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onApply).toHaveBeenCalledWith({ count: 1 });
@@ -63,27 +63,7 @@ describe("TypedValueEditor", () => {
     expect(onApply).toHaveBeenCalledWith(["one", "two"]);
   });
 
-  it("uses custom enum and SET controls from column metadata", () => {
-    const enumApply = vi.fn();
-    const { unmount } = render(
-      <TypedValueEditor
-        column={{
-          name: "status",
-          dataType: "status_enum",
-          nullable: false,
-          allowedValues: ["draft", "ready"]
-        }}
-        engine="postgres"
-        originalValue="draft"
-        onApply={enumApply}
-        onCancel={vi.fn()}
-      />
-    );
-    chooseSelect("Edit cell value", "ready");
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-    expect(enumApply).toHaveBeenCalledWith("ready");
-    unmount();
-
+  it("uses a custom SET checklist control from column metadata", () => {
     const setApply = vi.fn();
     render(
       <TypedValueEditor
@@ -102,5 +82,46 @@ describe("TypedValueEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "two" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(setApply).toHaveBeenCalledWith(["one", "two"]);
+  });
+
+  it("keeps drawer utilities and actions visible around a bounded JSON editor", () => {
+    render(
+      <TypedValueEditor
+        column={{ name: "payload", dataType: "jsonb", nullable: false }}
+        engine="postgres"
+        originalValue={{ active: true }}
+        presentation="drawer"
+        onApply={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    expect(screen.getByRole("button", { name: "Format" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Minify" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
+  });
+
+  it("disables drawer Apply while binary hex is invalid", () => {
+    const onApply = vi.fn();
+    render(
+      <TypedValueEditor
+        column={{ name: "payload", dataType: "bytea", nullable: false }}
+        engine="postgres"
+        originalValue={{ type: "Buffer", data: [0, 255] }}
+        presentation="drawer"
+        onApply={onApply}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const editor = screen.getByLabelText("Edit cell value");
+    fireEvent.change(editor, { target: { value: "0fg" } });
+    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    fireEvent.keyDown(editor, { key: "Enter", ctrlKey: true });
+    expect(onApply).not.toHaveBeenCalled();
+
+    fireEvent.change(editor, { target: { value: "0f" } });
+    expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
   });
 });

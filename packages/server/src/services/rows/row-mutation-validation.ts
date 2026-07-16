@@ -3,9 +3,32 @@ import { classifyFilterColumnKind, type FilterColumnKind } from "@qyre/core/filt
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import { isExactNumericText, validateMutationValue } from "@qyre/core/mutation-editor-values";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
+import { Buffer } from "node:buffer";
 
 function badRequest(message: string): Error {
   return Object.assign(new Error(message), { statusCode: 400 });
+}
+
+/** Before MongoDB ObjectIds were normalized at the adapter boundary, an ObjectId created by a
+ * second BSON package instance could cross the wire as `{ buffer: { "0": 80, ... } }`. Accept
+ * only that exact 12-byte legacy shape so a row already loaded in the browser remains committable
+ * after the server is upgraded; new row responses always use hexadecimal text. */
+function legacyObjectIdText(value: unknown): string | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).length !== 1 || !("buffer" in record)) return undefined;
+  const buffer = record.buffer;
+  if (!buffer || typeof buffer !== "object" || Array.isArray(buffer)) return undefined;
+  const byteRecord = buffer as Record<string, unknown>;
+  const keys = Object.keys(byteRecord);
+  if (keys.length !== 12 || keys.some((key, index) => key !== String(index))) return undefined;
+  const bytes = keys.map((key) => byteRecord[key]);
+  if (
+    bytes.some((byte) => !Number.isInteger(byte) || (byte as number) < 0 || (byte as number) > 255)
+  ) {
+    return undefined;
+  }
+  return Buffer.from(bytes as number[]).toString("hex");
 }
 
 /**
@@ -59,11 +82,21 @@ function coerceRowValue(
         throw badRequest(`Column "${columnName}" expects an ISO-8601 date/time string.`);
       }
       return value;
-    case "objectId":
-      if (typeof value !== "string" || !/^[0-9a-f]{24}$/i.test(value)) {
+    case "objectId": {
+      const objectId =
+        typeof value === "string"
+          ? value
+          : value &&
+              typeof value === "object" &&
+              "$oid" in value &&
+              typeof (value as { $oid?: unknown }).$oid === "string"
+            ? (value as { $oid: string }).$oid
+            : legacyObjectIdText(value);
+      if (!objectId || !/^[0-9a-f]{24}$/i.test(objectId)) {
         throw badRequest(`Column "${columnName}" expects a 24-character hex ObjectId string.`);
       }
-      return value;
+      return objectId.toLowerCase();
+    }
     case "null":
     case "structured":
     case "binary":
@@ -98,7 +131,102 @@ function resolveEditableValue(
 
   if (capability.widget === "json") return JSON.stringify(result.value);
   if (capability.widget === "set") return (result.value as string[]).join(",");
+  if (capability.widget === "binary") return Buffer.from(result.value as string, "hex");
   return result.value;
+}
+
+function mongoInsertNumber(value: unknown, columnName: string): unknown {
+  const text = String(value);
+  if (/^[+-]?\d+$/.test(text)) {
+    const integer = BigInt(text);
+    if (integer >= BigInt(Number.MIN_SAFE_INTEGER) && integer <= BigInt(Number.MAX_SAFE_INTEGER)) {
+      return Number(integer);
+    }
+    if (integer >= -(BigInt(2) ** BigInt(63)) && integer < BigInt(2) ** BigInt(63)) {
+      return { $numberLong: text };
+    }
+  }
+  const number = Number(text);
+  if (!Number.isFinite(number)) throw badRequest(`Column "${columnName}" expects a finite number.`);
+  return number;
+}
+
+/** Validates one sampled MongoDB grid value and converts insert-only BSON types to EJSON. Updates
+ * remain in the grid's readable JSON-safe shape; the driver preserves the current field's BSON
+ * type when applying them. */
+function resolveMongoGridValue(
+  column: ColumnMetadata,
+  value: unknown,
+  mode: "insert" | "update"
+): unknown {
+  if (value === null) {
+    if (!column.nullable) throw badRequest(`Column "${column.name}" is not nullable.`);
+    return null;
+  }
+  const capability = mutationEditorCapability(column.dataType, "mongodb", column);
+  if (!capability.editable) {
+    throw badRequest(
+      `Column "${column.name}" is not editable. ${capability.unavailableReason ?? ""}`.trim()
+    );
+  }
+  const result = validateMutationValue(capability, value, "mongodb", column);
+  if (!result.valid) throw badRequest(`Column "${column.name}": ${result.error}`);
+  if (mode === "update") return result.value;
+
+  if (capability.kind === "object-id") return { $oid: result.value };
+  if (capability.kind === "timestamp-time-zone") {
+    return { $date: new Date(result.value as string).toISOString() };
+  }
+  if (capability.kind === "numeric") return mongoInsertNumber(result.value, column.name);
+  if (capability.kind === "binary") {
+    return {
+      $binary: {
+        base64: Buffer.from(result.value as string, "hex").toString("base64"),
+        subType: "00"
+      }
+    };
+  }
+  if (capability.kind === "bson-regex") {
+    const regex = result.value as { pattern: string; options: string };
+    return { $regularExpression: regex };
+  }
+  if (capability.kind === "bson-timestamp") {
+    return { $timestamp: result.value };
+  }
+  if (capability.kind === "bson-code") {
+    const code = result.value as { code: string; scope?: Record<string, unknown> };
+    return code.scope === undefined
+      ? { $code: code.code }
+      : { $code: code.code, $scope: code.scope };
+  }
+  return result.value;
+}
+
+function resolveMongoGridValues(
+  tableMetadata: TableMetadata,
+  body: Record<string, unknown>,
+  mode: "insert" | "update"
+): Record<string, unknown> {
+  if (mode === "update" && Object.keys(body).length === 0) {
+    throw badRequest("changes must include at least one field.");
+  }
+  return Object.fromEntries(
+    Object.entries(body).map(([field, value]) => {
+      if (
+        field.includes(".") ||
+        field.startsWith("$") ||
+        ["__proto__", "constructor", "prototype"].includes(field)
+      ) {
+        throw badRequest(`MongoDB field "${field}" cannot be safely edited in the grid.`);
+      }
+      const column = tableMetadata.columns.find((candidate) => candidate.name === field);
+      if (!column) throw badRequest(`Unknown sampled field "${field}".`);
+      if (mode === "update" && column.isPrimaryKey) {
+        throw badRequest(`Field "${field}" is the document key and cannot be changed.`);
+      }
+      return [field, resolveMongoGridValue(column, value, mode)];
+    })
+  );
 }
 
 /**
@@ -228,9 +356,30 @@ function resolveOneOp(
 ): MutationOp {
   assertMutable(tableMetadata, op.type);
   if (op.type === "insert") {
-    return { ...op, values: resolveInsertValues(tableMetadata, op.values, engine) };
+    return {
+      ...op,
+      values:
+        engine === "mongodb"
+          ? resolveMongoGridValues(tableMetadata, op.values, "insert")
+          : resolveInsertValues(tableMetadata, op.values, engine)
+    };
   }
   if (op.type === "update") {
+    if (engine === "mongodb") {
+      const missing = new Set(op.missingOriginalFields ?? []);
+      if (!op.originalValues) throw badRequest("MongoDB updates require originalValues.");
+      for (const field of Object.keys(op.changes)) {
+        const hasOriginal = Object.prototype.hasOwnProperty.call(op.originalValues, field);
+        if (hasOriginal === missing.has(field)) {
+          throw badRequest(`MongoDB update field "${field}" must have one original-state guard.`);
+        }
+      }
+      return {
+        ...op,
+        key: resolveKey(tableMetadata, op.key, engine),
+        changes: resolveMongoGridValues(tableMetadata, op.changes, "update")
+      };
+    }
     return {
       ...op,
       key: resolveKey(tableMetadata, op.key, engine),

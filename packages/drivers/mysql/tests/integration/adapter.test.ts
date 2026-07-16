@@ -186,6 +186,40 @@ describe("MysqlAdapter integration", () => {
     expect(page.columns).toEqual(expect.arrayContaining(["id", "name", "email"]));
   });
 
+  it("filters JSON with plain text", async () => {
+    const pool = mysql.createPool(databaseUrl);
+    await pool.query("DROP TABLE IF EXISTS qyre_test_structured_filters");
+    await pool.query(
+      "CREATE TABLE qyre_test_structured_filters (id INT PRIMARY KEY, payload JSON NOT NULL)"
+    );
+    await pool.query(
+      `INSERT INTO qyre_test_structured_filters VALUES
+        (1, '{"role":"admin","active":true}'),
+        (2, '{"role":"reader","active":true}')`
+    );
+    try {
+      const page = await adapter.getRows(
+        databaseName,
+        "qyre_test_structured_filters",
+        0,
+        10,
+        undefined,
+        [
+          {
+            column: "payload",
+            op: "contains",
+            value: "admin",
+            columnDataType: "json"
+          }
+        ]
+      );
+      expect(page.rows.map((row) => row.id)).toEqual([1]);
+    } finally {
+      await pool.query("DROP TABLE IF EXISTS qyre_test_structured_filters");
+      await pool.end();
+    }
+  });
+
   it("inserts a row, reports it back via the auto-increment column, and it's visible via getRows (F099)", async () => {
     const result = await adapter.mutations.insertRow?.(databaseName, FIXTURE.table, {
       name: "Insert Test",
@@ -484,6 +518,34 @@ describe("MysqlAdapter integration", () => {
     } finally {
       await seedPool.query(`DELETE FROM ${FIXTURE.table} WHERE email = 'update-test@example.com'`);
       await seedPool.end();
+    }
+  });
+
+  it("round-trips binary edits through bound Buffer values", async () => {
+    const pool = mysql.createPool(databaseUrl);
+    await pool.query("DROP TABLE IF EXISTS qyre_test_binary_edits");
+    await pool.query(
+      "CREATE TABLE qyre_test_binary_edits (id INT PRIMARY KEY, bytes BLOB NOT NULL)"
+    );
+    await pool.query("INSERT INTO qyre_test_binary_edits (id, bytes) VALUES (1, ?)", [
+      Buffer.from([0])
+    ]);
+
+    try {
+      await expect(
+        adapter.mutations.updateRowByKey?.(
+          databaseName,
+          "qyre_test_binary_edits",
+          { id: 1 },
+          { bytes: Buffer.from([0, 202, 254, 255]) }
+        )
+      ).resolves.toEqual({ matched: 1 });
+
+      const page = await adapter.getRows(databaseName, "qyre_test_binary_edits", 0, 10);
+      expect(page.rows[0]?.bytes).toEqual(Buffer.from([0, 202, 254, 255]));
+    } finally {
+      await pool.query("DROP TABLE IF EXISTS qyre_test_binary_edits");
+      await pool.end();
     }
   });
 

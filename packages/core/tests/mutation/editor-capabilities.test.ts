@@ -31,6 +31,23 @@ describe("mutationEditorCapability", () => {
     });
   });
 
+  it.each([
+    ["postgres", "bytea", "binary", "binary"],
+    ["mysql", "longblob", "binary", "binary"],
+    ["sqlite", "BLOB", "binary", "binary"],
+    ["postgres", "bit", "bit-string", "text"],
+    ["postgres", "bit varying(16)", "bit-string", "text"],
+    ["postgres", "inet", "network", "text"],
+    ["postgres", "xml", "xml", "xml"],
+    ["postgres", "interval", "interval", "interval"]
+  ] as const)("provides the lossless %s %s editor", (engine, dataType, kind, widget) => {
+    expect(mutationEditorCapability(dataType, engine)).toEqual({
+      kind,
+      editable: true,
+      widget
+    });
+  });
+
   it("uses authoritative enum and set metadata", () => {
     expect(
       mutationEditorCapability("mood", "postgres", { allowedValues: ["happy", "sad"] })
@@ -48,15 +65,18 @@ describe("mutationEditorCapability", () => {
     });
   });
 
-  it.each([
-    ["bytea", "binary"],
-    ["xml", "structured"],
-    ["geography", "unknown"]
-  ] as const)("fails closed for unsupported %s values", (dataType, kind) => {
-    const capability = mutationEditorCapability(dataType, "postgres");
-    expect(capability.kind).toBe(kind);
-    expect(capability.editable).toBe(false);
-    expect(capability.unavailableReason).toBeTruthy();
+  it.each([["geography", "unknown"]] as const)(
+    "fails closed for unsupported %s values",
+    (dataType, kind) => {
+      const capability = mutationEditorCapability(dataType, "postgres");
+      expect(capability.kind).toBe(kind);
+      expect(capability.editable).toBe(false);
+      expect(capability.unavailableReason).toBeTruthy();
+    }
+  );
+
+  it("does not guess at MySQL BIT decoding without bit-length metadata", () => {
+    expect(mutationEditorCapability("bit(8)", "mysql")).toMatchObject({ editable: false });
   });
 
   it("provides dedicated JSON and PostgreSQL array editors", () => {
@@ -70,12 +90,32 @@ describe("mutationEditorCapability", () => {
     expect(mutationEditorCapability("ARRAY", "sqlite")).toMatchObject({ editable: false });
   });
 
-  it("keeps MongoDB on its whole-document editing surface", () => {
-    expect(mutationEditorCapability("objectId", "mongodb")).toMatchObject({
-      kind: "object-id",
+  it.each([
+    ["objectId", "object-id", "text"],
+    ["string", "text", "text"],
+    ["number", "numeric", "decimal"],
+    ["boolean", "boolean", "boolean"],
+    ["date", "timestamp-time-zone", "timestamp"],
+    ["array", "structured", "array"],
+    ["object", "structured", "json"],
+    ["binary", "binary", "binary"],
+    ["regex", "bson-regex", "json"],
+    ["timestamp", "bson-timestamp", "json"],
+    ["code", "bson-code", "json"],
+    ["minKey", "bson-min-key", "json"],
+    ["maxKey", "bson-max-key", "json"]
+  ] as const)("provides the shared MongoDB %s editor", (dataType, kind, widget) => {
+    expect(mutationEditorCapability(dataType, "mongodb")).toEqual({
+      kind,
+      editable: true,
+      widget
+    });
+  });
+
+  it("fails closed for mixed MongoDB fields", () => {
+    expect(mutationEditorCapability("mixed", "mongodb")).toMatchObject({
       editable: false,
-      widget: null,
-      unavailableReason: expect.stringMatching(/document editor/i)
+      widget: null
     });
   });
 });

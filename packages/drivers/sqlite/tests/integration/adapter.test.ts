@@ -29,6 +29,7 @@ describe("SqliteAdapter integration", () => {
       );
       CREATE UNIQUE INDEX idx_qyre_demo_users_email ON qyre_demo_users(email);
       CREATE TABLE qyre_demo_empty (id INTEGER PRIMARY KEY, note TEXT);
+      CREATE TABLE qyre_demo_json (id INTEGER PRIMARY KEY, payload JSON NOT NULL);
       CREATE TABLE qyre_demo_composite (a INTEGER, b INTEGER, PRIMARY KEY (a, b));
       CREATE TABLE qyre_demo_nullable_key (id TEXT PRIMARY KEY, name TEXT NOT NULL);
       CREATE TABLE qyre_demo_orders (
@@ -41,6 +42,9 @@ describe("SqliteAdapter integration", () => {
         ('Alan Turing', 'alan@example.com'),
         ('Grace Hopper', 'grace@example.com');
       INSERT INTO qyre_demo_nullable_key (id, name) VALUES (NULL, 'Null key');
+      INSERT INTO qyre_demo_json (id, payload) VALUES
+        (1, '{"role":"admin","active":true}'),
+        (2, '{"role":"reader","active":true}');
     `);
     setup.close();
 
@@ -136,6 +140,13 @@ describe("SqliteAdapter integration", () => {
     const page = await adapter.getRows("main", "qyre_demo_users", 0, 10);
     expect(page.rows).toHaveLength(3);
     expect(page.columns).toEqual(["id", "name", "email"]);
+  });
+
+  it("filters declared JSON with plain text", async () => {
+    const page = await adapter.getRows("main", "qyre_demo_json", 0, 10, undefined, [
+      { column: "payload", op: "contains", value: "admin", columnDataType: "JSON" }
+    ]);
+    expect(page.rows.map((row) => row.id)).toEqual([1]);
   });
 
   it("inserts a row via the implicit rowid, reports it back, and it's visible via getRows (F099)", async () => {
@@ -461,6 +472,33 @@ describe("SqliteAdapter integration", () => {
     } finally {
       const cleanup = new Database(dbPath);
       cleanup.exec("DELETE FROM qyre_demo_users WHERE email = 'update-test@example.com'");
+      cleanup.close();
+    }
+  });
+
+  it("round-trips BLOB edits through bound Buffer values", async () => {
+    const seed = new Database(dbPath);
+    seed.exec("CREATE TABLE qyre_test_binary_edits (id INTEGER PRIMARY KEY, bytes BLOB NOT NULL)");
+    seed
+      .prepare("INSERT INTO qyre_test_binary_edits (id, bytes) VALUES (?, ?)")
+      .run(1, Buffer.from([0]));
+    seed.close();
+
+    try {
+      await expect(
+        adapter.mutations.updateRowByKey?.(
+          "main",
+          "qyre_test_binary_edits",
+          { id: 1 },
+          { bytes: Buffer.from([0, 202, 254, 255]) }
+        )
+      ).resolves.toEqual({ matched: 1 });
+
+      const page = await adapter.getRows("main", "qyre_test_binary_edits", 0, 10);
+      expect(page.rows[0]?.bytes).toEqual(Buffer.from([0, 202, 254, 255]));
+    } finally {
+      const cleanup = new Database(dbPath);
+      cleanup.exec("DROP TABLE IF EXISTS qyre_test_binary_edits");
       cleanup.close();
     }
   });

@@ -98,17 +98,6 @@ export interface RowsTableProps {
   /** Whether selected rows can be staged for deletion (F105) - hidden entirely (not disabled) when
    * false. Independent of `editable`/`canInsert`. */
   canDelete?: boolean;
-  /** MongoDB's whole-document editing (F125) - a separate affordance set from the SQL grid's own
-   * `editable`/`canInsert`/`canDelete` (always false for MongoDB, see
-   * `apps/web/src/features/table/model/editing/editability.ts`). `canEditDocument` renders a per-row "Edit
-   * document" action in the same slot Duplicate-row uses for SQL (the two never coexist - only one
-   * engine's affordance set is ever true), calling `onEditDocument` with that row's raw data. */
-  canEditDocument?: boolean;
-  onEditDocument?: (row: Record<string, unknown>) => void;
-  /** Renders a toolbar "Insert document" action, calling `onInsertDocument` with no arguments - the
-   * caller owns opening the document editor in insert mode. */
-  canInsertDocument?: boolean;
-  onInsertDocument?: () => void;
 }
 
 /** Approximate row height in px (matches the `py-1.5` cell padding + 11px font) - only an estimate

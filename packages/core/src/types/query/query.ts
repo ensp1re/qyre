@@ -77,6 +77,9 @@ export interface RowFilter {
   readonly column: string;
   readonly op: FilterOp;
   readonly value?: string;
+  /** Server-resolved engine type used only by adapters for type-aware operators. Request parsing
+   * strips this field and `resolveRowFilters` always supplies the authoritative catalog value. */
+  readonly columnDataType?: string;
 }
 
 /** Download formats offered by the Tables tab's whole-result export (F118). Adapters advertise

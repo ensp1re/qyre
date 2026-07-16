@@ -68,13 +68,11 @@ describe("StatusBar", () => {
     expect(screen.queryByTestId("access-badge")).not.toBeInTheDocument();
   });
 
-  it("shows a read-write badge when any capability is writable (F097)", () => {
+  it("shows no access badge when the session is writable - that's the common case, not worth calling out (F146)", () => {
     render(
       <StatusBar status="connected" target="postgres://localhost/db" capabilities={WRITABLE} />
     );
-    const badge = screen.getByTestId("access-badge");
-    expect(badge).toHaveAttribute("data-access", "read-write");
-    expect(badge).toHaveTextContent("read-write");
+    expect(screen.queryByTestId("access-badge")).not.toBeInTheDocument();
   });
 
   it("shows a read-only badge explaining the qyre --read-only flag reason (F096/F097)", () => {

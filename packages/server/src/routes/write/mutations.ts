@@ -1,6 +1,7 @@
 import { commitMutationsRequestSchema } from "@qyre/core";
 import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
+import type { DatabaseAdapter } from "@qyre/driver-contract";
 import type { ServerContext } from "../../app.js";
 import { requireAdapter } from "../../services/connection/require-adapter.js";
 import { permissionRoute } from "../../services/access/permission-denied.js";
@@ -15,10 +16,48 @@ function rowCountFor(result: InsertRowResult | UpdateRowResult | DeleteRowsResul
   return 1;
 }
 
+async function commitMongoGridOps(db: DatabaseAdapter, ops: Parameters<typeof resolveBatchOps>[1]) {
+  if (
+    !db.mutations?.insertRow ||
+    !db.mutations.updateFieldsByKey ||
+    !db.mutations.deleteRowsByKey
+  ) {
+    throw Object.assign(new Error("MongoDB grid mutations are unavailable."), { statusCode: 400 });
+  }
+
+  const results: Array<InsertRowResult | UpdateRowResult | DeleteRowsResult> = [];
+  for (let index = 0; index < ops.length; index += 1) {
+    const op = ops[index]!;
+    let result: InsertRowResult | UpdateRowResult | DeleteRowsResult;
+    if (op.type === "insert") {
+      result = await db.mutations.insertRow(op.schema, op.table, op.values);
+    } else if (op.type === "update") {
+      result = await db.mutations.updateFieldsByKey(
+        op.schema,
+        op.table,
+        op.key,
+        op.changes,
+        op.originalValues ?? {},
+        op.missingOriginalFields ?? []
+      );
+      if (result.matched === 0) {
+        return { committed: false as const, failedIndex: index, appliedCount: results.length };
+      }
+    } else {
+      result = await db.mutations.deleteRowsByKey(op.schema, op.table, op.keys);
+      if (result.deleted < op.keys.length) {
+        return { committed: false as const, failedIndex: index, appliedCount: results.length };
+      }
+    }
+    results.push(result);
+  }
+  return { committed: true as const, results };
+}
+
 export function registerMutationsRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  // F102: batch commit for the SQL pending-changes model. Registered for every engine (never a
-  // bare 404, which could read as a routing bug) but responds 400 for MongoDB explaining documents
-  // save individually there, per docs/product-specs/row-editing.md. Every op is validated against
+  // F102/F146: staged grid commit. SQL adapters run a native all-or-nothing transaction; MongoDB
+  // applies validated JSON field operations in order because standalone deployments cannot offer a
+  // transaction. Every op is validated against
   // its own table's real columns/permissions/kind before the transaction starts - a validation
   // failure on any op aborts the whole commit before any write happens, same as the per-op routes'
   // own validation but applied up front across the whole array.
@@ -38,16 +77,40 @@ export function registerMutationsRoutes(app: FastifyInstance, ctx: ServerContext
         return reply.status(400).send({ error: "ops must include at least one operation." });
       }
       const db = requireAdapter(ctx.adapter);
+      const resolvedOps = await resolveBatchOps(db, parsedBody.data.ops);
+
       if (db.engine === "mongodb") {
-        return reply.status(400).send({
-          error: "Batch commit does not apply to MongoDB; documents save individually."
-        });
+        const startedAt = performance.now();
+        const result = await commitMongoGridOps(db, resolvedOps);
+        const durationMs = Math.round(performance.now() - startedAt);
+        if (!result.committed) {
+          ctx.eventLog.log(
+            "warn",
+            `MongoDB grid commit stopped at operation ${result.failedIndex}; ${result.appliedCount} earlier operation(s) applied.`
+          );
+          request.log.warn(
+            {
+              operation: "commit",
+              failedIndex: result.failedIndex,
+              appliedCount: result.appliedCount,
+              durationMs,
+              outcome: "conflict"
+            },
+            "MongoDB grid commit stopped"
+          );
+          return reply.status(409).send(result);
+        }
+        const rowCount = result.results.reduce((sum, opResult) => sum + rowCountFor(opResult), 0);
+        ctx.eventLog.log(
+          "info",
+          `Committed ${result.results.length} MongoDB grid operation(s), ${rowCount} document(s) affected.`
+        );
+        return result;
       }
+
       if (!db.mutations?.commitBatch) {
         return reply.status(400).send({ error: "This engine does not support batch commit." });
       }
-
-      const resolvedOps = await resolveBatchOps(db, parsedBody.data.ops);
 
       const startedAt = performance.now();
       const result = await db.mutations.commitBatch(resolvedOps);

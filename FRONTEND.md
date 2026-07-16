@@ -38,7 +38,9 @@ path (feature-based organization once the app outgrows its current flat `api/`/`
   main workspace and visible token-driven focus states.
 - SQL results, plans, and errors remain docked to the editor behind output tabs; do not replace the
   workspace with result pages or modal output. Settings uses a category rail plus a horizontally
-  centered, top-aligned preference column with flat rows, never a centered stack of cards.
+  centered preference column with a small top inset and flat rows, never a centered stack of cards.
+- Non-empty SQL result sets expose compact CSV/JSON download actions directly above the result grid;
+  empty and affected-row-only responses do not reserve an empty toolbar.
 
 ## Driver-aware UI
 

@@ -1,6 +1,12 @@
 import type { ConnectionCapabilities, DatabaseEngine, StatementClassification } from "@qyre/core";
 import type { CompletionTable } from "@qyre/ui";
-import { ConfirmDestructiveStatementDialog, QueryRunner, READ_ONLY_REASON_LABEL } from "@qyre/ui";
+import {
+  ConfirmDestructiveStatementDialog,
+  QueryRunner,
+  READ_ONLY_REASON_LABEL,
+  toCsv,
+  type QueryResultExportFormat
+} from "@qyre/ui";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import {
@@ -10,6 +16,21 @@ import {
 } from "../api/query.js";
 import type { useRunQuery } from "../model/use-run-query.js";
 import { useExplainQuery } from "../model/use-explain-query.js";
+
+function downloadQueryResults(
+  format: QueryResultExportFormat,
+  columns: string[],
+  rows: Array<Record<string, unknown>>
+): void {
+  const contents = format === "csv" ? toCsv(columns, rows) : JSON.stringify(rows, null, 2);
+  const mimeType = format === "csv" ? "text/csv;charset=utf-8" : "application/json;charset=utf-8";
+  const url = URL.createObjectURL(new Blob([contents], { type: mimeType }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `qyre-query-results.${format}`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 export interface SqlEditorTabProps {
   /** True when the connected adapter's capabilities.supportsSql is false (F063) - e.g. MongoDB,
@@ -102,6 +123,12 @@ export function SqlEditorTab({
         isRunning={runQuery.isPending}
         result={runQuery.data}
         error={error}
+        onExportResults={(format) => {
+          const result = runQuery.data;
+          if (result && result.rows.length > 0) {
+            downloadQueryResults(format, result.columns, result.rows);
+          }
+        }}
         onExplain={() => explainQuery.mutate({ sql, analyze: false })}
         isExplaining={explainQuery.isPending}
         explainResult={explainQuery.data}

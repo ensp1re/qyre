@@ -7,7 +7,7 @@ import { EditorView, keymap } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { basicSetup } from "codemirror";
-import { History, ListTree, Play, X } from "lucide-react";
+import { Download, History, Play, X } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../cn.js";
@@ -34,6 +34,7 @@ export const RESULTS_DEFAULT_HEIGHT = 256;
 const RESULTS_MIN_HEIGHT = 120;
 const RESULTS_MAX_HEIGHT = 600;
 type OutputMode = "results" | "plan" | "messages";
+export type QueryResultExportFormat = "csv" | "json";
 
 function moveOutputTabFocus(event: KeyboardEvent<HTMLDivElement>): void {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -64,6 +65,9 @@ export interface QueryRunnerProps {
    * as opposed to a writable CTE that also returns rows via RETURNING). */
   result?: RowPage | QueryExecutionResult;
   error?: string;
+  /** Exports the rows already returned by the current query. The result action bar is omitted for
+   * empty/affected-row-only responses, so callers never receive an empty export request. */
+  onExportResults?: (format: QueryResultExportFormat) => void;
   onExplain: () => void;
   isExplaining: boolean;
   explainResult?: QueryPlanResult;
@@ -147,6 +151,7 @@ export function QueryRunner({
   isRunning,
   result,
   error,
+  onExportResults,
   onExplain,
   isExplaining,
   explainResult,
@@ -160,7 +165,6 @@ export function QueryRunner({
   const resizableResults = resultsHeight !== undefined && onResultsHeightChange !== undefined;
   const isBusy = isRunning || isExplaining;
   const canRun = !isBusy && sql.trim().length > 0;
-  const canExplain = !isBusy && sql.trim().length > 0;
   const hasResults = result !== undefined && !error;
   const hasPlan = isExplaining || explainResult !== undefined || explainError !== undefined;
   const hasMessages = error !== undefined;
@@ -296,22 +300,6 @@ export function QueryRunner({
             )}
             {isRunning ? "Running..." : "Run"}
           </Button>
-          <Button
-            data-command-item
-            size="sm"
-            variant="ghost"
-            onClick={onExplain}
-            disabled={!canExplain}
-            title="Explain query"
-            className="h-6 min-h-6 px-2 text-[11px]"
-          >
-            {isExplaining ? (
-              <Spinner className="h-2.5 w-2.5" />
-            ) : (
-              <ListTree className="h-2.5 w-2.5" />
-            )}
-            {isExplaining ? "Explaining..." : "Explain"}
-          </Button>
           {isRunning && (
             <Button
               data-command-item
@@ -397,6 +385,37 @@ export function QueryRunner({
         <div data-testid="query-error" className="h-40 shrink-0">
           <ErrorState message={error} onRetry={onRun} />
         </div>
+      )}
+
+      {showResults && result && result.rows.length > 0 && onExportResults && (
+        <CommandToolbar label="Query result actions" className="h-7 justify-end border-t-0 px-2">
+          <CommandGroup label="Export query results">
+            <Button
+              data-command-item
+              size="sm"
+              variant="ghost"
+              onClick={() => onExportResults("csv")}
+              aria-label="Export query results as CSV"
+              title="Download the current query results as CSV"
+              className="h-6 min-h-6 px-2 font-mono text-[10px]"
+            >
+              <Download className="h-3 w-3" strokeWidth={1.8} />
+              CSV
+            </Button>
+            <Button
+              data-command-item
+              size="sm"
+              variant="ghost"
+              onClick={() => onExportResults("json")}
+              aria-label="Export query results as JSON"
+              title="Download the current query results as JSON"
+              className="h-6 min-h-6 px-2 font-mono text-[10px]"
+            >
+              <Download className="h-3 w-3" strokeWidth={1.8} />
+              JSON
+            </Button>
+          </CommandGroup>
+        </CommandToolbar>
       )}
 
       {showResults && result && (

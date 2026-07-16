@@ -82,6 +82,16 @@ describe("FilterBar (F072)", () => {
     expect(screen.getByRole("listbox", { name: "Operators" })).toBeInTheDocument();
   });
 
+  it("aligns the filter trigger with command-bar inputs and uses one popover search focus surface", () => {
+    render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
+
+    expect(screen.getByLabelText("Add filter")).toHaveClass("h-6");
+    openPopover();
+    expect(screen.getByLabelText("Search columns").parentElement).toHaveAttribute(
+      "data-focus-surface"
+    );
+  });
+
   it("uses the live search value when Enter arrives before the query render", () => {
     render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
 

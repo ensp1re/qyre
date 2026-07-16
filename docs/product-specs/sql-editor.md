@@ -308,6 +308,9 @@ write-capable execution without any special-casing by the developer - the same `
   rows (a writable CTE's `RETURNING`), otherwise `"N row(s) affected."` for a rowless
   `QueryExecutionResult` - distinguished from a genuinely empty `SELECT` (`"Query returned no
 rows."`) by the presence of a `rowsAffected` field.
+- **Result downloads**: a non-empty result set exposes CSV and JSON downloads in a compact action
+  bar above the grid. The action bar is absent for an empty query result and for an affected-row-only
+  response. Downloads contain the returned result set (up to the existing 1,000-row cap).
 - **Destructive confirmation**: a `409` response with `classification: "destructive"` opens
   `ConfirmDestructiveStatementDialog` (`packages/ui/src/query/confirm-destructive-statement-dialog.tsx`)
   showing the classification and the exact statement text, never a generic "are you sure?".
@@ -331,6 +334,8 @@ query-history-drawer.tsx`) gains an optional `classification` field, populated f
 
 - Running a write-capable `UPDATE ... WHERE ...`/`INSERT`/`CREATE TABLE` shows `"N row(s)
 affected."` in the results panel, not an empty-rows message.
+- A non-empty query result can be downloaded as CSV or JSON; empty and affected-row-only results
+  show no export controls.
 - Running an unqualified `DELETE`/`UPDATE` or a `DROP` opens a dialog naming the statement and its
   `destructive` classification; canceling leaves the database untouched; confirming runs it and
   shows the affected-row count.
@@ -345,8 +350,9 @@ affected."` in the results panel, not an empty-rows message.
 
 ### Behavior
 
-The SQL Editor exposes an explicit **Explain** action and renders the database's native plan in a
-dedicated monospaced text/tree panel. The adapter contract returns a normalized shape - plan lines,
+The native-plan infrastructure and dedicated monospaced text/tree panel remain available, but the
+SQL Editor's explicit **Explain** action is temporarily hidden while that interaction is revisited.
+The adapter contract returns a normalized shape - plan lines,
 the existing statement classification, and whether execution analysis actually ran - while each
 SQL engine owns its native statement and output normalization:
 
@@ -372,7 +378,8 @@ resizable output height with query results.
 - PostgreSQL, MySQL, and SQLite return a non-empty native plan for a representative `SELECT`.
 - PostgreSQL and SQLite can plan write-shaped SQL without changing database rows; MySQL rejects
   it clearly while retaining the read-only transaction boundary.
-- The SQL Editor exposes no Analyze control and sends `analyze: false` for every Explain request.
+- The SQL Editor exposes neither Explain nor Analyze controls in the current toolbar; any internal
+  plan request continues to send `analyze: false`.
 - MongoDB exposes no SQL Explain capability.
 - The SQL Editor renders plan loading, success, empty, and native-error states in the dedicated
   plan panel; running a query or editing the statement clears stale plan output.

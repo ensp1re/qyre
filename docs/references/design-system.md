@@ -172,9 +172,10 @@ chart/graph is ever added rather than inventing new hues.
 - Low-frequency actions belong in an accessible `More` overflow. Commands use tooltip/accessibility
   labels and Left/Right/Home/End navigation; destructive commands keep semantic red and spatial
   separation.
-- SQL Editor uses the same command grammar for Run, Explain, Cancel, and History. Results, Plan, and
-  Messages stay docked below the editor as keyboard-roving output tabs so previous output remains
-  reachable without replacing the editing context.
+- SQL Editor uses the same command grammar for Run, Cancel, and History; Explain remains hidden
+  until its interaction is revisited. Results, Plan, and Messages stay docked below the editor as
+  keyboard-roving output tabs. Non-empty result sets expose CSV and JSON downloads in a compact
+  result action bar; empty and affected-row-only responses do not render export controls.
 - Console exposes compact level filters and utility commands instead of imitating an interactive
   terminal prompt. Files uses the same 32px command bar and the explorer's selected-row language.
 
@@ -182,7 +183,7 @@ chart/graph is ever added rather than inventing new hues.
 
 - Settings is an IDE preference pane, not a centered website settings card. A persistent left rail
   selects Connection, Access, Appearance, or Data & history; the right pane keeps a horizontally
-  centered, top-aligned preference column with flat divided rows.
+  centered preference column with a 40px top inset and flat divided rows.
 - The active category uses the same selected surface and 2px primary inset as the database explorer.
   Changes apply immediately, with destructive local-history actions visually separated.
 

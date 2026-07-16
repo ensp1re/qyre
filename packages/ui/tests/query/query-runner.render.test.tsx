@@ -100,6 +100,27 @@ describe("QueryRunner write-capable result rendering (F108)", () => {
     expect(screen.queryByText(/row.*affected/)).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "a" })).toBeInTheDocument();
   });
+
+  it("offers CSV and JSON downloads only when query rows exist", () => {
+    const onExportResults = vi.fn();
+    const { rerender } = render(
+      <QueryRunner {...BASE_PROPS} result={RESULT} onExportResults={onExportResults} />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Export query results as CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export query results as JSON" }));
+    expect(onExportResults).toHaveBeenNthCalledWith(1, "csv");
+    expect(onExportResults).toHaveBeenNthCalledWith(2, "json");
+
+    rerender(
+      <QueryRunner
+        {...BASE_PROPS}
+        result={{ columns: [], rows: [], page: 0, pageSize: 25 }}
+        onExportResults={onExportResults}
+      />
+    );
+    expect(screen.queryByRole("toolbar", { name: "Query result actions" })).not.toBeInTheDocument();
+  });
 });
 
 describe("QueryRunner long result inspection", () => {
@@ -134,11 +155,9 @@ describe("QueryRunner Cancel button (F126)", () => {
 });
 
 describe("QueryRunner query plans (F128)", () => {
-  it("requests a plan from the Explain button", () => {
-    const onExplain = vi.fn();
-    render(<QueryRunner {...BASE_PROPS} onExplain={onExplain} />);
-    fireEvent.click(screen.getByRole("button", { name: "Explain" }));
-    expect(onExplain).toHaveBeenCalledTimes(1);
+  it("temporarily hides the Explain command while retaining plan rendering support", () => {
+    render(<QueryRunner {...BASE_PROPS} />);
+    expect(screen.queryByRole("button", { name: "Explain" })).not.toBeInTheDocument();
   });
 
   it("does not offer ANALYZE in the SQL Editor", () => {

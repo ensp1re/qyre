@@ -81,7 +81,7 @@ describe("SettingsScreen", () => {
     const section = screen
       .getByRole("heading", { name: "Connection", level: 3 })
       .closest("section");
-    expect(section?.parentElement).toHaveClass("mx-auto", "max-w-4xl");
+    expect(section?.parentElement).toHaveClass("mx-auto", "mt-10", "max-w-4xl");
   });
 
   it("renders access identity, roles, grants, and facts", () => {

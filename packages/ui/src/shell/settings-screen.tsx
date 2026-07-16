@@ -113,7 +113,7 @@ export function SettingsScreen({
         </nav>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-4xl">
+          <div className="mx-auto mt-10 w-full max-w-4xl">
             {category === "connection" && (
               <Section
                 title="Connection"

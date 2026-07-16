@@ -20,6 +20,13 @@ describe("SchemaTree (component rendering, F055)", () => {
     expect(screen.queryByText("users")).not.toBeInTheDocument();
   });
 
+  it("uses one composite focus surface for explorer search", () => {
+    render(<SchemaTree schemas={schemas} onSelect={vi.fn()} />);
+    expect(screen.getByLabelText("Search tables").parentElement).toHaveAttribute(
+      "data-focus-surface"
+    );
+  });
+
   it("filters to matching tables (and their ancestor path) for a 2+ character query", () => {
     render(<SchemaTree schemas={schemas} onSelect={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Search tables"), { target: { value: "ord" } });

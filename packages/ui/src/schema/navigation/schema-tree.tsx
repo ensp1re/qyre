@@ -296,7 +296,10 @@ export function SchemaTree({
             </button>
           )}
         </div>
-        <div className="mx-2 mb-2 flex h-7 items-center gap-1.5 rounded-[3px] border border-border bg-background px-2 focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/20">
+        <div
+          data-focus-surface
+          className="mx-2 mb-2 flex h-7 items-center gap-1.5 rounded-[3px] bg-background px-2 transition-colors focus-within:bg-sidebar-accent focus-within:shadow-[inset_2px_0_0_rgb(var(--primary))]"
+        >
           <Search className="h-3 w-3 shrink-0 text-quiet-foreground" strokeWidth={1.8} />
           <input
             type="text"

@@ -51,9 +51,10 @@ the reference before writing UI code; this file is only fast recall.
 - Sidebar trees use compact rows, precise indentation, subtle branch-connected guide lines, a strong selected-row
   surface plus a 2px primary inset, roving keyboard focus, and Arrow/Home/End navigation. Connection
   identity and status belong in the sidebar footer, not a duplicated page header/footer.
-- SQL output stays docked below the editor and uses keyboard-roving Results/Plan/Messages tabs.
-  Settings uses a persistent category rail and a horizontally centered, top-aligned column of flat
-  preference rows, not centered website cards.
+- SQL output stays docked below the editor and uses keyboard-roving Results/Plan/Messages tabs;
+  non-empty result sets expose compact CSV/JSON downloads and empty results expose no action bar.
+  Settings uses a persistent category rail and a horizontally centered column of flat preference
+  rows with a small top inset, not centered website cards.
 - Qyre supports role-aware writes. Render mutation controls only when connected-user grants,
   adapter capabilities, table permissions, and the hard `--read-only` override permit them. Visual
   consistency must never weaken those gates.

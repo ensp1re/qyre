@@ -51,6 +51,11 @@ describe("SchemaTree (component rendering, F055)", () => {
     expect(screen.getByRole("treeitem", { name: "users" })).toHaveFocus();
   });
 
+  it("keeps long database identifiers available when compact rows truncate them", () => {
+    render(<SchemaTree schemas={schemas} onSelect={vi.fn()} />);
+    expect(screen.getByTitle("orders")).toBeInTheDocument();
+  });
+
   it("does not apply role=tree when there are no rows to render (aria-required-children)", () => {
     // Regression: `role="tree"` requires a treeitem/group descendant. With zero schemas (the
     // disconnected/unconfigured screen the smoke test scans) this used to leave the nav's role

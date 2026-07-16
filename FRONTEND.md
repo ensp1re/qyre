@@ -37,8 +37,8 @@ path (feature-based organization once the app outgrows its current flat `api/`/`
 - Trees and tabs use roving focus plus conventional Arrow/Home/End behavior. Keep a skip link to the
   main workspace and visible token-driven focus states.
 - SQL results, plans, and errors remain docked to the editor behind output tabs; do not replace the
-  workspace with result pages or modal output. Settings uses a category rail with flat preference
-  rows instead of a centered stack of cards.
+  workspace with result pages or modal output. Settings uses a category rail plus a horizontally
+  centered, top-aligned preference column with flat rows, never a centered stack of cards.
 
 ## Driver-aware UI
 

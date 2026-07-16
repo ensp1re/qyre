@@ -48,11 +48,12 @@ the reference before writing UI code; this file is only fast recall.
 - In data grids, search typing is page-local and Enter commits whole-table scope; show progress in
   the search control while fetching and exact matching totals in the footer. Long plain text stays visually flat
   and opens the shared read-only inspector on double-click or Enter/F2.
-- Sidebar trees use compact rows, precise indentation, subtle guide lines, a strong selected-row
+- Sidebar trees use compact rows, precise indentation, subtle branch-connected guide lines, a strong selected-row
   surface plus a 2px primary inset, roving keyboard focus, and Arrow/Home/End navigation. Connection
   identity and status belong in the sidebar footer, not a duplicated page header/footer.
 - SQL output stays docked below the editor and uses keyboard-roving Results/Plan/Messages tabs.
-  Settings uses a persistent category rail and flat preference rows, not centered website cards.
+  Settings uses a persistent category rail and a horizontally centered, top-aligned column of flat
+  preference rows, not centered website cards.
 - Qyre supports role-aware writes. Render mutation controls only when connected-user grants,
   adapter capabilities, table permissions, and the hard `--read-only` override permit them. Visual
   consistency must never weaken those gates.

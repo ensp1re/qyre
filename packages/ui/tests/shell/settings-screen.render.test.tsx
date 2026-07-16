@@ -75,6 +75,15 @@ describe("SettingsScreen", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("centers the top-aligned preference column within the workspace pane", () => {
+    renderScreen();
+
+    const section = screen
+      .getByRole("heading", { name: "Connection", level: 3 })
+      .closest("section");
+    expect(section?.parentElement).toHaveClass("mx-auto", "max-w-4xl");
+  });
+
   it("renders access identity, roles, grants, and facts", () => {
     renderScreen();
 

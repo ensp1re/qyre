@@ -124,7 +124,8 @@ chart/graph is ever added rather than inventing new hues.
   `transition-all`: layout and transform changes should only animate when a component explicitly
   owns that behavior.
 - Focus-visible state is a one-pixel `ring` outline with a one-pixel offset. Mouse interaction does
-  not show it; keyboard focus always does.
+  not show it; keyboard focus always does. Composite command-bar searches use a 2px primary inset
+  on the containing control surface, never a second box around the embedded input.
 - Inputs use the primary token for the caret and softly strengthen their border on hover. Text
   selection uses a low-opacity primary background rather than the browser's saturated default.
 - Body text uses antialiased/grayscale font smoothing and optimized legibility.
@@ -179,8 +180,9 @@ chart/graph is ever added rather than inventing new hues.
 
 ## Settings workspace
 
-- Settings is an IDE preference pane, not a centered website settings page. A persistent left rail
-  selects Connection, Access, Appearance, or Data & history; the right pane uses flat divided rows.
+- Settings is an IDE preference pane, not a centered website settings card. A persistent left rail
+  selects Connection, Access, Appearance, or Data & history; the right pane keeps a horizontally
+  centered, top-aligned preference column with flat divided rows.
 - The active category uses the same selected surface and 2px primary inset as the database explorer.
   Changes apply immediately, with destructive local-history actions visually separated.
 
@@ -188,8 +190,9 @@ chart/graph is ever added rather than inventing new hues.
 
 - Explorer header contains Qyre identity, region label, and collapse control. Search and schema
   creation are compact commands, not website-style full-width calls to action.
-- Rows use precise indentation, guide lines, 12px icons, and a selected surface with a 2px primary
-  inset. Support Enter/Space activation, Left/Right expansion, and Up/Down/Home/End movement.
+- Rows use precise indentation, vertical guides with short branch connectors, 11-12px icons, and a
+  flat selected surface with a 2px primary inset. Support Enter/Space activation, Left/Right
+  expansion, and Up/Down/Home/End movement.
 - The sidebar footer shows the database name, engine/version, and connection state and opens the
   connection switcher. Never repeat credentials or the full target in persistent chrome.
 

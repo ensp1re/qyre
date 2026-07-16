@@ -105,6 +105,14 @@ describe("RowsTable server-side sort (component rendering, F065)", () => {
     expect(screen.queryByText("All")).not.toBeInTheDocument();
   });
 
+  it("uses one composite focus surface for the compact table search", () => {
+    renderTable();
+
+    expect(screen.getByLabelText("Search rows").parentElement).toHaveAttribute(
+      "data-focus-surface"
+    );
+  });
+
   it("labels exact server-side matching totals without showing the catalog estimate", () => {
     renderTable({
       rowPage: { ...rowPage, total: 178 },

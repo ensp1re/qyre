@@ -93,10 +93,11 @@ export function RowsTableToolbar({
 }: RowsTableToolbarProps): ReactNode {
   const commandIcon = "h-3 w-3";
   return (
-    <CommandToolbar label="Table commands">
-      <CommandGroup label="Find rows" className="min-w-0">
+    <CommandToolbar label="Table commands" className="px-3">
+      <CommandGroup label="Find rows" className="min-w-0 gap-2">
         <div
-          className="flex h-6 min-w-24 items-center gap-1.5 rounded-[3px] bg-accent px-2 font-mono text-[11px] text-muted-foreground sm:w-36"
+          data-focus-surface
+          className="flex h-6 min-w-24 items-center gap-1.5 rounded-[3px] bg-accent/70 px-2 font-mono text-[11px] text-muted-foreground transition-colors focus-within:bg-sidebar-accent focus-within:shadow-[inset_2px_0_0_rgb(var(--primary))] sm:w-36"
           aria-busy={searchLoading || undefined}
         >
           {searchLoading ? (
@@ -121,7 +122,13 @@ export function RowsTableToolbar({
             </span>
           )}
           {search && (
-            <button type="button" onClick={onSearchClear} aria-label="Clear search">
+            <button
+              type="button"
+              data-command-item
+              onClick={onSearchClear}
+              aria-label="Clear search"
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[2px] outline-none transition-colors hover:bg-accent focus-visible:ring-1 focus-visible:ring-primary"
+            >
               <X className="h-2.5 w-2.5" />
             </button>
           )}

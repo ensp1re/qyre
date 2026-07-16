@@ -120,11 +120,13 @@ function TreeRow({
         aria-selected={node.type === "table" ? isSelected : undefined}
         aria-level={depth + 1}
         className={cn(
-          "mx-1 flex min-h-6 cursor-pointer select-none items-center gap-1.5 rounded-[2px] pr-2 outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
+          "group relative mx-1 flex h-6 cursor-pointer select-none items-center gap-1 rounded-none pr-1.5 outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
+          depth > 0 &&
+            "before:absolute before:left-[17px] before:top-1/2 before:w-1.5 before:border-t before:border-sidebar-border before:content-['']",
           isSelected &&
             "bg-sidebar-accent text-foreground shadow-[inset_2px_0_0_rgb(var(--primary))]"
         )}
-        style={{ paddingLeft: `${8 + depth * 14}px` }}
+        style={{ paddingLeft: `${6 + depth * 12}px` }}
         onClick={activate}
         onFocus={(event) => {
           const tree = event.currentTarget.closest('[role="tree"]');
@@ -179,14 +181,22 @@ function TreeRow({
         )}
 
         {node.type === "schema" && (
-          <FolderOpen className="h-3 w-3 shrink-0" style={{ color: "var(--c-amber)" }} />
+          <FolderOpen
+            className="h-3 w-3 shrink-0"
+            strokeWidth={1.8}
+            style={{ color: "var(--c-amber)" }}
+          />
         )}
-        {node.type === "table" && <Table2 className="h-3 w-3 shrink-0 text-muted-foreground" />}
+        {node.type === "table" && (
+          <Table2 className="h-[11px] w-[11px] shrink-0 text-muted-foreground" strokeWidth={1.8} />
+        )}
 
         <span
+          title={node.name}
           className={cn(
-            "truncate font-mono text-[11px] text-foreground/70",
-            isSelected ? "text-foreground" : "hover:text-foreground"
+            "min-w-0 truncate font-mono text-[11px]",
+            node.type === "schema" ? "font-medium text-foreground" : "text-muted-foreground",
+            isSelected && "text-foreground"
           )}
         >
           {highlight(node.name, query)}
@@ -206,7 +216,7 @@ function TreeRow({
               onRequestDropSchema(node.name);
             }}
             aria-label={`Drop schema ${node.name}`}
-            className="shrink-0 rounded-[2px] p-0.5 text-muted-foreground hover:bg-sidebar-accent"
+            className="shrink-0 rounded-[2px] p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-sidebar-accent focus-visible:opacity-100 group-hover:opacity-100"
             style={{ color: "var(--c-red)" }}
           >
             <Trash2 className="h-2.5 w-2.5" />
@@ -217,7 +227,7 @@ function TreeRow({
       {hasChildren && open && (
         <div
           role="group"
-          className="relative before:absolute before:inset-y-0 before:left-[21px] before:w-px before:bg-sidebar-border"
+          className="relative before:absolute before:bottom-3 before:left-[17px] before:top-0 before:w-px before:bg-sidebar-border"
         >
           {node.children?.map((child) => (
             <TreeRow

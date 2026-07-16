@@ -869,5 +869,6 @@ personal taste.
   enum equality filters use the shared selector, while SQLite remains explicitly unsupported.
   Focused unit/live-integration and PostgreSQL browser E2E pass; compact 1280x720 visual QA confirms
   the editor controls remain visible. Full local `pnpm verify:pr` passes 34/34 package tasks, 11
-  smoke E2E with four expected skips, and 30 full E2E with 47 expected skips. Current step: commit
-  and push to draft PR #160; GitHub Actions credits remain unavailable.
+  smoke E2E with four expected skips, and 30 full E2E with 47 expected skips. Round 8 is pushed to
+  draft PR #160 as `bdf2667`; both GitHub jobs fail before any steps because Actions credits remain
+  unavailable. Current step: rerun CI when credits return, then move F146 to passing.

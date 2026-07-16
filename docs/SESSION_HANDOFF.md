@@ -39,12 +39,13 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- Round 8 focused core/server/UI and driver unit/live-integration suites pass. Focused PostgreSQL
+- Round 8 is pushed as `bdf2667` to draft PR #160. Focused core/server/UI and driver
+  unit/live-integration suites pass. Focused PostgreSQL
   browser E2E proves date/time/time-zone/interval/binary persistence, and 1280x720 visual QA proves
   JSON and bytes editor utilities plus Apply/Cancel remain visible. Full local `pnpm verify:pr`
   passes 34/34 package tasks, 11 smoke E2E with four expected skips, and 30 full E2E with 47
-  expected skips. Current step: commit and push to draft PR #160. F146 remains active until GitHub
-  CI can run again.
+  expected skips, locally and in the pre-push hook. Current step: wait for GitHub Actions credits,
+  rerun CI, and move F146 to passing after both jobs succeed.
 
 ## Known issues / blockers
 

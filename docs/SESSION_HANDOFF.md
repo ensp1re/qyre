@@ -30,7 +30,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   cells and filter inputs, top-level filter Escape behavior, and SQLite declared-BOOLEAN display.
   UI tests pass 426/426, five focused PostgreSQL browser journeys pass, and the Node 22 full local
   PR gate passes with 34/34 package tasks, smoke E2E (11 passed, 4 skipped), and full E2E (32
-  passed, 55 skipped).
+  passed, 55 skipped). Draft PR #161 is pushed as `e1eff8d`; both hosted jobs fail before steps
+  because GitHub Actions credits remain exhausted.
 
 ## Known issues / blockers
 
@@ -41,8 +42,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   (F010) - rebuild `@qyre/qyre` too after changing `apps/web`, or a running `qyre <target>` session
   will keep serving the stale bundled copy instead of the fresh one.
 - Docker may require `/Applications/Docker.app/Contents/Resources/bin/docker` explicitly on macOS.
-- GitHub Actions credits were exhausted during PR #160, so its hosted jobs did not run; local and
-  pre-push `pnpm verify:pr` are its available verification evidence.
+- GitHub Actions credits remain exhausted; PRs #160 and #161 both have hosted jobs that fail before
+  running any steps. Local and pre-push `pnpm verify:pr` are the available verification evidence.
 - Deferred by explicit scoping decision, not oversight: full column resize/reorder/frozen columns,
   a complete toolbar regroup into 4 sections with an overflow menu (only a light-touch separator was
   added), full drag-to-select multi-cell copy/paste (only single-cell and best-effort TSV-block
@@ -52,5 +53,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Review, commit, push, and open F147's draft PR; then wait for hosted CI.
+- When GitHub Actions credits return, rerun CI on PR #161; after it passes, move F147 to `passing`.
 - After F147 passes, return to `main` and activate DF-13, the guided Add/Duplicate row composer.

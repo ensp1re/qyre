@@ -932,4 +932,5 @@ personal taste.
   UI tests pass 426/426 and five focused PostgreSQL browser journeys cover the immediate-input race,
   filter keyboard flow, and existing edit/connect behavior. The Node 22 full local PR gate passes
   with 34/34 package tasks, smoke E2E (11 passed, 4 skipped), and full E2E (32 passed, 55 skipped).
-  Current step: review, commit, push, and open the draft PR.
+  Draft PR #161 is pushed as `e1eff8d`; both hosted jobs fail before running any steps because
+  GitHub Actions credits remain exhausted. Current step: rerun CI when credits return.

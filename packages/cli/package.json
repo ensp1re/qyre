@@ -1,6 +1,6 @@
 {
   "name": "@qyre/qyre",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "Launch a local-first database management UI from your terminal.",
   "keywords": [

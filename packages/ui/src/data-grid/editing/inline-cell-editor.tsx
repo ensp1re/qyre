@@ -98,10 +98,10 @@ export function InlineCellEditor({
       onCancel();
     } else if (event.key === "Enter") {
       event.preventDefault();
-      commitDraft(draft, "enter");
+      commitDraft(event.currentTarget.value, "enter");
     } else if (event.key === "Tab") {
       event.preventDefault();
-      commitDraft(draft, event.shiftKey ? "shiftTab" : "tab");
+      commitDraft(event.currentTarget.value, event.shiftKey ? "shiftTab" : "tab");
     }
   }
 

@@ -165,9 +165,10 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
   - Single-line scalar editors apply on `Enter`. Multiline and structured editors preserve plain
     `Enter` for new lines and apply on `Ctrl/Cmd+Enter`; every editor also exposes explicit Apply
     and Cancel actions, and `Escape` cancels without staging. Leaving a valid inline scalar input
-    with the mouse stages its live input value too, including a final change not yet reflected by a
-    React render. Opening an inline scalar editor keeps the shortened display value in table layout
-    while the input overlays it, so editing a long value never collapses or expands the column.
+    with the mouse, `Enter`, or `Tab` stages its live DOM value, including a final change not yet
+    reflected by a React render. Opening an inline scalar editor keeps the shortened display value
+    in table layout while the input overlays it, so editing a long value never collapses or expands
+    the column.
   - `text`: JSON string. Long-text families use a multiline editor; fixed/varying character
     families use a single-line editor. An empty string remains distinct from `NULL`.
   - `identifier`: JSON string. UUID columns additionally require the canonical hyphenated UUID

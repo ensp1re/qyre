@@ -108,7 +108,9 @@ Out of scope (not defects, confirmed correct or acceptable as-is during the same
   protocol doesn't distinguish a `BOOLEAN` from a small `TINYINT`, so this isn't misrepresenting
   the data, just not the most idiomatic label. Possible future enhancement, not a defect.
 - SQLite has no native date/boolean/json column types (values are stored as `TEXT`/`INTEGER` at the
-  developer's discretion) - nothing to reinterpret or get wrong at the driver layer.
+  developer's discretion). When a developer declares a column as `BOOLEAN`, that metadata drives
+  the boolean editor/filter affordances and grid display relabels numeric storage `0`/`1` as
+  `false`/`true`; raw copy/export values remain unchanged.
 
 ## Acceptance criteria
 

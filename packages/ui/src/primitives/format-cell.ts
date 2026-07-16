@@ -7,6 +7,19 @@ export function formatCell(value: unknown): string {
 }
 
 /**
+ * Formats a cell for grid display without changing its raw copy/export representation. SQLite
+ * preserves a declared BOOLEAN type in metadata but returns stored values as numeric 0/1; relabel
+ * only that boolean-typed display as false/true. MySQL TINYINT(1) remains numeric because its
+ * engine-reported type is `tinyint`, not boolean.
+ */
+export function formatCellDisplay(value: unknown, dataType?: string): string {
+  if (dataType?.toLowerCase().startsWith("bool") && (value === 0 || value === 1)) {
+    return value === 1 ? "true" : "false";
+  }
+  return formatCell(value);
+}
+
+/**
  * Whether an engine-reported `ColumnMetadata.dataType` is a date/timestamp/time type - shared by
  * TypeIcon (the header icon) and CellValue (F070's click-to-inspect date popover), so the two
  * agree on what counts as a date column. `dataType` is engine-reported text, not a normalized

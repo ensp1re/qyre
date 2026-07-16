@@ -83,6 +83,10 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
      The column and operator already chosen show as breadcrumb tokens at
      the popover's head, each clickable to re-pick that step. Escape walks one step back, then
      closes.
+     Keyboard selection and value application read the focused control's live value, so a final
+     keystroke followed immediately by Enter cannot be lost to a delayed React render. Returning from
+     the operator step remounts and focuses the column search input, keeping the second Escape inside
+     the dialog so it closes without requiring a mouse click.
 - Applied filters render as compact **segmented chips** in the toolbar (type icon · column ·
   operator symbol · value), joined by small `and` separators to make the AND semantics visible.
   Clicking a chip reopens the popover to **edit that filter in place**; clicking its `×` removes

@@ -24,6 +24,13 @@ export interface FilterBarProps {
   onFiltersChange: (filters: RowFilter[] | undefined) => void;
 }
 import { EMPTY_DRAFT, HintFooter, NO_VALUE_OPS, OP_META, type Draft } from "./filter-editor.js";
+
+function columnsMatching(columns: readonly ColumnMetadata[], queryValue: string): ColumnMetadata[] {
+  const query = queryValue.trim().toLowerCase();
+  if (!query) return [...columns];
+  return columns.filter((column) => column.name.toLowerCase().includes(query));
+}
+
 /**
  * The Tables toolbar's server-side filter control (F072): a Filter button opening an anchored
  * popover with a progressive three-step flow (searchable column list -> operator list -> value),
@@ -48,6 +55,7 @@ export function FilterBar({
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
+  const highlightedRef = useRef(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const opListRef = useRef<HTMLDivElement>(null);
   useFocusTrap(panelRef, open);
@@ -61,11 +69,10 @@ export function FilterBar({
     [columns, engine]
   );
 
-  const matchingColumns = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return filterableColumns;
-    return filterableColumns.filter((column) => column.name.toLowerCase().includes(q));
-  }, [filterableColumns, query]);
+  const matchingColumns = useMemo(
+    () => columnsMatching(filterableColumns, query),
+    [filterableColumns, query]
+  );
 
   const draftCapability: FilterCapability | undefined = draft.column
     ? filterCapabilityForColumn(draft.column, engine)
@@ -84,7 +91,10 @@ export function FilterBar({
   const isDateValueInput =
     valueInputKind === "date" || valueInputKind === "time" || valueInputKind === "datetime-local";
 
-  useEffect(() => setHighlighted(0), [query]);
+  function updateHighlighted(next: number): void {
+    highlightedRef.current = next;
+    setHighlighted(next);
+  }
 
   // Keep the highlighted column option visible while arrowing through a long list.
   useEffect(() => {
@@ -106,7 +116,7 @@ export function FilterBar({
     setDraft(EMPTY_DRAFT);
     setEditIndex(null);
     setQuery("");
-    setHighlighted(0);
+    updateHighlighted(0);
   }
 
   function apply(filter: RowFilter): void {
@@ -122,6 +132,7 @@ export function FilterBar({
     if (capability.operators.length === 0) return;
     setDraft((current) => ({ ...current, column }));
     setQuery("");
+    updateHighlighted(0);
   }
 
   function pickOperator(op: FilterOp): void {
@@ -174,15 +185,21 @@ export function FilterBar({
   }
 
   function onColumnSearchKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    const liveMatchingColumns = columnsMatching(filterableColumns, event.currentTarget.value);
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setHighlighted((current) => Math.min(current + 1, matchingColumns.length - 1));
+      updateHighlighted(
+        Math.min(highlightedRef.current + 1, Math.max(liveMatchingColumns.length - 1, 0))
+      );
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      setHighlighted((current) => Math.max(current - 1, 0));
+      updateHighlighted(Math.max(highlightedRef.current - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
-      const column = matchingColumns[highlighted];
+      const column =
+        liveMatchingColumns[
+          Math.min(highlightedRef.current, Math.max(liveMatchingColumns.length - 1, 0))
+        ];
       if (column) pickColumn(column);
     }
   }
@@ -313,8 +330,12 @@ export function FilterBar({
                   <Search className="h-2.5 w-2.5 shrink-0" />
                   <input
                     value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      updateHighlighted(0);
+                    }}
                     onKeyDown={onColumnSearchKeyDown}
+                    autoFocus
                     placeholder="Search columns..."
                     aria-label="Search columns"
                     role="combobox"
@@ -349,7 +370,7 @@ export function FilterBar({
                         role="option"
                         aria-selected={index === highlighted}
                         onClick={() => pickColumn(column)}
-                        onMouseEnter={() => setHighlighted(index)}
+                        onMouseEnter={() => updateHighlighted(index)}
                         className={cn(
                           "flex w-full items-center gap-1.5 rounded-[2px] px-2 py-1.5 text-left",
                           index === highlighted ? "bg-accent text-foreground" : "text-foreground/80"
@@ -506,7 +527,7 @@ export function FilterBar({
                         setDraft((current) => ({ ...current, value: event.target.value }))
                       }
                       onKeyDown={(event) => {
-                        if (event.key === "Enter") applyValue();
+                        if (event.key === "Enter") applyValue(event.currentTarget.value);
                       }}
                       placeholder={
                         draftCapability?.kind === "objectId" ? "ObjectId hex..." : "Value..."

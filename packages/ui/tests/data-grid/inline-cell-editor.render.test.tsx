@@ -23,6 +23,22 @@ describe("InlineCellEditor (F146)", () => {
     expect(onCommitKey).toHaveBeenCalledWith("enter");
   });
 
+  it("commits the live input value on Enter before React draft state catches up", () => {
+    const onApply = vi.fn();
+    render(
+      <InlineCellEditor
+        column={{ name: "score", dataType: "numeric", nullable: false }}
+        originalValue="10"
+        onApply={onApply}
+        onCancel={vi.fn()}
+      />
+    );
+    const input = screen.getByLabelText("score") as HTMLInputElement;
+    input.value = "42";
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onApply).toHaveBeenCalledWith("42");
+  });
+
   it("commits on Tab and reports the tab direction without a Shift key", () => {
     const onApply = vi.fn();
     const onCommitKey = vi.fn();

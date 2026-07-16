@@ -19,10 +19,23 @@ import {
 } from "@qyre/testing";
 import { expect, test } from "./support/test.js";
 import { expectNoAccessibilityViolations } from "./support/accessibility.js";
+import { replaceInputAndPressEnterSynchronously } from "./support/live-input.js";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/web/dist");
+
+async function setupProjectFixture(projectName: string): Promise<void> {
+  if (projectName === "sqlite") {
+    setupSqliteFixture(requireTestSqlitePath());
+  } else if (projectName === "mongodb") {
+    await setupMongoFixture(requireTestMongoUrl());
+  } else if (projectName === "mysql") {
+    await setupMysqlFixture(requireTestMysqlUrl());
+  } else {
+    await setupFixture(requireTestDatabaseUrl());
+  }
+}
 
 /**
  * Full end-to-end journey: connect and inspect a table. Runs once per engine project (see
@@ -40,15 +53,7 @@ const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/web/d
  * it with `pnpm test:e2e:full`.
  */
 test("@full connect and inspect a table", async ({ page }, testInfo) => {
-  if (testInfo.project.name === "sqlite") {
-    setupSqliteFixture(requireTestSqlitePath());
-  } else if (testInfo.project.name === "mongodb") {
-    await setupMongoFixture(requireTestMongoUrl());
-  } else if (testInfo.project.name === "mysql") {
-    await setupMysqlFixture(requireTestMysqlUrl());
-  } else {
-    await setupFixture(requireTestDatabaseUrl());
-  }
+  await setupProjectFixture(testInfo.project.name);
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Qyre" })).toBeVisible();
@@ -97,6 +102,40 @@ test("@full connect and inspect a table", async ({ page }, testInfo) => {
 
   // F056/F145: the connected data-rich state clears WCAG A/AA in both supported themes.
   await expectNoAccessibilityViolations(page, "connected database screen");
+});
+
+test("@full filter composition handles immediate Enter and restores Escape focus", async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "postgres", "One shared-UI browser proof is sufficient.");
+  await setupProjectFixture(testInfo.project.name);
+
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Tables" }).click();
+  await page.getByRole("treeitem", { name: FIXTURE.table }).click();
+
+  await page.getByRole("button", { name: "Add filter" }).click();
+  const search = page.getByRole("combobox", { name: "Search columns" });
+  await replaceInputAndPressEnterSynchronously(search, "name");
+
+  const contains = page.getByRole("option", { name: /contains/ });
+  await expect(contains).toBeVisible();
+  await contains.press("Enter");
+
+  const value = page.getByRole("textbox", { name: "Filter value" });
+  await replaceInputAndPressEnterSynchronously(value, "Ada");
+  await expect(page.getByRole("dialog", { name: "Add filter" })).not.toBeVisible();
+  await expect(page.getByTestId("rows-table").getByText("Ada Lovelace")).toBeVisible();
+  await expect(page.getByTestId("rows-table").getByText("Grace Hopper")).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Add filter" }).click();
+  const nextSearch = page.getByRole("combobox", { name: "Search columns" });
+  await nextSearch.fill("name");
+  await nextSearch.press("Enter");
+  await page.getByRole("option", { name: /contains/ }).press("Escape");
+  await expect(page.getByRole("combobox", { name: "Search columns" })).toBeFocused();
+  await page.getByRole("combobox", { name: "Search columns" }).press("Escape");
+  await expect(page.getByRole("dialog", { name: "Add filter" })).not.toBeVisible();
 });
 
 test.describe("cross-engine connection switching", () => {

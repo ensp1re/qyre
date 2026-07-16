@@ -20,6 +20,21 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(screen.getByText("Ada")).toBeInTheDocument();
   });
 
+  it("renders a declared SQLite BOOLEAN value as true/false while keeping it editable", () => {
+    render(
+      <EditableCell
+        displayValue={1}
+        dataType="BOOLEAN"
+        engine="sqlite"
+        nullable={false}
+        dirty={false}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+    expect(screen.getByText("true")).toBeInTheDocument();
+  });
+
   it("renders null as an italic placeholder", () => {
     render(
       <EditableCell

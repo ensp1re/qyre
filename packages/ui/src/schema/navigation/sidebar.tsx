@@ -1,12 +1,19 @@
-import type { SchemaMetadata } from "@qyre/core";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import type {
+  ConnectionCapabilities,
+  ConnectionStatus,
+  DatabaseEngine,
+  SchemaMetadata
+} from "@qyre/core";
+import { CircleAlert, Database, PanelLeftClose, PanelLeftOpen, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "../../cn.js";
 import { Spinner } from "../../feedback/spinner.js";
 import { ConfirmTypedNameDialog } from "../../primitives/confirm-typed-name-dialog.js";
+import { Button } from "../../primitives/controls/button.js";
 import { CreateNamedDialog } from "../../primitives/create-named-dialog.js";
 import { ResizeHandle } from "../../primitives/resize-handle.js";
+import { AccessBadge } from "../../shell/status-bar.js";
 import { SchemaTree, type SelectedTable } from "./schema-tree.js";
 
 type SchemaDialogState = { kind: "create" } | { kind: "drop"; schema: string } | undefined;
@@ -23,7 +30,7 @@ export interface SidebarProps {
   onSelect: (schema: string, table: string) => void;
   isLoading?: boolean;
   isError?: boolean;
-  onRetry?: () => void;
+  onRetry?: () => void | Promise<unknown>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Width in px while open (F071). Omitted keeps the previous fixed 256px (`w-64`) - both this
@@ -34,6 +41,24 @@ export interface SidebarProps {
   canManageSchemas?: boolean;
   onCreateSchema?: (name: string) => Promise<void>;
   onDropSchema?: (name: string) => Promise<void>;
+  status: ConnectionStatus;
+  target?: string | null;
+  engine?: DatabaseEngine;
+  engineVersion?: string | null;
+  capabilities?: ConnectionCapabilities;
+  onOpenConnection: () => void;
+}
+
+const STATUS_COLOR: Record<ConnectionStatus, string> = {
+  connected: "var(--c-green)",
+  disconnected: "var(--c-red)",
+  unconfigured: "rgb(var(--muted-foreground))"
+};
+
+function databaseNameFromTarget(target?: string | null): string {
+  if (!target) return "No database";
+  const trimmed = target.replace(/\/+$/, "");
+  return trimmed.slice(trimmed.lastIndexOf("/") + 1) || "Database";
 }
 
 /**
@@ -54,11 +79,18 @@ export function Sidebar({
   onWidthChange,
   canManageSchemas,
   onCreateSchema,
-  onDropSchema
+  onDropSchema,
+  status,
+  target,
+  engine,
+  engineVersion,
+  capabilities,
+  onOpenConnection
 }: SidebarProps): ReactNode {
   const resizable = open && width !== undefined && onWidthChange !== undefined;
   const [dialog, setDialog] = useState<SchemaDialogState>(undefined);
   const [busy, setBusy] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
   async function handleCreateSchema(name: string): Promise<void> {
@@ -89,6 +121,16 @@ export function Sidebar({
     }
   }
 
+  async function handleRetry(): Promise<void> {
+    if (!onRetry || retrying) return;
+    setRetrying(true);
+    try {
+      await onRetry();
+    } finally {
+      setRetrying(false);
+    }
+  }
+
   return (
     <>
       {open && (
@@ -111,17 +153,20 @@ export function Sidebar({
       >
         {open ? (
           <>
-            <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-              <span className="font-mono text-[9px] uppercase tracking-widest text-quiet-foreground">
-                Explorer
+            <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-2.5">
+              <h1 className="font-mono text-[13px] font-semibold tracking-tight text-foreground">
+                Qyre
+              </h1>
+              <span className="text-[10px] uppercase tracking-[0.12em] text-quiet-foreground">
+                Database
               </span>
               <button
                 type="button"
                 aria-label="Collapse sidebar"
                 onClick={() => onOpenChange(false)}
-                className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                className="ml-auto rounded-[3px] p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
               >
-                <PanelLeftClose className="h-3 w-3" />
+                <PanelLeftClose className="h-3.5 w-3.5" strokeWidth={1.8} />
               </button>
             </div>
 
@@ -131,11 +176,33 @@ export function Sidebar({
                   <Spinner /> Loading schemas...
                 </p>
               ) : isError ? (
-                <div className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                  Failed to load schemas.{" "}
-                  <button type="button" onClick={onRetry} className="text-primary underline">
-                    Retry
-                  </button>
+                <div
+                  role="alert"
+                  className="flex min-h-32 items-center justify-center border-b border-border-subtle px-5 py-6 text-center"
+                >
+                  <div className="flex max-w-48 flex-col items-center">
+                    <CircleAlert
+                      className="mb-2 h-4 w-4 text-destructive"
+                      strokeWidth={1.8}
+                      aria-hidden="true"
+                    />
+                    <p className="text-[11px] font-medium text-foreground">Schemas unavailable</p>
+                    <p className="mt-1 text-[10px] leading-4 text-quiet-foreground">
+                      Check the connection, then try loading the explorer again.
+                    </p>
+                    {onRetry && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        loading={retrying}
+                        onClick={() => void handleRetry()}
+                        className="mt-3"
+                      >
+                        {!retrying && <RefreshCw className="h-3 w-3" strokeWidth={1.8} />}
+                        Retry
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <SchemaTree
@@ -168,16 +235,71 @@ export function Sidebar({
                 />
               )}
             </div>
+            <button
+              type="button"
+              onClick={onOpenConnection}
+              data-testid="status-badge"
+              data-status={status}
+              aria-label={`Change connection, current database ${databaseNameFromTarget(target)}, ${status}`}
+              className="flex h-9 shrink-0 items-center gap-2 border-t border-border px-2.5 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary"
+            >
+              <span className="relative shrink-0">
+                <Database className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.8} />
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-2 ring-sidebar"
+                  style={{ backgroundColor: STATUS_COLOR[status] }}
+                />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-mono text-[10px] text-foreground/80">
+                  {databaseNameFromTarget(target)}
+                </span>
+                <span className="flex items-center gap-1 text-[9px] text-quiet-foreground">
+                  <span className="truncate">
+                    {engineVersion ?? engine ?? (status === "connected" ? "Connected" : status)}
+                  </span>
+                  <AccessBadge capabilities={capabilities} />
+                </span>
+                <span data-testid="connection-summary" className="sr-only">
+                  {status === "connected"
+                    ? "Connected"
+                    : status === "disconnected"
+                      ? "Disconnected"
+                      : "No database"}
+                </span>
+              </span>
+            </button>
           </>
         ) : (
-          <div className="hidden flex-col items-center gap-2 px-1.5 py-2 md:flex">
+          <div className="hidden h-full flex-col items-center gap-2 px-0.5 py-1 md:flex">
             <button
               type="button"
               aria-label="Expand sidebar"
               onClick={() => onOpenChange(true)}
-              className="rounded-md p-1 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              className="rounded-[3px] p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
             >
               <PanelLeftOpen className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={onOpenConnection}
+              data-testid="status-badge"
+              data-status={status}
+              aria-label={`Change connection, current database ${databaseNameFromTarget(target)}, ${status}`}
+              className="relative mt-auto rounded-[3px] p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+            >
+              <Database className="h-3.5 w-3.5" />
+              <span data-testid="connection-summary" className="sr-only">
+                {status === "connected"
+                  ? "Connected"
+                  : status === "disconnected"
+                    ? "Disconnected"
+                    : "No database"}
+              </span>
+              <span
+                className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full ring-1 ring-sidebar"
+                style={{ backgroundColor: STATUS_COLOR[status] }}
+              />
             </button>
           </div>
         )}

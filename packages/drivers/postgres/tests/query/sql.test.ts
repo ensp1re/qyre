@@ -23,4 +23,32 @@ describe("PostgreSQL structured filters", () => {
       buildFilterClause([{ column: "tags", op: "contains", value: "one", columnDataType: "ARRAY" }])
     ).toEqual({ clause: " WHERE \"tags\"::text ILIKE $1 ESCAPE '\\'", params: ["%one%"] });
   });
+
+  it("builds one parameterized whole-table search across scalar and structured columns", () => {
+    expect(
+      buildFilterClause(undefined, {
+        value: "admin%",
+        columns: [
+          {
+            name: "name",
+            dataType: "text",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          },
+          {
+            name: "payload",
+            dataType: "jsonb",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]
+      })
+    ).toEqual({
+      clause:
+        " WHERE (CAST(\"name\" AS text) ILIKE $1 ESCAPE '\\' OR CAST(\"payload\" AS text) ILIKE $1 ESCAPE '\\')",
+      params: ["%admin\\%%"]
+    });
+  });
 });

@@ -10,13 +10,14 @@ describe("exportRowsUrl (F118)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("builds a format-specific URL with the current sort, filters, and download token", () => {
+  it("builds a format-specific URL with the current sort, filters, search, and token", () => {
     const value = exportRowsUrl(
       "public data",
       "order/items",
       "json",
       { column: "created_at", direction: "desc" },
-      [{ column: "status", op: "eq", value: "open" }]
+      [{ column: "status", op: "eq", value: "open" }],
+      "admin"
     );
     const url = new URL(value, "http://localhost");
 
@@ -26,6 +27,7 @@ describe("exportRowsUrl (F118)", () => {
     expect(JSON.parse(url.searchParams.get("filters") ?? "[]")).toEqual([
       { column: "status", op: "eq", value: "open" }
     ]);
+    expect(url.searchParams.get("search")).toBe("admin");
     expect(url.searchParams.get("token")).toBe("session-token");
   });
 

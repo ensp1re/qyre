@@ -11,6 +11,7 @@ export interface WorkspaceState {
   page: number;
   sort?: RowSort;
   filters?: RowFilter[];
+  tableSearch?: string;
   querySql: string;
   tab: ShellTab;
   sidebarOpen: boolean;
@@ -27,6 +28,7 @@ export type WorkspaceAction =
   | { type: "pageChanged"; page: number }
   | { type: "sortChanged"; sort?: RowSort }
   | { type: "filtersChanged"; filters?: RowFilter[] }
+  | { type: "tableSearchChanged"; search?: string }
   | { type: "queryChanged"; sql: string }
   | { type: "queryLoaded"; sql: string }
   | { type: "tabChanged"; tab: ShellTab }
@@ -65,6 +67,7 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
         page: 0,
         sort: undefined,
         filters: action.filters,
+        tableSearch: undefined,
         tab: "tables"
       };
     case "pageChanged":
@@ -73,6 +76,8 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
       return { ...state, sort: action.sort, page: 0 };
     case "filtersChanged":
       return { ...state, filters: action.filters, page: 0 };
+    case "tableSearchChanged":
+      return { ...state, tableSearch: action.search, page: 0 };
     case "queryChanged":
       return { ...state, querySql: action.sql };
     case "queryLoaded":
@@ -102,6 +107,7 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
         page: 0,
         sort: undefined,
         filters: undefined,
+        tableSearch: undefined,
         selectedFilePath: undefined,
         lastQueryMs: undefined,
         connectOpen: false
@@ -113,6 +119,13 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
         ? { ...state, selected: { ...state.selected, table: action.newName } }
         : state;
     case "tableDropped":
-      return { ...state, selected: undefined, page: 0, sort: undefined, filters: undefined };
+      return {
+        ...state,
+        selected: undefined,
+        page: 0,
+        sort: undefined,
+        filters: undefined,
+        tableSearch: undefined
+      };
   }
 }

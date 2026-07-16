@@ -9,6 +9,8 @@ export interface QueryPlanPanelProps {
   error?: string;
   onRetry: () => void;
   height?: number;
+  /** Removes the outer partition when QueryRunner already provides the output-tab border. */
+  embedded?: boolean;
 }
 
 /** Focused monospaced text/tree rendering for a database-native execution plan (F128). */
@@ -17,13 +19,14 @@ export function QueryPlanPanel({
   loading,
   error,
   onRetry,
-  height
+  height,
+  embedded
 }: QueryPlanPanelProps): ReactNode {
   const style = height === undefined ? undefined : { height };
   const className =
     height === undefined
-      ? "max-h-64 shrink-0 overflow-auto border-t border-border"
-      : "shrink-0 overflow-auto border-t border-border";
+      ? `max-h-64 shrink-0 overflow-auto ${embedded ? "" : "border-t border-border"}`
+      : `shrink-0 overflow-auto ${embedded ? "" : "border-t border-border"}`;
 
   if (loading) {
     return (

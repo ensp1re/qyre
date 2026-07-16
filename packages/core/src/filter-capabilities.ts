@@ -167,7 +167,7 @@ export function filterCapabilityForColumn(
           kind,
           label: "structured",
           operators: withNullability(["contains"], column),
-          valueInput: engine === "mongodb" ? "json" : "text"
+          valueInput: "text"
         };
       }
       return {

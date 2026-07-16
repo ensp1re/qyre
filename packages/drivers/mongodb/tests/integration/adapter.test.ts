@@ -111,12 +111,12 @@ describe("MongodbAdapter integration", () => {
     expect(ada?.profile).toEqual({ account: { tags: ["admin", "beta"] } });
   });
 
-  it("filters a top-level object by semantic containment", async () => {
+  it("filters nested object and array values with ordinary text", async () => {
     const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10, undefined, [
       {
         column: "profile",
         op: "contains",
-        value: '{"account":{"tags":["admin","beta"]}}',
+        value: "admin",
         columnDataType: "object"
       }
     ]);

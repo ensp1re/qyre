@@ -92,11 +92,18 @@ const cases: EngineCase[] = [
       const pool = new Pool({ connectionString: raw });
       // label is nullable text (F072 fixture: one NULL row, "apple"/"banana" so contains/isNull/
       // isNotNull have something real to filter on, not just the numeric n column).
-      await pool.query(`CREATE TABLE ${populatedTable} (id serial PRIMARY KEY, n int, label text)`);
       await pool.query(
-        `INSERT INTO ${populatedTable} (n, label) VALUES (1, 'apple'), (2, 'banana'), (3, NULL)`
+        `CREATE TABLE ${populatedTable} (id serial PRIMARY KEY, n int, label text, payload jsonb)`
       );
-      await pool.query(`CREATE TABLE ${emptyTable} (id serial PRIMARY KEY, n int, label text)`);
+      await pool.query(
+        `INSERT INTO ${populatedTable} (n, label, payload) VALUES
+          (1, 'apple', '{"needleKey":"needleValue","tags":["alpha","beta"]}'),
+          (2, 'banana', '{"other":"plain"}'),
+          (3, NULL, NULL)`
+      );
+      await pool.query(
+        `CREATE TABLE ${emptyTable} (id serial PRIMARY KEY, n int, label text, payload jsonb)`
+      );
       await pool.query(`CREATE VIEW ${viewTable} AS SELECT * FROM ${populatedTable}`);
       const deniedUser = `qyre_f120_${suffix}`;
       const deniedPassword = randomUUID();
@@ -148,13 +155,16 @@ const cases: EngineCase[] = [
       const databaseName = new URL(raw).pathname.slice(1);
       const pool = mysql.createPool(raw);
       await pool.query(
-        `CREATE TABLE ${populatedTable} (id INT AUTO_INCREMENT PRIMARY KEY, n INT, label VARCHAR(50))`
+        `CREATE TABLE ${populatedTable} (id INT AUTO_INCREMENT PRIMARY KEY, n INT, label VARCHAR(50), payload JSON)`
       );
       await pool.query(
-        `INSERT INTO ${populatedTable} (n, label) VALUES (1, 'apple'), (2, 'banana'), (3, NULL)`
+        `INSERT INTO ${populatedTable} (n, label, payload) VALUES
+          (1, 'apple', '{"needleKey":"needleValue","tags":["alpha","beta"]}'),
+          (2, 'banana', '{"other":"plain"}'),
+          (3, NULL, NULL)`
       );
       await pool.query(
-        `CREATE TABLE ${emptyTable} (id INT AUTO_INCREMENT PRIMARY KEY, n INT, label VARCHAR(50))`
+        `CREATE TABLE ${emptyTable} (id INT AUTO_INCREMENT PRIMARY KEY, n INT, label VARCHAR(50), payload JSON)`
       );
       await pool.query(`CREATE VIEW ${viewTable} AS SELECT * FROM ${populatedTable}`);
       const deniedUser = `qyre_f120_${suffix}`;
@@ -206,11 +216,18 @@ const cases: EngineCase[] = [
       const dir = mkdtempSync(join(tmpdir(), "qyre-conformance-"));
       const dbPath = join(dir, "fixture.db");
       const db = new Database(dbPath);
-      db.exec(`CREATE TABLE ${populatedTable} (id INTEGER PRIMARY KEY, n INTEGER, label TEXT)`);
       db.exec(
-        `INSERT INTO ${populatedTable} (n, label) VALUES (1, 'apple'), (2, 'banana'), (3, NULL)`
+        `CREATE TABLE ${populatedTable} (id INTEGER PRIMARY KEY, n INTEGER, label TEXT, payload JSON)`
       );
-      db.exec(`CREATE TABLE ${emptyTable} (id INTEGER PRIMARY KEY, n INTEGER, label TEXT)`);
+      db.exec(
+        `INSERT INTO ${populatedTable} (n, label, payload) VALUES
+          (1, 'apple', '{"needleKey":"needleValue","tags":["alpha","beta"]}'),
+          (2, 'banana', '{"other":"plain"}'),
+          (3, NULL, NULL)`
+      );
+      db.exec(
+        `CREATE TABLE ${emptyTable} (id INTEGER PRIMARY KEY, n INTEGER, label TEXT, payload JSON)`
+      );
       db.exec(`CREATE VIEW ${viewTable} AS SELECT * FROM ${populatedTable}`);
       db.close();
       const deniedDir = mkdtempSync(join(tmpdir(), "qyre-conformance-readonly-"));
@@ -249,8 +266,8 @@ const cases: EngineCase[] = [
       await client.connect();
       const db = client.db(databaseName);
       await db.collection(populatedTable).insertMany([
-        { n: 1, label: "apple" },
-        { n: 2, label: "banana" },
+        { n: 1, label: "apple", payload: { needleKey: "needleValue", tags: ["alpha", "beta"] } },
+        { n: 2, label: "banana", payload: { other: "plain" } },
         { n: 3, label: null }
       ]);
       await db.createCollection(emptyTable);
@@ -618,11 +635,13 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       { column: "n", op: "eq", value: "2" }
     ]);
     expect(eq.rows.map((row) => Number(row.n))).toEqual([2]);
+    expect(eq.total).toBe(1);
 
     const neq = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10, undefined, [
       { column: "n", op: "neq", value: "2" }
     ]);
     expect(neq.rows.map((row) => Number(row.n)).sort()).toEqual([1, 3]);
+    expect(neq.total).toBe(2);
   });
 
   it.skipIf(!configured)(
@@ -641,7 +660,65 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       { column: "label", op: "contains", value: "AN" }
     ]);
     expect(page.rows.map((row) => row.label)).toEqual(["banana"]);
+    expect(page.total).toBe(1);
   });
+
+  it.skipIf(!configured)(
+    "searches the whole table and structured keys, values, and arrays identically",
+    async () => {
+      const metadata = await adapter.getTable(fixture.schema, fixture.populatedTable);
+      const search = { value: "needleValue", columns: metadata.columns };
+      const searched = await adapter.getRows(
+        fixture.schema,
+        fixture.populatedTable,
+        0,
+        10,
+        undefined,
+        undefined,
+        search
+      );
+      expect(searched.rows.map((row) => Number(row.n))).toEqual([1]);
+      expect(searched.total).toBe(1);
+
+      const payload = metadata.columns.find((column) => column.name === "payload");
+      expect(payload).toBeDefined();
+      for (const value of ["needleKey", "needleValue", "beta"]) {
+        const filtered = await adapter.getRows(
+          fixture.schema,
+          fixture.populatedTable,
+          0,
+          10,
+          undefined,
+          [
+            {
+              column: "payload",
+              op: "contains",
+              value,
+              columnDataType: payload?.dataType
+            }
+          ]
+        );
+        expect(
+          filtered.rows.map((row) => Number(row.n)),
+          value
+        ).toEqual([1]);
+        expect(filtered.total, value).toBe(1);
+      }
+
+      const streamed: number[] = [];
+      for await (const row of adapter.streamRows(
+        fixture.schema,
+        fixture.populatedTable,
+        metadata.columns,
+        undefined,
+        undefined,
+        search
+      )) {
+        streamed.push(Number(row.n));
+      }
+      expect(streamed).toEqual([1]);
+    }
+  );
 
   it.skipIf(!configured)("filters rows with isNull/isNotNull identically (F072)", async () => {
     const nullPage = await adapter.getRows(

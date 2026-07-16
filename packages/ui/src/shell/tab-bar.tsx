@@ -1,5 +1,5 @@
 import { FileCode2, FolderOpen, Network, Table2, Terminal, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { cn } from "../cn.js";
 
 export type ShellTab = "sql-editor" | "tables" | "schema" | "files" | "console";
@@ -20,6 +20,8 @@ export interface TabBarProps {
   /** Tabs the caller has disabled, mapped to a reason shown as a tooltip (e.g. "not available for
    * this engine") - unclickable rather than silently accepting an action that can never work. */
   disabledTabs?: Partial<Record<ShellTab, string>>;
+  /** Window-level utility actions docked to the right of the tab strip. */
+  actions?: ReactNode;
 }
 
 /** The IDE-style tab strip switching between the shell's five content panes. */
@@ -27,42 +29,66 @@ export function TabBar({
   active,
   onChange,
   hiddenTabs = [],
-  disabledTabs = {}
+  disabledTabs = {},
+  actions
 }: TabBarProps): ReactNode {
   const hidden = new Set(hiddenTabs);
+  function moveTabFocus(event: KeyboardEvent<HTMLDivElement>): void {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const tabs = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]:not(:disabled)')
+    );
+    if (tabs.length === 0) return;
+    const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
+    let next = current;
+    if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = tabs.length - 1;
+    else if (event.key === "ArrowRight") next = (Math.max(current, -1) + 1) % tabs.length;
+    else next = (current <= 0 ? tabs.length : current) - 1;
+    event.preventDefault();
+    tabs[next]?.focus();
+    tabs[next]?.click();
+  }
+
   return (
-    <div
-      role="tablist"
-      className="flex shrink-0 items-end gap-0.5 overflow-x-auto overflow-y-hidden border-b border-border bg-card px-2 pt-1"
-    >
-      {TABS.filter(({ id }) => !hidden.has(id)).map(({ id, label, icon: Icon }) => {
-        const isActive = id === active;
-        const disabledReason = disabledTabs[id];
-        return (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-label={label}
-            aria-selected={isActive}
-            aria-disabled={Boolean(disabledReason)}
-            disabled={Boolean(disabledReason)}
-            title={disabledReason ?? label}
-            onClick={() => onChange(id)}
-            className={cn(
-              "flex shrink-0 items-center gap-0 whitespace-nowrap rounded-t-[3px] px-2 py-1.5 text-[11px] font-medium transition-colors lg:gap-1.5 lg:px-3",
-              disabledReason
-                ? "cursor-not-allowed text-quiet-foreground"
-                : isActive
-                  ? "-mb-px border border-border border-b-background bg-background text-foreground"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-            )}
-          >
-            <Icon className="h-3 w-3" />
-            <span className="hidden lg:inline">{label}</span>
-          </button>
-        );
-      })}
+    <div className="flex h-9 shrink-0 border-b border-border bg-card">
+      <div
+        role="tablist"
+        aria-label="Workspace"
+        onKeyDown={moveTabFocus}
+        className="flex min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden"
+      >
+        {TABS.filter(({ id }) => !hidden.has(id)).map(({ id, label, icon: Icon }) => {
+          const isActive = id === active;
+          const disabledReason = disabledTabs[id];
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              tabIndex={isActive ? 0 : -1}
+              aria-label={label}
+              aria-selected={isActive}
+              aria-disabled={Boolean(disabledReason)}
+              disabled={Boolean(disabledReason)}
+              title={disabledReason ?? label}
+              onClick={() => onChange(id)}
+              className={cn(
+                "relative flex shrink-0 items-center gap-1.5 whitespace-nowrap border-r border-border px-2.5 text-[11px] font-medium outline-none transition-colors focus-visible:bg-accent sm:px-3",
+                disabledReason
+                  ? "cursor-not-allowed text-quiet-foreground"
+                  : isActive
+                    ? "bg-background text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+              )}
+            >
+              <Icon className="h-3 w-3" strokeWidth={1.8} />
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {actions}
     </div>
   );
 }

@@ -23,6 +23,15 @@ describe("TabBar", () => {
     render(<TabBar active="tables" onChange={vi.fn()} />);
 
     expect(screen.getByRole("tab", { name: "Tables" })).toBeInTheDocument();
-    expect(screen.getByText("Tables")).toHaveClass("hidden", "lg:inline");
+    expect(screen.getByText("Tables")).toHaveClass("hidden", "sm:inline");
+  });
+
+  it("activates the next tab with ArrowRight", () => {
+    const onChange = vi.fn();
+    render(<TabBar active="tables" onChange={onChange} />);
+    const tables = screen.getByRole("tab", { name: "Tables" });
+    tables.focus();
+    fireEvent.keyDown(tables, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenCalledWith("schema");
   });
 });

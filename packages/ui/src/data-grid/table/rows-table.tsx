@@ -35,6 +35,7 @@ export function RowsTable({
   engine,
   tableName,
   approxRowCount,
+  matchingRowCount,
   page,
   canGoPrevious,
   canGoNext,
@@ -53,6 +54,9 @@ export function RowsTable({
   onImportCsv,
   filters,
   onFiltersChange,
+  tableSearch,
+  onTableSearchChange,
+  searchLoading = false,
   editable,
   editableColumns,
   editingDisabledReason,
@@ -65,6 +69,10 @@ export function RowsTable({
   const {
     search,
     setSearch,
+    committedSearch,
+    pageSearch,
+    applyTableSearch,
+    clearSearch,
     selected,
     setSelected,
     setSelectedExportFormat,
@@ -108,6 +116,8 @@ export function RowsTable({
     sortDirection,
     onSortChange,
     onFiltersChange,
+    tableSearch,
+    onTableSearchChange,
     exportFormats,
     onExportAllRows,
     onExportSelectedRows,
@@ -280,6 +290,9 @@ export function RowsTable({
       <RowsTableToolbar
         search={search}
         onSearchChange={setSearch}
+        searchLoading={searchLoading}
+        onSearchApply={applyTableSearch}
+        onSearchClear={clearSearch}
         columns={columns}
         engine={engine}
         filters={filters}
@@ -684,7 +697,11 @@ export function RowsTable({
 
       <RowsTableFooter
         visibleCount={filtered.length}
+        pageRowCount={rowPage.rows.length}
         approxRowCount={approxRowCount}
+        matchingRowCount={matchingRowCount}
+        hasPageSearch={Boolean(pageSearch)}
+        hasServerQuery={Boolean(committedSearch || filters?.length)}
         tableName={tableName}
         page={page}
         canGoPrevious={canGoPrevious}

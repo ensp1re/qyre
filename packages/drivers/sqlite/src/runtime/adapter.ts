@@ -24,6 +24,7 @@ import type {
   AdapterFactory,
   DatabaseAdapter,
   DatabaseAdminApi,
+  ResolvedRowSearch,
   RowMutationApi,
   SchemaDdlApi
 } from "@qyre/driver-contract";
@@ -110,9 +111,10 @@ export class SqliteAdapter implements DatabaseAdapter {
     table: string,
     _columns: readonly ColumnMetadata[],
     sort?: RowSort,
-    filters?: RowFilter[]
+    filters?: RowFilter[],
+    search?: ResolvedRowSearch
   ): AsyncIterable<Record<string, unknown>> {
-    return streamRows(this.getDb(), table, sort, filters);
+    return streamRows(this.getDb(), table, sort, filters, search);
   }
 
   formatSqlInsert(
@@ -199,14 +201,15 @@ export class SqliteAdapter implements DatabaseAdapter {
     page: number,
     pageSize: number,
     sort?: RowSort,
-    filters?: RowFilter[]
+    filters?: RowFilter[],
+    search?: ResolvedRowSearch
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     // sort.column is already validated by the caller against the table's real columns (F065).
     const orderBy = sort
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
       : "";
-    const { clause: whereClause, params: filterParams } = buildFilterClause(filters);
+    const { clause: whereClause, params: filterParams } = buildFilterClause(filters, search);
 
     const stmt = this.getDb()
       .prepare(`SELECT * FROM ${quoteIdent(table)}${whereClause}${orderBy} LIMIT ? OFFSET ?`)
@@ -215,11 +218,22 @@ export class SqliteAdapter implements DatabaseAdapter {
       stmt.all(...filterParams, safePageSize, offset) as Array<Record<string, unknown>>
     ).map(normalizeRow);
 
+    const total = whereClause
+      ? Number(
+          (
+            this.getDb()
+              .prepare(`SELECT COUNT(*) AS total FROM ${quoteIdent(table)}${whereClause}`)
+              .safeIntegers(true)
+              .get(...filterParams) as { total: bigint }
+          ).total
+        )
+      : undefined;
     return {
       columns: stmt.columns().map((column) => column.name),
       rows,
       page: safePage,
-      pageSize: safePageSize
+      pageSize: safePageSize,
+      ...(total !== undefined ? { total } : {})
     };
   }
 

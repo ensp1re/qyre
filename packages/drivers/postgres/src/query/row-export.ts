@@ -1,5 +1,6 @@
 import type { RowFilter, RowSort } from "@qyre/core";
 import type { Pool } from "pg";
+import type { ResolvedRowSearch } from "@qyre/driver-contract";
 import QueryStream from "pg-query-stream";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
@@ -8,9 +9,10 @@ export async function* streamRows(
   schema: string,
   table: string,
   sort?: RowSort,
-  filters?: RowFilter[]
+  filters?: RowFilter[],
+  search?: ResolvedRowSearch
 ): AsyncIterable<Record<string, unknown>> {
-  const { clause, params } = buildFilterClause(filters);
+  const { clause, params } = buildFilterClause(filters, search);
   const orderBy = sort
     ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
     : "";

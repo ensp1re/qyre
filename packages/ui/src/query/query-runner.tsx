@@ -8,13 +8,21 @@ import { tags } from "@lezer/highlight";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { basicSetup } from "codemirror";
 import { History, ListTree, Play, X } from "lucide-react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "../cn.js";
 import { CellValueDrawer } from "../data-grid/cells/cell-value-drawer.js";
 import type { InspectableValue } from "../data-grid/cells/cell-value.js";
 import { CellValue } from "../data-grid/cells/cell-value.js";
 import { ErrorState } from "../feedback/error-state.js";
 import { Spinner } from "../feedback/spinner.js";
+import { Button } from "../primitives/controls/button.js";
+import {
+  CommandGroup,
+  CommandSeparator,
+  CommandToolbar
+} from "../primitives/controls/command-toolbar.js";
+import { IconButton } from "../primitives/controls/icon-button.js";
 import { ResizeHandle } from "../primitives/resize-handle.js";
 import { QueryPlanPanel } from "./query-plan-panel.js";
 import type { CompletionTable } from "./sql-completion.js";
@@ -25,6 +33,22 @@ import { createSqlCompletionSource } from "./sql-completion.js";
 export const RESULTS_DEFAULT_HEIGHT = 256;
 const RESULTS_MIN_HEIGHT = 120;
 const RESULTS_MAX_HEIGHT = 600;
+type OutputMode = "results" | "plan" | "messages";
+
+function moveOutputTabFocus(event: KeyboardEvent<HTMLDivElement>): void {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+  if (tabs.length === 0) return;
+  const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
+  let next = current;
+  if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = tabs.length - 1;
+  else if (event.key === "ArrowRight") next = (Math.max(current, -1) + 1) % tabs.length;
+  else next = (current <= 0 ? tabs.length : current) - 1;
+  event.preventDefault();
+  tabs[next]?.focus();
+  tabs[next]?.click();
+}
 
 export interface QueryRunnerProps {
   sql: string;
@@ -114,7 +138,7 @@ const editorTheme = EditorView.theme({
   }
 });
 
-/** A read-only SQL query box: SELECT-style statements only, enforced server-side. */
+/** A capability-gated SQL editor and docked output workspace; execution policy is server-enforced. */
 export function QueryRunner({
   sql,
   onSqlChange,
@@ -137,11 +161,16 @@ export function QueryRunner({
   const isBusy = isRunning || isExplaining;
   const canRun = !isBusy && sql.trim().length > 0;
   const canExplain = !isBusy && sql.trim().length > 0;
-  const showPlan = isExplaining || explainResult !== undefined || explainError !== undefined;
+  const hasResults = result !== undefined && !error;
+  const hasPlan = isExplaining || explainResult !== undefined || explainError !== undefined;
+  const hasMessages = error !== undefined;
   const lineCount = sql.split("\n").length;
   const isMac =
     typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform ?? "");
   const shortcutLabel = isMac ? "⌘ Enter" : "Ctrl Enter";
+  const [outputMode, setOutputMode] = useState<OutputMode>(() =>
+    hasMessages ? "messages" : hasPlan ? "plan" : "results"
+  );
   const [inspected, setInspected] = useState<{
     column: string;
     value: InspectableValue;
@@ -174,6 +203,17 @@ export function QueryRunner({
   canRunRef.current = canRun;
   tablesRef.current = tables;
   engineRef.current = engine;
+
+  useEffect(() => {
+    if (hasMessages) setOutputMode("messages");
+    else if (hasPlan) setOutputMode("plan");
+    else if (hasResults) setOutputMode("results");
+  }, [hasMessages, hasPlan, hasResults, result, explainResult]);
+
+  const showResults = hasResults && outputMode === "results";
+  const showPlan = hasPlan && outputMode === "plan";
+  const showMessages = hasMessages && outputMode === "messages";
+  const hasOutput = hasResults || hasPlan || hasMessages;
 
   useEffect(() => {
     if (!editorParentRef.current) return;
@@ -237,79 +277,79 @@ export function QueryRunner({
   }, [sql]);
 
   return (
-    <div
-      data-testid="query-runner"
-      className="flex h-full flex-col overflow-hidden rounded-[3px] border border-border"
-    >
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-        <button
-          type="button"
-          onClick={onRun}
-          disabled={!canRun}
-          title={`Run query (${shortcutLabel})`}
-          className="flex items-center gap-1.5 rounded-[3px] bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {isRunning ? (
-            <Spinner className="h-2.5 w-2.5 text-primary-foreground" />
-          ) : (
-            <Play className="h-2.5 w-2.5" />
-          )}
-          {isRunning ? "Running..." : "Run"}
-        </button>
-        <button
-          type="button"
-          onClick={onExplain}
-          disabled={!canExplain}
-          title="Explain query"
-          className="flex items-center gap-1.5 rounded-[3px] border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-accent/50 disabled:opacity-50"
-        >
-          {isExplaining ? (
-            <Spinner className="h-2.5 w-2.5" />
-          ) : (
-            <ListTree className="h-2.5 w-2.5" />
-          )}
-          {isExplaining ? "Explaining..." : "Explain"}
-        </button>
-        {isRunning && (
-          <button
-            type="button"
-            onClick={onCancel}
-            title="Cancel query"
-            className="flex items-center gap-1 rounded-[3px] border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+    <div data-testid="query-runner" className="flex h-full flex-col overflow-hidden">
+      <CommandToolbar label="SQL editor commands">
+        <CommandGroup label="Execute query">
+          <Button
+            data-command-item
+            size="sm"
+            variant="primary"
+            onClick={onRun}
+            disabled={!canRun}
+            title={`Run query (${shortcutLabel})`}
+            className="h-6 min-h-6 px-2 text-[11px]"
           >
-            <X className="h-2.5 w-2.5" />
-            Cancel
-          </button>
-        )}
+            {isRunning ? (
+              <Spinner className="h-2.5 w-2.5 text-primary-foreground" />
+            ) : (
+              <Play className="h-2.5 w-2.5" />
+            )}
+            {isRunning ? "Running..." : "Run"}
+          </Button>
+          <Button
+            data-command-item
+            size="sm"
+            variant="ghost"
+            onClick={onExplain}
+            disabled={!canExplain}
+            title="Explain query"
+            className="h-6 min-h-6 px-2 text-[11px]"
+          >
+            {isExplaining ? (
+              <Spinner className="h-2.5 w-2.5" />
+            ) : (
+              <ListTree className="h-2.5 w-2.5" />
+            )}
+            {isExplaining ? "Explaining..." : "Explain"}
+          </Button>
+          {isRunning && (
+            <Button
+              data-command-item
+              size="sm"
+              variant="ghost"
+              onClick={onCancel}
+              title="Cancel query"
+              className="h-6 min-h-6 px-2 text-[11px] text-destructive hover:text-destructive"
+            >
+              <X className="h-2.5 w-2.5" />
+              Cancel
+            </Button>
+          )}
+        </CommandGroup>
+        <CommandSeparator />
         <span className="hidden rounded-[2px] border border-border px-1 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
           {shortcutLabel}
         </span>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Query history"
+        <CommandGroup label="Editor utilities" className="ml-auto">
+          <IconButton
+            data-command-item
+            variant="ghost"
+            label="Query history"
             onClick={onOpenHistory}
-            className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-          >
-            <History className="h-3 w-3" />
-          </button>
+            icon={<History className="h-3 w-3" />}
+            className="h-6 w-6"
+          />
           <span className="font-mono text-[10px] text-muted-foreground">
             {lineCount} line{lineCount === 1 ? "" : "s"}
           </span>
-        </div>
-      </div>
+        </CommandGroup>
+      </CommandToolbar>
 
       <div className="flex min-h-[8rem] flex-1 overflow-hidden">
         <div ref={editorParentRef} data-testid="query-editor" className="min-w-0 flex-1" />
       </div>
 
-      {!showPlan && error && (
-        <div data-testid="query-error" className="h-40 shrink-0 border-t border-border">
-          <ErrorState message={error} onRetry={onRun} />
-        </div>
-      )}
-
-      {!showPlan && result && !error && resizableResults && (
+      {hasOutput && !showMessages && resizableResults && (
         <ResizeHandle
           orientation="horizontal"
           value={resultsHeight}
@@ -317,19 +357,55 @@ export function QueryRunner({
           max={RESULTS_MAX_HEIGHT}
           onChange={onResultsHeightChange}
           invert
-          aria-label="Resize query results panel"
+          aria-label={showPlan ? "Resize query plan panel" : "Resize query results panel"}
         />
       )}
 
-      {!showPlan && result && !error && (
+      {hasOutput && (
+        <div
+          role="tablist"
+          aria-label="Query output"
+          onKeyDown={moveOutputTabFocus}
+          className="flex h-7 shrink-0 items-stretch border-t border-b border-border bg-card"
+        >
+          {hasResults && (
+            <OutputTab
+              active={outputMode === "results"}
+              onClick={() => setOutputMode("results")}
+              label={`Results${result ? ` ${result.rows.length}` : ""}`}
+            />
+          )}
+          {hasPlan && (
+            <OutputTab
+              active={outputMode === "plan"}
+              onClick={() => setOutputMode("plan")}
+              label="Plan"
+            />
+          )}
+          {hasMessages && (
+            <OutputTab
+              active={outputMode === "messages"}
+              onClick={() => setOutputMode("messages")}
+              label="Messages"
+              destructive
+            />
+          )}
+        </div>
+      )}
+
+      {showMessages && error && (
+        <div data-testid="query-error" className="h-40 shrink-0">
+          <ErrorState message={error} onRetry={onRun} />
+        </div>
+      )}
+
+      {showResults && result && (
         <div
           data-testid="query-result"
           ref={resultScrollRef}
           style={resizableResults ? { height: resultsHeight } : undefined}
           className={
-            resizableResults
-              ? "shrink-0 overflow-auto border-t border-border"
-              : "max-h-64 shrink-0 overflow-auto border-t border-border"
+            resizableResults ? "shrink-0 overflow-auto" : "max-h-64 shrink-0 overflow-auto"
           }
         >
           {result.rows.length === 0 ? (
@@ -392,18 +468,6 @@ export function QueryRunner({
         </div>
       )}
 
-      {showPlan && explainResult && !explainError && resizableResults && (
-        <ResizeHandle
-          orientation="horizontal"
-          value={resultsHeight}
-          min={RESULTS_MIN_HEIGHT}
-          max={RESULTS_MAX_HEIGHT}
-          onChange={onResultsHeightChange}
-          invert
-          aria-label="Resize query plan panel"
-        />
-      )}
-
       {showPlan && (
         <QueryPlanPanel
           result={explainResult}
@@ -411,6 +475,7 @@ export function QueryRunner({
           error={explainError}
           onRetry={onExplain}
           height={resizableResults ? resultsHeight : undefined}
+          embedded
         />
       )}
 
@@ -422,5 +487,36 @@ export function QueryRunner({
         />
       )}
     </div>
+  );
+}
+
+function OutputTab({
+  active,
+  onClick,
+  label,
+  destructive
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  destructive?: boolean;
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      role="tab"
+      tabIndex={active ? 0 : -1}
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        "relative border-r border-border px-3 font-mono text-[10px] outline-none transition-colors focus-visible:bg-accent",
+        active
+          ? "bg-background text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary"
+          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+        destructive && "text-destructive"
+      )}
+    >
+      {label}
+    </button>
   );
 }

@@ -74,4 +74,12 @@ describe("rowsQuerySchema", () => {
   it("leaves filters undefined when omitted", () => {
     expect(rowsQuerySchema.parse({}).filters).toBeUndefined();
   });
+
+  it("trims and accepts a whole-table search", () => {
+    expect(rowsQuerySchema.parse({ search: "  admin  " }).search).toBe("admin");
+  });
+
+  it("rejects an empty whole-table search", () => {
+    expect(rowsQuerySchema.safeParse({ search: "   " }).success).toBe(false);
+  });
 });

@@ -17,6 +17,8 @@ interface RowsTableModelInput {
   sortDirection: "asc" | "desc" | undefined;
   onSortChange: RowsTableProps["onSortChange"];
   onFiltersChange: RowsTableProps["onFiltersChange"];
+  tableSearch: RowsTableProps["tableSearch"];
+  onTableSearchChange: RowsTableProps["onTableSearchChange"];
   exportFormats: readonly RowExportFormat[];
   onExportAllRows: RowsTableProps["onExportAllRows"];
   onExportSelectedRows: RowsTableProps["onExportSelectedRows"];
@@ -35,6 +37,8 @@ export function useRowsTableModel({
   sortDirection,
   onSortChange,
   onFiltersChange,
+  tableSearch,
+  onTableSearchChange,
   exportFormats = DEFAULT_EXPORT_FORMATS,
   onExportAllRows,
   onExportSelectedRows,
@@ -44,7 +48,7 @@ export function useRowsTableModel({
   insertableColumns,
   canDelete
 }: RowsTableModelInput) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(tableSearch ?? "");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [selectedExportFormat, setSelectedExportFormat] = useState<RowExportFormat>("csv");
   const [inspected, setInspected] = useState<{
@@ -78,13 +82,19 @@ export function useRowsTableModel({
 
   // Rows arrive already sorted server-side (F065) when a sort is active - this only narrows by the
   // free-text filter below, it never reorders.
+  const committedSearch = tableSearch?.trim() ?? "";
+  const pageSearch = search.trim() === committedSearch ? "" : search.trim();
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = pageSearch.toLowerCase();
     if (!query) return indexed;
     return indexed.filter(({ row }) =>
       Object.values(row).some((value) => formatCell(value).toLowerCase().includes(query))
     );
-  }, [indexed, search]);
+  }, [indexed, pageSearch]);
+
+  useEffect(() => {
+    setSearch(tableSearch ?? "");
+  }, [tableSearch]);
 
   const visibleIndexes = useMemo(() => filtered.map(({ index }) => index), [filtered]);
   const selectedVisibleCount = visibleIndexes.filter((index) => selected.has(index)).length;
@@ -131,6 +141,16 @@ export function useRowsTableModel({
     } else {
       onSortChange(undefined);
     }
+  }
+
+  function applyTableSearch(): void {
+    const value = search.trim();
+    onTableSearchChange?.(value || undefined);
+  }
+
+  function clearSearch(): void {
+    setSearch("");
+    if (committedSearch) onTableSearchChange?.(undefined);
   }
 
   /** Clicking a primary-key cell's value drills into just that row (F072) - replaces the active
@@ -252,6 +272,10 @@ export function useRowsTableModel({
   return {
     search,
     setSearch,
+    committedSearch,
+    pageSearch,
+    applyTableSearch,
+    clearSearch,
     selected,
     setSelected,
     selectedExportFormat,

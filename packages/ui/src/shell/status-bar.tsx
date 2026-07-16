@@ -36,7 +36,11 @@ function isWritable(capabilities: ConnectionCapabilities): boolean {
  * write, independent of the underlying connection status dot. Writable is the common case and
  * already implied elsewhere (editable cells, the Commit button), so it renders nothing there -
  * only the read-only exception is worth calling out in the footer (F146). */
-function AccessBadge({ capabilities }: { capabilities?: ConnectionCapabilities }): ReactNode {
+export function AccessBadge({
+  capabilities
+}: {
+  capabilities?: ConnectionCapabilities;
+}): ReactNode {
   if (!capabilities || isWritable(capabilities)) return null;
   const title =
     (capabilities.readOnlyReason && READ_ONLY_REASON_LABEL[capabilities.readOnlyReason]) ??

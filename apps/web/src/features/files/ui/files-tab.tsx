@@ -22,7 +22,7 @@ export function FilesTab({
 }: FilesTabProps): ReactNode {
   if (filesOverview.isLoading) {
     return (
-      <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+      <p className="flex items-center gap-1.5 p-4 text-[13px] text-muted-foreground">
         <Spinner /> Loading files...
       </p>
     );
@@ -43,7 +43,7 @@ export function FilesTab({
 
   if (!filesOverview.data?.enabled) {
     return (
-      <p className="text-[13px] text-muted-foreground">
+      <p className="p-4 text-[13px] text-muted-foreground">
         File browsing is available for every database engine when Qyre is launched with{" "}
         <code className="font-mono">--files-dir &lt;dir&gt;</code>. No files directory is configured
         for this session.
@@ -53,7 +53,7 @@ export function FilesTab({
 
   if (filesOverview.data.tree.length === 0) {
     return (
-      <p className="text-[13px] text-muted-foreground">
+      <p className="p-4 text-[13px] text-muted-foreground">
         No .sql files found under the configured files directory.
       </p>
     );

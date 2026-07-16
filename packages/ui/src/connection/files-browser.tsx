@@ -5,6 +5,8 @@ import { useState } from "react";
 import { cn } from "../cn.js";
 import { ErrorState } from "../feedback/error-state.js";
 import { Spinner } from "../feedback/spinner.js";
+import { Button } from "../primitives/controls/button.js";
+import { CommandGroup, CommandToolbar } from "../primitives/controls/command-toolbar.js";
 
 export interface FilesBrowserProps {
   tree: FileNode[];
@@ -40,12 +42,14 @@ function TreeRow({
 
   return (
     <div>
-      <div
-        role={node.type === "file" ? "button" : undefined}
+      <button
+        type="button"
         aria-pressed={node.type === "file" ? isSelected : undefined}
+        aria-expanded={node.type === "directory" ? open : undefined}
         className={cn(
-          "mx-1 flex cursor-pointer select-none items-center gap-1.5 rounded-[2px] py-[3px] pr-2 hover:bg-sidebar-accent",
-          isSelected && "bg-primary/10"
+          "mx-1 flex min-h-6 w-[calc(100%-0.5rem)] cursor-pointer select-none items-center gap-1.5 rounded-[2px] pr-2 text-left outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
+          isSelected &&
+            "bg-sidebar-accent text-foreground shadow-[inset_2px_0_0_rgb(var(--primary))]"
         )}
         style={{ paddingLeft: `${8 + depth * 14}px` }}
         onClick={() => {
@@ -84,10 +88,10 @@ function TreeRow({
         >
           {node.name}
         </span>
-      </div>
+      </button>
 
       {node.type === "directory" && open && (
-        <div>
+        <div className="relative before:absolute before:inset-y-0 before:left-[21px] before:w-px before:bg-sidebar-border">
           {node.children?.map((child) => (
             <TreeRow
               key={child.path}
@@ -123,10 +127,7 @@ export function FilesBrowser({
     selectedPath?.endsWith(".sql");
 
   return (
-    <div
-      data-testid="files-browser"
-      className="flex h-full overflow-hidden rounded-[3px] border border-border"
-    >
+    <div data-testid="files-browser" className="flex h-full overflow-hidden">
       <nav className="w-48 shrink-0 overflow-y-auto border-r border-border bg-sidebar py-1">
         {tree.map((node) => (
           <TreeRow
@@ -140,22 +141,32 @@ export function FilesBrowser({
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-2">
-          <FileCode2 className="h-3 w-3 shrink-0" style={{ color: "var(--c-blue)" }} />
-          <span className="truncate font-mono text-[11px] text-foreground">
-            {selectedPath ?? "Select a file"}
-          </span>
+        <CommandToolbar label="File commands">
+          <CommandGroup label="Selected file" className="min-w-0">
+            <FileCode2
+              className="h-3 w-3 shrink-0"
+              strokeWidth={1.8}
+              style={{ color: "var(--c-blue)" }}
+            />
+            <span className="truncate font-mono text-[11px] text-foreground">
+              {selectedPath ?? "Select a file"}
+            </span>
+          </CommandGroup>
           {canRunInEditor && (
-            <button
-              type="button"
-              onClick={() => onRunInEditor?.(content ?? "")}
-              title="Run this file's SQL in the SQL Editor"
-              className="ml-auto flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <Play className="h-2.5 w-2.5" /> Run in editor
-            </button>
+            <CommandGroup label="File actions" className="ml-auto">
+              <Button
+                data-command-item
+                variant="ghost"
+                size="sm"
+                onClick={() => onRunInEditor?.(content ?? "")}
+                title="Run this file's SQL in the SQL Editor"
+                className="h-6 min-h-6 px-2 text-[11px]"
+              >
+                <Play className="h-3 w-3" /> Run in editor
+              </Button>
+            </CommandGroup>
           )}
-        </div>
+        </CommandToolbar>
 
         {isContentLoading ? (
           <p className="flex items-center gap-1.5 p-3 text-[13px] text-muted-foreground">

@@ -1,6 +1,7 @@
 import type { RowFilter, RowSort } from "@qyre/core";
 import type { PoolConnection } from "mysql2";
 import type mysql from "mysql2/promise";
+import type { ResolvedRowSearch } from "@qyre/driver-contract";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
 export async function* streamRows(
@@ -9,9 +10,10 @@ export async function* streamRows(
   table: string,
   statementTimeoutMs: number,
   sort?: RowSort,
-  filters?: RowFilter[]
+  filters?: RowFilter[],
+  search?: ResolvedRowSearch
 ): AsyncIterable<Record<string, unknown>> {
-  const { clause, params } = buildFilterClause(filters);
+  const { clause, params } = buildFilterClause(filters, search);
   const orderBy = sort
     ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
     : "";

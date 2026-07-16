@@ -1,5 +1,5 @@
 import type { SchemaMetadata } from "@qyre/core";
-import { FolderOpen, Plus, Table2, Trash2 } from "lucide-react";
+import { FolderOpen, Plus, Search, Table2, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { cn } from "../../cn.js";
@@ -81,7 +81,8 @@ function TreeRow({
   selected,
   onSelect,
   canManageSchemas,
-  onRequestDropSchema
+  onRequestDropSchema,
+  initialTabStop
 }: {
   node: Node;
   depth: number;
@@ -91,6 +92,7 @@ function TreeRow({
   onSelect: (schema: string, table: string) => void;
   canManageSchemas?: boolean;
   onRequestDropSchema?: (schema: string) => void;
+  initialTabStop?: boolean;
 }): ReactNode {
   // Only the schema level (depth 0) has children, so it's the only row whose default-open state
   // matters - tables are leaves and always render once their parent schema is expanded.
@@ -113,18 +115,41 @@ function TreeRow({
     <div>
       <div
         role="treeitem"
-        tabIndex={0}
+        tabIndex={isSelected || initialTabStop ? 0 : -1}
         aria-expanded={hasChildren ? open : undefined}
         aria-selected={node.type === "table" ? isSelected : undefined}
         aria-level={depth + 1}
         className={cn(
-          "mx-1 flex cursor-pointer select-none items-center gap-1.5 rounded-[2px] py-[3px] pr-2 outline-none hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-ring",
-          isSelected && "bg-primary/10"
+          "mx-1 flex min-h-6 cursor-pointer select-none items-center gap-1.5 rounded-[2px] pr-2 outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
+          isSelected &&
+            "bg-sidebar-accent text-foreground shadow-[inset_2px_0_0_rgb(var(--primary))]"
         )}
         style={{ paddingLeft: `${8 + depth * 14}px` }}
         onClick={activate}
+        onFocus={(event) => {
+          const tree = event.currentTarget.closest('[role="tree"]');
+          tree?.querySelectorAll<HTMLElement>('[role="treeitem"]').forEach((item) => {
+            item.tabIndex = item === event.currentTarget ? 0 : -1;
+          });
+        }}
         onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
+          const tree = event.currentTarget.closest('[role="tree"]');
+          const items = tree
+            ? Array.from(tree.querySelectorAll<HTMLElement>('[role="treeitem"]'))
+            : [];
+          const current = items.indexOf(event.currentTarget);
+          if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+            event.preventDefault();
+            const next =
+              event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? items.length - 1
+                  : event.key === "ArrowDown"
+                    ? Math.min(current + 1, items.length - 1)
+                    : Math.max(current - 1, 0);
+            items[next]?.focus();
+          } else if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             activate();
           } else if (event.key === "ArrowRight" && hasChildren && !open) {
@@ -190,7 +215,10 @@ function TreeRow({
       </div>
 
       {hasChildren && open && (
-        <div role="group">
+        <div
+          role="group"
+          className="relative before:absolute before:inset-y-0 before:left-[21px] before:w-px before:bg-sidebar-border"
+        >
           {node.children?.map((child) => (
             <TreeRow
               key={child.id}
@@ -202,6 +230,7 @@ function TreeRow({
               onSelect={onSelect}
               canManageSchemas={canManageSchemas}
               onRequestDropSchema={onRequestDropSchema}
+              initialTabStop={false}
             />
           ))}
         </div>
@@ -215,9 +244,7 @@ function TreeRow({
  * docs/references/design-system.md's TreeNode pattern. Purely presentational: selection is owned
  * by the caller. Matching a search term force-opens its ancestor path and highlights the match.
  *
- * Neither the connection target string nor a status indicator render here - both are already
- * available (Settings' Connection section, the switch-database drawer, the footer's database
- * name) without repeating the full connection string in this always-visible rail (F087).
+ * Connection context belongs to Sidebar's footer; the tree stays focused on database objects.
  */
 export function SchemaTree({
   schemas,
@@ -242,36 +269,34 @@ export function SchemaTree({
 
   return (
     <div data-testid="schema-tree" className="flex h-full flex-col">
-      <div className="shrink-0 border-b border-border px-2 py-2">
-        <div className="flex items-center gap-1.5 rounded-[3px] border border-border bg-background px-2 py-1.5">
-          <svg
-            viewBox="0 0 24 24"
-            className="h-2.5 w-2.5 shrink-0 text-quiet-foreground"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+      <div className="shrink-0 border-b border-border">
+        <div className="flex h-7 items-center px-2.5">
+          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-quiet-foreground">
+            Explorer
+          </span>
+          {canManageSchemas && onRequestCreateSchema && (
+            <button
+              type="button"
+              onClick={onRequestCreateSchema}
+              aria-label="New schema"
+              title="New schema"
+              className="ml-auto rounded-[3px] p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+            >
+              <Plus className="h-3 w-3" strokeWidth={1.8} />
+            </button>
+          )}
+        </div>
+        <div className="mx-2 mb-2 flex h-7 items-center gap-1.5 rounded-[3px] border border-border bg-background px-2 focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/20">
+          <Search className="h-3 w-3 shrink-0 text-quiet-foreground" strokeWidth={1.8} />
           <input
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search tables, schemas..."
             aria-label="Search tables"
-            className="w-full min-w-0 bg-transparent font-mono text-[11px] text-foreground outline-none placeholder:text-quiet-foreground"
+            className="w-full min-w-0 bg-transparent text-[11px] text-foreground outline-none placeholder:text-quiet-foreground"
           />
         </div>
-        {canManageSchemas && onRequestCreateSchema && (
-          <button
-            type="button"
-            onClick={onRequestCreateSchema}
-            className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-[2px] py-1 font-mono text-[10px] text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-          >
-            <Plus className="h-3 w-3" /> New schema
-          </button>
-        )}
       </div>
 
       {(() => {
@@ -284,7 +309,11 @@ export function SchemaTree({
         // aria-required-children) - only apply it when rows actually render, otherwise these are
         // plain status messages, not an empty tree widget.
         return (
-          <nav role={hasRows ? "tree" : undefined} className="flex-1 overflow-y-auto py-1">
+          <nav
+            role={hasRows ? "tree" : undefined}
+            aria-label={hasRows ? "Database objects" : undefined}
+            className="flex-1 overflow-y-auto py-1"
+          >
             {schemaNodes.length === 0 ? (
               <div className="px-3 py-4 text-center font-mono text-[11px] text-quiet-foreground">
                 No tables found.
@@ -298,7 +327,7 @@ export function SchemaTree({
                 no results
               </div>
             ) : (
-              schemaNodes.map((node) => (
+              schemaNodes.map((node, index) => (
                 <TreeRow
                   key={node.id}
                   node={node}
@@ -309,6 +338,7 @@ export function SchemaTree({
                   onSelect={onSelect}
                   canManageSchemas={canManageSchemas}
                   onRequestDropSchema={onRequestDropSchema}
+                  initialTabStop={index === 0 && (!selected || trimmedQuery.length > 1)}
                 />
               ))
             )}

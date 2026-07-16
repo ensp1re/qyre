@@ -26,6 +26,7 @@ import type {
   CancellationRegistry,
   DatabaseAdapter,
   DatabaseAdminApi,
+  ResolvedRowSearch,
   RowMutationApi,
   SchemaDdlApi
 } from "@qyre/driver-contract";
@@ -125,9 +126,10 @@ export class PostgresAdapter implements DatabaseAdapter {
     table: string,
     _columns: readonly ColumnMetadata[],
     sort?: RowSort,
-    filters?: RowFilter[]
+    filters?: RowFilter[],
+    search?: ResolvedRowSearch
   ): AsyncIterable<Record<string, unknown>> {
-    return streamRows(this.getPool(), schema, table, sort, filters);
+    return streamRows(this.getPool(), schema, table, sort, filters, search);
   }
 
   formatSqlInsert(
@@ -235,30 +237,40 @@ export class PostgresAdapter implements DatabaseAdapter {
     pageSize: number,
     sort?: RowSort,
     filters?: RowFilter[],
+    search?: ResolvedRowSearch,
     operationId?: string
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     const orderBy = sort
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
       : "";
-    const { clause: whereClause, params: filterParams } = buildFilterClause(filters);
+    const { clause: whereClause, params: filterParams } = buildFilterClause(filters, search);
     return withCancellableClient(
       this.getPool(),
       this.operationRegistry,
       operationId,
       async (client, wasCancelledByUser) => {
         try {
-          const result = await client.query(
-            `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}${orderBy} LIMIT $${
-              filterParams.length + 1
-            } OFFSET $${filterParams.length + 2}`,
-            [...filterParams, safePageSize, offset]
-          );
+          const [result, countResult] = await Promise.all([
+            client.query(
+              `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}${orderBy} LIMIT $${
+                filterParams.length + 1
+              } OFFSET $${filterParams.length + 2}`,
+              [...filterParams, safePageSize, offset]
+            ),
+            whereClause
+              ? client.query(
+                  `SELECT COUNT(*)::bigint AS total FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}`,
+                  filterParams
+                )
+              : Promise.resolve(undefined)
+          ]);
           return {
             columns: result.fields.map((field) => field.name),
             rows: result.rows as Array<Record<string, unknown>>,
             page: safePage,
-            pageSize: safePageSize
+            pageSize: safePageSize,
+            ...(countResult ? { total: Number(countResult.rows[0]?.total ?? 0) } : {})
           };
         } catch (error) {
           if (isPgCancelError(error) && wasCancelledByUser()) throw new OperationCancelledError();

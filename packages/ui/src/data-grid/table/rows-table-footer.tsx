@@ -3,7 +3,11 @@ import type { ReactNode } from "react";
 
 interface RowsTableFooterProps {
   visibleCount: number;
+  pageRowCount: number;
   approxRowCount: number | undefined;
+  matchingRowCount: number | undefined;
+  hasPageSearch: boolean;
+  hasServerQuery: boolean;
   tableName: string | undefined;
   page: number;
   canGoPrevious: boolean;
@@ -14,7 +18,11 @@ interface RowsTableFooterProps {
 
 export function RowsTableFooter({
   visibleCount,
+  pageRowCount,
   approxRowCount,
+  matchingRowCount,
+  hasPageSearch,
+  hasServerQuery,
   tableName,
   page,
   canGoPrevious,
@@ -25,11 +33,18 @@ export function RowsTableFooter({
   return (
     <div className="flex shrink-0 items-center justify-between border-t border-border bg-card px-3 py-1.5">
       <span className="font-mono text-[10px] text-muted-foreground">
-        {visibleCount.toLocaleString()} of{" "}
-        {approxRowCount !== undefined
-          ? `~${approxRowCount.toLocaleString()}`
-          : visibleCount.toLocaleString()}{" "}
-        rows
+        {hasPageSearch
+          ? `${visibleCount.toLocaleString()} of ${pageRowCount.toLocaleString()} rows on page`
+          : hasServerQuery && matchingRowCount !== undefined
+            ? `${pageRowCount.toLocaleString()} of ${matchingRowCount.toLocaleString()} matching rows`
+            : `${pageRowCount.toLocaleString()} rows on page`}
+        {hasPageSearch && matchingRowCount !== undefined
+          ? ` · ${matchingRowCount.toLocaleString()} matching total`
+          : hasPageSearch && approxRowCount !== undefined
+            ? ` · ~${approxRowCount.toLocaleString()} total`
+            : !hasServerQuery && approxRowCount !== undefined
+              ? ` · ~${approxRowCount.toLocaleString()} total`
+              : ""}
         {tableName && <> · {tableName}</>}
       </span>
       <div className="flex items-center gap-1">

@@ -14,6 +14,8 @@ export interface RowsTableProps {
   engine?: DatabaseEngine;
   tableName?: string;
   approxRowCount?: number;
+  /** Exact count returned for an active server-side filter/search. */
+  matchingRowCount?: number;
   page: number;
   canGoPrevious: boolean;
   canGoNext: boolean;
@@ -56,6 +58,11 @@ export interface RowsTableProps {
   /** Reports the full next filter set (add, remove, or a primary-key cell click replacing it with
    * a single drill-down filter) - the caller re-fetches `rowPage` filtered accordingly (F072). */
   onFiltersChange?: (filters: RowFilter[] | undefined) => void;
+  /** Whole-table search committed with Enter; typing remains a current-page preview. */
+  tableSearch?: string;
+  onTableSearchChange?: (search: string | undefined) => void;
+  /** Shows progress beside the search field while the committed whole-table query is fetching. */
+  searchLoading?: boolean;
   /** Enables inline cell editing (F103) - omitted or false renders every cell exactly as before,
    * matching every other opt-in prop here. The caller derives this (and `editableColumns`) from
    * session capabilities, table permissions, `kind`, and primary-key presence - this component

@@ -1,5 +1,5 @@
 import type { ConnectionCapabilities, SchemaMetadata } from "@qyre/core";
-import { CreateTableDialog, ErrorState, SchemaGrid, Spinner } from "@qyre/ui";
+import { Button, CreateTableDialog, ErrorState, SchemaGrid, Spinner } from "@qyre/ui";
 import { LayoutGrid, Network, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -59,22 +59,23 @@ export function SchemaTab({
   );
 
   const newTableButton = canCreateTable && (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={() => {
         setTargetSchema(defaultSchema);
         setDialogOpen(true);
       }}
-      className="ml-auto flex items-center gap-1 rounded-[3px] border border-border bg-card px-2 py-1 font-mono text-[11px] text-foreground hover:bg-accent"
+      className="ml-auto h-6 min-h-6 text-[11px]"
     >
       <Plus className="h-3 w-3" /> New table
-    </button>
+    </Button>
   );
 
   if (allTables.isLoading) {
     return (
       <>
-        <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+        <p className="flex items-center gap-1.5 p-4 text-[13px] text-muted-foreground">
           <Spinner /> Loading tables...
         </p>
         {dialog}
@@ -97,8 +98,10 @@ export function SchemaTab({
   if (allTables.tables.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex shrink-0 items-center gap-1 pb-3">{newTableButton}</div>
-        <p className="text-[13px] text-muted-foreground">No tables found.</p>
+        <div className="flex h-8 shrink-0 items-center border-b border-border bg-card px-2">
+          {newTableButton}
+        </div>
+        <p className="p-4 text-[13px] text-muted-foreground">No tables found.</p>
         {dialog}
       </div>
     );
@@ -106,8 +109,8 @@ export function SchemaTab({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-1 pb-3">
-        <div className="flex items-center gap-0.5 rounded-[3px] border border-border bg-card p-0.5">
+      <div className="flex h-8 shrink-0 items-center border-b border-border bg-card px-2">
+        <div className="flex h-full items-stretch">
           <ViewButton
             active={view === "graph"}
             onClick={() => setView("graph")}

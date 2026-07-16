@@ -30,7 +30,9 @@ broke the table layout in practice (user feedback), so the viewer moved to a dra
 itself now never changes size.
 
 - A cell whose value is a plain string, number, boolean, or `null`/`undefined` renders exactly as
-  today (`formatCell`'s existing primitive path is unchanged).
+  today (`formatCell`'s existing primitive path is unchanged). Long strings remain visually flat
+  and truncated in the grid; double-click (or Enter/F2 while focused) opens the same read-only
+  inspector drawer with the complete text. This applies equally to Tables and SQL query results.
 - A cell whose value is an object or array renders as a compact, single-line summary chip (e.g.
   `{ 3 keys }` or `[ 5 items ]`) plus a dimmed, truncated one-line JSON preview, so rows with
   different content are distinguishable at a glance - and the row never grows. Clicking the chip
@@ -71,5 +73,7 @@ Out of scope (for now):
   levels, to at least 3 levels deep without falling back to flat text. Closing the drawer returns
   to the untouched table.
 - A primitive-valued cell (string/number/boolean/null) is visually unchanged from today.
+- A long string in either Tables or SQL query results opens its full read-only value on
+  double-click and remains copyable without changing row height.
 - Rendering a table page containing several structured-value cells does not visibly block the UI
   (no long synchronous render pause) even before any drawer is opened.

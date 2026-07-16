@@ -5,15 +5,37 @@ import type {
   RowExportFormat,
   RowFilter
 } from "@qyre/core";
-import { Copy, Download, FileUp, Lock, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import {
+  Copy,
+  Download,
+  FileUp,
+  Lock,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  X
+} from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { Button } from "../../primitives/controls/button.js";
+import {
+  CommandGroup,
+  CommandSeparator,
+  CommandToolbar
+} from "../../primitives/controls/command-toolbar.js";
+import { IconButton } from "../../primitives/controls/icon-button.js";
 import { Select } from "../../primitives/controls/select.js";
+import { Spinner } from "../../feedback/spinner.js";
 import { FilterBar } from "./filter-bar.js";
 import { exportFormatLabel } from "./row-export.js";
 
 interface RowsTableToolbarProps {
   search: string;
   onSearchChange: (value: string) => void;
+  searchLoading: boolean;
+  onSearchApply: () => void;
+  onSearchClear: () => void;
   columns: ColumnMetadata[];
   engine: DatabaseEngine | undefined;
   filters: RowFilter[] | undefined;
@@ -42,6 +64,9 @@ interface RowsTableToolbarProps {
 export function RowsTableToolbar({
   search,
   onSearchChange,
+  searchLoading,
+  onSearchApply,
+  onSearchClear,
   columns,
   engine,
   filters,
@@ -66,33 +91,51 @@ export function RowsTableToolbar({
   onExportRows,
   onRefresh
 }: RowsTableToolbarProps): ReactNode {
+  const commandIcon = "h-3 w-3";
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border py-2 lg:gap-2">
-      <div className="flex items-center gap-1.5 rounded-[3px] bg-accent px-2 py-1 font-mono text-[11px] text-muted-foreground">
-        <Search className="h-2.5 w-2.5" />
-        <input
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search this page..."
-          aria-label="Search this page"
-          title="Searches only the rows currently loaded on this page - use Filter to query the whole table"
-          className="w-24 min-w-0 bg-transparent text-foreground outline-none placeholder:text-muted-foreground sm:w-28 lg:w-36"
-        />
-        {search && (
-          <button type="button" onClick={() => onSearchChange("")} aria-label="Clear search">
-            <X className="h-2.5 w-2.5" />
-          </button>
-        )}
-      </div>
+    <CommandToolbar label="Table commands">
+      <CommandGroup label="Find rows" className="min-w-0">
+        <div
+          className="flex h-6 min-w-24 items-center gap-1.5 rounded-[3px] bg-accent px-2 font-mono text-[11px] text-muted-foreground sm:w-36"
+          aria-busy={searchLoading || undefined}
+        >
+          {searchLoading ? (
+            <Spinner className="h-2.5 w-2.5 shrink-0 text-primary" />
+          ) : (
+            <Search className="h-2.5 w-2.5 shrink-0" />
+          )}
+          <input
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onSearchApply();
+            }}
+            placeholder="Search this page..."
+            aria-label="Search rows"
+            title="Typing searches this page; press Enter to search the whole table"
+            className="w-full min-w-0 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+          />
+          {searchLoading && (
+            <span role="status" aria-live="polite" className="sr-only">
+              Searching all rows
+            </span>
+          )}
+          {search && (
+            <button type="button" onClick={onSearchClear} aria-label="Clear search">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          )}
+        </div>
 
-      {onFiltersChange && (
-        <FilterBar
-          columns={columns}
-          engine={engine}
-          filters={filters}
-          onFiltersChange={onFiltersChange}
-        />
-      )}
+        {onFiltersChange && (
+          <FilterBar
+            columns={columns}
+            engine={engine}
+            filters={filters}
+            onFiltersChange={onFiltersChange}
+          />
+        )}
+      </CommandGroup>
 
       {!editable && editingDisabledReason && (
         <span
@@ -103,114 +146,134 @@ export function RowsTableToolbar({
         </span>
       )}
 
-      <div className="ml-auto flex flex-wrap items-center gap-1 lg:gap-2">
-        {canAddRow && (
-          <button
-            type="button"
-            onClick={onAddRow}
-            aria-label="Add row"
-            title="Add row"
-            className="flex items-center gap-0 rounded-[3px] p-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground lg:gap-1 lg:px-2"
-          >
-            <Plus className="h-3 w-3" /> <span className="hidden lg:inline">Add row</span>
-          </button>
-        )}
-        {canImportCsv && onImportCsv && (
-          <button
-            type="button"
-            onClick={onImportCsv}
-            aria-label="Import CSV"
-            title="Import CSV"
-            className="flex items-center gap-0 rounded-[3px] p-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground lg:gap-1 lg:px-2"
-          >
-            <FileUp className="h-3 w-3" /> <span className="hidden lg:inline">Import CSV</span>
-          </button>
-        )}
-        {selected.size > 0 && (
-          <>
-            <span className="font-mono text-[10px]" style={{ color: "var(--c-blue)" }}>
-              {selected.size} selected
-            </span>
-            <button
-              type="button"
-              onClick={() => setSelected(new Set())}
-              aria-label="Clear selected rows"
-              title="Clear selected rows"
-              className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1">
+        <CommandSeparator />
+        <CommandGroup label={selected.size > 0 ? "Selected rows" : "Row actions"}>
+          {canAddRow && (
+            <Button
+              data-command-item
+              variant="ghost"
+              size="sm"
+              onClick={onAddRow}
+              aria-label="Add row"
+              title="Add row"
+              className="h-6 min-h-6 gap-1 px-1.5 text-[11px]"
             >
-              <X className="h-3 w-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => void onCopySelected()}
-              aria-label="Copy selected rows as CSV"
-              title="Copy selected rows as CSV"
-              className="flex items-center gap-0 rounded-[3px] p-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground lg:gap-1 lg:px-2"
-            >
-              <Copy className="h-3 w-3" /> <span className="hidden lg:inline">Copy as CSV</span>
-            </button>
-            {canStageDelete && (
-              <button
-                type="button"
-                onClick={onStageSelectedForDelete}
-                aria-label={`Delete ${selected.size} selected`}
-                title="Stages the selection for deletion - still reversible until Commit"
-                className="flex items-center gap-0 rounded-[3px] border-l border-border-subtle p-1 text-[11px] hover:bg-accent lg:gap-1 lg:px-2 lg:pl-2.5"
-                style={{ color: "var(--c-red)" }}
-              >
-                <Trash2 className="h-3 w-3" />
-                <span className="hidden lg:inline">Delete {selected.size} selected</span>
-              </button>
-            )}
-          </>
-        )}
-        {!canExportSelectedRows && onExportAllRows && activeExportFormat && (
-          <div className="flex items-center gap-1">
-            {exportFormats.length > 1 && (
-              <Select
-                value={activeExportFormat}
-                onValueChange={(value) => onExportFormatChange(value as RowExportFormat)}
-                label="Export format"
-                options={exportFormats.map((format) => ({
-                  value: format,
-                  label: exportFormatLabel(format, jsonExportMode)
-                }))}
-                className="min-h-6 w-16 bg-card py-0.5 lg:w-24"
+              <Plus className={commandIcon} /> <span className="hidden xl:inline">Add row</span>
+            </Button>
+          )}
+          {selected.size > 0 && (
+            <>
+              <span className="font-mono text-[10px]" style={{ color: "var(--c-blue)" }}>
+                {selected.size} selected
+              </span>
+              <IconButton
+                data-command-item
+                variant="ghost"
+                label="Clear selected rows"
+                onClick={() => setSelected(new Set())}
+                icon={<X className={commandIcon} />}
+                className="h-6 w-6"
               />
-            )}
-            <button
-              type="button"
+              <Button
+                data-command-item
+                variant="ghost"
+                size="sm"
+                onClick={() => void onCopySelected()}
+                aria-label="Copy selected rows as CSV"
+                title="Copy selected rows as CSV"
+                className="h-6 min-h-6 gap-1 px-1.5 text-[11px]"
+              >
+                <Copy className={commandIcon} /> <span className="hidden xl:inline">Copy CSV</span>
+              </Button>
+              {canStageDelete && (
+                <Button
+                  data-command-item
+                  variant="ghost"
+                  size="sm"
+                  onClick={onStageSelectedForDelete}
+                  aria-label={`Delete ${selected.size} selected`}
+                  title="Stages the selection for deletion - still reversible until Commit"
+                  className="h-6 min-h-6 gap-1 px-1.5 text-[11px] text-destructive hover:text-destructive"
+                >
+                  <Trash2 className={commandIcon} />
+                  <span className="hidden xl:inline">Delete</span>
+                </Button>
+              )}
+            </>
+          )}
+        </CommandGroup>
+        <CommandSeparator />
+        <CommandGroup label="Transfer and refresh">
+          {!canExportSelectedRows && onExportAllRows && activeExportFormat && (
+            <div className="flex items-center gap-1">
+              {exportFormats.length > 1 && (
+                <Select
+                  value={activeExportFormat}
+                  onValueChange={(value) => onExportFormatChange(value as RowExportFormat)}
+                  label="Export format"
+                  options={exportFormats.map((format) => ({
+                    value: format,
+                    label: exportFormatLabel(format, jsonExportMode)
+                  }))}
+                  className="min-h-6 w-16 bg-card py-0.5 lg:w-24"
+                />
+              )}
+              <IconButton
+                data-command-item
+                variant="ghost"
+                label={`Export all rows as ${exportFormatLabel(activeExportFormat, jsonExportMode)}`}
+                onClick={onExportRows}
+                title="Exports every row matching the current sort and filters"
+                icon={<Download className={commandIcon} />}
+                className="h-6 w-6"
+              />
+            </div>
+          )}
+          {canExportSelectedRows && (
+            <IconButton
+              data-command-item
+              variant="ghost"
+              label="Export selected rows as CSV"
               onClick={onExportRows}
-              aria-label={`Export all rows as ${exportFormatLabel(activeExportFormat, jsonExportMode)}`}
-              title="Exports every row matching the current sort and filters"
-              className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <Download className="h-3 w-3" />
-            </button>
-          </div>
-        )}
-        {canExportSelectedRows && (
-          <button
-            type="button"
-            onClick={onExportRows}
-            aria-label="Export selected rows as CSV"
-            title="Exports the selected rows on this page"
-            className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <Download className="h-3 w-3" />
-          </button>
-        )}
-        {onRefresh && (
-          <button
-            type="button"
-            onClick={onRefresh}
-            aria-label="Refresh rows"
-            className="rounded-[3px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <RefreshCw className="h-3 w-3" />
-          </button>
-        )}
+              title="Exports the selected rows on this page"
+              icon={<Download className={commandIcon} />}
+              className="h-6 w-6"
+            />
+          )}
+          {onRefresh && (
+            <IconButton
+              data-command-item
+              variant="ghost"
+              label="Refresh rows"
+              onClick={onRefresh}
+              icon={<RefreshCw className={commandIcon} />}
+              className="h-6 w-6"
+            />
+          )}
+          {canImportCsv && onImportCsv && (
+            <details className="relative">
+              <summary
+                data-command-item
+                aria-label="More table actions"
+                title="More table actions"
+                className="flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-[3px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary [&::-webkit-details-marker]:hidden"
+              >
+                <MoreHorizontal className={commandIcon} />
+              </summary>
+              <div className="absolute right-0 top-full z-50 mt-1 min-w-36 rounded-[3px] border border-border bg-popover p-1 shadow-lg">
+                <button
+                  type="button"
+                  onClick={onImportCsv}
+                  className="flex w-full items-center gap-2 rounded-[2px] px-2 py-1.5 text-left text-[11px] text-foreground hover:bg-accent"
+                >
+                  <FileUp className={commandIcon} /> Import CSV
+                </button>
+              </div>
+            </details>
+          )}
+        </CommandGroup>
       </div>
-    </div>
+    </CommandToolbar>
   );
 }

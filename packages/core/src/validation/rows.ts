@@ -39,6 +39,7 @@ export const rowsQuerySchema = z.object({
   // F126: optional client-generated id enabling `POST /api/operations/:id/cancel` to cancel this
   // same rows fetch while it's still running - same pattern as runQuerySchema's operationId.
   operationId: z.string().min(1).optional(),
+  search: z.string().trim().min(1).max(500).optional(),
   filters: z
     .string()
     .optional()

@@ -20,6 +20,7 @@ import type {
   CancellationRegistry,
   DatabaseAdapter,
   DatabaseAdminApi,
+  ResolvedRowSearch,
   RowMutationApi,
   SchemaDdlApi
 } from "@qyre/driver-contract";
@@ -118,9 +119,10 @@ export class MongodbAdapter implements DatabaseAdapter {
     table: string,
     columns: readonly ColumnMetadata[],
     sort?: RowSort,
-    filters?: RowFilter[]
+    filters?: RowFilter[],
+    search?: ResolvedRowSearch
   ): AsyncIterable<Record<string, unknown>> {
-    const filter = buildMongoFilter(filters, columns);
+    const filter = buildMongoFilter(filters, columns, search);
     yield* streamRows(this.getClient(), schema, table, filter, this.statementTimeoutMs, sort);
   }
 
@@ -235,12 +237,14 @@ export class MongodbAdapter implements DatabaseAdapter {
     pageSize: number,
     sort?: RowSort,
     filters?: RowFilter[],
+    search?: ResolvedRowSearch,
     operationId?: string
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     const columns =
-      filters && filters.length > 0 ? (await this.getTable(schema, table)).columns : [];
-    const filterDocument = buildMongoFilter(filters, columns);
+      search?.columns ??
+      (filters && filters.length > 0 ? (await this.getTable(schema, table)).columns : []);
+    const filterDocument = buildMongoFilter(filters, columns, search);
     registerMongoCancellation(this.getClient(), this.operationRegistry, operationId, schema);
     try {
       const documents = await this.getClient()
@@ -254,6 +258,13 @@ export class MongodbAdapter implements DatabaseAdapter {
         .skip(offset)
         .limit(safePageSize)
         .toArray();
+      const total =
+        filters?.length || search
+          ? await this.getClient()
+              .db(schema)
+              .collection(table)
+              .countDocuments(filterDocument, { maxTimeMS: this.statementTimeoutMs })
+          : undefined;
 
       const fieldNames = new Set<string>();
       for (const document of documents) {
@@ -264,7 +275,8 @@ export class MongodbAdapter implements DatabaseAdapter {
         columns: [...fieldNames],
         rows: documents.map((document) => normalizeDocument(document)),
         page: safePage,
-        pageSize: safePageSize
+        pageSize: safePageSize,
+        ...(total !== undefined ? { total } : {})
       };
     } catch (error) {
       if (isMongoCancelError(error)) throw new OperationCancelledError();

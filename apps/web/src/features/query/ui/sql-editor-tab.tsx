@@ -63,7 +63,7 @@ export function SqlEditorTab({
 
   if (sqlDisabled) {
     return (
-      <p className="text-[13px] text-muted-foreground">
+      <p className="p-4 text-[13px] text-muted-foreground">
         The SQL Editor is not available for MongoDB connections - browse collections directly from
         the Tables tab.
       </p>

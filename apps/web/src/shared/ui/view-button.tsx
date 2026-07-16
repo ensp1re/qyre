@@ -19,10 +19,10 @@ export function ViewButton({
       onClick={onClick}
       aria-pressed={active}
       className={
-        "flex items-center gap-1 rounded-[2px] px-2 py-1 font-mono text-[11px] transition-colors " +
+        "relative flex items-center gap-1.5 px-2 text-[11px] font-medium outline-none transition-colors focus-visible:bg-accent " +
         (active
-          ? "bg-accent text-foreground"
-          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground")
+          ? "bg-background text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary"
+          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground")
       }
     >
       {icon}

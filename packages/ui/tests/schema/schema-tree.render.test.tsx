@@ -43,6 +43,14 @@ describe("SchemaTree (component rendering, F055)", () => {
     expect(onSelect).toHaveBeenCalledWith("public", "orders");
   });
 
+  it("moves through visible tree items with arrow keys", () => {
+    render(<SchemaTree schemas={schemas} onSelect={vi.fn()} />);
+    const schema = screen.getByRole("treeitem", { name: /public/ });
+    schema.focus();
+    fireEvent.keyDown(schema, { key: "ArrowDown" });
+    expect(screen.getByRole("treeitem", { name: "users" })).toHaveFocus();
+  });
+
   it("does not apply role=tree when there are no rows to render (aria-required-children)", () => {
     // Regression: `role="tree"` requires a treeitem/group descendant. With zero schemas (the
     // disconnected/unconfigured screen the smoke test scans) this used to leave the nav's role
@@ -56,7 +64,7 @@ describe("SchemaTree (component rendering, F055)", () => {
 describe("SchemaTree schema management (F116)", () => {
   it("hides New schema and per-schema drop buttons when canManageSchemas is false", () => {
     render(<SchemaTree schemas={schemas} onSelect={vi.fn()} canManageSchemas={false} />);
-    expect(screen.queryByText("New schema")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New schema" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Drop schema public")).not.toBeInTheDocument();
   });
 
@@ -70,7 +78,7 @@ describe("SchemaTree schema management (F116)", () => {
         onRequestCreateSchema={onRequestCreateSchema}
       />
     );
-    fireEvent.click(screen.getByText("New schema"));
+    fireEvent.click(screen.getByRole("button", { name: "New schema" }));
     expect(onRequestCreateSchema).toHaveBeenCalledOnce();
   });
 

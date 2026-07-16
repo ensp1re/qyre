@@ -34,30 +34,30 @@ Both themes below must exist; **dark is the primary/default theme** for this dev
 
 | Token                        | Light                 | Dark                      | Use                                             |
 | ---------------------------- | --------------------- | ------------------------- | ----------------------------------------------- |
-| `background`                 | `#f3f5f7`             | `#181a20`                 | page/editor background                          |
-| `foreground`                 | `#242a33`             | `#d8dce4`                 | default text                                    |
-| `card`                       | `#fafbfc`             | `#1b1e24`                 | panel and chrome surfaces                       |
-| `popover`                    | `#ffffff`             | `#20242b`                 | elevated menus and popovers                     |
-| `primary`                    | `#3e6c96`             | `#86a9cc`                 | primary actions, links, active states           |
-| `primary-foreground`         | `#ffffff`             | `#181a20`                 | text on `primary`                               |
-| `secondary`                  | `#e9edf2`             | `#1d2026`                 | secondary and input surfaces                    |
-| `muted` / `muted-foreground` | `#e9edf2` / `#4d5c6e` | `#1d2026` / `#9da5b2`     | de-emphasized text/surfaces                     |
-| `quiet-foreground`           | `#586678`             | `#8e98a6`                 | secondary metadata and placeholders             |
-| `accent`                     | `#e2e8f0`             | `#252b35`                 | hover and selected-row surfaces                 |
+| `background`                 | `#f3f5f7`             | `#222632`                 | page/editor background                          |
+| `foreground`                 | `#242a33`             | `#e4e8ef`                 | default text                                    |
+| `card`                       | `#fafbfc`             | `#272b37`                 | panel and chrome surfaces                       |
+| `popover`                    | `#ffffff`             | `#353a48`                 | elevated menus and popovers                     |
+| `primary`                    | `#3e6c96`             | `#8db8df`                 | primary actions, links, active states           |
+| `primary-foreground`         | `#ffffff`             | `#18202a`                 | text on `primary`                               |
+| `secondary`                  | `#e9edf2`             | `#2c313d`                 | secondary and input surfaces                    |
+| `muted` / `muted-foreground` | `#e9edf2` / `#4d5c6e` | `#2c313d` / `#b2bac7`     | de-emphasized text/surfaces                     |
+| `quiet-foreground`           | `#586678`             | `#9ca7b8`                 | secondary metadata and placeholders             |
+| `accent`                     | `#e2e8f0`             | `#323a49`                 | hover and selected-row surfaces                 |
 | `destructive`                | `#a93b46`             | `#df858c`                 | delete/error actions                            |
-| `border`                     | `rgba(27,39,53,0.10)` | `rgba(255,255,255,0.07)`  | hairlines                                       |
-| `border-subtle`              | `rgba(27,39,53,0.05)` | `rgba(255,255,255,0.035)` | dense grid and repeated-row separators          |
-| `sidebar`                    | `#eceff3`             | `#16181d`                 | sidebar background (distinct from `background`) |
-| `sidebar-accent`             | `#dde3ea`             | `#20242b`                 | sidebar hover and selected tree rows            |
-| `sidebar-border`             | `rgba(27,39,53,0.08)` | `rgba(255,255,255,0.055)` | sidebar partition                               |
+| `border`                     | `rgba(27,39,53,0.10)` | `rgba(255,255,255,0.09)`  | hairlines                                       |
+| `border-subtle`              | `rgba(27,39,53,0.05)` | `rgba(255,255,255,0.045)` | dense grid and repeated-row separators          |
+| `sidebar`                    | `#eceff3`             | `#292d37`                 | sidebar background (distinct from `background`) |
+| `sidebar-accent`             | `#dde3ea`             | `#323a49`                 | sidebar hover and selected tree rows            |
+| `sidebar-border`             | `rgba(27,39,53,0.08)` | `rgba(255,255,255,0.075)` | sidebar partition                               |
 
-The dark palette is a restrained blue-black ramp, not a visible stack of gray panels. The editor,
-card, sidebar, and input surfaces use only single-digit RGB steps; only popovers and active states
-lift further. This mirrors the surface strategy visible in Cursor and Codex: large regions read as
-one continuous workspace, while hierarchy comes from spacing, text, and hairlines instead of
-progressively brighter gray slabs. The `#181a20` base remains almost twice as luminous as the
-rejected near-black `#0e1116`, without the glare introduced by the interim `#202328` / `#30353d`
-graphite ramp.
+The dark palette is a midtone navy ramp, not a near-black or graphite-gray stack. The editor remains
+the deepest large surface, while chrome and the sidebar lift enough to establish hierarchy before
+an interaction occurs. Inputs, active rows, and popovers step progressively brighter without
+becoming gray cards. This follows the visible strategy in Codex: the workspace stays dark, but large
+surfaces retain enough luminance and separation that the interface does not collapse into one black
+plane. The sidebar is intentionally lighter than the editor canvas, and the `#222632` base has
+nearly twice the relative luminance of the previous `#181a20`.
 
 Research references:
 

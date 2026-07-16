@@ -2,27 +2,25 @@ import { describe, expect, it } from "vitest";
 import { buildFilterClause } from "../../src/query/sql.js";
 
 describe("PostgreSQL structured filters", () => {
-  it("uses JSON containment for JSON/JSONB columns", () => {
+  it("searches JSON/JSONB display text without requiring a JSON candidate", () => {
     expect(
       buildFilterClause([
         {
           column: "payload",
           op: "contains",
-          value: '{"role":"admin"}',
+          value: "admin",
           columnDataType: "jsonb"
         }
       ])
     ).toEqual({
-      clause: ' WHERE "payload"::jsonb @> $1::jsonb',
-      params: ['{"role":"admin"}']
+      clause: " WHERE \"payload\"::text ILIKE $1 ESCAPE '\\'",
+      params: ["%admin%"]
     });
   });
 
-  it("uses native array containment with a parsed array parameter", () => {
+  it("searches native array display text with a plain value", () => {
     expect(
-      buildFilterClause([
-        { column: "tags", op: "contains", value: '["one"]', columnDataType: "ARRAY" }
-      ])
-    ).toEqual({ clause: ' WHERE "tags" @> $1', params: [["one"]] });
+      buildFilterClause([{ column: "tags", op: "contains", value: "one", columnDataType: "ARRAY" }])
+    ).toEqual({ clause: " WHERE \"tags\"::text ILIKE $1 ESCAPE '\\'", params: ["%one%"] });
   });
 });

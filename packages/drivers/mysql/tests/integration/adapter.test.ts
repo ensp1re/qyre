@@ -186,7 +186,7 @@ describe("MysqlAdapter integration", () => {
     expect(page.columns).toEqual(expect.arrayContaining(["id", "name", "email"]));
   });
 
-  it("filters JSON by semantic containment", async () => {
+  it("filters JSON with plain text", async () => {
     const pool = mysql.createPool(databaseUrl);
     await pool.query("DROP TABLE IF EXISTS qyre_test_structured_filters");
     await pool.query(
@@ -208,7 +208,7 @@ describe("MysqlAdapter integration", () => {
           {
             column: "payload",
             op: "contains",
-            value: '{"role":"admin"}',
+            value: "admin",
             columnDataType: "json"
           }
         ]

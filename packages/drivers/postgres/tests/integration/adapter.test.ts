@@ -174,7 +174,7 @@ describe("PostgresAdapter integration", () => {
     expect(page.columns).toEqual(expect.arrayContaining(["id", "name", "email"]));
   });
 
-  it("filters JSON and native arrays by semantic containment", async () => {
+  it("filters JSON and native arrays with plain text", async () => {
     await runStatements(databaseUrl, [
       "DROP TABLE IF EXISTS qyre_test_structured_filters",
       "CREATE TABLE qyre_test_structured_filters (id integer PRIMARY KEY, payload jsonb NOT NULL, tags text[] NOT NULL)",
@@ -193,10 +193,10 @@ describe("PostgresAdapter integration", () => {
           {
             column: "payload",
             op: "contains",
-            value: '{"role":"admin"}',
+            value: "admin",
             columnDataType: "jsonb"
           },
-          { column: "tags", op: "contains", value: '["one"]', columnDataType: "ARRAY" }
+          { column: "tags", op: "contains", value: "one", columnDataType: "ARRAY" }
         ]
       );
       expect(page.rows.map((row) => row.id)).toEqual([1]);

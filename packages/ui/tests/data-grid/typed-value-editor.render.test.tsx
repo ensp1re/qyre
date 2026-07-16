@@ -16,7 +16,8 @@ describe("TypedValueEditor", () => {
     );
     const textarea = screen.getByLabelText("New value");
     fireEvent.change(textarea, { target: { value: '{\n  "active":\n}' } });
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
     expect(onApply).not.toHaveBeenCalled();
     expect(screen.getByText(/line 3/i)).toBeInTheDocument();
     expect(textarea).toHaveValue('{\n  "active":\n}');
@@ -99,5 +100,28 @@ describe("TypedValueEditor", () => {
     expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
+  });
+
+  it("disables drawer Apply while binary hex is invalid", () => {
+    const onApply = vi.fn();
+    render(
+      <TypedValueEditor
+        column={{ name: "payload", dataType: "bytea", nullable: false }}
+        engine="postgres"
+        originalValue={{ type: "Buffer", data: [0, 255] }}
+        presentation="drawer"
+        onApply={onApply}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const editor = screen.getByLabelText("Edit cell value");
+    fireEvent.change(editor, { target: { value: "0fg" } });
+    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    fireEvent.keyDown(editor, { key: "Enter", ctrlKey: true });
+    expect(onApply).not.toHaveBeenCalled();
+
+    fireEvent.change(editor, { target: { value: "0f" } });
+    expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
   });
 });

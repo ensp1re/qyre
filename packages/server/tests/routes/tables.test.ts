@@ -164,8 +164,8 @@ describe("Server-side filtering", () => {
     await app.close();
   });
 
-  it("validates structured contains JSON before the adapter runs", async () => {
-    let getRowsCalled = false;
+  it("passes plain structured contains text to the adapter", async () => {
+    let receivedFilters: unknown;
     const adapter = makeFakeAdapter({
       getTable: async () => ({
         schema: "public",
@@ -180,8 +180,8 @@ describe("Server-side filtering", () => {
           }
         ]
       }),
-      getRows: async () => {
-        getRowsCalled = true;
+      getRows: async (_schema, _table, _page, _pageSize, _sort, filters) => {
+        receivedFilters = filters;
         return { columns: ["payload"], rows: [], page: 0, pageSize: 50 };
       }
     });
@@ -195,9 +195,10 @@ describe("Server-side filtering", () => {
       headers: authHeaders(app)
     });
 
-    expect(response.statusCode).toBe(400);
-    expect(response.json()).toMatchObject({ error: expect.stringMatching(/valid JSON/i) });
-    expect(getRowsCalled).toBe(false);
+    expect(response.statusCode).toBe(200);
+    expect(receivedFilters).toEqual([
+      { column: "payload", op: "contains", value: "{broken", columnDataType: "jsonb" }
+    ]);
     await app.close();
   });
 

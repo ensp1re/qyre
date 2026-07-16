@@ -159,14 +159,15 @@ export function filterCapabilityForColumn(
           (column.dataType.toLowerCase().includes("json") ||
             column.dataType.toLowerCase().includes("array") ||
             column.dataType.endsWith("[]"))) ||
-        (engine === "mysql" && column.dataType.toLowerCase().includes("json")) ||
+        ((engine === "mysql" || engine === "sqlite") &&
+          column.dataType.toLowerCase().includes("json")) ||
         (engine === "mongodb" && ["object", "array"].includes(column.dataType.toLowerCase()))
       ) {
         return {
           kind,
           label: "structured",
           operators: withNullability(["contains"], column),
-          valueInput: "json"
+          valueInput: engine === "mongodb" ? "json" : "text"
         };
       }
       return {

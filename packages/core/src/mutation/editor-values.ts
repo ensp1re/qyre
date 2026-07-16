@@ -93,8 +93,49 @@ export function jsonErrorWithLocation(error: unknown, source: string): string {
   return `${message} (line ${line}, column ${column})`;
 }
 
+function intervalObjectText(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+
+  const interval = value as Record<string, unknown>;
+  if (typeof interval.toPostgres === "function") {
+    const text = interval.toPostgres.call(value);
+    if (typeof text === "string") return text;
+  }
+
+  const fields = ["years", "months", "days", "hours", "minutes"] as const;
+  const knownFields = [...fields, "seconds", "milliseconds"];
+  if (!knownFields.some((field) => Object.prototype.hasOwnProperty.call(interval, field))) {
+    return undefined;
+  }
+  if (
+    knownFields.some(
+      (field) =>
+        interval[field] !== undefined &&
+        (typeof interval[field] !== "number" || !Number.isFinite(interval[field]))
+    )
+  ) {
+    return undefined;
+  }
+
+  const parts = fields.flatMap((field) => {
+    const amount = (interval[field] as number | undefined) ?? 0;
+    return amount === 0 ? [] : [`${amount} ${field}`];
+  });
+  const seconds =
+    ((interval.seconds as number | undefined) ?? 0) +
+    ((interval.milliseconds as number | undefined) ?? 0) / 1000;
+  if (seconds !== 0) {
+    parts.push(`${seconds.toFixed(6).replace(/\.?0+$/, "")} seconds`);
+  }
+  return parts.join(" ") || "0";
+}
+
 export function mutationValueText(value: unknown, capability: MutationEditorCapability): string {
   if (value === null || value === undefined) return "";
+  if (capability.kind === "interval") {
+    const text = intervalObjectText(value);
+    if (text !== undefined) return text;
+  }
   if (
     capability.kind === "binary" &&
     typeof value === "object" &&

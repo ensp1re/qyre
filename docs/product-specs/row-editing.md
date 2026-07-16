@@ -203,9 +203,13 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
     staging. The server converts the validated hex to a bound `Buffer`; PostgreSQL `bytea`, MySQL
     binary/blob families, and SQLite `BLOB` therefore share one lossless byte contract. Grid chrome
     uses the friendly type label `bytes`; schema details retain the exact engine type.
-  - PostgreSQL `interval`: the driver preserves the raw database text rather than exposing `pg`'s
-    parsed object shape. The right-side drawer edits that exact text and binds it unchanged, leaving
-    interval grammar and range validation to PostgreSQL.
+  - PostgreSQL `interval`: the driver preserves raw database text. If an already-open or legacy
+    connection still returns `pg`'s parsed object shape, the editor converts its year/month/day/time
+    fields back to PostgreSQL interval text instead of displaying `[object Object]`. The right-side
+    drawer binds edited text unchanged, leaving grammar and range validation to PostgreSQL.
+  - Every right-side drawer derives Apply availability from the same parser used to stage the
+    value. Invalid JSON/array syntax, malformed binary hex, and empty invalid interval drafts show
+    their error and disable Apply; Ctrl/Cmd+Enter follows the same guard.
   - PostgreSQL `bit` / `bit varying`: a scalar string containing only `0` and `1`, preserving
     leading zeroes. MySQL `BIT` remains read-only until column bit length is carried with the row
     value so its Buffer representation can be decoded without guessing.

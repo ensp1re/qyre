@@ -3,6 +3,7 @@ import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilitie
 import {
   mutationValueText,
   parseMutationDraft,
+  type MutationValueResult,
   validateMutationValue
 } from "@qyre/core/mutation-editor-values";
 import { Check, Maximize2 } from "lucide-react";
@@ -68,31 +69,24 @@ export function TypedValueEditor({
   const [nullDraft, setNullDraft] = useState(originalValue === null);
   const [error, setError] = useState<string>();
 
-  function candidate(): unknown {
-    if (nullDraft) return null;
-    if (capability.widget === "set") return selectedSet;
-    const result = parseMutationDraft(draft, capability, engine, metadata);
-    if (!result.valid) throw new Error(result.error);
-    return result.value;
+  function candidateResult(): MutationValueResult {
+    if (nullDraft) return { valid: true, value: null };
+    if (capability.widget === "set") {
+      return validateMutationValue(capability, selectedSet, engine, metadata);
+    }
+    return parseMutationDraft(draft, capability, engine, metadata);
   }
 
+  const validation = candidateResult();
+  const visibleError = error ?? (validation.valid ? undefined : validation.error);
+
   function apply(): void {
-    if (nullDraft) {
-      onApply(null);
+    if (!validation.valid) {
+      setError(validation.error);
       return;
     }
-    try {
-      const value = candidate();
-      const result = validateMutationValue(capability, value, engine, metadata);
-      if (!result.valid) {
-        setError(result.error);
-        return;
-      }
-      setError(undefined);
-      onApply(result.value);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Invalid value.");
-    }
+    setError(undefined);
+    onApply(validation.value);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
@@ -158,7 +152,7 @@ export function TypedValueEditor({
           setError(undefined);
         }}
         label={minimalDrawer ? "JSON editor" : "New value"}
-        error={error}
+        error={visibleError}
         autoFocus
         minHeightClassName="min-h-40"
         variant={minimalDrawer ? "minimal" : "full"}
@@ -173,7 +167,7 @@ export function TypedValueEditor({
           setError(undefined);
         }}
         label={controlLabel}
-        error={error}
+        error={visibleError}
         autoFocus
       />
     );
@@ -247,17 +241,17 @@ export function TypedValueEditor({
         <Field
           label="New value"
           description="Ctrl/Cmd+Enter applies; Escape cancels."
-          error={error}
+          error={visibleError}
         >
           {control}
         </Field>
       )}
-      {!structured && capability.widget !== "binary" && minimalDrawer && error && (
+      {!structured && capability.widget !== "binary" && minimalDrawer && visibleError && (
         <p className="font-mono text-[9px]" style={{ color: "var(--c-red)" }}>
-          {error}
+          {visibleError}
         </p>
       )}
-      <EditorActions onApply={apply} onCancel={onCancel} />
+      <EditorActions onApply={apply} onCancel={onCancel} applyDisabled={!validation.valid} />
     </div>
   );
 }

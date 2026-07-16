@@ -30,7 +30,7 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
   `server-side-sort-export.md`'s injection-surface note) before use. An unrecognized column is
   rejected with `400`, same treatment as an unrecognized `sortColumn`. The server also validates
   that `op` is meaningful for the selected column's engine-aware capability (for example,
-  `contains` is valid for scalar text and supported native structured columns, but not numeric
+  `contains` is valid for scalar text and supported structured columns, but not numeric
   columns). This is the real
   injection surface here too: `op` is already whitelisted by a Zod enum and `value` is always
   parameter-bound (SQL engines) or passed as a native driver value (MongoDB), never interpolated
@@ -47,10 +47,10 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
     database driver/engine handles converting the bound text parameter against a numeric or date
     column, matching how parameter binding already works for every other bound value in these
     adapters today.
-    PostgreSQL JSON/JSONB containment uses `::jsonb @>`, and native arrays use their own `@>`
-    operator with a parsed JSON-array parameter. MySQL JSON uses `JSON_CONTAINS`. SQLite keeps
-    structured containment unavailable because it has no equivalent native operator; declared
-    JSON columns retain null checks only rather than receiving misleading text-search semantics.
+    For PostgreSQL JSON/JSONB and native arrays, MySQL JSON, and declared SQLite JSON, `contains`
+    searches the database's textual representation with the same escaped substring contract. The
+    user enters an ordinary word, symbol, or number; the UI never requires a JSON document merely
+    to search structured data.
   - **MongoDB**: a `.find({...})` filter document, one key per column. `eq`/`neq` -> `{$eq}`/
     `{$ne}`; `lt`/`lte`/`gt`/`gte` -> `{$lt}`/`{$lte}`/`{$gt}`/`{$gte}`; `contains` -> `{$regex:
 <escaped value>, $options: "i"}` (regex metacharacters in the value escaped first, same
@@ -78,8 +78,9 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
      each shows a readable word (`equals`, `greater than`) with the SQL symbol as a muted hint.
      Picking `is null`/`is not null` applies immediately (no value step).
   3. **Value** - a type-appropriate control: text/ObjectId text, number, true/false, date, time,
-     datetime, a catalog-backed enum selector for equality, or a validated JSON editor for native
-     JSON/array containment. The column and operator already chosen show as breadcrumb tokens at
+     datetime, a catalog-backed enum selector for equality, ordinary text for SQL JSON/array
+     substring search, or a validated JSON candidate for MongoDB's native structured containment.
+     The column and operator already chosen show as breadcrumb tokens at
      the popover's head, each clickable to re-pick that step. Escape walks one step back, then
      closes.
 - Applied filters render as compact **segmented chips** in the toolbar (type icon · column ·

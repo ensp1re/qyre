@@ -213,6 +213,26 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(onCommit).toHaveBeenCalledWith("2 days 03:04:05.75");
   });
 
+  it("converts a legacy PostgreSQL interval object into editable text", () => {
+    render(
+      <EditableCell
+        columnName="duration"
+        displayValue={{ days: 5, hours: 10, minutes: 15 }}
+        dataType="interval"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={vi.fn()}
+        onRevert={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit duration" }));
+    expect(screen.getByRole("textbox", { name: "Edit cell value" })).toHaveValue(
+      "5 days 10 hours 15 minutes"
+    );
+  });
+
   it("Escape cancels the edit without committing", () => {
     const onCommit = vi.fn();
     render(

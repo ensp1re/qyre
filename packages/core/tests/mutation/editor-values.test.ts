@@ -98,6 +98,12 @@ describe("mutation editor exact values", () => {
 
   it("preserves PostgreSQL interval text for native validation", () => {
     const capability = mutationEditorCapability("interval", "postgres");
+    expect(
+      mutationValueText(
+        { days: 5, hours: 10, minutes: 15, seconds: 20, milliseconds: 250 },
+        capability
+      )
+    ).toBe("5 days 10 hours 15 minutes 20.25 seconds");
     expect(parseMutationDraft("1 year 2 mons 03:04:05.678", capability, "postgres")).toEqual({
       valid: true,
       value: "1 year 2 mons 03:04:05.678"

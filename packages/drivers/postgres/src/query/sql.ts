@@ -27,12 +27,12 @@ export function buildFilterClause(filters: RowFilter[] | undefined): {
     if (filter.op === "contains") {
       const type = filter.columnDataType?.toLowerCase() ?? "";
       if (type.includes("array") || type.endsWith("[]")) {
-        params.push(JSON.parse(filter.value ?? "[]"));
-        return `${column} @> $${params.length}`;
+        params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
+        return `${column}::text ILIKE $${params.length} ESCAPE '\\'`;
       }
       if (type.includes("json")) {
-        params.push(filter.value ?? "null");
-        return `${column}::jsonb @> $${params.length}::jsonb`;
+        params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
+        return `${column}::text ILIKE $${params.length} ESCAPE '\\'`;
       }
       params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
       return `${column} ILIKE $${params.length} ESCAPE '\\'`;

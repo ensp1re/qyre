@@ -172,7 +172,7 @@ describe("FilterBar (F072)", () => {
 });
 
 describe("FilterBar type-aware operators and values (F082)", () => {
-  it("filters PostgreSQL JSON and arrays with a validated contains value", () => {
+  it("filters PostgreSQL JSON with an ordinary text contains value", () => {
     const onFiltersChange = vi.fn();
     const structuredColumns: ColumnMetadata[] = [
       {
@@ -203,12 +203,11 @@ describe("FilterBar type-aware operators and values (F082)", () => {
     openPopover();
     fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("payload"));
     fireEvent.click(screen.getByRole("option", { name: "contains" }));
-    fireEvent.change(screen.getByLabelText("Filter JSON value"), {
-      target: { value: '{"role":"admin"}' }
-    });
+    expect(screen.queryByLabelText("Filter JSON value")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Filter value"), { target: { value: "admin" } });
     fireEvent.click(screen.getByText("Apply"));
     expect(onFiltersChange).toHaveBeenCalledWith([
-      { column: "payload", op: "contains", value: '{"role":"admin"}' }
+      { column: "payload", op: "contains", value: "admin" }
     ]);
   });
 

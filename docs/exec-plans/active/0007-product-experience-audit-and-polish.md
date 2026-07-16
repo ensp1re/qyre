@@ -885,3 +885,8 @@ personal taste.
   component/driver tests and PostgreSQL browser QA pass; local `pnpm verify:pr` passes 34/34 package
   tasks, 11 smoke E2E with four expected skips, and 30 full E2E with 47 expected skips. Implemented
   as `148d4b7`; current step remains rerunning CI when Actions credits return.
+- 2026-07-16: F146 round 11 normalizes transport-level Buffer objects to canonical hex while
+  staging Duplicate row, preventing untouched PostgreSQL bytea, MySQL binary/blob, and SQLite BLOB
+  values from failing insert validation. Component regression coverage, all 426 UI tests, and local
+  `pnpm verify:pr` pass; implemented as `6bd5276`. Current step remains rerunning CI when Actions
+  credits return.

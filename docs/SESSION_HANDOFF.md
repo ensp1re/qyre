@@ -42,10 +42,12 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - F146 round 10: SQL JSON/array `contains` accepts ordinary substring text on PostgreSQL, MySQL,
   and SQLite; MongoDB retains native structured containment. Legacy PostgreSQL interval objects
   reopen as interval text, and invalid drawer drafts disable click and keyboard Apply.
+- F146 round 11: Duplicate row normalizes transport-level Buffer objects to canonical hexadecimal
+  drafts, so untouched PostgreSQL bytea, MySQL binary/blob, and SQLite BLOB values remain insertable.
 
 ## In progress
 
-- Round 10 is implemented as `148d4b7` on draft PR #160. Focused core/server/UI and driver
+- Round 11 is implemented as `6bd5276` on draft PR #160. Focused core/server/UI and driver
   unit/live-integration suites pass. PostgreSQL browser QA proves ordinary JSON substring filtering,
   readable interval editing, and invalid-to-valid interval/bytes Apply states; prior focused E2E
   covers temporal/interval/binary persistence and stable long-text geometry. Full local `pnpm verify:pr`

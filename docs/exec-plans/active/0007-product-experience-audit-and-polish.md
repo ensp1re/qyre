@@ -862,3 +862,12 @@ personal taste.
   full local `pnpm verify:pr` passes 34/34 package tasks, 11 smoke E2E with four expected skips, and
   30 full E2E with 47 expected skips. Current step: commit and push to draft PR #160; GitHub Actions
   credits remain unavailable.
+- 2026-07-16: F146 round 8 restores lossless date/time/time-zone editing, adds a raw PostgreSQL
+  interval drawer, bounds JSON/binary drawers to the viewport with fixed actions, restores JSON
+  Format/Minify/Copy, and adds a grouped bytes editor with byte count and ASCII preview. Native
+  structured containment now covers PostgreSQL JSON/arrays, MySQL JSON, and MongoDB objects/arrays;
+  enum equality filters use the shared selector, while SQLite remains explicitly unsupported.
+  Focused unit/live-integration and PostgreSQL browser E2E pass; compact 1280x720 visual QA confirms
+  the editor controls remain visible. Full local `pnpm verify:pr` passes 34/34 package tasks, 11
+  smoke E2E with four expected skips, and 30 full E2E with 47 expected skips. Current step: commit
+  and push to draft PR #160; GitHub Actions credits remain unavailable.

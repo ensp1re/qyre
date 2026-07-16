@@ -25,6 +25,10 @@ export function buildFilterClause(filters: RowFilter[] | undefined): {
     if (filter.op === "isNull") return `${column} IS NULL`;
     if (filter.op === "isNotNull") return `${column} IS NOT NULL`;
     if (filter.op === "contains") {
+      if (filter.columnDataType?.toLowerCase().includes("json")) {
+        params.push(filter.value ?? "null");
+        return `JSON_CONTAINS(${column}, CAST(? AS JSON))`;
+      }
       params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
       return `${column} LIKE ? ESCAPE '\\\\'`;
     }

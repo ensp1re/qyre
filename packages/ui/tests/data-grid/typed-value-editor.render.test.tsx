@@ -82,4 +82,22 @@ describe("TypedValueEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(setApply).toHaveBeenCalledWith(["one", "two"]);
   });
+
+  it("keeps drawer utilities and actions visible around a bounded JSON editor", () => {
+    render(
+      <TypedValueEditor
+        column={{ name: "payload", dataType: "jsonb", nullable: false }}
+        engine="postgres"
+        originalValue={{ active: true }}
+        presentation="drawer"
+        onApply={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    expect(screen.getByRole("button", { name: "Format" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Minify" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
+  });
 });

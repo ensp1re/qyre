@@ -68,12 +68,14 @@ export function StructuredTextEditor({
       value={text}
       onChange={(event) => onChange(event.target.value)}
       spellCheck={false}
-      className={`${minHeightClassName} w-full resize-y rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary`}
+      className={`${minHeightClassName} w-full rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary ${variant === "minimal" ? "min-h-0 flex-1 resize-none" : "resize-y"}`}
     />
   );
 
   return (
-    <div className="grid gap-1.5">
+    <div
+      className={variant === "minimal" ? "flex h-full min-h-0 flex-col gap-1.5" : "grid gap-1.5"}
+    >
       {variant === "minimal" ? (
         <>
           {control}
@@ -97,18 +99,14 @@ export function StructuredTextEditor({
           <Braces className="h-2.5 w-2.5" />
           Format
         </Button>
-        {variant === "full" && (
-          <>
-            <Button variant="ghost" size="sm" onClick={minify} disabled={Boolean(syntaxError)}>
-              <Minus className="h-2.5 w-2.5" />
-              Minify
-            </Button>
-            <Button variant="ghost" size="sm" onClick={copy}>
-              {copied ? <Check className="h-2.5 w-2.5" /> : <Copy className="h-2.5 w-2.5" />}
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          </>
-        )}
+        <Button variant="ghost" size="sm" onClick={minify} disabled={Boolean(syntaxError)}>
+          <Minus className="h-2.5 w-2.5" />
+          Minify
+        </Button>
+        <Button variant="ghost" size="sm" onClick={copy}>
+          {copied ? <Check className="h-2.5 w-2.5" /> : <Copy className="h-2.5 w-2.5" />}
+          {copied ? "Copied" : "Copy"}
+        </Button>
       </div>
     </div>
   );

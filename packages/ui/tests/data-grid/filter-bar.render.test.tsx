@@ -2,6 +2,7 @@ import type { ColumnMetadata } from "@qyre/core";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { FilterBar } from "../../src/data-grid/table/filter-bar.js";
+import { chooseSelect } from "../support/select.js";
 
 const columns: ColumnMetadata[] = [
   { name: "id", dataType: "integer", nullable: false, isPrimaryKey: true, isForeignKey: false },
@@ -171,6 +172,75 @@ describe("FilterBar (F072)", () => {
 });
 
 describe("FilterBar type-aware operators and values (F082)", () => {
+  it("filters PostgreSQL JSON and arrays with a validated contains value", () => {
+    const onFiltersChange = vi.fn();
+    const structuredColumns: ColumnMetadata[] = [
+      {
+        name: "payload",
+        dataType: "jsonb",
+        nullable: false,
+        isPrimaryKey: false,
+        isForeignKey: false
+      },
+      {
+        name: "tags",
+        dataType: "ARRAY",
+        elementDataType: "text",
+        nullable: false,
+        isPrimaryKey: false,
+        isForeignKey: false
+      }
+    ];
+    render(
+      <FilterBar
+        columns={structuredColumns}
+        engine="postgres"
+        filters={undefined}
+        onFiltersChange={onFiltersChange}
+      />
+    );
+
+    openPopover();
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("payload"));
+    fireEvent.click(screen.getByRole("option", { name: "contains" }));
+    fireEvent.change(screen.getByLabelText("Filter JSON value"), {
+      target: { value: '{"role":"admin"}' }
+    });
+    fireEvent.click(screen.getByText("Apply"));
+    expect(onFiltersChange).toHaveBeenCalledWith([
+      { column: "payload", op: "contains", value: '{"role":"admin"}' }
+    ]);
+  });
+
+  it("uses authoritative enum options for equality filters", () => {
+    const onFiltersChange = vi.fn();
+    const enumColumns: ColumnMetadata[] = [
+      {
+        name: "status",
+        dataType: "status_enum",
+        allowedValues: ["draft", "ready"],
+        nullable: false,
+        isPrimaryKey: false,
+        isForeignKey: false
+      }
+    ];
+    render(
+      <FilterBar
+        columns={enumColumns}
+        engine="postgres"
+        filters={undefined}
+        onFiltersChange={onFiltersChange}
+      />
+    );
+
+    openPopover();
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("status"));
+    fireEvent.click(screen.getByRole("option", { name: /^equals/ }));
+    chooseSelect("Filter value", "ready");
+    fireEvent.click(screen.getByText("Apply"));
+    expect(onFiltersChange).toHaveBeenCalledWith([{ column: "status", op: "eq", value: "ready" }]);
+  });
+
   it("offers only eq/neq for a non-null boolean column, not text/comparison/null operators", () => {
     render(<FilterBar columns={columns} filters={undefined} onFiltersChange={vi.fn()} />);
 

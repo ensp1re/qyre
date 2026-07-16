@@ -38,7 +38,8 @@ describe("mutationEditorCapability", () => {
     ["postgres", "bit", "bit-string", "text"],
     ["postgres", "bit varying(16)", "bit-string", "text"],
     ["postgres", "inet", "network", "text"],
-    ["postgres", "xml", "xml", "xml"]
+    ["postgres", "xml", "xml", "xml"],
+    ["postgres", "interval", "interval", "interval"]
   ] as const)("provides the lossless %s %s editor", (engine, dataType, kind, widget) => {
     expect(mutationEditorCapability(dataType, engine)).toEqual({
       kind,

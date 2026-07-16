@@ -44,6 +44,7 @@ export function friendlyTypeLabel(dataType: string): string {
   }
   if (type.startsWith("time")) return hasTimeZone ? "time (tz)" : "time";
   if (type.startsWith("date")) return "date";
+  if (type === "bytea" || type.includes("blob") || type.includes("binary")) return "bytes";
   return dataType;
 }
 

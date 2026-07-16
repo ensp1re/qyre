@@ -4,6 +4,7 @@ const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
 
 types.setTypeParser(types.builtins.DATE, (value) => value);
 types.setTypeParser(types.builtins.TIMESTAMP, (value) => value);
+types.setTypeParser(types.builtins.INTERVAL, (value) => value);
 
 function resolveStatementTimeoutMs(): number {
   const raw = Number(process.env.QYRE_STATEMENT_TIMEOUT_MS);

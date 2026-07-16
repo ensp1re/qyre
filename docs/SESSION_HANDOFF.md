@@ -13,37 +13,12 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Completed
 
 - DF-10 through DF-12 (audit, editing integrity, shared typed editors) are passing and merged.
-- F146 round 1 (pushed, PR #160): restored CellValue's UTC/long-string/URL affordances on editable
-  columns, a single-active-editor coordinator, the missing timestamp/time widget, JSON/long-text in
-  a drawer, table-layout:fixed column truncation, and icon-only EditorActions.
-- F146 round 2 (pushed, PR #160): a DataGrip-inspired interaction rework - single click selects a
-  cell (visual only), double-click/Enter/F2 edits it; `InlineCellEditor` so text/number/uuid/
-  boolean/enum/date/timestamp/time edit directly in the cell with no popover chrome, committing on
-  Enter (advances selection down)/Tab (advances right, wrapping rows)/Shift+Tab, cancelling on
-  Escape; JSON/array/set/long-text in a small anchored popover by default (Format/Minify/Copy
-  actions) with an explicit "Expand" action for the full `CellEditorDrawer`; grid-level keyboard
-  shortcuts (arrows, Tab/Shift+Tab, Escape, Delete/Backspace-to-NULL, Ctrl/Cmd+Z revert, Ctrl/Cmd+C/V
-  copy-paste) plus page-level Ctrl/Cmd+S commit; green `CommitBar` Commit button.
-- F146 round 3 (visual/behavioral refinements requested after live review of round 2): shrank the
-  timestamp mini-picker popover to 264px (was the shared 512px
-  default); moved the "editing" indicator from a bordered/backgrounded box around the `<input>` to a
-  border around the whole cell, and stripped the input to borderless/transparent, filling the cell
-  exactly; removed the inline NULL toggle/chip entirely - a nullable field's draft auto-commits NULL
-  when left empty, and Delete/Backspace on a selected (non-editing) cell already nulls any nullable
-  cell without needing edit mode; URLs now render as plain text (no chip/preview); long text
-  hard-truncates to exactly 100 characters + a literal "..." via a JS substring
-  (`truncateForDisplay`, `LONG_STRING_THRESHOLD` dropped 300->100) instead of relying on CSS overflow/
-  text-overflow, which wasn't reliably shortening; centered the "Loading table..."/"Loading rows..."
-  states and moved the Loading-rows Cancel button onto its own row below the text; updated the full
-  E2E expectations for the writable status bar and column-labelled inline editors.
-- F146 round 4: moved selection/editing emphasis to the entire `<td>`; replaced the boolean toggle
-  with the shared True/False selector; kept JSON values visible while their editor is open and
-  ignored editor-internal scroll events while still dismissing on table scroll; collapsed shell-tab
-  and row-action labels below 1024px while preserving accessible names and tooltips.
-- F146 round 5: any active scalar, structured, or inserted-row grid editor now dismisses after a
-  different body-cell click; timestamp editing directly reuses the filter calendar panel without
-  nested date/time controls and preserves the stored time/precision/timezone tail; removed SQL
-  Editor Analyze and kept Explain non-executing.
+- F146 rounds 1-2 (pushed, PR #160): restored CellValue affordances and introduced whole-cell
+  selection, inline scalar editing, single-active-editor coordination, keyboard navigation,
+  copy/paste/undo/null shortcuts, staged commit, fixed columns, and structured editor expansion.
+- F146 rounds 3-5: refined whole-cell edit emphasis, nullable/URL/long-text/loading behavior,
+  shared boolean and timestamp-calendar controls, adaptive labels, cross-cell dismissal, and the
+  non-executing Explain-only SQL action.
 - F146 round 6: JSON and supported-array editing now opens directly in the established right-side
   drawer for existing and inserted rows. The mutation surface names the column once and keeps only
   the full-value editor, Format, validation, nullable selection, Cancel, and Apply; the intermediate
@@ -54,11 +29,19 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   bound Buffer, bit strings preserve leading zeroes, network/XML bind exact text, and binary/XML use
   the streamlined right-side drawer. The same binary contract is live-verified for MySQL blob and
   SQLite BLOB; MongoDB remains whole-document EJSON.
+- F146 round 8: date, time, time-with-time-zone, timestamp, and PostgreSQL interval values now keep
+  exact editable text; interval uses the right drawer instead of a parsed object. JSON drawers are
+  viewport-bounded with Format/Minify/Copy and fixed Apply/Cancel actions. Binary editing now uses
+  grouped hex, accepts prefixes/whitespace, reports byte count, previews ASCII, and appears as
+  `bytes` in grid/filter chrome while preserving the schema's real type. PostgreSQL JSON/native
+  arrays, MySQL JSON, and MongoDB objects/arrays gained native `contains` filters; enum equality
+  filters reuse the enum selector. SQLite structured containment remains explicitly unavailable.
 
 ## In progress
 
-- Round 7 focused core/server/UI/web and SQL-driver suites pass; focused PostgreSQL browser E2E
-  proves sidebar refresh plus bytea/bit/bit-varying/inet/XML persistence. Full local `pnpm verify:pr`
+- Round 8 focused core/server/UI and driver unit/live-integration suites pass. Focused PostgreSQL
+  browser E2E proves date/time/time-zone/interval/binary persistence, and 1280x720 visual QA proves
+  JSON and bytes editor utilities plus Apply/Cancel remain visible. Full local `pnpm verify:pr`
   passes 34/34 package tasks, 11 smoke E2E with four expected skips, and 30 full E2E with 47
   expected skips. Current step: commit and push to draft PR #160. F146 remains active until GitHub
   CI can run again.

@@ -160,8 +160,9 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit payload" }));
     expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
     const editor = screen.getByRole("textbox", { name: "Edit cell value" });
-    expect(editor).toHaveValue("00cafe");
-    fireEvent.change(editor, { target: { value: "00ff" } });
+    expect(editor).toHaveValue("00 ca fe");
+    expect(screen.getByText("3 bytes")).toBeInTheDocument();
+    fireEvent.change(editor, { target: { value: "00 ff" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onCommit).toHaveBeenCalledWith("00ff");
   });
@@ -187,6 +188,29 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     fireEvent.change(editor, { target: { value: "<root>\n  <value>two</value>\n</root>" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onCommit).toHaveBeenCalledWith("<root>\n  <value>two</value>\n</root>");
+  });
+
+  it("opens PostgreSQL intervals as lossless text in the right-side drawer", () => {
+    const onCommit = vi.fn();
+    render(
+      <EditableCell
+        columnName="duration"
+        displayValue="1 day 02:03:04.5"
+        dataType="interval"
+        engine="postgres"
+        nullable={false}
+        dirty={false}
+        onCommit={onCommit}
+        onRevert={vi.fn()}
+      />
+    );
+
+    fireEvent.doubleClick(screen.getByText("1 day 02:03:04.5"));
+    const editor = screen.getByRole("textbox", { name: "Edit cell value" });
+    expect(screen.getByTestId("cell-editor-drawer")).toBeInTheDocument();
+    fireEvent.change(editor, { target: { value: "2 days 03:04:05.75" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onCommit).toHaveBeenCalledWith("2 days 03:04:05.75");
   });
 
   it("Escape cancels the edit without committing", () => {
@@ -520,12 +544,12 @@ describe("EditableCell (component rendering, F103/F146)", () => {
       />
     );
     fireEvent.doubleClick(screen.getByText("2024-03-05"));
-    expect(screen.getByRole("button", { name: "Choose date" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open date picker" })).toBeInTheDocument();
 
-    fireEvent.keyDown(screen.getByRole("button", { name: "Choose date" }), { key: "Escape" });
+    fireEvent.keyDown(screen.getByLabelText("value"), { key: "Escape" });
 
     expect(onCommit).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "Choose date" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open date picker" })).not.toBeInTheDocument();
   });
 
   it("keeps the UTC/local/relative date detail affordance on an editable timestamp column (F146)", () => {
@@ -570,8 +594,8 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(screen.queryByText("jsonb")).not.toBeInTheDocument();
     expect(screen.queryByText("New value")).not.toBeInTheDocument();
     expect(screen.queryByText(/JSON is validated before Apply/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Minify" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Copy" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Minify" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Format" })).toBeInTheDocument();
   });
 

@@ -158,7 +158,46 @@ describe("Server-side filtering", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(receivedFilters).toEqual([{ column: "name", op: "contains", value: "ada" }]);
+    expect(receivedFilters).toEqual([
+      { column: "name", op: "contains", value: "ada", columnDataType: "text" }
+    ]);
+    await app.close();
+  });
+
+  it("validates structured contains JSON before the adapter runs", async () => {
+    let getRowsCalled = false;
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "x",
+        columns: [
+          {
+            name: "payload",
+            dataType: "jsonb",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ]
+      }),
+      getRows: async () => {
+        getRowsCalled = true;
+        return { columns: ["payload"], rows: [], page: 0, pageSize: 50 };
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/tables/public/x/rows?${filtersParam([
+        { column: "payload", op: "contains", value: "{broken" }
+      ])}`,
+      headers: authHeaders(app)
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: expect.stringMatching(/valid JSON/i) });
+    expect(getRowsCalled).toBe(false);
     await app.close();
   });
 
@@ -965,7 +1004,7 @@ describe("Whole-result export (F118)", () => {
         streamCalls += 1;
         expect(columns.map((column) => column.name)).toEqual(["id"]);
         expect(sort).toEqual({ column: "id", direction: "desc" });
-        expect(filters).toEqual([{ column: "id", op: "gte", value: "1" }]);
+        expect(filters).toEqual([{ column: "id", op: "gte", value: "1", columnDataType: "int4" }]);
         yield { id: 2 };
         yield { id: "=cmd()" };
       }

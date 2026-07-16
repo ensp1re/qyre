@@ -30,7 +30,8 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
   `server-side-sort-export.md`'s injection-surface note) before use. An unrecognized column is
   rejected with `400`, same treatment as an unrecognized `sortColumn`. The server also validates
   that `op` is meaningful for the selected column's engine-aware capability (for example,
-  `contains` is valid for scalar text, not numeric/JSON/BSON object columns). This is the real
+  `contains` is valid for scalar text and supported native structured columns, but not numeric
+  columns). This is the real
   injection surface here too: `op` is already whitelisted by a Zod enum and `value` is always
   parameter-bound (SQL engines) or passed as a native driver value (MongoDB), never interpolated
   into a query string.
@@ -46,6 +47,10 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
     database driver/engine handles converting the bound text parameter against a numeric or date
     column, matching how parameter binding already works for every other bound value in these
     adapters today.
+    PostgreSQL JSON/JSONB containment uses `::jsonb @>`, and native arrays use their own `@>`
+    operator with a parsed JSON-array parameter. MySQL JSON uses `JSON_CONTAINS`. SQLite keeps
+    structured containment unavailable because it has no equivalent native operator; declared
+    JSON columns retain null checks only rather than receiving misleading text-search semantics.
   - **MongoDB**: a `.find({...})` filter document, one key per column. `eq`/`neq` -> `{$eq}`/
     `{$ne}`; `lt`/`lte`/`gt`/`gte` -> `{$lt}`/`{$lte}`/`{$gt}`/`{$gte}`; `contains` -> `{$regex:
 <escaped value>, $options: "i"}` (regex metacharacters in the value escaped first, same
@@ -56,6 +61,8 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
     per-field type inference `getTable`'s `inferColumns` already performs (F068) before building
     the filter document. BSON sentinels such as MinKey and MaxKey remain displayable as normalized
     structured values but are not exposed as normal scalar filter types in metadata or the UI.
+    Top-level object containment maps candidate keys onto validated dotted field paths, while array
+    containment uses `$all`; mixed/sentinel BSON kinds remain unavailable.
 - `RowsTable`'s toolbar gets a `Filter` button (funnel icon) sitting next to the page-local
   `Search this page` box, which stays a distinct, page-local free-text narrow (F065's spec already
   flagged this as a "distinct, filter-shaped feature, not addressed here"; this is that feature).
@@ -70,9 +77,11 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
      so irrelevant choices are not shown;
      each shows a readable word (`equals`, `greater than`) with the SQL symbol as a muted hint.
      Picking `is null`/`is not null` applies immediately (no value step).
-  3. **Value** - a type-appropriate control: text/ObjectId text, number, true/false, date, time, or
-     datetime. The column and operator already chosen show as breadcrumb tokens at the popover's
-     head, each clickable to re-pick that step. Escape walks one step back, then closes.
+  3. **Value** - a type-appropriate control: text/ObjectId text, number, true/false, date, time,
+     datetime, a catalog-backed enum selector for equality, or a validated JSON editor for native
+     JSON/array containment. The column and operator already chosen show as breadcrumb tokens at
+     the popover's head, each clickable to re-pick that step. Escape walks one step back, then
+     closes.
 - Applied filters render as compact **segmented chips** in the toolbar (type icon · column ·
   operator symbol · value), joined by small `and` separators to make the AND semantics visible.
   Clicking a chip reopens the popover to **edit that filter in place**; clicking its `×` removes
@@ -92,7 +101,8 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
   already gives for excluding it from sort: no server-known column list to validate a filter
   column against, and no stable "whole result set" to filter within beyond its own 1,000-row cap
   (F050).
-- Enum/dropdown value pickers based on live distinct values.
+- Enum/dropdown value pickers based on live distinct values. Authoritative catalog enum values are
+  used for equality filters; Qyre does not run a distinct-values query to invent options.
 - Filtering on nested/embedded MongoDB document fields (dot-notation paths) - only top-level
   document fields, matching `getTable`'s existing column list.
 
@@ -106,6 +116,9 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
 - `contains` matches case-insensitively and correctly handles a searched-for value that itself
   contains a literal `%`/`_` (Postgres/MySQL/SQLite) or regex metacharacter (MongoDB) instead of
   treating it as a wildcard.
+- Structured `contains` validates JSON before the adapter runs and uses native containment for
+  PostgreSQL JSON/arrays, MySQL JSON, and MongoDB top-level objects/arrays; SQLite is explicitly not
+  applicable.
 - `isNull`/`isNotNull` filter correctly without a `value` param.
 - Two filters combine with `AND` (verified with two filters that individually match more rows
   than they do together).

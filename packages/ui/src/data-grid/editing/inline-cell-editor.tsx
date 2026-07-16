@@ -5,7 +5,7 @@ import { Calendar } from "lucide-react";
 import type { KeyboardEvent, ReactElement, ReactNode } from "react";
 import { useRef, useState } from "react";
 import { Select } from "../../primitives/controls/select.js";
-import { CalendarPicker, DateTimeInput } from "../../primitives/date-time-input.js";
+import { CalendarPicker } from "../../primitives/date-time-input.js";
 import { EditorPopover } from "./editor-popover.js";
 
 export type CommitDirection = "enter" | "tab" | "shiftTab";
@@ -146,31 +146,12 @@ export function InlineCellEditor({
         }}
       />
     );
-  } else if (capability.widget === "date") {
-    control = (
-      <div
-        className="flex min-w-0 items-center"
-        data-testid="inline-date-editor"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            onCancel();
-          }
-        }}
-      >
-        <DateTimeInput
-          kind="date"
-          value={draft}
-          onChange={(value) => {
-            setDraft(value);
-            commitDraft(value);
-          }}
-          onEnter={() => commitDraft(draft, "enter")}
-          autoFocus
-        />
-      </div>
-    );
-  } else if (capability.widget === "timestamp" || capability.widget === "time") {
+  } else if (
+    capability.widget === "date" ||
+    capability.widget === "timestamp" ||
+    capability.widget === "time"
+  ) {
+    const hasCalendar = capability.widget === "date" || capability.widget === "timestamp";
     control = (
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <input
@@ -192,13 +173,13 @@ export function InlineCellEditor({
           spellCheck={false}
           className={PLAIN_INPUT_CLASS}
         />
-        {capability.widget === "timestamp" && (
+        {hasCalendar && (
           <button
             ref={pickerAnchorRef}
             type="button"
             tabIndex={-1}
-            aria-label="Open date/time picker"
-            title="Open date/time picker"
+            aria-label={capability.widget === "date" ? "Open date picker" : "Open date/time picker"}
+            title={capability.widget === "date" ? "Open date picker" : "Open date/time picker"}
             // Keeps focus on the text input instead of blurring it - a plain onClick would blur
             // (and thus commit) the input before this button's own click updates `pickerOpen`,
             // staging a spurious no-op edit just from opening the picker.
@@ -219,10 +200,11 @@ export function InlineCellEditor({
             <CalendarPicker
               value={draft.slice(0, 10)}
               onChange={(date) => {
-                // Calendar editing changes only the date prefix. Preserve the exact separator,
-                // time, fractional seconds, and timezone tail already present in the cell.
-                const tail = /^\d{4}-\d{2}-\d{2}(.*)$/.exec(draft)?.[1] ?? " 00:00";
-                setDraft(`${date}${tail}`);
+                const next =
+                  capability.widget === "date"
+                    ? date
+                    : `${date}${/^\d{4}-\d{2}-\d{2}(.*)$/.exec(draft)?.[1] ?? " 00:00"}`;
+                setDraft(next);
                 setError(undefined);
                 setPickerOpen(false);
                 requestAnimationFrame(() => draftInputRef.current?.focus());

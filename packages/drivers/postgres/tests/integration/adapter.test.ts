@@ -174,6 +174,37 @@ describe("PostgresAdapter integration", () => {
     expect(page.columns).toEqual(expect.arrayContaining(["id", "name", "email"]));
   });
 
+  it("filters JSON and native arrays by semantic containment", async () => {
+    await runStatements(databaseUrl, [
+      "DROP TABLE IF EXISTS qyre_test_structured_filters",
+      "CREATE TABLE qyre_test_structured_filters (id integer PRIMARY KEY, payload jsonb NOT NULL, tags text[] NOT NULL)",
+      `INSERT INTO qyre_test_structured_filters VALUES
+        (1, '{"role":"admin","active":true}', ARRAY['one','two']),
+        (2, '{"role":"reader","active":true}', ARRAY['two'])`
+    ]);
+    try {
+      const page = await adapter.getRows(
+        FIXTURE.schema,
+        "qyre_test_structured_filters",
+        0,
+        10,
+        undefined,
+        [
+          {
+            column: "payload",
+            op: "contains",
+            value: '{"role":"admin"}',
+            columnDataType: "jsonb"
+          },
+          { column: "tags", op: "contains", value: '["one"]', columnDataType: "ARRAY" }
+        ]
+      );
+      expect(page.rows.map((row) => row.id)).toEqual([1]);
+    } finally {
+      await runStatements(databaseUrl, ["DROP TABLE IF EXISTS qyre_test_structured_filters"]);
+    }
+  });
+
   it("inserts a row and returns it, then the row is visible via getRows (F099)", async () => {
     const result = await adapter.mutations.insertRow?.(FIXTURE.schema, FIXTURE.table, {
       name: "Insert Test",
@@ -468,7 +499,7 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
-  it("round-trips bytea, bit, bit varying, inet, and XML edits through bound values", async () => {
+  it("round-trips temporal, interval, bytea, bit, network, and XML edits", async () => {
     await runStatements(databaseUrl, [
       "DROP TABLE IF EXISTS qyre_test_special_edits",
       `CREATE TABLE qyre_test_special_edits (
@@ -476,12 +507,16 @@ describe("PostgresAdapter integration", () => {
          bytes bytea NOT NULL,
          fixed_bits bit(4) NOT NULL,
          variable_bits bit varying(8) NOT NULL,
+         calendar_day date NOT NULL,
+         zoned_time time with time zone NOT NULL,
+         duration interval NOT NULL,
          address inet NOT NULL,
          document xml NOT NULL
        )`,
       `INSERT INTO qyre_test_special_edits
-         (id, bytes, fixed_bits, variable_bits, address, document)
-       VALUES (1, '\\x00', B'0000', B'0', '127.0.0.1', '<root/>')`
+         (id, bytes, fixed_bits, variable_bits, calendar_day, zoned_time, duration, address, document)
+       VALUES (1, '\\x00', B'0000', B'0', '2026-07-16', '01:30:45.123456+02',
+         '1 day 02:03:04.5', '127.0.0.1', '<root/>')`
     ]);
 
     try {
@@ -494,6 +529,9 @@ describe("PostgresAdapter integration", () => {
             bytes: Buffer.from([0, 202, 254, 255]),
             fixed_bits: "1010",
             variable_bits: "00101",
+            calendar_day: "2026-07-17",
+            zoned_time: "01:30:46.123456+02",
+            duration: "2 days 03:04:05.75",
             address: "2001:db8::1/64",
             document: "<root><value>two</value></root>"
           }
@@ -505,6 +543,9 @@ describe("PostgresAdapter integration", () => {
         bytes: Buffer.from([0, 202, 254, 255]),
         fixed_bits: "1010",
         variable_bits: "00101",
+        calendar_day: "2026-07-17",
+        zoned_time: "01:30:46.123456+02",
+        duration: "2 days 03:04:05.75",
         address: "2001:db8::1/64",
         document: "<root><value>two</value></root>"
       });

@@ -11,6 +11,7 @@ import { useState } from "react";
 import { cn } from "../../cn.js";
 import { Button } from "../../primitives/controls/button.js";
 import { Field } from "../../primitives/controls/field.js";
+import { BinaryTextEditor, formatBinaryHex } from "./binary-text-editor.js";
 import { EditorActions } from "./editor-actions.js";
 import { StructuredTextEditor } from "./structured-text-editor.js";
 
@@ -40,9 +41,9 @@ function setInitialValue(value: unknown): string[] {
 }
 
 /**
- * The full-value editor for widgets too large for in-place editing (F146). JSON/arrays/binary/XML
- * use its streamlined drawer presentation; SET retains the anchored popover and optional drawer
- * expansion.
+ * The full-value editor for widgets too large for in-place editing (F146). JSON, arrays, binary,
+ * XML, and PostgreSQL intervals use its streamlined drawer presentation; SET retains the anchored
+ * popover and optional drawer expansion.
  */
 export function TypedValueEditor({
   column,
@@ -60,7 +61,9 @@ export function TypedValueEditor({
   };
   const capability = mutationEditorCapability(column.dataType, engine, metadata);
   const initialText = mutationValueText(originalValue, capability);
-  const [draft, setDraft] = useState(initialText);
+  const [draft, setDraft] = useState(() =>
+    capability.widget === "binary" ? formatBinaryHex(initialText) : initialText
+  );
   const [selectedSet, setSelectedSet] = useState(() => setInitialValue(originalValue));
   const [nullDraft, setNullDraft] = useState(originalValue === null);
   const [error, setError] = useState<string>();
@@ -157,8 +160,21 @@ export function TypedValueEditor({
         label={minimalDrawer ? "JSON editor" : "New value"}
         error={error}
         autoFocus
-        minHeightClassName={minimalDrawer ? "min-h-[calc(100vh-9rem)]" : "min-h-40"}
+        minHeightClassName="min-h-40"
         variant={minimalDrawer ? "minimal" : "full"}
+      />
+    );
+  } else if (capability.widget === "binary") {
+    control = (
+      <BinaryTextEditor
+        text={draft}
+        onChange={(value) => {
+          setDraft(value);
+          setError(undefined);
+        }}
+        label={controlLabel}
+        error={error}
+        autoFocus
       />
     );
   } else {
@@ -174,14 +190,20 @@ export function TypedValueEditor({
         spellCheck={false}
         className={cn(
           "w-full resize-y overflow-auto rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary",
-          minimalDrawer ? "min-h-[calc(100vh-9rem)]" : "min-h-32 max-h-72"
+          minimalDrawer ? "h-full min-h-40 resize-none" : "min-h-32 max-h-72"
         )}
       />
     );
   }
 
   return (
-    <div className="grid w-full max-w-full gap-2 p-2" onKeyDown={handleKeyDown}>
+    <div
+      className={cn(
+        "w-full max-w-full p-2",
+        minimalDrawer ? "flex h-full min-h-0 flex-col gap-2" : "grid gap-2"
+      )}
+      onKeyDown={handleKeyDown}
+    >
       {(!minimalDrawer || column.nullable) && (
         <div className="flex items-start gap-2">
           {!minimalDrawer && (
@@ -218,7 +240,9 @@ export function TypedValueEditor({
         </div>
       )}
       {structured || minimalDrawer ? (
-        control
+        <div className={minimalDrawer ? "min-h-0 flex-1 overflow-hidden" : undefined}>
+          {control}
+        </div>
       ) : (
         <Field
           label="New value"
@@ -228,7 +252,7 @@ export function TypedValueEditor({
           {control}
         </Field>
       )}
-      {!structured && minimalDrawer && error && (
+      {!structured && capability.widget !== "binary" && minimalDrawer && error && (
         <p className="font-mono text-[9px]" style={{ color: "var(--c-red)" }}>
           {error}
         </p>

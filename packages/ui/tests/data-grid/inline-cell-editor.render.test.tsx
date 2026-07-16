@@ -160,6 +160,39 @@ describe("InlineCellEditor (F146)", () => {
     expect(onApply).toHaveBeenCalledWith(changed);
   });
 
+  it("edits PostgreSQL date and time-with-zone strings directly", () => {
+    const onDateApply = vi.fn();
+    const { unmount } = render(
+      <InlineCellEditor
+        column={{ name: "day", dataType: "date", nullable: false }}
+        engine="postgres"
+        originalValue="2026-07-16"
+        onApply={onDateApply}
+        onCancel={vi.fn()}
+      />
+    );
+    const dateInput = screen.getByLabelText("day");
+    fireEvent.change(dateInput, { target: { value: "2026-07-17" } });
+    fireEvent.keyDown(dateInput, { key: "Enter" });
+    expect(onDateApply).toHaveBeenCalledWith("2026-07-17");
+    unmount();
+
+    const onTimeApply = vi.fn();
+    render(
+      <InlineCellEditor
+        column={{ name: "clock", dataType: "time with time zone", nullable: false }}
+        engine="postgres"
+        originalValue="01:30:45.123456+02"
+        onApply={onTimeApply}
+        onCancel={vi.fn()}
+      />
+    );
+    const timeInput = screen.getByLabelText("clock");
+    fireEvent.change(timeInput, { target: { value: "01:30:46.123456+02" } });
+    fireEvent.keyDown(timeInput, { key: "Enter" });
+    expect(onTimeApply).toHaveBeenCalledWith("01:30:46.123456+02");
+  });
+
   it("opening the date/time picker never stages a no-op edit for an unchanged value", () => {
     const onApply = vi.fn();
     render(

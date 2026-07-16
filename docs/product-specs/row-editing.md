@@ -189,16 +189,21 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
   - `JSON` / `JSONB`: the editor parses JSON, reports line and column, formats on explicit request,
     and stages the parsed JSON value. Editing opens directly in the established right-side drawer,
     with the column named once in its header and no intermediate popover or duplicated metadata.
-    The streamlined drawer retains Format, validation errors, nullable selection, Cancel, and Apply;
-    Minify, Copy, and explanatory helper text are omitted from this mutation surface. The server
+    The viewport-bounded drawer retains Format, Minify, Copy, validation errors, nullable selection,
+    Cancel, and Apply; its action row remains visible without scrolling below the editor. The server
     serializes the value exactly once for the SQL driver.
     PostgreSQL native scalar arrays use the same full-value surface but require a JSON array and
     remain native arrays at the driver boundary. SQLite has no native array contract; MySQL arrays
     remain JSON values rather than a separate native array kind.
-  - `binary`: the right-side drawer displays canonical lowercase hexadecimal text. It also accepts
-    an optional `\\x` prefix, rejects non-hex or odd-length drafts, and normalizes the value before
+  - `binary`: the right-side drawer displays canonical lowercase hexadecimal bytes grouped into
+    readable 16-byte rows, with a byte count and ASCII preview. It accepts optional `\\x`/`0x`
+    prefixes and whitespace, rejects non-hex or incomplete bytes, and normalizes the value before
     staging. The server converts the validated hex to a bound `Buffer`; PostgreSQL `bytea`, MySQL
-    binary/blob families, and SQLite `BLOB` therefore share one lossless byte contract.
+    binary/blob families, and SQLite `BLOB` therefore share one lossless byte contract. Grid chrome
+    uses the friendly type label `bytes`; schema details retain the exact engine type.
+  - PostgreSQL `interval`: the driver preserves the raw database text rather than exposing `pg`'s
+    parsed object shape. The right-side drawer edits that exact text and binds it unchanged, leaving
+    interval grammar and range validation to PostgreSQL.
   - PostgreSQL `bit` / `bit varying`: a scalar string containing only `0` and `1`, preserving
     leading zeroes. MySQL `BIT` remains read-only until column bit length is carried with the row
     value so its Buffer representation can be decoded without guessing.
@@ -229,6 +234,7 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
 | Boolean / nullable boolean | tri-state selector                      | tri-state selector                    | tri-state selector when declared boolean | whole-document EJSON                   |
 | Enum / set                 | catalog enum selector; no native set    | `ENUM` selector; `SET` multiselect    | not applicable                           | whole-document EJSON                   |
 | Date / time / timestamp    | exact date/time/local/offset editors    | exact date/time/local editors         | exact declared-type editor               | whole-document EJSON                   |
+| Interval                   | raw-text drawer                         | not applicable                        | not applicable                           | whole-document EJSON                   |
 | JSON                       | JSON/JSONB editor                       | JSON editor                           | declared JSON editor                     | shared structured editor in EJSON mode |
 | Native scalar array        | JSON-array editor with element metadata | not applicable outside JSON           | not applicable                           | whole-document EJSON                   |
 | Binary                     | hex drawer -> bound `Buffer`            | hex drawer -> bound `Buffer`          | hex drawer -> bound `Buffer`             | whole-document EJSON                   |

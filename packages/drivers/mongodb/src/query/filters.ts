@@ -31,6 +31,20 @@ function buildMongoCondition(
   if (filter.op === "isNull") return { [filter.column]: { $eq: null } };
   if (filter.op === "isNotNull") return { [filter.column]: { $ne: null } };
   if (filter.op === "contains") {
+    if (["object", "array"].includes(filter.columnDataType?.toLowerCase() ?? "")) {
+      const candidate = JSON.parse(filter.value ?? "null") as unknown;
+      if (Array.isArray(candidate)) return { [filter.column]: { $all: candidate } };
+      if (candidate && typeof candidate === "object") {
+        const entries = Object.entries(candidate);
+        if (entries.length === 0) return { [filter.column]: { $type: "object" } };
+        return {
+          $and: entries.map(([key, value]) => ({
+            [`${filter.column}.${key}`]: value
+          }))
+        };
+      }
+      return { [filter.column]: candidate };
+    }
     return { [filter.column]: { $regex: escapeRegExp(filter.value ?? ""), $options: "i" } };
   }
   const value = coerceFilterValue(

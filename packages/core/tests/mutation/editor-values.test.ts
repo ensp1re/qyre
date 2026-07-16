@@ -32,6 +32,7 @@ describe("mutation editor exact values", () => {
 
   it("preserves PostgreSQL seconds, fractions, and offsets", () => {
     expect(isExactTimeText("01:30:45.123456-04:00", "postgres")).toBe(true);
+    expect(isExactTimeText("01:30:45.123456+02", "postgres")).toBe(true);
     expect(isExactTimestampText("2024-11-03 01:30:45.123456-04:00", "timestamp-time-zone")).toBe(
       true
     );
@@ -85,10 +86,23 @@ describe("mutation editor exact values", () => {
       valid: true,
       value: "cafe"
     });
+    expect(parseMutationDraft("0x00 ca fe ff", capability, "postgres")).toEqual({
+      valid: true,
+      value: "00cafeff"
+    });
     expect(parseMutationDraft("abc", capability, "postgres")).toMatchObject({
       valid: false,
       error: expect.stringMatching(/even number/i)
     });
+  });
+
+  it("preserves PostgreSQL interval text for native validation", () => {
+    const capability = mutationEditorCapability("interval", "postgres");
+    expect(parseMutationDraft("1 year 2 mons 03:04:05.678", capability, "postgres")).toEqual({
+      valid: true,
+      value: "1 year 2 mons 03:04:05.678"
+    });
+    expect(parseMutationDraft("", capability, "postgres")).toMatchObject({ valid: false });
   });
 
   it("validates PostgreSQL bit strings without numeric coercion", () => {

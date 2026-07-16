@@ -112,6 +112,18 @@ describe("MongodbAdapter integration", () => {
     expect(ada?.profile).toEqual({ account: { tags: ["admin", "beta"] } });
   });
 
+  it("filters a top-level object by semantic containment", async () => {
+    const page = await adapter.getRows(databaseName, FIXTURE.table, 0, 10, undefined, [
+      {
+        column: "profile",
+        op: "contains",
+        value: '{"account":{"tags":["admin","beta"]}}',
+        columnDataType: "object"
+      }
+    ]);
+    expect(page.rows.map((row) => row.name)).toEqual(["Ada Lovelace"]);
+  });
+
   it("normalizes BSON types that don't serialize usefully over JSON to plain values", async () => {
     const client = new MongoClient(mongoUrl);
     try {

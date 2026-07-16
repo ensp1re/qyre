@@ -85,8 +85,22 @@ describe("filterCapabilityForColumn", () => {
     }
   });
 
-  it("limits structured values to null checks only when nullable", () => {
+  it("offers semantic contains for PostgreSQL JSON and arrays", () => {
     const [metadata, engine] = column("jsonb", true, "postgres");
+    expect(filterCapabilityForColumn(metadata, engine)).toMatchObject({
+      operators: ["contains", "isNull", "isNotNull"],
+      valueInput: "json"
+    });
+    expect(
+      filterCapabilityForColumn(column("ARRAY", false, "postgres")[0], "postgres")
+    ).toMatchObject({
+      operators: ["contains"],
+      valueInput: "json"
+    });
+  });
+
+  it("keeps structured contains hidden without a native engine contract", () => {
+    const [metadata, engine] = column("json", true, "sqlite");
     expect(filterCapabilityForColumn(metadata, engine).operators).toEqual(["isNull", "isNotNull"]);
   });
 });

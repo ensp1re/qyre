@@ -20,7 +20,7 @@ export function EditorActions({
   applyDisabled
 }: EditorActionsProps): ReactNode {
   return (
-    <div className="flex items-center gap-1.5 border-t border-border pt-2">
+    <div className="flex shrink-0 items-center gap-1.5 border-t border-border pt-2">
       {onFormat && (
         <Button variant="ghost" size="sm" onClick={onFormat}>
           <Braces className="h-2.5 w-2.5" />

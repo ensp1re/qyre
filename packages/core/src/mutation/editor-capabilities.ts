@@ -9,6 +9,7 @@ export type MutationEditorKind =
   | "time"
   | "timestamp-local"
   | "timestamp-time-zone"
+  | "interval"
   | "enum"
   | "set"
   | "structured"
@@ -28,6 +29,7 @@ export type MutationEditorWidget =
   | "date"
   | "time"
   | "timestamp"
+  | "interval"
   | "enum"
   | "set"
   | "json"
@@ -101,6 +103,7 @@ export function mutationEditorCapability(
   }
   if (type.startsWith("time")) return available("time", "time");
   if (type.startsWith("date")) return available("date", "date");
+  if (engine === "postgres" && type === "interval") return available("interval", "interval");
 
   if (type.includes("json")) return available("structured", "json");
   if (metadata.elementDataType || type.includes("array") || type.endsWith("[]")) {

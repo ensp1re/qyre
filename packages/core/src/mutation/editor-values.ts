@@ -9,10 +9,19 @@ const EXACT_NUMBER = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const LOCAL_TIME = /^(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?$/;
-const OFFSET = /(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/i;
+// PostgreSQL emits whole-hour time-zone offsets as `+02`, while ISO inputs commonly use `+02:00`
+// or `+0200`. Preserve every accepted shape verbatim instead of normalizing through Date.
+const OFFSET = /(?:Z|[+-](?:[01]\d|2[0-3])(?::?[0-5]\d)?)$/i;
 const MYSQL_TIME = /^-?(?:(?:\d{1,2}|[0-7]\d{2}|8[0-2]\d|83[0-8])):[0-5]\d:[0-5]\d(?:\.\d{1,6})?$/;
 const BIT_STRING = /^[01]+$/;
 const BINARY_HEX = /^(?:[0-9a-f]{2})*$/i;
+
+function normalizedBinaryHex(value: string): string {
+  return value
+    .trim()
+    .replace(/^(?:\\x|0x)/i, "")
+    .replace(/\s+/g, "");
+}
 
 function invalid(error: string): MutationValueResult {
   return { valid: false, error };
@@ -123,6 +132,10 @@ export function validateMutationValue(
     case "network":
     case "xml":
       return typeof value === "string" ? { valid: true, value } : invalid("Expected text.");
+    case "interval":
+      return typeof value === "string" && value.trim().length > 0
+        ? { valid: true, value }
+        : invalid("Enter a PostgreSQL interval value.");
     case "bit-string":
       return typeof value === "string" && BIT_STRING.test(value)
         ? { valid: true, value }
@@ -150,7 +163,7 @@ export function validateMutationValue(
         : invalid(
             engine === "mysql"
               ? "Use MySQL TIME format HH:MM:SS[.fraction], including an optional leading minus."
-              : "Use HH:MM[:SS[.fraction]][Z|±HH:MM]."
+              : "Use HH:MM[:SS[.fraction]][Z|±HH|±HHMM|±HH:MM]."
           );
     case "timestamp-local":
     case "timestamp-time-zone":
@@ -184,10 +197,10 @@ export function validateMutationValue(
       }
     case "binary": {
       if (typeof value !== "string") return invalid("Enter bytes as hexadecimal text.");
-      const normalized = value.trim().replace(/^\\x/i, "");
+      const normalized = normalizedBinaryHex(value);
       return BINARY_HEX.test(normalized)
         ? { valid: true, value: normalized.toLowerCase() }
-        : invalid("Use an even number of hexadecimal digits (0-9, A-F).");
+        : invalid("Use an even number of hexadecimal digits (0-9, A-F); spaces are allowed.");
     }
     case "null":
     case "unknown":

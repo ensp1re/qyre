@@ -186,6 +186,40 @@ describe("MysqlAdapter integration", () => {
     expect(page.columns).toEqual(expect.arrayContaining(["id", "name", "email"]));
   });
 
+  it("filters JSON by semantic containment", async () => {
+    const pool = mysql.createPool(databaseUrl);
+    await pool.query("DROP TABLE IF EXISTS qyre_test_structured_filters");
+    await pool.query(
+      "CREATE TABLE qyre_test_structured_filters (id INT PRIMARY KEY, payload JSON NOT NULL)"
+    );
+    await pool.query(
+      `INSERT INTO qyre_test_structured_filters VALUES
+        (1, '{"role":"admin","active":true}'),
+        (2, '{"role":"reader","active":true}')`
+    );
+    try {
+      const page = await adapter.getRows(
+        databaseName,
+        "qyre_test_structured_filters",
+        0,
+        10,
+        undefined,
+        [
+          {
+            column: "payload",
+            op: "contains",
+            value: '{"role":"admin"}',
+            columnDataType: "json"
+          }
+        ]
+      );
+      expect(page.rows.map((row) => row.id)).toEqual([1]);
+    } finally {
+      await pool.query("DROP TABLE IF EXISTS qyre_test_structured_filters");
+      await pool.end();
+    }
+  });
+
   it("inserts a row, reports it back via the auto-increment column, and it's visible via getRows (F099)", async () => {
     const result = await adapter.mutations.insertRow?.(databaseName, FIXTURE.table, {
       name: "Insert Test",

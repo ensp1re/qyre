@@ -110,7 +110,11 @@ export function EditableCell({
   const capability = mutationEditorCapability(dataType, engine, metadata);
   const inspectable = hasInspectAffordance(displayValue, dataType, Boolean(onInspectDate));
   const structured = capability.widget === "json" || capability.widget === "array";
-  const drawer = structured || capability.widget === "binary" || capability.widget === "xml";
+  const drawer =
+    structured ||
+    capability.widget === "binary" ||
+    capability.widget === "xml" ||
+    capability.widget === "interval";
   const wide = drawer || capability.widget === "set";
 
   useEffect(() => {

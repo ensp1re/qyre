@@ -87,7 +87,10 @@ Binary mutation uses canonical hexadecimal text in the full-value drawer and con
 even-length hex to a bound Buffer at the server boundary for PostgreSQL `bytea`, MySQL binary/blob
 families, and SQLite `BLOB`. PostgreSQL bit strings preserve leading zeroes as validated `0`/`1`
 text; native network values bind exact text; XML uses a raw multiline drawer and native database
-validation. Unknown families still fail closed.
+validation. The binary drawer accepts whitespace-separated hex, shows byte count and ASCII preview,
+and labels these engine-native families as `bytes` in grid chrome without hiding their raw schema
+type. PostgreSQL intervals are returned and edited as raw database text instead of `pg`'s parsed
+object shape. Unknown families still fail closed.
 
 ## Scope
 
@@ -99,10 +102,8 @@ Out of scope (not defects, confirmed correct or acceptable as-is during the same
 - Postgres `numeric`/`bigint` (already string-typed by `pg`'s default, no precision loss), `array`,
   `json`/`jsonb` (F016), `uuid`, `inet`/`cidr`/`macaddr`, `money`, `bit` - all render as plain text
   today and are accurate.
-- Postgres `interval` (`{ days, hours, ... }`) and `point` (`{ x, y }`) render via the generic
-  structured-value chip (F016) rather than a bespoke format - genuinely object-shaped data, not a
-  misrepresentation, just not maximally idiomatic. A dedicated interval/point formatter is a
-  possible future enhancement, not a defect.
+- Postgres `point` (`{ x, y }`) renders via the generic structured-value chip (F016). A dedicated
+  point formatter remains a possible future enhancement.
 - MySQL `TINYINT(1)`/`BOOLEAN` renders as `1`/`0` rather than `true`/`false` - MySQL's own wire
   protocol doesn't distinguish a `BOOLEAN` from a small `TINYINT`, so this isn't misrepresenting
   the data, just not the most idiomatic label. Possible future enhancement, not a defect.

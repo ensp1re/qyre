@@ -15,6 +15,7 @@ const OFFSET = /(?:Z|[+-](?:[01]\d|2[0-3])(?::?[0-5]\d)?)$/i;
 const MYSQL_TIME = /^-?(?:(?:\d{1,2}|[0-7]\d{2}|8[0-2]\d|83[0-8])):[0-5]\d:[0-5]\d(?:\.\d{1,6})?$/;
 const BIT_STRING = /^[01]+$/;
 const BINARY_HEX = /^(?:[0-9a-f]{2})*$/i;
+const OBJECT_ID = /^[0-9a-f]{24}$/i;
 
 function normalizedBinaryHex(value: string): string {
   return value
@@ -131,6 +132,21 @@ function intervalObjectText(value: unknown): string | undefined {
 }
 
 export function mutationValueText(value: unknown, capability: MutationEditorCapability): string {
+  if (value === undefined) {
+    const bsonTemplate =
+      capability.kind === "bson-regex"
+        ? { pattern: "", options: "" }
+        : capability.kind === "bson-timestamp"
+          ? { t: 0, i: 0 }
+          : capability.kind === "bson-code"
+            ? { code: "", scope: {} }
+            : capability.kind === "bson-min-key"
+              ? { $minKey: 1 }
+              : capability.kind === "bson-max-key"
+                ? { $maxKey: 1 }
+                : undefined;
+    if (bsonTemplate) return JSON.stringify(bsonTemplate, null, 2);
+  }
   if (value === null || value === undefined) return "";
   if (capability.kind === "interval") {
     const text = intervalObjectText(value);
@@ -162,6 +178,24 @@ export function mutationValueText(value: unknown, capability: MutationEditorCapa
   return String(value);
 }
 
+function recordValue(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {
+  return Object.keys(value).every((key) => allowed.includes(key));
+}
+
+function validBsonRegexOptions(options: string): boolean {
+  return /^[ilmsux]*$/.test(options) && new Set(options).size === options.length;
+}
+
+function uint32(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 0xffffffff;
+}
+
 export function validateMutationValue(
   capability: MutationEditorCapability,
   value: unknown,
@@ -184,6 +218,10 @@ export function validateMutationValue(
     case "identifier":
       if (typeof value !== "string" || !UUID.test(value)) return invalid("Enter a valid UUID.");
       return { valid: true, value };
+    case "object-id":
+      return typeof value === "string" && OBJECT_ID.test(value)
+        ? { valid: true, value: value.toLowerCase() }
+        : invalid("Enter a 24-character hexadecimal ObjectId.");
     case "numeric":
       if (typeof value === "number") {
         return Number.isFinite(value) ? { valid: true, value } : invalid("Enter a finite number.");
@@ -226,6 +264,47 @@ export function validateMutationValue(
         )
         ? { valid: true, value }
         : invalid("Choose only available set values.");
+    case "bson-regex": {
+      const regex = recordValue(value);
+      return regex &&
+        hasOnlyKeys(regex, ["pattern", "options"]) &&
+        typeof regex.pattern === "string" &&
+        typeof regex.options === "string" &&
+        validBsonRegexOptions(regex.options)
+        ? { valid: true, value }
+        : invalid('Use {"pattern":"...","options":"im"} with valid BSON regex options.');
+    }
+    case "bson-timestamp": {
+      const timestamp = recordValue(value);
+      return timestamp &&
+        hasOnlyKeys(timestamp, ["t", "i"]) &&
+        uint32(timestamp.t) &&
+        uint32(timestamp.i)
+        ? { valid: true, value }
+        : invalid('Use {"t":<uint32>,"i":<uint32>} for the BSON timestamp.');
+    }
+    case "bson-code": {
+      const code = recordValue(value);
+      const scope = code?.scope;
+      return code &&
+        hasOnlyKeys(code, ["code", "scope"]) &&
+        typeof code.code === "string" &&
+        (scope === undefined || recordValue(scope) !== undefined)
+        ? { valid: true, value }
+        : invalid('Use {"code":"...","scope":{}}; scope is optional and must be an object.');
+    }
+    case "bson-min-key": {
+      const minKey = recordValue(value);
+      return minKey && hasOnlyKeys(minKey, ["$minKey"]) && minKey.$minKey === 1
+        ? { valid: true, value }
+        : invalid('Use {"$minKey":1}.');
+    }
+    case "bson-max-key": {
+      const maxKey = recordValue(value);
+      return maxKey && hasOnlyKeys(maxKey, ["$maxKey"]) && maxKey.$maxKey === 1
+        ? { valid: true, value }
+        : invalid('Use {"$maxKey":1}.');
+    }
     case "structured":
       if (capability.widget === "array" && !Array.isArray(value)) {
         return invalid("Enter a JSON array.");
@@ -245,7 +324,6 @@ export function validateMutationValue(
     }
     case "null":
     case "unknown":
-    case "object-id":
       return invalid(capability.unavailableReason ?? "This value is not editable.");
   }
 }

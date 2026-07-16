@@ -152,7 +152,7 @@ export function applyRemoveRowEdits(edits: PendingEdits, rowKey: string): Pendin
 }
 
 /**
- * Client-side pending-changes buffer for the SQL editable grid (F103): edits stage here without
+ * Client-side pending-changes buffer for the shared SQL/MongoDB editable grid (F103/F146): edits stage here without
  * touching the server. Commit wiring (F105) reads from this same buffer; this hook only owns the
  * staging/reverting itself. Keyed by an opaque row identity (see `computeRowKey`), not page
  * position, so a staged edit survives pagination/sort/filter changes as long as the row is still

@@ -13,47 +13,44 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Completed
 
 - DF-10 through DF-12 (audit, editing integrity, shared typed editors) are passing and merged.
-- F146 rounds 1-2 (pushed, PR #160): restored CellValue affordances and introduced whole-cell
-  selection, inline scalar editing, single-active-editor coordination, keyboard navigation,
-  copy/paste/undo/null shortcuts, staged commit, fixed columns, and structured editor expansion.
-- F146 rounds 3-5: refined whole-cell edit emphasis, nullable/URL/long-text/loading behavior,
-  shared boolean and timestamp-calendar controls, adaptive labels, cross-cell dismissal, and the
-  non-executing Explain-only SQL action.
-- F146 round 6: JSON and supported-array editing now opens directly in the established right-side
-  drawer for existing and inserted rows. The mutation surface names the column once and keeps only
-  the full-value editor, Format, validation, nullable selection, Cancel, and Apply; the intermediate
-  popover, Expand step, duplicated type/value labels, helper copy, Minify, and Copy are removed.
-- F146 round 7: successful mutation/DDL/destructive SQL now invalidates catalog, selected-table,
-  and row caches so created tables appear in the sidebar without reload. PostgreSQL `bytea`, `bit`,
-  `bit varying`, `inet`/network, and XML are mutation-safe: binary uses validated hex converted to a
-  bound Buffer, bit strings preserve leading zeroes, network/XML bind exact text, and binary/XML use
-  the streamlined right-side drawer. The same binary contract is live-verified for MySQL blob and
-  SQLite BLOB; MongoDB remains whole-document EJSON.
-- F146 round 8: date, time, time-with-time-zone, timestamp, and PostgreSQL interval values now keep
-  exact editable text; interval uses the right drawer instead of a parsed object. JSON drawers are
-  viewport-bounded with Format/Minify/Copy and fixed Apply/Cancel actions. Binary editing now uses
-  grouped hex, accepts prefixes/whitespace, reports byte count, previews ASCII, and appears as
-  `bytes` in grid/filter chrome while preserving the schema's real type. PostgreSQL JSON/native
-  arrays, MySQL JSON, and MongoDB objects/arrays gained native `contains` filters; enum equality
-  filters reuse the enum selector. SQLite structured containment remains explicitly unavailable.
-- F146 round 9: inline scalar editing keeps an invisible copy of the shortened display value in
-  table layout while the input overlays it, so double-clicking a long value no longer collapses
-  the column. Component coverage and a real-browser long-text fixture verify stable geometry.
-- F146 round 10: SQL JSON/array `contains` accepts ordinary substring text on PostgreSQL, MySQL,
-  and SQLite; MongoDB retains native structured containment. Legacy PostgreSQL interval objects
-  reopen as interval text, and invalid drawer drafts disable click and keyboard Apply.
-- F146 round 11: Duplicate row normalizes transport-level Buffer objects to canonical hexadecimal
-  drafts, so untouched PostgreSQL bytea, MySQL binary/blob, and SQLite BLOB values remain insertable.
+- F146 rounds 1-5 (PR #160): whole-cell scalar editing, stable selection, keyboard/copy/paste/undo,
+  staged commits, single-editor coordination, responsive controls, and Explain-only SQL behavior.
+- Rounds 6-8: compact validated drawers for structured/binary/XML/interval values, lossless temporal
+  editing, cross-engine byte handling, enum selectors, containment filters, and post-write refresh.
+- Rounds 9-11: stable long-text geometry, plain substring SQL JSON/array filters, invalid-Apply
+  blocking, legacy interval normalization, and insert-safe binary duplication.
 
 ## In progress
 
-- Round 11 is implemented as `6bd5276` on draft PR #160. Focused core/server/UI and driver
-  unit/live-integration suites pass. PostgreSQL browser QA proves ordinary JSON substring filtering,
-  readable interval editing, and invalid-to-valid interval/bytes Apply states; prior focused E2E
-  covers temporal/interval/binary persistence and stable long-text geometry. Full local `pnpm verify:pr`
-  passes 34/34 package tasks, 11 smoke E2E with four expected skips, and 30 full E2E with 47
-  expected skips, locally and in the pre-push hook. Current step: wait for GitHub Actions credits,
-  rerun CI, and move F146 to passing after both jobs succeed.
+- Round 12 is implemented locally and intentionally uncommitted/unpushed pending user UI approval.
+  MongoDB now uses the shared typed grid for Add/Duplicate/edit/delete/Commit, previews JSON
+  operations, preserves BSON types in field-level `$set` updates, and rejects same-field concurrent
+  edits. Focused core/UI/web/server tests, live MongoDB integration, and MongoDB browser E2E pass.
+  The full local `pnpm verify:pr` gate passes with 34/34 package tasks, check:state, smoke E2E
+  (11 passed, 4 skipped), and full E2E (30 passed, 47 skipped). Current step: rebuild the CLI bundle,
+  open the UI, and wait for user approval before any commit or push.
+- Round 13 is in progress locally: MongoDB regex, timestamp, code, MinKey, and MaxKey fields now
+  receive dedicated validated JSON drawer editors instead of `unsupported`; Add row prefills valid
+  type templates, and the server/driver round-trip them as native BSON values. The full local
+  `pnpm verify:pr` gate passes with 34/34 package tasks, check:state, smoke E2E (11 passed, 4
+  skipped), and full E2E (30 passed, 47 skipped). Current step: rebuild and reopen the UI, then wait
+  for user approval. Do not commit or push before approval.
+- Round 14 fixes MongoDB row commits that received `_id` as an ObjectId/Extended JSON object instead
+  of plain text. The adapter now emits ObjectIds as stable lowercase hex row keys across BSON
+  package boundaries, while server validation safely accepts and normalizes `$oid`. Server tests
+  pass 308/308, live MongoDB passes 77/77, the focused Mongo browser commit journey passes, and the
+  full local gate passes with 34/34 package tasks, smoke E2E (11 passed, 4 skipped), and full E2E
+  (30 passed, 47 skipped). Current step: reopen the rebuilt app and wait for user validation; do not
+  commit or push before approval.
+- Round 15 handles a pre-fix browser page that still submits the exact legacy 12-byte ObjectId
+  buffer shape. The rebuilt production server accepted that payload and restored the edited demo
+  row, then the rebuilt browser UI committed and restored the row again without error. Server tests
+  pass 309/309 and the Node 22 full gate passes unchanged. Port 7717 is running the rebuilt CLI;
+  do not commit or push before approval.
+- Round 16 fixes fast click-away staging for inline scalar inputs by committing the DOM input's live
+  value instead of a potentially one-render-old React draft. All 421 UI tests pass, and rebuilt
+  production browser checks stage the changed value on click-away in MongoDB and PostgreSQL. The
+  user approved commit and push; run the Node 22 full gate, commit, and push normally.
 
 ## Known issues / blockers
 

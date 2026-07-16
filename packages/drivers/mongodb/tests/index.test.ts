@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ConnectionTarget } from "@qyre/core";
+import { ObjectId as DirectBsonObjectId } from "bson";
 import {
   Binary,
   BSONRegExp,
@@ -24,6 +25,14 @@ import {
 } from "../src/index.js";
 
 describe("normalizeBsonValue", () => {
+  it("normalizes ObjectId to stable hexadecimal text for row identity", () => {
+    expect(normalizeBsonValue(new ObjectId("507f1f77bcf86cd799439011"))).toBe(
+      "507f1f77bcf86cd799439011"
+    );
+    expect(normalizeBsonValue(new DirectBsonObjectId("507f1f77bcf86cd799439011"))).toBe(
+      "507f1f77bcf86cd799439011"
+    );
+  });
   it("preserves a Timestamp's {t, i} semantics instead of misreading it as a signed Long (F045)", () => {
     const ts = Timestamp.fromBits(5, 1700000000);
     expect(ts).toBeInstanceOf(Long);
@@ -79,9 +88,13 @@ describe("classifyBsonValue", () => {
     expect(classifyBsonValue(Decimal128.fromString("1.5"))).toBe("number");
   });
 
-  it("classifies MinKey/MaxKey as structured objects, not user-facing scalar filter types", () => {
-    expect(classifyBsonValue(new MinKey())).toBe("object");
-    expect(classifyBsonValue(new MaxKey())).toBe("object");
+  it("classifies BSON structured values for their dedicated grid editors", () => {
+    expect(classifyBsonValue(new BSONRegExp("^qyre", "i"))).toBe("regex");
+    expect(classifyBsonValue(/^qyre/i)).toBe("regex");
+    expect(classifyBsonValue(Timestamp.fromBits(5, 1700000000))).toBe("timestamp");
+    expect(classifyBsonValue(new Code("return 1;"))).toBe("code");
+    expect(classifyBsonValue(new MinKey())).toBe("minKey");
+    expect(classifyBsonValue(new MaxKey())).toBe("maxKey");
   });
 
   it("classifies a plain nested document as object", () => {
@@ -243,10 +256,10 @@ describe("read-only enforcement", () => {
     }
   });
 
-  it("mutations.ts only calls the write methods row-editing has actually shipped so far (F099: insertOne, F100: findOneAndReplace, F101: deleteMany)", () => {
+  it("mutations.ts only calls the reviewed row-editing write methods", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const source = readFileSync(join(here, "../src/write/mutations.ts"), "utf-8");
-    const shipped = ["insertOne", "findOneAndReplace", "deleteMany"];
+    const shipped = ["insertOne", "updateOne", "findOneAndReplace", "deleteMany"];
     for (const method of shipped) {
       expect(source, `mutations.ts must call ${method}`).toContain(`${method}(`);
     }

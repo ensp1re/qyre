@@ -8,7 +8,6 @@ import type {
 import {
   CommitBar,
   CsvImportDialog,
-  DocumentEditorDrawer,
   ErrorState,
   RowsTable,
   Spinner,
@@ -17,18 +16,10 @@ import {
 import { Rows3, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import {
-  deleteDocument,
-  fetchDocumentText,
-  insertDocument,
-  saveDocument
-} from "../api/document.js";
 import { commitMutations } from "../api/mutations.js";
 import { importCsv, inspectCsvImport, validateCsvImport } from "../api/csv-import.js";
 import { exportRowsUrl } from "../api/rows.js";
 import { buildMutationOps, buildPreviewLine } from "../model/editing/commit-preview.js";
-import { computeDocumentEditability } from "../model/documents/document-editability.js";
-import { createDocumentLoadCoordinator } from "../model/documents/document-load.js";
 import { computeCsvImportability } from "../model/transfer/csv-importability.js";
 import { computeTableEditability } from "../model/editing/editability.js";
 import { computeTableStructureEditability } from "../model/structure/structure-editability.js";
@@ -39,8 +30,6 @@ import type { useRows } from "../model/data/use-rows.js";
 import type { useTable } from "../model/data/use-table.js";
 import { columnTypeCatalogForEngine } from "../../../shared/lib/ddl/column-type-catalog.js";
 import { ViewButton } from "../../../shared/ui/view-button.js";
-
-type DocumentEditorState = { mode: "edit"; id: string } | { mode: "insert" } | undefined;
 
 export interface TablesTabProps {
   selected: { schema: string; table: string } | undefined;
@@ -110,19 +99,10 @@ export function TablesTab({
   const [commitError, setCommitError] = useState<
     { message: string; failedIndex?: number } | undefined
   >(undefined);
-  const [documentEditor, setDocumentEditor] = useState<DocumentEditorState>(undefined);
-  const [documentText, setDocumentText] = useState<string | undefined>(undefined);
-  const [documentLoading, setDocumentLoading] = useState(false);
-  const [documentSaving, setDocumentSaving] = useState(false);
-  const [documentDeleting, setDocumentDeleting] = useState(false);
-  const [documentError, setDocumentError] = useState<string | undefined>(undefined);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
-  const documentLoads = useRef(createDocumentLoadCoordinator()).current;
   // Always calls the latest handleCommit (defined below, after this component's early loading/
   // error returns - a ref sidesteps the rules-of-hooks issue of registering the listener there).
   const commitRef = useRef<() => void>(() => {});
-
-  useEffect(() => () => documentLoads.cancel(), [documentLoads]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
@@ -257,7 +237,6 @@ export function TablesTab({
   if (!rows.data) return null;
 
   const editability = computeTableEditability(table.data, capabilities, engine);
-  const documentEditability = computeDocumentEditability(table.data, capabilities, engine);
   const csvImportability = computeCsvImportability(table.data, capabilities, engine);
   const primaryKeyColumns = (table.data?.columns ?? [])
     .filter((column) => column.isPrimaryKey)
@@ -270,7 +249,9 @@ export function TablesTab({
     pendingChanges.inserts,
     pendingChanges.deletes
   );
-  const previewLines = ops.map(buildPreviewLine);
+  const previewLines = ops.map((op) =>
+    buildPreviewLine(op, engine === "mongodb" ? "mongodb" : undefined)
+  );
 
   async function handleCommit(): Promise<void> {
     setCommitting(true);
@@ -281,10 +262,20 @@ export function TablesTab({
         pendingChanges.clear();
         rows.refetch();
       } else {
+        const applied = result.appliedCount ?? 0;
         setCommitError({
-          message: `Commit failed and was rolled back at operation ${result.failedIndex + 1}.`,
+          message:
+            engine === "mongodb" && applied > 0
+              ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; ${applied} earlier operation(s) were applied. Rows were refreshed.`
+              : engine === "mongodb"
+                ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; no changes were applied.`
+                : `Commit failed and was rolled back at operation ${result.failedIndex + 1}.`,
           failedIndex: result.failedIndex
         });
+        if (engine === "mongodb" && applied > 0) {
+          pendingChanges.clear();
+          rows.refetch();
+        }
       }
     } catch (err) {
       setCommitError({ message: err instanceof Error ? err.message : "Commit failed." });
@@ -301,92 +292,6 @@ export function TablesTab({
   commitRef.current = () => {
     if (ops.length > 0 && !committing) void handleCommit();
   };
-
-  function openEditDocument(row: Record<string, unknown>): void {
-    const id = String(row._id);
-    const load = documentLoads.begin();
-    setDocumentEditor({ mode: "edit", id });
-    setDocumentError(undefined);
-    setDocumentText(undefined);
-    setDocumentLoading(true);
-    fetchDocumentText(selectedTable.schema, selectedTable.table, id, load.signal)
-      .then((text) => {
-        if (load.isCurrent()) setDocumentText(text);
-      })
-      .catch((err: unknown) => {
-        if (load.isCurrent()) {
-          setDocumentError(err instanceof Error ? err.message : "Failed to load document.");
-        }
-      })
-      .finally(() => {
-        if (load.isCurrent()) setDocumentLoading(false);
-      });
-  }
-
-  function openInsertDocument(): void {
-    documentLoads.cancel();
-    setDocumentEditor({ mode: "insert" });
-    setDocumentError(undefined);
-    setDocumentText("");
-    setDocumentLoading(false);
-  }
-
-  function closeDocumentEditor(): void {
-    documentLoads.cancel();
-    setDocumentEditor(undefined);
-    setDocumentText(undefined);
-    setDocumentError(undefined);
-    setDocumentLoading(false);
-  }
-
-  async function handleSaveDocument(text: string): Promise<void> {
-    if (!documentEditor) return;
-    setDocumentSaving(true);
-    setDocumentError(undefined);
-    try {
-      if (documentEditor.mode === "insert") {
-        await insertDocument(selectedTable.schema, selectedTable.table, text);
-        closeDocumentEditor();
-        rows.refetch();
-        return;
-      }
-      // `documentText` is guaranteed loaded once `Save` is reachable (the drawer only enables it
-      // once `loading` is false), so it's the original the editor loaded - the lost-update
-      // protection's baseline.
-      const result = await saveDocument(
-        selectedTable.schema,
-        selectedTable.table,
-        documentEditor.id,
-        text,
-        documentText ?? ""
-      );
-      if (result.matched === 0) {
-        setDocumentError("This document was already changed or removed.");
-      } else {
-        closeDocumentEditor();
-        rows.refetch();
-      }
-    } catch (err) {
-      setDocumentError(err instanceof Error ? err.message : "Save failed.");
-    } finally {
-      setDocumentSaving(false);
-    }
-  }
-
-  async function handleDeleteDocument(): Promise<void> {
-    if (!documentEditor || documentEditor.mode !== "edit") return;
-    setDocumentDeleting(true);
-    setDocumentError(undefined);
-    try {
-      await deleteDocument(selectedTable.schema, selectedTable.table, documentEditor.id);
-      closeDocumentEditor();
-      rows.refetch();
-    } catch (err) {
-      setDocumentError(err instanceof Error ? err.message : "Delete failed.");
-    } finally {
-      setDocumentDeleting(false);
-    }
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -426,10 +331,6 @@ export function TablesTab({
           canInsert={editability.canInsert}
           insertableColumns={editability.insertableColumns}
           canDelete={editability.canDelete}
-          canEditDocument={documentEditability.canEdit}
-          onEditDocument={openEditDocument}
-          canInsertDocument={documentEditability.canInsert}
-          onInsertDocument={openInsertDocument}
         />
       </div>
       <CommitBar
@@ -443,21 +344,6 @@ export function TablesTab({
         error={commitError?.message}
         failedIndex={commitError?.failedIndex}
       />
-      {documentEditor && (
-        <DocumentEditorDrawer
-          mode={documentEditor.mode}
-          initialText={documentEditor.mode === "insert" ? "" : documentText}
-          loading={documentEditor.mode === "edit" && documentLoading}
-          saving={documentSaving}
-          deleting={documentDeleting}
-          error={documentError}
-          canDelete={documentEditability.canDelete}
-          documentId={documentEditor.mode === "edit" ? documentEditor.id : undefined}
-          onSave={(text) => void handleSaveDocument(text)}
-          onDelete={documentEditor.mode === "edit" ? () => void handleDeleteDocument() : undefined}
-          onClose={closeDocumentEditor}
-        />
-      )}
       {csvImportOpen && (
         <CsvImportDialog
           tableName={selected.table}

@@ -5,17 +5,17 @@ Qyre supports role-aware row writes for connected users whose real database gran
 override gate every affordance and server route; the database remains the final authority.
 
 This spec is a data-contract and decision spec only, like F090 before it. It fixes the mutation API
-shape every engine's adapter implements (F099-F101), the SQL pending-changes-buffer and batch-commit
-model (F102-F105), MongoDB's document-editing model (F125), value validation/coercion, the
+shape every engine's adapter implements (F099-F101), the shared pending-changes-buffer and commit
+model (F102-F105/F146), MongoDB's BSON-preserving field-mutation model, value validation/coercion, the
 audit-event contract, and confirmation thresholds - so those slices build against one settled
 contract instead of re-deciding it piecemeal. It does not implement any of them.
 
 ## One-sentence promise
 
 A user with real write grants can insert, edit, and delete rows through the same typed, validated,
-audited path regardless of engine - SQL engines through a reviewable pending-changes buffer with a
-generated-statement preview and one transactional commit, MongoDB through a whole-document Extended
-JSON editor - and a user without those grants never sees an affordance that would just fail anyway.
+audited grid regardless of engine. SQL engines preview statements and commit transactionally;
+MongoDB previews JSON operations and applies BSON-preserving field changes in order. A user without
+the required grants never sees an affordance that would just fail anyway.
 
 ## Row identity and editability
 
@@ -164,9 +164,10 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
   can safely author a replacement value.
   - Single-line scalar editors apply on `Enter`. Multiline and structured editors preserve plain
     `Enter` for new lines and apply on `Ctrl/Cmd+Enter`; every editor also exposes explicit Apply
-    and Cancel actions, and `Escape` cancels without staging. Opening an inline scalar editor keeps
-    the shortened display value in table layout while the input overlays it, so editing a long
-    value never collapses or expands the column.
+    and Cancel actions, and `Escape` cancels without staging. Leaving a valid inline scalar input
+    with the mouse stages its live input value too, including a final change not yet reflected by a
+    React render. Opening an inline scalar editor keeps the shortened display value in table layout
+    while the input overlays it, so editing a long value never collapses or expands the column.
   - `text`: JSON string. Long-text families use a multiline editor; fixed/varying character
     families use a single-line editor. An empty string remains distinct from `NULL`.
   - `identifier`: JSON string. UUID columns additionally require the canonical hyphenated UUID
@@ -235,21 +236,21 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
 
 ### Per-engine editor matrix
 
-| Editor kind                | PostgreSQL                              | MySQL                                 | SQLite                                   | MongoDB                                |
-| -------------------------- | --------------------------------------- | ------------------------------------- | ---------------------------------------- | -------------------------------------- |
-| Text / multiline / UUID    | scalar cell                             | scalar cell                           | scalar cell                              | whole-document EJSON                   |
-| Exact integer / decimal    | decimal-string binding                  | decimal-string binding                | decimal-string binding                   | whole-document EJSON                   |
-| Boolean / nullable boolean | tri-state selector                      | tri-state selector                    | tri-state selector when declared boolean | whole-document EJSON                   |
-| Enum / set                 | catalog enum selector; no native set    | `ENUM` selector; `SET` multiselect    | not applicable                           | whole-document EJSON                   |
-| Date / time / timestamp    | exact date/time/local/offset editors    | exact date/time/local editors         | exact declared-type editor               | whole-document EJSON                   |
-| Interval                   | raw-text drawer                         | not applicable                        | not applicable                           | whole-document EJSON                   |
-| JSON                       | JSON/JSONB editor                       | JSON editor                           | declared JSON editor                     | shared structured editor in EJSON mode |
-| Native scalar array        | JSON-array editor with element metadata | not applicable outside JSON           | not applicable                           | whole-document EJSON                   |
-| Binary                     | hex drawer -> bound `Buffer`            | hex drawer -> bound `Buffer`          | hex drawer -> bound `Buffer`             | whole-document EJSON                   |
-| Bit string                 | validated `0`/`1` scalar                | read-only pending bit-length metadata | not applicable                           | whole-document EJSON                   |
-| Network                    | exact native text                       | not applicable                        | not applicable                           | whole-document EJSON                   |
-| XML                        | raw multiline drawer                    | not applicable natively               | declared XML text drawer                 | whole-document EJSON                   |
-| Unknown                    | explained read-only                     | explained read-only                   | explained read-only                      | whole-document EJSON                   |
+| Editor kind                | PostgreSQL                              | MySQL                                 | SQLite                                   | MongoDB                                             |
+| -------------------------- | --------------------------------------- | ------------------------------------- | ---------------------------------------- | --------------------------------------------------- |
+| Text / multiline / UUID    | scalar cell                             | scalar cell                           | scalar cell                              | scalar cell                                         |
+| Exact integer / decimal    | decimal-string binding                  | decimal-string binding                | decimal-string binding                   | numeric cell; preserves current BSON type on update |
+| Boolean / nullable boolean | tri-state selector                      | tri-state selector                    | tri-state selector when declared boolean | tri-state selector                                  |
+| Enum / set                 | catalog enum selector; no native set    | `ENUM` selector; `SET` multiselect    | not applicable                           | not applicable                                      |
+| Date / time / timestamp    | exact date/time/local/offset editors    | exact date/time/local editors         | exact declared-type editor               | offset timestamp editor                             |
+| Interval                   | raw-text drawer                         | not applicable                        | not applicable                           | not applicable                                      |
+| JSON / object              | JSON/JSONB editor                       | JSON editor                           | declared JSON editor                     | shared JSON drawer                                  |
+| Native scalar array        | JSON-array editor with element metadata | not applicable outside JSON           | not applicable                           | shared JSON-array drawer                            |
+| Binary                     | hex drawer -> bound `Buffer`            | hex drawer -> bound `Buffer`          | hex drawer -> bound `Buffer`             | hex drawer -> BSON Binary                           |
+| Bit string                 | validated `0`/`1` scalar                | read-only pending bit-length metadata | not applicable                           | not applicable                                      |
+| Network                    | exact native text                       | not applicable                        | not applicable                           | not applicable                                      |
+| XML                        | raw multiline drawer                    | not applicable natively               | declared XML text drawer                 | not applicable                                      |
+| Unknown / mixed            | explained read-only                     | explained read-only                   | explained read-only                      | explained read-only                                 |
 
 `ColumnMetadata.allowedValues` carries authoritative enum/set values when the engine exposes them;
 `elementDataType` identifies a supported native array's element type. Missing metadata fails closed
@@ -297,9 +298,10 @@ matching insertRow/updateRowByKey/deleteRowsByKey's own shape }`. A single endpo
     failure (a constraint violation, a stale `matched: 0`/`deleted < requested`) rolls back
     everything already applied in that commit and reports the failing operation's **index** in the
     submitted array, so the UI can highlight exactly which staged change failed.
-  - This endpoint is registered for every engine (never a bare `404`, which could read as a routing
-    bug) but responds `400` for MongoDB with a message explaining documents save individually - see
-    the MongoDB section below.
+  - MongoDB uses the same endpoint and operation shapes, but a standalone deployment cannot provide
+    a cross-document transaction. Its fully validated operations run in order; a conflict stops the
+    sequence and reports both the failing index and how many earlier operations were applied. The UI
+    refreshes after a partial result instead of presenting it as a rollback.
 - Confirmation: the pending-changes-buffer preview **is** the confirmation surface for ordinary
   inserts/updates/deletes - reviewing the generated statements before clicking Commit satisfies
   `docs/SECURITY.md`'s "explicit, unambiguous user confirmation" for row-level writes. No separate
@@ -318,82 +320,46 @@ matching insertRow/updateRowByKey/deleteRowsByKey's own shape }`. A single endpo
 - Undo/redo within the buffer beyond a per-cell "revert" (F103 already covers reverting a single
   staged cell edit before commit).
 
-## MongoDB: whole-document Extended JSON editing
-
-This is exec plan open decision 1, the highest-risk decision in the plan - the wrong choice here
-silently corrupts data types on save, not just at the UI layer.
+## MongoDB: shared grid editing with BSON-preserving JSON operations
 
 ### Behavior
 
-- MongoDB does not use the SQL grid's flat cell/buffer model - flat cell edits cannot express nested
-  documents, and the grid's own display values are already lossy-by-design for editing purposes (see
-  below). Instead, editing a document opens a **whole-document editor** (the "Compass model": edit
-  the full document as text, save the whole thing, one document at a time with its own confirmation
-  - no cross-document buffer). This is F125's UI; this spec fixes the wire format and save semantics
-    it must use.
-- Each editor open owns one document-load request. Opening another document, closing the drawer,
-  entering insert mode, or unmounting the Tables tab cancels and invalidates the previous request;
-  only the current request may update the editor's text, error, or loading state (F141).
-- **The editor's text format is real MongoDB Extended JSON, relaxed mode** (`bson`'s
-  `EJSON.stringify(doc, { relaxed: true })`/`EJSON.parse(text, { relaxed: true })` - `bson` already
-  ships as a transitive dependency of the `mongodb` driver Qyre already uses; F125 adds it as an
-  explicit `@qyre/mongodb` dependency) - **not** the same friendly serialization the read-only grid
-  already displays (`normalizeBsonValue`/`normalizeDocument`, `packages/drivers/mongodb/src/
-bson-values.ts`). This is a deliberate, explicit divergence, decided here rather than left for
-  F125 to discover:
-  - The existing read-only display format is intentionally ambiguous by design for readability -
-    `ObjectId` renders as a bare hex string and `Date` as a bare ISO string (F081), indistinguishable
-    from a `string` field that merely looks like one. That ambiguity is fine for _display_, where
-    the app already knows each field's real type from `getTable`'s sampled inference and only needs
-    to _show_ a value - but it is unsafe for _editing_, where the only source of truth once the user
-    starts typing is the text itself. A hand-edited `"2024-01-01"` string is genuinely ambiguous
-    between "a Date the user wants to keep as a Date" and "a string field the user wants to change
-    to that text" without an unambiguous wrapper.
-    Relaxed Extended JSON resolves this while staying close to genuinely readable for the common
-    types: `ObjectId` as `{"$oid": "507f1f77bcf86cd799439011"}`, `Date` as `{"$date":
-"2024-01-01T00:00:00.000Z"}`, oversized integers as `{"$numberLong": "..."}"`, binary as
-    `{"$binary": {"base64": "...", "subType": "00"}}` - genuinely-JSON-native types (plain numbers,
-    strings, booleans, arrays, nested objects) stay as plain JSON, unwrapped, which is what "relaxed"
-    (as opposed to "canonical", which wraps even a plain number as `{"$numberInt": "42"}`) buys over
-    the fully-canonical form: maximum readability without the ambiguity the grid's display format
-    has.
-  - This intentionally differs from MongoDB Compass's own default editor, which uses a shell-helper
-    syntax (`ObjectId("...")`, `ISODate("...")`) that is not valid JSON and needs a bespoke parser.
-    `bson`'s `EJSON` is the officially-maintained, already-available library implementation with the
-    identical _goal_ (unambiguous typed round-trip) and a real JSON grammar `JSON.parse`-compatible
-    tooling (syntax highlighting, formatting) already understands - a deliberately lower-risk choice
-    than reimplementing Compass's shell grammar, at the cost of the wrapper-object syntax reading
-    slightly less "shell-native." Revisit only if user feedback strongly prefers the shell syntax.
-- **Save semantics are whole-document replace, not changed-fields update** - `findOneAndReplace`
-  keyed on `_id`, matching the "Compass model" the exec plan names (Compass's own default document
-  editor replaces the whole document, not a computed field-level diff). A diff-based `$set` of only
-  the changed top-level keys was considered and rejected: correctly detecting field _removals_ (not
-  just changed values) requires the same full-document comparison a replace already does for free,
-  and diffing does not by itself solve the lost-update race below any better than a whole-document
-  compare-then-replace does - so it adds complexity without a matching safety win.
-- **Lost-update protection**: the editor captures the full document (via EJSON) at load time. On
-  save, the server re-fetches the document by `_id` and compares it (structurally, not by a version
-  field - MongoDB documents have no built-in version counter here) to what was originally loaded; if
-  they differ, the save is rejected as a conflict (same `409` treatment SQL's `matched: 0` gets) with
-  the current document's data available for the user to reload and re-apply their edit, rather than
-  silently overwriting a concurrent change.
-- Route: `PATCH /api/tables/:schema/:table/rows` (the same route SQL update uses - see "Mutation API
-  shape") with `key: { _id: string }` and `document` as the full relaxed-EJSON document text, parsed
-  server-side into real BSON before the `findOneAndReplace` call - the browser never sends raw BSON,
-  only EJSON text, same "typed JSON in, adapter translates" principle as every SQL mutation.
-- Document **insert** (MongoDB's `insertRow`) takes the same relaxed-EJSON format for the whole new
-  document, parsed the same way; `_id` may be omitted (the driver assigns one) exactly as an
-  auto-generated SQL primary key may be.
+- MongoDB collections use the same selection, double-click/Enter/F2 activation, typed editors, Add
+  row, Duplicate row, staged delete, Commit bar, and discard/revert interactions as SQL tables.
+  `_id` is the row key: ObjectIds cross the adapter boundary as stable lowercase hexadecimal text,
+  and the server also normalizes the safe Extended JSON `{ "$oid": "..." }` wire form plus the
+  exact legacy 12-byte buffer shape emitted by an already-open pre-fix browser session. `_id` may
+  be supplied on insert but is immutable afterward.
+- Sampled field metadata selects the editor. Plain objects and arrays use the shared structured
+  drawer; strings, numbers, booleans, dates, ObjectIds, and binary values reuse the corresponding
+  scalar or full-value editor. BSON regex, timestamp, code, MinKey, and MaxKey values use validated
+  JSON shapes in that same drawer and are converted back to their real BSON types on commit. Add
+  row prefills a valid type-specific JSON template. `mixed`, null-only, and unrecognized BSON
+  types still fail closed rather than guessing a lossy conversion.
+- `POST /api/mutations/commit` receives JSON operation objects, never Mongo shell/query text.
+  Inserts are converted to relaxed EJSON/BSON server-side. Updates send `key`, `changes`, each
+  changed field's `originalValues`, and `missingOriginalFields` for fields absent in the loaded
+  document.
+- Updates use `$set` for changed top-level fields only. The adapter reads the current document,
+  checks every edited field against the value originally displayed, preserves that field's current
+  BSON type recursively where possible, and includes the current BSON values in the update filter.
+  A same-field concurrent change therefore returns `matched: 0`; unrelated concurrent fields are
+  neither overwritten nor treated as conflicts.
+- MongoDB is schemaless, but the grid can only author sampled columns it can display. An untouched
+  field is omitted on insert. `_id` may be omitted so MongoDB generates it. New unsampled field
+  authoring and field removal require a future schema-free composer rather than overloading SQL's
+  column grid with an ambiguous control.
+- Successful ordered operations share the normal commit result and refresh behavior. MongoDB
+  standalone deployments do not guarantee an all-or-nothing multi-document transaction; if a later
+  operation conflicts, the response includes `appliedCount`, the UI clears stale staged state, and
+  rows refresh to show the authoritative database result.
 
 ### Out of scope (for now)
 
-- Canonical (as opposed to relaxed) EJSON as a user-facing toggle. Relaxed is the only supported
-  mode for the editor text; revisit only with real demand for the fully-unambiguous-but-verbose form.
-- Field-level (as opposed to whole-document) MongoDB editing, and any cross-document MongoDB
-  transaction/batch - explicitly not part of this spec, matching exec plan decision 5 and F102's own
-  scope ("MongoDB is deliberately NOT part of \[the batch commit\] endpoint").
-- A JSON schema/shape validator beyond "is this parseable, unambiguous EJSON" - MongoDB is
-  schemaless by design; Qyre doesn't invent document-shape constraints it doesn't enforce.
+- Arbitrary new field names or removing a field from an existing document.
+- Editing BSON types still classified as mixed or unsupported from the bounded schema sample,
+  such as the deprecated BSON Symbol type.
+- Claiming SQL-style rollback semantics where a MongoDB deployment cannot provide transactions.
 
 ## Audit-event contract
 
@@ -436,14 +402,12 @@ Restates and applies `docs/SECURITY.md`'s existing "destructive actions... requi
 unambiguous user confirmation and must never be the default path" rule concretely for this spec's
 scope:
 
-- **Insert**: no extra confirmation beyond the pending-buffer preview (SQL) or the document editor's
-  own save action (MongoDB) - additive, non-destructive, matches how every other non-destructive
-  action in the app already works.
-- **Update**: the pending-buffer preview (SQL) or an explicit save click showing what changed
-  (MongoDB) is the confirmation - reviewing the generated statement/diff before committing is itself
-  the "explicit, unambiguous" step; no separate modal per cell edit.
-- **Delete**: always requires its own explicit confirming click at the moment it's staged (SQL) or
-  triggered (MongoDB, F125), in addition to the buffer/commit review - deletion is irreversible data
+- **Insert**: no extra confirmation beyond the pending-buffer preview - additive,
+  non-destructive, and consistent across engines.
+- **Update**: the pending-buffer preview is the confirmation. SQL shows a statement preview and
+  MongoDB shows the corresponding JSON operation; no separate modal appears per cell edit.
+- **Delete**: always requires its own explicit confirming click at the moment it's staged, in
+  addition to the buffer/commit review - deletion is irreversible data
   loss, the clearest case `docs/SECURITY.md`'s rule exists for, and staging one silently alongside
   ordinary edits would violate "must never be the default path."
 - **Batch commit**: the buffer preview already lists every staged operation (including any deletes,
@@ -472,11 +436,8 @@ implementation lands with F098 itself, matching F090's precedent exactly.
   them.
 - Exec plan open decision 5 (commit endpoint shape) is resolved with a reasoned answer (single
   `POST /api/mutations/commit`, not per-table) that F102 can build against directly.
-- Exec plan open decision 1 (MongoDB EJSON flavor and replace-vs-changed-fields semantics) is
-  resolved with a reasoned answer - relaxed Extended JSON via `bson`'s `EJSON`, whole-document
-  `findOneAndReplace` with a compare-then-replace conflict check - precise enough that F125 can
-  build the document editor against it without re-deciding either question, and explicit about why
-  it diverges from both the grid's own display format and from Compass's shell-helper syntax.
+- MongoDB uses field-level JSON changes with original-value conflict guards and BSON-preserving
+  coercion; whole-document replacement remains an adapter compatibility path, not the Tables UI.
 - Value validation/coercion per column type is fixed by reference to the existing F082/F089
   `FilterColumnKind` classification (reused, not reimplemented) precisely enough that F099/F100 can
   implement the same rule server-side without inventing a parallel classification.
@@ -487,9 +448,8 @@ implementation lands with F098 itself, matching F090's precedent exactly.
   that F103-F105/F125's UI slices implement one consistent policy instead of each re-deciding when a
   confirmation click is required.
 - Row identity/editability rules (full PK required, composite keys, MongoDB `_id`, `kind`-gating,
-  non-editable column kinds) are stated precisely enough that F103 (the editable grid) and F125 (the
-  document editor) can gate their own affordances without re-deriving the rules from first
-  principles.
+  non-editable column kinds) let the shared editable grid gate every engine without re-deriving the
+  rules from first principles.
 
 Once F099-F105/F125 land, this section should also be checked against their real implementation and
 updated (or a follow-up spec added) if anything ended up diverging - per `docs/product-specs/

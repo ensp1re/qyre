@@ -17,6 +17,11 @@ export type MutationEditorKind =
   | "bit-string"
   | "network"
   | "xml"
+  | "bson-regex"
+  | "bson-timestamp"
+  | "bson-code"
+  | "bson-min-key"
+  | "bson-max-key"
   | "unknown"
   | "null"
   | "object-id";
@@ -76,10 +81,22 @@ export function mutationEditorCapability(
   const type = dataType.trim().toLowerCase();
 
   if (engine === "mongodb") {
-    if (type === "objectid") {
-      return unavailable("object-id", "MongoDB values are edited in the document editor.");
-    }
-    return unavailable("unknown", "MongoDB values are edited in the document editor.");
+    if (type === "objectid") return available("object-id", "text");
+    if (type === "string") return available("text", "text");
+    if (type === "number") return available("numeric", "decimal");
+    if (type === "boolean") return available("boolean", "boolean");
+    if (type === "date") return available("timestamp-time-zone", "timestamp");
+    if (type === "array") return available("structured", "array");
+    if (type === "object") return available("structured", "json");
+    if (type === "binary") return available("binary", "binary");
+    if (type === "regex") return available("bson-regex", "json");
+    if (type === "timestamp") return available("bson-timestamp", "json");
+    if (type === "code") return available("bson-code", "json");
+    if (type === "minkey") return available("bson-min-key", "json");
+    if (type === "maxkey") return available("bson-max-key", "json");
+    if (type === "null")
+      return unavailable("null", "A null-only sampled field has no type-safe editor.");
+    return unavailable("unknown", "This sampled MongoDB field has mixed or unsupported types.");
   }
 
   if (type === "null") return unavailable("null", "A NULL-only column has no scalar editor.");

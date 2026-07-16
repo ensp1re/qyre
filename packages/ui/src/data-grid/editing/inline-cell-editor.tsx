@@ -166,8 +166,11 @@ export function InlineCellEditor({
             setError(undefined);
           }}
           onKeyDown={handleTextKeyDown}
-          onBlur={() => {
-            if (!pickerOpen) commitDraft(draft);
+          onBlur={(event) => {
+            // Read the input's live value on blur. A pointer click can move focus before React has
+            // rendered the final onChange state, and committing the closed-over draft would then
+            // silently discard the last edit unless the user pressed Enter first.
+            if (!pickerOpen) commitDraft(event.currentTarget.value);
           }}
           onFocus={(event) => event.currentTarget.select()}
           spellCheck={false}
@@ -228,7 +231,7 @@ export function InlineCellEditor({
             setError(undefined);
           }}
           onKeyDown={handleTextKeyDown}
-          onBlur={() => commitDraft(draft)}
+          onBlur={(event) => commitDraft(event.currentTarget.value)}
           onFocus={(event) => event.currentTarget.select()}
           inputMode={capability.widget === "decimal" ? "decimal" : undefined}
           spellCheck={false}

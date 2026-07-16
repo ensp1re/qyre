@@ -90,12 +90,32 @@ describe("mutationEditorCapability", () => {
     expect(mutationEditorCapability("ARRAY", "sqlite")).toMatchObject({ editable: false });
   });
 
-  it("keeps MongoDB on its whole-document editing surface", () => {
-    expect(mutationEditorCapability("objectId", "mongodb")).toMatchObject({
-      kind: "object-id",
+  it.each([
+    ["objectId", "object-id", "text"],
+    ["string", "text", "text"],
+    ["number", "numeric", "decimal"],
+    ["boolean", "boolean", "boolean"],
+    ["date", "timestamp-time-zone", "timestamp"],
+    ["array", "structured", "array"],
+    ["object", "structured", "json"],
+    ["binary", "binary", "binary"],
+    ["regex", "bson-regex", "json"],
+    ["timestamp", "bson-timestamp", "json"],
+    ["code", "bson-code", "json"],
+    ["minKey", "bson-min-key", "json"],
+    ["maxKey", "bson-max-key", "json"]
+  ] as const)("provides the shared MongoDB %s editor", (dataType, kind, widget) => {
+    expect(mutationEditorCapability(dataType, "mongodb")).toEqual({
+      kind,
+      editable: true,
+      widget
+    });
+  });
+
+  it("fails closed for mixed MongoDB fields", () => {
+    expect(mutationEditorCapability("mixed", "mongodb")).toMatchObject({
       editable: false,
-      widget: null,
-      unavailableReason: expect.stringMatching(/document editor/i)
+      widget: null
     });
   });
 });

@@ -149,4 +149,60 @@ describe("NewRowCell (component rendering, F104/F146)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onChange).toHaveBeenCalledWith("cafe");
   });
+
+  it.each([
+    ["regex", { pattern: "^old", options: "i" }, '{"pattern":"^new","options":"im"}'],
+    ["timestamp", { t: 100, i: 1 }, '{"t":200,"i":2}'],
+    ["code", { code: "return 1;" }, '{"code":"return 2;","scope":{}}'],
+    ["minKey", { $minKey: 1 }, '{"$minKey":1}'],
+    ["maxKey", { $maxKey: 1 }, '{"$maxKey":1}']
+  ] as const)(
+    "authors MongoDB %s values and disables Apply for an invalid shape",
+    (dataType, value, draft) => {
+      const onChange = vi.fn();
+      render(
+        <NewRowCell
+          columnName={`${dataType}Field`}
+          value={value}
+          dataType={dataType}
+          engine="mongodb"
+          nullable={false}
+          onChange={onChange}
+        />
+      );
+      openEditor(`Edit ${dataType}Field`);
+      const editor = screen.getByRole("textbox", { name: "JSON editor" });
+      fireEvent.change(editor, { target: { value: "{}" } });
+      expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+      fireEvent.change(editor, { target: { value: draft } });
+      fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+      expect(onChange).toHaveBeenCalledWith(JSON.parse(draft));
+    }
+  );
+
+  it.each([
+    ["regex", { pattern: "", options: "" }],
+    ["timestamp", { t: 0, i: 0 }],
+    ["code", { code: "", scope: {} }],
+    ["minKey", { $minKey: 1 }],
+    ["maxKey", { $maxKey: 1 }]
+  ] as const)("prefills a valid MongoDB %s template when adding a row", (dataType, template) => {
+    const onChange = vi.fn();
+    render(
+      <NewRowCell
+        columnName={`${dataType}Field`}
+        value={undefined}
+        dataType={dataType}
+        engine="mongodb"
+        nullable={false}
+        onChange={onChange}
+      />
+    );
+    openEditor(`Set ${dataType}Field`);
+    const editor = screen.getByRole("textbox", { name: "JSON editor" });
+    expect(JSON.parse(String((editor as HTMLTextAreaElement).value))).toEqual(template);
+    expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onChange).toHaveBeenCalledWith(template);
+  });
 });

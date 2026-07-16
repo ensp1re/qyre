@@ -341,6 +341,39 @@ describe("resolveKey (F100)", () => {
     });
   });
 
+  it("normalizes MongoDB's Extended JSON ObjectId row key", () => {
+    expect(
+      resolveKey(MONGO_TABLE, { _id: { $oid: "507F1F77BCF86CD799439011" } }, "mongodb")
+    ).toEqual({ _id: "507f1f77bcf86cd799439011" });
+  });
+
+  it("normalizes a legacy cross-package BSON ObjectId row key", () => {
+    expect(
+      resolveKey(
+        MONGO_TABLE,
+        {
+          _id: {
+            buffer: {
+              0: 80,
+              1: 127,
+              2: 31,
+              3: 119,
+              4: 188,
+              5: 248,
+              6: 108,
+              7: 215,
+              8: 153,
+              9: 67,
+              10: 144,
+              11: 17
+            }
+          }
+        },
+        "mongodb"
+      )
+    ).toEqual({ _id: "507f1f77bcf86cd799439011" });
+  });
+
   it("rejects a malformed MongoDB _id (not a 24-hex-char ObjectId string)", () => {
     expect(() => resolveKey(MONGO_TABLE, { _id: "not-an-object-id" }, "mongodb")).toThrow(
       expect.objectContaining({ statusCode: 400 })

@@ -8,9 +8,7 @@ export interface CommitBarProps {
   insertCount: number;
   updateCount: number;
   deleteCount: number;
-  /** One generated-statement preview line per staged op, in the same order the commit request will
-   * submit them (docs/product-specs/row-editing.md's "generated-statement preview" - the buffer's
-   * own review step, and this feature's confirmation surface for non-destructive ops). */
+  /** One SQL-statement or MongoDB-JSON preview line per staged op, in request order. */
   previewLines: readonly string[];
   onCommit: () => void;
   onDiscard: () => void;

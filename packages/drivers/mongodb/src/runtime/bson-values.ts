@@ -12,8 +12,24 @@ import {
   Timestamp
 } from "mongodb";
 
+function bsonType(value: unknown): string | undefined {
+  return value && typeof value === "object" && "_bsontype" in value
+    ? String((value as { _bsontype?: unknown })._bsontype)
+    : undefined;
+}
+
+function objectIdText(value: unknown): string | undefined {
+  if (!(value instanceof ObjectId) && bsonType(value) !== "ObjectId") return undefined;
+  const toHexString = (value as { toHexString?: unknown }).toHexString;
+  if (typeof toHexString !== "function") return undefined;
+  const text = String(toHexString.call(value));
+  return /^[0-9a-f]{24}$/i.test(text) ? text.toLowerCase() : undefined;
+}
+
 /** Convert BSON values to readable, JSON-safe values without losing integer precision. */
 export function normalizeBsonValue(value: unknown): unknown {
+  const objectId = objectIdText(value);
+  if (objectId) return objectId;
   if (value instanceof Timestamp) {
     return { t: value.getHighBits() >>> 0, i: value.getLowBits() >>> 0 };
   }
@@ -25,7 +41,7 @@ export function normalizeBsonValue(value: unknown): unknown {
   }
   if (value instanceof Decimal128) return value.toString();
   if (value instanceof Binary) return { type: "Buffer", data: Array.from(value.buffer) };
-  if (value instanceof ObjectId || value instanceof Date) return value;
+  if (value instanceof Date) return value;
   if (value instanceof Code) {
     return { code: value.code, scope: value.scope ? normalizeBsonValue(value.scope) : undefined };
   }
@@ -52,15 +68,33 @@ export function normalizeDocument(document: Record<string, unknown>): Record<str
 }
 
 type InferredBsonType =
-  "string" | "number" | "boolean" | "objectId" | "date" | "array" | "binary" | "object";
+  | "string"
+  | "number"
+  | "boolean"
+  | "objectId"
+  | "date"
+  | "array"
+  | "binary"
+  | "regex"
+  | "timestamp"
+  | "code"
+  | "minKey"
+  | "maxKey"
+  | "object"
+  | "unsupported";
 
 /** Return the coarse BSON type label shown in table metadata. */
 export function classifyBsonValue(value: unknown): InferredBsonType | "null" {
   if (value === null || value === undefined) return "null";
-  if (value instanceof ObjectId) return "objectId";
+  if (objectIdText(value)) return "objectId";
   if (value instanceof Date) return "date";
   if (value instanceof Binary) return "binary";
-  if (value instanceof MinKey || value instanceof MaxKey) return "object";
+  if (value instanceof Timestamp) return "timestamp";
+  if (value instanceof Code) return "code";
+  if (value instanceof BSONRegExp || value instanceof RegExp) return "regex";
+  if (value instanceof MinKey) return "minKey";
+  if (value instanceof MaxKey) return "maxKey";
+  if (value instanceof BSONSymbol) return "unsupported";
   if (Array.isArray(value)) return "array";
   if (value instanceof Long || value instanceof Decimal128 || typeof value === "number") {
     return "number";

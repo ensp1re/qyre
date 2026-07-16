@@ -42,6 +42,11 @@ export type MutationOp =
       readonly table: string;
       readonly key: Record<string, unknown>;
       readonly changes: Record<string, unknown>;
+      /** Original values for fields changed through MongoDB's shared grid editor. The adapter uses
+       * these as an optimistic-concurrency guard; SQL batch drivers ignore them. */
+      readonly originalValues?: Record<string, unknown>;
+      /** Changed MongoDB fields that were absent, rather than explicitly null, in the loaded row. */
+      readonly missingOriginalFields?: readonly string[];
     }
   | {
       readonly type: "delete";
@@ -50,10 +55,12 @@ export type MutationOp =
       readonly keys: Array<Record<string, unknown>>;
     };
 
-/** Result of a SQL batch commit (F102). See docs/product-specs/row-editing.md. */
+/** Result of a staged mutation commit (F102/F146). SQL engines are transactional; MongoDB's
+ * collection-grid coordinator reports the first failed ordered operation and how many earlier
+ * operations were already applied. */
 export type CommitMutationsResult =
   | {
       readonly committed: true;
       readonly results: Array<InsertRowResult | UpdateRowResult | DeleteRowsResult>;
     }
-  | { readonly committed: false; readonly failedIndex: number };
+  | { readonly committed: false; readonly failedIndex: number; readonly appliedCount?: number };

@@ -22,8 +22,6 @@ interface RowsTableToolbarProps {
   editingDisabledReason: string | undefined;
   canAddRow: boolean;
   onAddRow: (() => void) | undefined;
-  canInsertDocument: boolean | undefined;
-  onInsertDocument: (() => void) | undefined;
   canImportCsv: boolean | undefined;
   onImportCsv: (() => void) | undefined;
   selected: Set<number>;
@@ -52,8 +50,6 @@ export function RowsTableToolbar({
   editingDisabledReason,
   canAddRow,
   onAddRow,
-  canInsertDocument,
-  onInsertDocument,
   canImportCsv,
   onImportCsv,
   selected,
@@ -71,7 +67,7 @@ export function RowsTableToolbar({
   onRefresh
 }: RowsTableToolbarProps): ReactNode {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border px-2 py-2 lg:gap-2 lg:px-3">
+    <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border py-2 lg:gap-2">
       <div className="flex items-center gap-1.5 rounded-[3px] bg-accent px-2 py-1 font-mono text-[11px] text-muted-foreground">
         <Search className="h-2.5 w-2.5" />
         <input
@@ -117,18 +113,6 @@ export function RowsTableToolbar({
             className="flex items-center gap-0 rounded-[3px] p-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground lg:gap-1 lg:px-2"
           >
             <Plus className="h-3 w-3" /> <span className="hidden lg:inline">Add row</span>
-          </button>
-        )}
-        {canInsertDocument && onInsertDocument && (
-          <button
-            type="button"
-            onClick={onInsertDocument}
-            aria-label="Insert document"
-            title="Insert document"
-            className="flex items-center gap-0 rounded-[3px] p-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground lg:gap-1 lg:px-2"
-          >
-            <Plus className="h-3 w-3" />
-            <span className="hidden lg:inline">Insert document</span>
           </button>
         )}
         {canImportCsv && onImportCsv && (

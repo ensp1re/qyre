@@ -15,7 +15,7 @@ export interface CellEditorDrawerProps {
  * A right-anchored drawer shell for editing one JSON/array/long-text cell value (F146) - the
  * counterpart to EditorPopover for widgets too large for a small anchored popover to hold
  * comfortably. Shares the same right-side-panel convention as CellValueDrawer/
- * DocumentEditorDrawer; unlike those, this hosts an arbitrary editor (TypedValueEditor) rather than
+ * Other right-side drawers; unlike inspectors, this hosts an arbitrary editor (TypedValueEditor) rather than
  * a fixed layout, so it stays a thin shell and lets the child own its own footer/actions.
  */
 export function CellEditorDrawer({ title, children, onClose }: CellEditorDrawerProps): ReactNode {

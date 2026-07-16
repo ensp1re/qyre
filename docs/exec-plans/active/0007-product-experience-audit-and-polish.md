@@ -890,3 +890,37 @@ personal taste.
   values from failing insert validation. Component regression coverage, all 426 UI tests, and local
   `pnpm verify:pr` pass; implemented as `6bd5276`. Current step remains rerunning CI when Actions
   credits return.
+- 2026-07-16: F146 round 12 replaces MongoDB's separate whole-document editor with the shared
+  Add/Duplicate/edit/delete/Commit grid. The commit endpoint accepts JSON operations; MongoDB
+  updates apply only changed top-level fields through `$set`, preserve current BSON types, and use
+  original-value guards for same-field conflict detection. SQL preview lines remain statements;
+  MongoDB preview lines are JSON operations. Focused unit/live-integration and MongoDB browser E2E
+  pass. The full local `pnpm verify:pr` gate passes with 34/34 package tasks, check:state, smoke E2E
+  (11 passed, 4 skipped), and full E2E (30 passed, 47 skipped). This round remains intentionally
+  uncommitted and unpushed pending user UI approval.
+- 2026-07-16: F146 round 13 maps MongoDB regex, timestamp, code, MinKey, and MaxKey fields to exact
+  validated JSON drawer shapes, preloads valid Add-row templates, converts inserts to canonical
+  Extended JSON, and preserves native BSON types during field-level updates. Focused core/UI/server
+  suites pass with 124/420/307 tests, live MongoDB passes 76 tests, and the full local
+  `pnpm verify:pr` gate passes with 34/34 package tasks, check:state, smoke E2E (11 passed, 4
+  skipped), and full E2E (30 passed, 47 skipped). This round remains intentionally uncommitted and
+  unpushed pending user UI approval.
+- 2026-07-16: F146 round 14 fixes MongoDB row commits whose `_id` crossed the UI boundary as an
+  ObjectId/Extended JSON object instead of a 24-hex string. The adapter now normalizes ObjectIds to
+  stable lowercase hex across BSON package instances, and server validation accepts the safe
+  `{ "$oid": "..." }` form as a fallback. Server tests pass 308/308, live MongoDB passes 77/77,
+  the focused Mongo browser commit journey passes, and the full local gate passes with 34/34 package
+  tasks, smoke E2E (11 passed, 4 skipped), and full E2E (30 passed, 47 skipped). This remains
+  intentionally uncommitted and unpushed pending user approval.
+- 2026-07-16: F146 round 15 accepts the exact legacy `{ buffer: { "0": byte, ... "11": byte } }`
+  ObjectId shape retained by an already-open pre-fix browser page, while rejecting every other
+  object shape. The rebuilt production endpoint committed and restored a real MongoDB demo row
+  with that payload; the rebuilt browser UI then committed and restored the row again. Server tests
+  pass 309/309, and the Node 22 full gate passes with 34/34 package tasks, smoke E2E (11 passed, 4
+  skipped), and full E2E (30 passed, 47 skipped). This remains intentionally uncommitted and
+  unpushed pending user approval.
+- 2026-07-16: F146 round 16 fixes fast click-away staging for inline scalar inputs. Blur now reads
+  the live DOM input value instead of a potentially one-render-old React draft, so leaving a cell
+  cannot drop the final edit while Enter succeeds. All 421 UI tests pass with a timing regression,
+  and rebuilt production browser checks stage the changed value on click-away in MongoDB and
+  PostgreSQL. The user approved commit and push; run the Node 22 full gate and deliver normally.

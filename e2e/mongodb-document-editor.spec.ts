@@ -1,16 +1,10 @@
 import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@qyre/testing";
 import { expect, test } from "./support/test.js";
 
-/**
- * F125: MongoDB's whole-document editor - edit a nested field and save, verifying the change
- * persists after the grid refetches and that the editor's relaxed-EJSON text preserves `ObjectId`
- * unambiguously (not the read-only grid's own lossy bare-hex-string display, F081). Runs on the
- * "mongodb" project only - this editing surface doesn't exist on any SQL engine.
- */
-test("@full editing a MongoDB document's nested field persists and preserves ObjectId", async ({
+test("@full MongoDB uses the shared typed grid for edit, insert, and delete", async ({
   page
 }, testInfo) => {
-  test.skip(testInfo.project.name !== "mongodb", "MongoDB-specific whole-document editor.");
+  test.skip(testInfo.project.name !== "mongodb", "MongoDB-specific mutation roundtrip.");
   await setupMongoFixture(requireTestMongoUrl());
 
   await page.goto("/");
@@ -19,31 +13,38 @@ test("@full editing a MongoDB document's nested field persists and preserves Obj
 
   const table = page.getByTestId("rows-table");
   await expect(table.getByText("Ada Lovelace")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Insert document" })).toHaveCount(0);
 
-  const adaRow = table.locator("tr", { hasText: "Ada Lovelace" });
-  await adaRow.getByRole("button", { name: /edit document/i }).click();
+  const nameCell = table.getByRole("button", { name: "Ada Lovelace" });
+  await nameCell.click();
+  await nameCell.press("Enter");
+  const nameEditor = table.getByRole("textbox", { name: "name", exact: true });
+  await nameEditor.fill("Ada Byron");
+  await nameEditor.press("ControlOrMeta+Enter");
 
-  const drawer = page.getByTestId("document-editor-drawer");
-  await expect(drawer).toBeVisible();
-  const textarea = page.getByLabel("Document JSON");
-  const originalText = await textarea.inputValue();
+  await table.getByRole("button", { name: "Edit profile" }).click();
+  const profileEditor = page.getByRole("textbox", { name: "JSON editor" });
+  await profileEditor.fill('{"account":{"tags":["admin","beta","verified"]}}');
+  await page.getByRole("button", { name: "Apply" }).click();
 
-  // Real Extended JSON, not the grid's own lossy display format - ObjectId arrives wrapped, never
-  // a bare hex string indistinguishable from a plain string field.
-  expect(originalText).toMatch(/"\$oid"\s*:\s*"[0-9a-f]{24}"/);
-  expect(originalText).toContain('"tags":["admin","beta"]');
+  await page.getByRole("button", { name: "Add row" }).click();
+  await page.getByRole("button", { name: "Set name" }).click();
+  const insertedName = page.getByRole("textbox", { name: "name", exact: true });
+  await insertedName.fill("Marie Curie");
+  await insertedName.press("ControlOrMeta+Enter");
 
-  const updatedText = originalText.replace(
-    '"tags":["admin","beta"]',
-    '"tags":["admin","beta","verified"]'
-  );
-  await textarea.fill(updatedText);
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByLabel("Select row 2").check();
+  await page.getByRole("button", { name: "Delete 1 selected" }).click();
 
-  await expect(drawer).toHaveCount(0);
+  const summary = page.getByText("1 to insert, 1 to update, 1 to delete");
+  await expect(summary).toBeVisible();
+  await page.getByRole("button", { name: "Commit", exact: true }).click();
 
-  // Persisted: reopening shows the edit, proving it round-tripped through the server, not just
-  // local component state.
-  await adaRow.getByRole("button", { name: /edit document/i }).click();
-  await expect(page.getByLabel("Document JSON")).toHaveValue(/verified/);
+  await expect(summary).not.toBeVisible();
+  await expect(table.getByText("Ada Byron")).toBeVisible();
+  await expect(table.getByText("Marie Curie")).toBeVisible();
+  await expect(table.getByText("Alan Turing")).not.toBeVisible();
+
+  await table.getByRole("button", { name: "Edit profile" }).click();
+  await expect(page.getByRole("textbox", { name: "JSON editor" })).toHaveValue(/verified/);
 });

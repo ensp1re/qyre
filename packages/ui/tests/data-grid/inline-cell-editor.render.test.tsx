@@ -227,6 +227,24 @@ describe("InlineCellEditor (F146)", () => {
     expect(onCommitKey).toHaveBeenCalledWith("tab");
   });
 
+  it("commits the input's live value on blur even before React renders the final draft", () => {
+    const onApply = vi.fn();
+    render(
+      <InlineCellEditor
+        column={{ name: "name", dataType: "varchar", nullable: false }}
+        originalValue="Ada"
+        onApply={onApply}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const input = screen.getByLabelText("name") as HTMLInputElement;
+    input.value = "Grace";
+    fireEvent.blur(input);
+
+    expect(onApply).toHaveBeenCalledWith("Grace");
+  });
+
   it("reuses the shared calendar for timestamps and preserves the precise time tail", () => {
     render(
       <InlineCellEditor

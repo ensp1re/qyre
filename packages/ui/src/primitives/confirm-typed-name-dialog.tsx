@@ -17,10 +17,9 @@ export interface ConfirmTypedNameDialogProps {
 
 /**
  * Shared typed-confirmation modal for destructive DDL operations (F114) - the confirm button stays
- * disabled until the caller types the target's exact name, re-derived from `DocumentEditorDrawer`'s
- * hand-rolled `deleteConfirmText` pattern (F125) as a reusable dialog, since F114 needs this same
- * shape three times (dropTable/truncateTable/dropColumn), per docs/product-specs/schema-editing.md's
- * typed-confirmation rule.
+ * disabled until the caller types the target's exact name. F114 needs this same reusable shape for
+ * dropTable/truncateTable/dropColumn, per docs/product-specs/schema-editing.md's typed-confirmation
+ * rule.
  */
 export function ConfirmTypedNameDialog({
   title,

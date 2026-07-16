@@ -57,10 +57,8 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     return { tables };
   });
 
-  // F125: fetches one document as relaxed Extended JSON text - the whole-document editor's fresh
-  // load, never the grid's own lossy display values (ObjectId/Date are ambiguous there by design,
-  // F081). MongoDB only; not gated by mutating:true since this only re-serializes data the read
-  // path already exposes, just unambiguously.
+  // Compatibility route for clients that still need one full relaxed-EJSON document. The Tables
+  // UI now uses staged field-level grid changes. This remains read-only.
   app.get<{ Params: { schema: string; table: string; id: string } }>(
     "/api/tables/:schema/:table/document/:id",
     async (request, reply) => {
@@ -145,9 +143,9 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  // F100: structured row update by full primary-key match. `changes` (SQL) or `document`
-  // (MongoDB's whole-document replace) - see docs/product-specs/row-editing.md's "Mutation API
-  // shape". A 0-matched result is a distinct "stale row" outcome, reported as 409, never a silent
+  // F100: structured row update by full primary-key match. This per-row compatibility route keeps
+  // MongoDB whole-document replacement; the shared grid uses POST /api/mutations/commit. A
+  // 0-matched result is a distinct "stale row" outcome, reported as 409, never a silent
   // no-op 200 - the caller may have staged an edit against a row that was already changed/removed.
   app.patch<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/rows",
@@ -170,7 +168,7 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
       if (!rawChanges) {
         return reply.status(400).send({ error: "Request body must include changes." });
       }
-      // F125: MongoDB's whole-document editor must prove it started from the document currently
+      // MongoDB whole-document compatibility callers must prove they started from the document currently
       // stored, not just supply a replacement - lost-update protection per
       // docs/product-specs/row-editing.md. Required (not merely accepted) so the protection can
       // never be silently skipped for this engine.

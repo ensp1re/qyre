@@ -38,7 +38,13 @@ import {
 } from "../schema/ddl.js";
 import { buildMongoFilter } from "../query/filters.js";
 import { introspectCollection, introspectSchemas } from "../schema/introspection.js";
-import { deleteRowsByKey, getDocumentText, insertRow, updateRowByKey } from "../write/mutations.js";
+import {
+  deleteRowsByKey,
+  getDocumentText,
+  insertRow,
+  updateFieldsByKey,
+  updateRowByKey
+} from "../write/mutations.js";
 import { classifyMongodbPermissionDenied } from "../access/permission-errors.js";
 import type { ConnectionStatusResult } from "../access/permissions.js";
 import {
@@ -65,6 +71,16 @@ export class MongodbAdapter implements DatabaseAdapter {
     insertRow: (schema, table, values) => insertRow(this.getClient(), schema, table, values),
     updateRowByKey: (schema, table, key, changes, expectedOriginal) =>
       updateRowByKey(this.getClient(), schema, table, key, changes, expectedOriginal),
+    updateFieldsByKey: (schema, table, key, changes, originalValues, missingOriginalFields) =>
+      updateFieldsByKey(
+        this.getClient(),
+        schema,
+        table,
+        key,
+        changes,
+        originalValues,
+        missingOriginalFields
+      ),
     deleteRowsByKey: (schema, table, keys) =>
       deleteRowsByKey(this.getClient(), schema, table, keys),
     getDocumentText: (schema, table, id) => getDocumentText(this.getClient(), schema, table, id)

@@ -96,6 +96,54 @@ describe("mutation editor exact values", () => {
     });
   });
 
+  it("validates MongoDB ObjectId values for insert drafts", () => {
+    const capability = mutationEditorCapability("objectId", "mongodb");
+    expect(parseMutationDraft("507F1F77BCF86CD799439011", capability, "mongodb")).toEqual({
+      valid: true,
+      value: "507f1f77bcf86cd799439011"
+    });
+    expect(parseMutationDraft("not-an-object-id", capability, "mongodb")).toMatchObject({
+      valid: false
+    });
+  });
+
+  it.each([
+    ["regex", '{"pattern":"^qyre","options":"im"}', { pattern: "^qyre", options: "im" }],
+    ["timestamp", '{"t":1700000000,"i":5}', { t: 1700000000, i: 5 }],
+    ["code", '{"code":"return x;","scope":{"x":1}}', { code: "return x;", scope: { x: 1 } }],
+    ["minKey", '{"$minKey":1}', { $minKey: 1 }],
+    ["maxKey", '{"$maxKey":1}', { $maxKey: 1 }]
+  ] as const)("validates MongoDB %s JSON editor values", (dataType, draft, value) => {
+    const capability = mutationEditorCapability(dataType, "mongodb");
+    expect(parseMutationDraft(draft, capability, "mongodb")).toEqual({ valid: true, value });
+  });
+
+  it.each([
+    ["regex", '{"pattern":"x","options":"gg"}'],
+    ["timestamp", '{"t":-1,"i":0}'],
+    ["code", '{"code":1}'],
+    ["minKey", '{"$minKey":0}'],
+    ["maxKey", '{"$maxKey":2}']
+  ] as const)("rejects invalid MongoDB %s JSON editor values", (dataType, draft) => {
+    expect(
+      parseMutationDraft(draft, mutationEditorCapability(dataType, "mongodb"), "mongodb")
+    ).toMatchObject({ valid: false });
+  });
+
+  it.each([
+    ["regex", { pattern: "", options: "" }],
+    ["timestamp", { t: 0, i: 0 }],
+    ["code", { code: "", scope: {} }],
+    ["minKey", { $minKey: 1 }],
+    ["maxKey", { $maxKey: 1 }]
+  ] as const)("provides a valid MongoDB %s template for Add row", (dataType, template) => {
+    const capability = mutationEditorCapability(dataType, "mongodb");
+    expect(JSON.parse(mutationValueText(undefined, capability))).toEqual(template);
+    expect(
+      parseMutationDraft(mutationValueText(undefined, capability), capability, "mongodb")
+    ).toMatchObject({ valid: true });
+  });
+
   it("preserves PostgreSQL interval text for native validation", () => {
     const capability = mutationEditorCapability("interval", "postgres");
     expect(

@@ -1,6 +1,6 @@
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import { parseMutationDraft } from "@qyre/core/mutation-editor-values";
-import { ArrowUpDown, CopyPlus, Pencil, Trash2 } from "lucide-react";
+import { ArrowUpDown, CopyPlus, Trash2 } from "lucide-react";
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
@@ -60,11 +60,7 @@ export function RowsTable({
   pendingChanges,
   canInsert,
   insertableColumns,
-  canDelete,
-  canEditDocument,
-  onEditDocument,
-  canInsertDocument,
-  onInsertDocument
+  canDelete
 }: RowsTableProps): ReactNode {
   const {
     search,
@@ -292,8 +288,6 @@ export function RowsTable({
         editingDisabledReason={editingDisabledReason}
         canAddRow={canAddRow}
         onAddRow={pendingChanges ? () => pendingChanges.addInsert() : undefined}
-        canInsertDocument={canInsertDocument}
-        onInsertDocument={onInsertDocument}
         canImportCsv={canImportCsv}
         onImportCsv={onImportCsv}
         selected={selected}
@@ -519,7 +513,7 @@ export function RowsTable({
                     <td
                       className={cn(
                         "border-r border-border-subtle px-1 py-1.5 text-right text-quiet-foreground",
-                        canAddRow || markedForDelete || canEditDocument ? "w-14" : "w-8"
+                        canAddRow || markedForDelete ? "w-14" : "w-8"
                       )}
                     >
                       <div className="flex items-center justify-end gap-1">
@@ -536,19 +530,6 @@ export function RowsTable({
                             style={{ color: "var(--c-red)" }}
                           >
                             undo
-                          </button>
-                        ) : canEditDocument && onEditDocument ? (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onEditDocument(row);
-                            }}
-                            aria-label={`Edit document ${virtualRow.index + 1}`}
-                            title="Edit document"
-                            className="text-quiet-foreground hover:text-foreground"
-                          >
-                            <Pencil className="h-2.5 w-2.5" />
                           </button>
                         ) : (
                           canAddRow && (

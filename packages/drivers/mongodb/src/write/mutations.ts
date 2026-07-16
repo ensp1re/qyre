@@ -1,8 +1,95 @@
 import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/core";
+import { isDeepStrictEqual } from "node:util";
 import { EJSON } from "bson";
 import type { MongoClient } from "mongodb";
-import { ObjectId } from "mongodb";
-import { normalizeDocument } from "../runtime/bson-values.js";
+import {
+  Binary,
+  BSONRegExp,
+  Code,
+  Decimal128,
+  Long,
+  MaxKey,
+  MinKey,
+  ObjectId,
+  Timestamp
+} from "mongodb";
+import { normalizeBsonValue, normalizeDocument } from "../runtime/bson-values.js";
+
+function comparableValue(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(normalizeBsonValue(value))) as unknown;
+}
+
+/** Preserve the current field's BSON type while accepting the grid's readable JSON-safe value. */
+function coerceChangedValue(current: unknown, incoming: unknown): unknown {
+  const incomingRecord =
+    incoming && typeof incoming === "object" && !Array.isArray(incoming)
+      ? (incoming as Record<string, unknown>)
+      : undefined;
+  if (current instanceof ObjectId && typeof incoming === "string") return new ObjectId(incoming);
+  if (current instanceof Date && typeof incoming === "string") return new Date(incoming);
+  if (current instanceof Long && (typeof incoming === "string" || typeof incoming === "number")) {
+    return Long.fromString(String(incoming));
+  }
+  if (
+    current instanceof Decimal128 &&
+    (typeof incoming === "string" || typeof incoming === "number")
+  ) {
+    return Decimal128.fromString(String(incoming));
+  }
+  if (current instanceof Binary && typeof incoming === "string") {
+    return new Binary(Buffer.from(incoming, "hex"), current.sub_type);
+  }
+  if (
+    (current instanceof BSONRegExp || current instanceof RegExp) &&
+    typeof incomingRecord?.pattern === "string" &&
+    typeof incomingRecord.options === "string"
+  ) {
+    return new BSONRegExp(incomingRecord.pattern, incomingRecord.options);
+  }
+  if (
+    current instanceof Timestamp &&
+    typeof incomingRecord?.t === "number" &&
+    typeof incomingRecord.i === "number"
+  ) {
+    return Timestamp.fromBits(incomingRecord.i, incomingRecord.t);
+  }
+  if (current instanceof Code && typeof incomingRecord?.code === "string") {
+    const scope = incomingRecord.scope;
+    return new Code(
+      incomingRecord.code,
+      scope && typeof scope === "object" && !Array.isArray(scope)
+        ? (coerceChangedValue(current.scope, scope) as Record<string, unknown>)
+        : undefined
+    );
+  }
+  if (current instanceof MinKey && incomingRecord?.$minKey === 1) return new MinKey();
+  if (current instanceof MaxKey && incomingRecord?.$maxKey === 1) return new MaxKey();
+  if (
+    typeof current === "number" &&
+    (typeof incoming === "string" || typeof incoming === "number")
+  ) {
+    return Number(incoming);
+  }
+  if (Array.isArray(current) && Array.isArray(incoming)) {
+    return incoming.map((value, index) => coerceChangedValue(current[index], value));
+  }
+  if (
+    current &&
+    incoming &&
+    typeof current === "object" &&
+    typeof incoming === "object" &&
+    !Array.isArray(incoming)
+  ) {
+    const currentRecord = current as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(incoming as Record<string, unknown>).map(([key, value]) => [
+        key,
+        coerceChangedValue(currentRecord[key], value)
+      ])
+    );
+  }
+  return EJSON.deserialize({ value: incoming }, { relaxed: true }).value;
+}
 
 /**
  * `document` is the raw request body Fastify already JSON-parsed - `$oid`/`$date`/`$numberLong`/
@@ -34,7 +121,7 @@ export async function insertRow(
  * document with that `_id` exists (the caller reports this as the same "stale row" conflict SQL's
  * 0-rowcount update gets), 1 when a document was found and replaced.
  *
- * `expectedOriginal` (F125's whole-document editor) is the document as it was loaded before
+ * `expectedOriginal` (the whole-document compatibility route) is the document as it was loaded before
  * editing - when present, the current document is re-fetched and structurally compared against it
  * first, by re-serializing both to relaxed EJSON text and comparing the strings. Deliberately not a
  * plain-object deep-equal (`node:util`'s `isDeepStrictEqual`): `mongodb` (CommonJS) and this
@@ -77,10 +164,50 @@ export async function updateRowByKey(
 }
 
 /**
- * Fetches one document by `_id` as relaxed Extended JSON text (F125) - the whole-document editor's
- * fresh load, never the grid's own lossy display values (`ObjectId`/`Date` are ambiguous there by
- * design, per F081; editing cannot tolerate that ambiguity). `undefined` when no document with that
- * id exists - the caller reports this as a 404, not a stale-row conflict (there is nothing to edit).
+ * Applies the shared grid's top-level field changes without replacing the rest of the document.
+ * Every edited field is compared with the value the user originally saw, then included in the
+ * update filter with its current BSON value so a race between the read and update is also rejected.
+ */
+export async function updateFieldsByKey(
+  client: MongoClient,
+  schema: string,
+  table: string,
+  key: Record<string, unknown>,
+  changes: Record<string, unknown>,
+  originalValues: Record<string, unknown>,
+  missingOriginalFields: readonly string[]
+): Promise<UpdateRowResult> {
+  const id = new ObjectId(key._id as string);
+  const collection = client.db(schema).collection(table);
+  const current = await collection.findOne({ _id: id });
+  if (!current) return { matched: 0 };
+
+  const filter: Record<string, unknown> = Object.assign(Object.create(null), { _id: id });
+  const missing = new Set(missingOriginalFields);
+  const set: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+
+  for (const [field, incoming] of Object.entries(changes)) {
+    if (field === "_id") return { matched: 0 };
+    if (missing.has(field)) {
+      if (Object.prototype.hasOwnProperty.call(current, field)) return { matched: 0 };
+      filter[field] = { $exists: false };
+    } else {
+      if (!Object.prototype.hasOwnProperty.call(current, field)) return { matched: 0 };
+      if (!isDeepStrictEqual(comparableValue(current[field]), originalValues[field])) {
+        return { matched: 0 };
+      }
+      filter[field] = current[field];
+    }
+    set[field] = coerceChangedValue(current[field], incoming);
+  }
+
+  const result = await collection.updateOne(filter, { $set: set });
+  return { matched: result.matchedCount };
+}
+
+/**
+ * Fetches one document by `_id` as relaxed Extended JSON text for compatibility clients.
+ * `undefined` when no document with that id exists.
  */
 export async function getDocumentText(
   client: MongoClient,

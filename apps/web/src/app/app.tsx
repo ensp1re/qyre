@@ -15,7 +15,6 @@ import type { ReactNode } from "react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { cancelOperation } from "../shared/api/operations.js";
 import { useCapabilities } from "../features/connection/model/session/use-capabilities.js";
-import { useAccessOverview } from "../features/connection/model/admin/use-access-overview.js";
 import { useConnect } from "../features/connection/model/session/use-connect.js";
 import { databaseManagementReason } from "../features/connection/model/admin/database-management-reason.js";
 import { useDatabaseAdminMutations } from "../features/connection/model/admin/use-database-admin.js";
@@ -102,14 +101,18 @@ export function App(): ReactNode {
   // canonical entry point every write-affordance gates on, per
   // docs/product-specs/permissions-and-capabilities.md.
   const capabilities = useCapabilities({ enabled: status === "connected" });
-  const accessSupported = capabilities.data?.supportsAccessInspection;
-  const access = useAccessOverview(
-    settingsOpen && status === "connected" && accessSupported === true
-  );
   // F116: the connection switcher's "Databases on this server" list - SQLite has no database-list
-  // concept at all (GET /api/databases 400s there per F115's "one file is one database" rule), so
-  // this never fires for it.
-  const databases = useDatabases(status === "connected" && overview.data?.engine !== "sqlite");
+  // concept at all (GET /api/databases 400s there per F115's "one file is one database" rule), and
+  // MongoDB's sidebar explorer already lists every database (switching is a tree click, and a
+  // URL-scoped role would 403 the server-wide list), so this only fires for Postgres/MySQL. The
+  // engine must be *known* before enabling - `undefined` while the overview loads must not fire
+  // the query, or its cached result would keep the section visible on excluded engines.
+  const serverDatabasesSupported =
+    status === "connected" &&
+    overview.data !== undefined &&
+    overview.data.engine !== "sqlite" &&
+    overview.data.engine !== "mongodb";
+  const databases = useDatabases(serverDatabasesSupported);
   const canManageDatabases = sessionAllows(capabilities.data, "supportsDatabaseManagement");
   // Postgres only - MySQL's "schema" IS its database, SQLite/MongoDB have no schema concept below
   // the database (F116).
@@ -272,11 +275,6 @@ export function App(): ReactNode {
           onClearQueryHistory={queryHistory.clear}
           recentConnectionsCount={recentTargets.entries.length}
           onClearRecentConnections={recentTargets.clear}
-          accessSupported={accessSupported}
-          accessOverview={access.data}
-          accessLoading={access.isLoading}
-          accessError={access.isError}
-          onRetryAccess={() => void access.refetch()}
         />
       ) : (
         <div className="flex min-h-0 flex-1">
@@ -433,7 +431,7 @@ export function App(): ReactNode {
         recentTargets={recentTargets.entries}
         onConnect={connectToNewTarget}
         isConnecting={connect.isPending}
-        databases={status === "connected" ? databases.data : undefined}
+        databases={serverDatabasesSupported ? databases.data : undefined}
         databasesLoading={databases.isLoading}
         databasesError={databases.isError ? "Failed to load databases." : undefined}
         currentDatabase={parseTargetDatabase(health?.target)}

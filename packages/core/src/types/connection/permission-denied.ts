@@ -18,6 +18,8 @@ export type PermissionDeniedOperation =
   | "drop-index"
   | "create-database"
   | "drop-database"
+  | "list-databases"
+  | "list-schemas"
   | "create-schema"
   | "drop-schema";
 

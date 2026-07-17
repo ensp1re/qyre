@@ -5,7 +5,6 @@
  * per file. See FRONTEND.md and docs/CODE_ORGANIZATION.md.
  */
 export * from "./connection/connect-drawer.js";
-export * from "./access/access-viewer.js";
 export * from "./connection/database-panel.js";
 export * from "./connection/files-browser.js";
 export * from "./data-grid/cells/cell-value-drawer.js";

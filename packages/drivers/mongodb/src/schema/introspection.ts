@@ -42,9 +42,12 @@ export async function introspectSchemas(client: MongoClient): Promise<SchemaMeta
   const schemas: SchemaMetadata[] = [];
   for (const name of await listVisibleDatabases(client)) {
     if (SYSTEM_DATABASES.has(name)) continue;
+    // `authorizedCollections` lets a role with only collection-level privileges (common on
+    // Atlas) list its own collections instead of being rejected outright; it changes nothing
+    // for roles that hold db-wide listCollections.
     const collections = await client
       .db(name)
-      .listCollections(undefined, { nameOnly: true })
+      .listCollections(undefined, { nameOnly: true, authorizedCollections: true })
       .toArray();
     schemas.push({
       name,
@@ -65,7 +68,9 @@ export async function introspectCollection(
 ): Promise<TableMetadata> {
   const db = client.db(schema);
   const collection = db.collection(table);
-  const [info] = await db.listCollections({ name: table }, { nameOnly: true }).toArray();
+  const [info] = await db
+    .listCollections({ name: table }, { nameOnly: true, authorizedCollections: true })
+    .toArray();
   const kind: TableKind = info?.type === "view" ? "view" : "collection";
   const sample = await collection
     .aggregate([{ $sample: { size: FIELD_SAMPLE_SIZE } }], { maxTimeMS: statementTimeoutMs })

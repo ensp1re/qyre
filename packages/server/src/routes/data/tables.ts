@@ -38,9 +38,18 @@ function exportFilename(table: string, format: RowExportFormat): string {
   return `${safeTable}.${format}`;
 }
 
+// Read routes carry `permissionRoute` config too (F149): an engine-side denial (e.g. a MongoDB
+// role without read access on a collection) must normalize into the shared safe 403 body, never
+// leak raw driver error text into the browser.
+const READ_TABLE_ROUTE = permissionRoute(
+  { operation: "read-table", target: "table", likelyMissingGrant: "SELECT" },
+  false
+);
+
 export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): void {
   app.get<{ Params: { schema: string; table: string } }>(
     "/api/tables/:schema/:table",
+    READ_TABLE_ROUTE,
     async (request) => {
       const { schema, table } = request.params;
       return requireAdapter(ctx.adapter).getTable(schema, table);
@@ -53,10 +62,21 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
   // request keeps that fan-out off the browser's connection pool; getAllTables() (F123) keeps it
   // off the database too, replacing the adapter-side per-table fan-out this route used to drive
   // (an unbounded Promise.all(getTable) per table) with each engine's own batched introspection.
-  app.get("/api/tables", async (): Promise<AllTablesResponse> => {
-    const tables = await requireAdapter(ctx.adapter).getAllTables();
-    return { tables };
-  });
+  app.get(
+    "/api/tables",
+    permissionRoute(
+      {
+        operation: "list-schemas",
+        target: "query",
+        likelyMissingGrant: "read access on the connected database"
+      },
+      false
+    ),
+    async (): Promise<AllTablesResponse> => {
+      const tables = await requireAdapter(ctx.adapter).getAllTables();
+      return { tables };
+    }
+  );
 
   // Compatibility route for clients that still need one full relaxed-EJSON document. The Tables
   // UI now uses staged field-level grid changes. This remains read-only.
@@ -78,6 +98,7 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
 
   app.get<{ Params: { schema: string; table: string }; Querystring: Record<string, string> }>(
     "/api/tables/:schema/:table/rows",
+    READ_TABLE_ROUTE,
     async (request, reply) => {
       const parsed = rowsQuerySchema.safeParse(request.query);
       if (!parsed.success) {

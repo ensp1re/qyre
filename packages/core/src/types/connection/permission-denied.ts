@@ -20,6 +20,7 @@ export type PermissionDeniedOperation =
   | "drop-database"
   | "list-databases"
   | "list-schemas"
+  | "read-table"
   | "create-schema"
   | "drop-schema";
 

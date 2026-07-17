@@ -28,6 +28,22 @@ export function registerConnectRoute(app: FastifyInstance, ctx: ServerContext): 
     if (!(await newAdapter.ping())) {
       throw new Error("Connected, but the new target did not respond to a ping.");
     }
+    // Browse preflight (F149): credentials that authenticate but cannot list schemas/collections
+    // would otherwise land in a fully broken workspace. Failing here keeps the rejection inline
+    // in the connect drawer and the previous connection untouched. getOverview is the same
+    // name-only catalog enumeration the explorer runs immediately after connecting.
+    try {
+      await newAdapter.getOverview();
+    } catch (error) {
+      await newAdapter.disconnect().catch(() => {});
+      if (newAdapter.classifyPermissionDenied?.(error)) {
+        throw new Error(
+          "Connected, but this role is not authorized to browse the database (listing " +
+            "schemas/collections was denied). Check the credential's privileges."
+        );
+      }
+      throw error;
+    }
 
     const oldAdapter = ctx.adapter;
     // Reassigned before the old adapter disconnects, so nothing in between can observe a moment

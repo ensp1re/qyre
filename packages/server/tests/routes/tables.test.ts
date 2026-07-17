@@ -54,6 +54,50 @@ describe("/api/tables", () => {
     expect(response.statusCode).toBe(503);
     await app.close();
   });
+
+  it("normalizes an engine permission denial into the safe 403 body, never raw driver text (F149)", async () => {
+    const adapter = makeFakeAdapter({
+      classifyPermissionDenied: () => "permission",
+      getAllTables: async () => {
+        throw new Error("not authorized on data to execute command { listCollections: 1 }");
+      }
+    });
+    const app = createServer({ adapter });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/tables",
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({
+      code: "permission-denied",
+      operation: "list-schemas"
+    });
+    expect(JSON.stringify(response.json())).not.toContain("listCollections");
+    await app.close();
+  });
+
+  it("normalizes a per-table read denial with the table named in the 403 body (F149)", async () => {
+    const adapter = makeFakeAdapter({
+      classifyPermissionDenied: () => "permission",
+      getRows: async () => {
+        throw new Error("permission denied for table secrets");
+      }
+    });
+    const app = createServer({ adapter });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/tables/public/secrets/rows?page=1&pageSize=25",
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({
+      code: "permission-denied",
+      operation: "read-table",
+      object: "public.secrets"
+    });
+    await app.close();
+  });
 });
 
 describe("GET /api/tables/:schema/:table/rows", () => {

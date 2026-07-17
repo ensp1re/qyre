@@ -204,6 +204,33 @@ export function Sidebar({
                     )}
                   </div>
                 </div>
+              ) : status === "connected" && schemas.length === 0 ? (
+                // F149: a connected but table-less database (e.g. postgres:// with no database
+                // path landing in the empty default DB) gets an actionable route to the
+                // Switch-database drawer instead of SchemaTree's bare "No tables found."
+                <div
+                  data-testid="empty-database-state"
+                  className="flex h-full items-center justify-center px-5 py-6 text-center"
+                >
+                  <div className="flex max-w-48 flex-col items-center">
+                    <Database
+                      className="mb-2 h-4 w-4 text-muted-foreground"
+                      strokeWidth={1.8}
+                      aria-hidden="true"
+                    />
+                    <p className="text-[11px] font-medium text-foreground">
+                      No tables in this database
+                    </p>
+                    <p className="mt-1 text-[10px] leading-4 text-quiet-foreground">
+                      This database is empty. Create tables, or switch to another database on this
+                      server.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={onOpenConnection} className="mt-3">
+                      <Database className="h-3 w-3" strokeWidth={1.8} />
+                      Switch database
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <SchemaTree
                   schemas={schemas}

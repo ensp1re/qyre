@@ -52,6 +52,27 @@ describe("Sidebar schema loading", () => {
   });
 });
 
+describe("Sidebar empty database state (F149)", () => {
+  it("offers a Switch-database route when connected with zero schemas", () => {
+    const onOpenConnection = vi.fn();
+    render(<Sidebar {...BASE_PROPS} onOpenConnection={onOpenConnection} />);
+
+    const empty = screen.getByTestId("empty-database-state");
+    expect(empty).toHaveTextContent("No tables in this database");
+    fireEvent.click(within(empty).getByRole("button", { name: /Switch database/ }));
+    expect(onOpenConnection).toHaveBeenCalledOnce();
+  });
+
+  it("does not show the empty state when disconnected or when schemas exist", () => {
+    const { rerender } = render(<Sidebar {...BASE_PROPS} status="unconfigured" />);
+    expect(screen.queryByTestId("empty-database-state")).not.toBeInTheDocument();
+
+    rerender(<Sidebar {...BASE_PROPS} schemas={[{ name: "public", tables: ["users"] }]} />);
+    expect(screen.queryByTestId("empty-database-state")).not.toBeInTheDocument();
+    expect(screen.getByText("users")).toBeInTheDocument();
+  });
+});
+
 describe("Sidebar schema management (F116)", () => {
   const schemas: SchemaMetadata[] = [{ name: "public", tables: ["users"] }];
 

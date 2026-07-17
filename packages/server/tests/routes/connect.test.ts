@@ -115,6 +115,74 @@ describe("Database switching (F064)", () => {
     await app.close();
   });
 
+  it("rejects credentials that authenticate but cannot browse, keeping the old connection (F149)", async () => {
+    let newDisconnected = false;
+    const oldAdapter = makeFakeAdapter();
+    const factory: AdapterFactory = {
+      engine: "postgres",
+      supports: () => true,
+      create: () =>
+        makeFakeAdapter({
+          disconnect: async () => void (newDisconnected = true),
+          classifyPermissionDenied: () => "permission",
+          getOverview: async () => {
+            throw new Error("not authorized on data to execute command { listCollections: 1 }");
+          }
+        })
+    };
+    const app = createServer({
+      adapter: oldAdapter,
+      target: { engine: "postgres", raw: "postgres://user:pass@localhost:5432/old" },
+      adapterFactories: [factory]
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/connect",
+      payload: { target: "postgres://user:pass@localhost:5432/scoped" },
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toContain("not authorized to browse the database");
+    expect(response.json().error).not.toContain("listCollections");
+    expect(newDisconnected).toBe(true);
+
+    const healthResponse = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: authHeaders(app)
+    });
+    expect(healthResponse.json()).toMatchObject({
+      database: "connected",
+      target: "postgres://user:***@localhost:5432/old"
+    });
+    await app.close();
+  });
+
+  it("rejects the connect when the browse preflight fails for a non-permission reason (F149)", async () => {
+    const factory: AdapterFactory = {
+      engine: "postgres",
+      supports: () => true,
+      create: () =>
+        makeFakeAdapter({
+          getOverview: async () => {
+            throw new Error("catalog query timed out");
+          }
+        })
+    };
+    const app = createServer({ adapterFactories: [factory] });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/connect",
+      payload: { target: "postgres://user:pass@localhost:5432/slow" },
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: "catalog query timed out" });
+    await app.close();
+  });
+
   it("surfaces the real reason from an AggregateError, not an empty message (F064 live-caught bug)", async () => {
     // A connection failure to an unreachable host commonly throws Node's AggregateError (it
     // tries IPv6 then IPv4 and wraps both failures) - confirmed live against a real unreachable

@@ -27,6 +27,8 @@ export interface ConnectionFields {
   user: string;
   password: string;
   database: string;
+  /** MongoDB DNS seed-list scheme (`mongodb+srv://`) - host-only, the scheme forbids a port. */
+  srv: boolean;
 }
 
 export const FIELD_ENGINE_DEFAULT_PORT: Record<FieldEngine, string> = {
@@ -46,11 +48,11 @@ const FIELD_ENGINE_LABEL: Record<FieldEngine, string> = {
  * developers who think in host/port/user/password rather than URL syntax. `host`/`port` fall back
  * to `localhost`/each engine's default port when left blank, matching how a developer would type
  * the URL by hand. `user`/`password`/`database` are percent-encoded so a special character in a
- * password doesn't corrupt the resulting URL's structure.
+ * password doesn't corrupt the resulting URL's structure. MongoDB SRV targets emit
+ * `mongodb+srv://` with no port - the scheme resolves hosts via DNS and rejects an explicit port.
  */
 export function composeConnectionString(fields: ConnectionFields): string {
   const host = fields.host.trim() || "localhost";
-  const port = fields.port.trim() || FIELD_ENGINE_DEFAULT_PORT[fields.engine];
   const user = fields.user.trim();
   const password = fields.password.trim();
   const database = fields.database.trim();
@@ -59,6 +61,10 @@ export function composeConnectionString(fields: ConnectionFields): string {
     ? `${encodeURIComponent(user)}${password ? `:${encodeURIComponent(password)}` : ""}@`
     : "";
   const path = database ? `/${encodeURIComponent(database)}` : "";
+  if (fields.engine === "mongodb" && fields.srv) {
+    return `mongodb+srv://${auth}${host}${path}`;
+  }
+  const port = fields.port.trim() || FIELD_ENGINE_DEFAULT_PORT[fields.engine];
   return `${fields.engine}://${auth}${host}:${port}${path}`;
 }
 
@@ -95,7 +101,8 @@ export function parsePastedConnectionString(text: string): ConnectionFields | nu
     port: url.port,
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
-    database: database ? decodeURIComponent(database) : ""
+    database: database ? decodeURIComponent(database) : "",
+    srv: url.protocol === "mongodb+srv:"
   };
 }
 
@@ -134,7 +141,8 @@ const EMPTY_FIELDS: ConnectionFields = {
   port: "",
   user: "",
   password: "",
-  database: ""
+  database: "",
+  srv: false
 };
 
 function Field({
@@ -337,6 +345,18 @@ export function ConnectDrawer({
                 }))}
               />
 
+              {fields.engine === "mongodb" && (
+                <label className="flex items-center gap-1.5 font-mono text-[10px] text-quiet-foreground">
+                  <input
+                    type="checkbox"
+                    checked={fields.srv}
+                    onChange={(event) => updateField("srv", event.target.checked)}
+                    disabled={isConnecting}
+                  />
+                  SRV (mongodb+srv, e.g. Atlas - no port)
+                </label>
+              )}
+
               <div className="flex gap-2">
                 <Field id="connect-field-host" label="Host">
                   <input
@@ -353,11 +373,11 @@ export function ConnectDrawer({
                   <Field id="connect-field-port" label="Port">
                     <input
                       id="connect-field-port"
-                      value={fields.port}
+                      value={fields.srv ? "" : fields.port}
                       onChange={(event) => updateField("port", event.target.value)}
                       onPaste={handleFieldPaste}
-                      disabled={isConnecting}
-                      placeholder={FIELD_ENGINE_DEFAULT_PORT[fields.engine]}
+                      disabled={isConnecting || fields.srv}
+                      placeholder={fields.srv ? "n/a" : FIELD_ENGINE_DEFAULT_PORT[fields.engine]}
                       className={cn(inputClass, "w-full")}
                     />
                   </Field>
@@ -435,7 +455,8 @@ export function ConnectDrawer({
                       data-testid="recent-target-card"
                       disabled={isConnecting}
                       onClick={() => void attemptConnect(recent.raw)}
-                      className="w-full rounded-[3px] border border-border bg-background p-2 text-left font-mono text-[11px] text-foreground/80 transition-colors hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
+                      title={recent.display}
+                      className="w-full truncate rounded-[3px] border border-border bg-background p-2 text-left font-mono text-[11px] text-foreground/80 transition-colors hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {recent.display}
                     </button>

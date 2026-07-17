@@ -5,33 +5,46 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Current state
 
-- Date: 2026-07-16.
-- Branch: `feature/F147-table-qa-keyboard-fixes`.
-- Queue: DF-10 through DF-12 and F146 are passing. F147 is active for defects found by the
-  post-merge Tables UX smoke QA. DF-13 remains next after F147.
+- Date: 2026-07-17.
+- Branch: `feature/F148-connection-ux-auth-scoped-explorer`.
+- Queue: DF-10 through DF-12, F146, and F147 are passing. F148 is active for MongoDB
+  connection-UX and auth-scoped-explorer fixes found in live Atlas QA. DF-13 remains next after
+  F148.
 
 ## Completed
 
 - DF-10 through DF-12 (audit, editing integrity, shared typed editors) are passing and merged.
-- F146 merged in PR #160 as `ed44633`. Rounds 1-5 added whole-cell scalar editing, stable
-  selection, keyboard/copy/paste/undo,
-  staged commits, single-editor coordination, responsive controls, and Explain-only SQL behavior.
-- Rounds 6-8: compact validated drawers for structured/binary/XML/interval values, lossless temporal
-  editing, cross-engine byte handling, enum selectors, containment filters, and post-write refresh.
-- Rounds 9-11: stable long-text geometry, plain substring SQL JSON/array filters, invalid-Apply
-  blocking, legacy interval normalization, and insert-safe binary duplication.
-- Rounds 12-16: shared MongoDB grid writes and BSON editors, stable ObjectId compatibility, and
-  live-value click-away staging. Local and pre-push gates passed; hosted jobs could not start
-  because GitHub Actions credits were exhausted.
+- F146 merged in PR #160 as `ed44633`. Rounds 1-16 added whole-cell scalar editing, stable
+  selection, keyboard/copy/paste/undo, staged commits, compact validated drawers, lossless
+  temporal/interval editing, shared MongoDB grid writes and BSON editors, and live-value
+  click-away staging.
+- F147 merged in PR #161 as `2acd2f6`: render-lagged keyboard staging in inline cells and filter
+  inputs, top-level filter Escape behavior, and SQLite declared-BOOLEAN display are fixed.
 
 ## In progress
 
-- F147 is reproducing and fixing the smoke-QA findings: render-lagged keyboard staging in inline
-  cells and filter inputs, top-level filter Escape behavior, and SQLite declared-BOOLEAN display.
-  UI tests pass 426/426, five focused PostgreSQL browser journeys pass, and the Node 22 full local
-  PR gate passes with 34/34 package tasks, smoke E2E (11 passed, 4 skipped), and full E2E (32
-  passed, 55 skipped). Draft PR #161 is pushed as `e1eff8d`; both hosted jobs fail before steps
-  because GitHub Actions credits remain exhausted.
+- F148 fixes issues found while connecting Qyre to a real MongoDB Atlas cluster:
+  - Long RECENT connection cards now truncate (with a hover title) instead of overflowing the
+    Switch-database drawer.
+  - The fields-mode form gained an SRV toggle so it can compose/round-trip `mongodb+srv://`
+    targets (no port) - previously pasting an Atlas URL into fields and reconnecting silently
+    produced a broken `mongodb://host:port` string.
+  - The drawer's "Databases on this server" panel is hidden for MongoDB - the sidebar explorer
+    already lists every accessible database, and the per-server list required a
+    cluster-wide `listDatabases` privilege a scoped Atlas role may not have.
+  - `introspectSchemas` (packages/drivers/mongodb) falls back to the URL-scoped database when
+    `listDatabases` is denied (code 13/Unauthorized), instead of the explorer hard-failing.
+  - `GET /api/overview` and `GET /api/databases` gained `permissionRoute` config so a remaining
+    engine denial normalizes into the shared safe 403 body instead of leaking raw driver error
+    text (e.g. the `not authorized on admin to execute command {...}` dump).
+  - Sidebar's "Schemas unavailable" error state is vertically centered in the panel rather than
+    pinned to the top.
+  - Settings screen's Access category (and `AccessViewer`/`useAccessOverview`/`/api/access`
+    client wiring) is removed for now; `AccessBadge` in the status bar and the server
+    `/api/access` route are untouched.
+  - Verification: `@qyre/mongodb` 81/81, `@qyre/ui` 445/445, `@qyre/server` 310/310 unit tests
+    pass; core/mongodb/server/ui/web typecheck and ui/web build pass; manually verified all six
+    behaviors in the `qyre-preview-mongo` browser preview.
 
 ## Known issues / blockers
 
@@ -42,8 +55,6 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   (F010) - rebuild `@qyre/qyre` too after changing `apps/web`, or a running `qyre <target>` session
   will keep serving the stale bundled copy instead of the fresh one.
 - Docker may require `/Applications/Docker.app/Contents/Resources/bin/docker` explicitly on macOS.
-- GitHub Actions credits remain exhausted; PRs #160 and #161 both have hosted jobs that fail before
-  running any steps. Local and pre-push `pnpm verify:pr` are the available verification evidence.
 - Deferred by explicit scoping decision, not oversight: full column resize/reorder/frozen columns,
   a complete toolbar regroup into 4 sections with an overflow menu (only a light-touch separator was
   added), full drag-to-select multi-cell copy/paste (only single-cell and best-effort TSV-block
@@ -53,5 +64,6 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- When GitHub Actions credits return, rerun CI on PR #161; after it passes, move F147 to `passing`.
-- After F147 passes, return to `main` and activate DF-13, the guided Add/Duplicate row composer.
+- Run `pnpm verify:pr`, open a draft PR for F148, then move it to `passing` once CI (or the local
+  gate, if hosted credits are still unavailable) confirms.
+- After F148 passes, return to `main` and activate DF-13, the guided Add/Duplicate row composer.

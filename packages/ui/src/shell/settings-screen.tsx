@@ -1,9 +1,8 @@
-import type { AccessOverview, ConnectionStatus } from "@qyre/core";
-import { Database, History, Moon, Palette, ShieldCheck, Sun, Trash2, X } from "lucide-react";
+import type { ConnectionStatus } from "@qyre/core";
+import { Database, History, Moon, Palette, Sun, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "../cn.js";
-import { AccessViewer } from "../access/access-viewer.js";
 import { IconButton } from "../primitives/controls/icon-button.js";
 import { Segmented } from "../primitives/segmented.js";
 
@@ -19,11 +18,6 @@ export interface SettingsScreenProps {
   onClearQueryHistory: () => void;
   recentConnectionsCount: number;
   onClearRecentConnections: () => void;
-  accessSupported?: boolean;
-  accessOverview?: AccessOverview;
-  accessLoading: boolean;
-  accessError: boolean;
-  onRetryAccess: () => void;
 }
 
 const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
@@ -38,11 +32,10 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
   unconfigured: "No database"
 };
 
-type SettingsCategory = "connection" | "access" | "appearance" | "data";
+type SettingsCategory = "connection" | "appearance" | "data";
 
 const SETTINGS_CATEGORIES = [
   { id: "connection", label: "Connection", icon: Database },
-  { id: "access", label: "Access", icon: ShieldCheck },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "data", label: "Data & history", icon: History }
 ] as const;
@@ -63,12 +56,7 @@ export function SettingsScreen({
   queryHistoryCount,
   onClearQueryHistory,
   recentConnectionsCount,
-  onClearRecentConnections,
-  accessSupported,
-  accessOverview,
-  accessLoading,
-  accessError,
-  onRetryAccess
+  onClearRecentConnections
 }: SettingsScreenProps): ReactNode {
   const [category, setCategory] = useState<SettingsCategory>("connection");
   const categoryLabel = SETTINGS_CATEGORIES.find((item) => item.id === category)?.label;
@@ -137,22 +125,6 @@ export function SettingsScreen({
                     Switch
                   </ActionButton>
                 </Row>
-              </Section>
-            )}
-
-            {category === "access" && (
-              <Section
-                title="Access"
-                description="Current identity, active roles, effective grants, and read-only access facts."
-              >
-                <AccessViewer
-                  connectionStatus={connectionStatus}
-                  supported={accessSupported}
-                  overview={accessOverview}
-                  isLoading={accessLoading}
-                  isError={accessError}
-                  onRetry={onRetryAccess}
-                />
               </Section>
             )}
 

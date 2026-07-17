@@ -14,17 +14,6 @@ function renderScreen(overrides: Partial<Parameters<typeof SettingsScreen>[0]> =
     onClearQueryHistory: vi.fn(),
     recentConnectionsCount: 2,
     onClearRecentConnections: vi.fn(),
-    accessSupported: true,
-    accessOverview: {
-      identity: "app_user",
-      roles: [{ name: "reader", isCurrent: true, attributes: ["login"] }],
-      grants: ["SELECT on public.users"],
-      facts: [{ label: "Session user", value: "app_user" }],
-      notices: []
-    },
-    accessLoading: false,
-    accessError: false,
-    onRetryAccess: vi.fn(),
     ...overrides
   };
   render(<SettingsScreen {...props} />);
@@ -84,13 +73,9 @@ describe("SettingsScreen", () => {
     expect(section?.parentElement).toHaveClass("mx-auto", "mt-10", "max-w-4xl");
   });
 
-  it("renders access identity, roles, grants, and facts", () => {
+  it("offers no Access category", () => {
     renderScreen();
 
-    fireEvent.click(screen.getByRole("button", { name: "Access" }));
-    expect(screen.getAllByText("app_user")).toHaveLength(2);
-    expect(screen.getByText("reader")).toBeVisible();
-    expect(screen.getByText("SELECT on public.users")).toBeVisible();
-    expect(screen.getByText("Session user")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Access" })).not.toBeInTheDocument();
   });
 });

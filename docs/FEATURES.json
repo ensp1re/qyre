@@ -2,21 +2,32 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 148,
+    "F": 149,
     "DF": 13
   },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
     {
-      "id": "F147",
-      "behavior": "Fix Tables QA regressions in shared UI behavior: inline scalar Enter/Tab staging and filter keyboard actions use the live input value instead of render-lagged React state; the filter composer remains fully operable by Arrow keys, Enter, and Escape; and declared SQLite BOOLEAN cells render true/false labels while preserving MySQL TINYINT(1) as numeric 0/1. Preserve existing mutation validation, filter semantics, and cross-engine write behavior.",
-      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && node scripts/with-local-env.mjs pnpm exec playwright test e2e/row-editing-commit.spec.ts e2e/connect-and-inspect.spec.ts --project=postgres && pnpm verify:pr",
+      "id": "F148",
+      "behavior": "MongoDB connection UX and safety fixes found in live Atlas QA: recent-connection cards truncate instead of overflowing the Switch-database drawer; the fields-mode form composes and round-trips mongodb+srv:// targets (no port) via a new SRV toggle; the drawer's per-server \"Databases on this server\" list is hidden for MongoDB since the sidebar explorer already lists every accessible database; a MongoDB role lacking cluster-wide listDatabases falls back to introspecting just the URL-scoped database instead of throwing; GET /api/overview and GET /api/databases normalize an engine permission denial into the shared safe 403 body instead of leaking raw driver text; the sidebar's \"Schemas unavailable\" error is vertically centered in the panel instead of top-anchored; and the Settings screen's Access category is removed for now.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/mongodb test && pnpm --filter @qyre/server test && pnpm --filter @qyre/core typecheck && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/web typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm verify:pr",
       "state": "active",
-      "commitHash": "e1eff8d",
-      "evidence": "Draft PR #161 (https://github.com/ensp1re/qyre/pull/161), pushed as e1eff8d. Claude Tables UX smoke QA reproduced immediate Enter staging failures on PostgreSQL and MySQL, keyboard-only filter composition failures, a top-level Escape focus failure, and SQLite declared-BOOLEAN display as raw 0/1. Inline Enter/Tab and filter keyboard actions now read live input values; the column step restores search focus; and declared SQLite BOOLEAN display maps 0/1 to false/true while MySQL TINYINT(1) and raw copy/export data remain numeric. UI tests pass 426/426; UI typecheck/build and five focused PostgreSQL browser journeys pass. The Node 22 local and pre-push `pnpm verify:pr` gates pass with 34/34 package tasks, smoke E2E (11 passed, 4 skipped), and full E2E (32 passed, 55 skipped) across PostgreSQL, MySQL, SQLite, and MongoDB. Both hosted jobs fail before running any steps because GitHub Actions credits remain exhausted.",
+      "commitHash": null,
+      "evidence": "Local unit suites pass: @qyre/mongodb 81/81, @qyre/ui 445/445, @qyre/server 310/310. Typecheck and build pass for core/mongodb/server/ui/web. Manually verified in the qyre-preview-mongo browser preview: long recent-connection entries truncate with a hover title; the MongoDB fields-mode SRV checkbox disables Port and composes/reconnects a mongodb+srv:// URL; the Switch-database drawer no longer shows \"Databases on this server\" for MongoDB; a forced /api/overview failure renders the sidebar error centered in the panel (not top-anchored); Settings shows only Connection/Appearance/Data & history, no Access category.",
       "blockedReason": null,
       "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
       "completedAt": null
+    },
+    {
+      "id": "F147",
+      "behavior": "Fix Tables QA regressions in shared UI behavior: inline scalar Enter/Tab staging and filter keyboard actions use the live input value instead of render-lagged React state; the filter composer remains fully operable by Arrow keys, Enter, and Escape; and declared SQLite BOOLEAN cells render true/false labels while preserving MySQL TINYINT(1) as numeric 0/1. Preserve existing mutation validation, filter semantics, and cross-engine write behavior.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && node scripts/with-local-env.mjs pnpm exec playwright test e2e/row-editing-commit.spec.ts e2e/connect-and-inspect.spec.ts --project=postgres && pnpm verify:pr",
+      "state": "passing",
+      "commitHash": "2acd2f6",
+      "evidence": "Merged PR #161 (https://github.com/ensp1re/qyre/pull/161) as 2acd2f6. Claude Tables UX smoke QA reproduced immediate Enter staging failures on PostgreSQL and MySQL, keyboard-only filter composition failures, a top-level Escape focus failure, and SQLite declared-BOOLEAN display as raw 0/1. Inline Enter/Tab and filter keyboard actions now read live input values; the column step restores search focus; and declared SQLite BOOLEAN display maps 0/1 to false/true while MySQL TINYINT(1) and raw copy/export data remain numeric. UI tests pass 426/426; UI typecheck/build and five focused PostgreSQL browser journeys pass. The Node 22 local and pre-push `pnpm verify:pr` gates pass with 34/34 package tasks, smoke E2E (11 passed, 4 skipped), and full E2E (32 passed, 55 skipped) across PostgreSQL, MySQL, SQLite, and MongoDB.",
+      "blockedReason": null,
+      "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
+      "completedAt": "2026-07-16T23:11:07.000Z"
     },
     {
       "id": "F146",

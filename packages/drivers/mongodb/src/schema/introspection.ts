@@ -6,6 +6,7 @@ import type {
   TableMetadata
 } from "@qyre/core";
 import type { Collection, MongoClient } from "mongodb";
+import { classifyMongodbPermissionDenied } from "../access/permission-errors.js";
 import { inferColumns } from "../runtime/bson-values.js";
 import { isSystemCollection, SYSTEM_DATABASES } from "./catalog.js";
 
@@ -23,11 +24,23 @@ async function fetchIndexes(collection: Collection): Promise<IndexMetadata[]> {
   }));
 }
 
+/** Enumerate visible database names. Cluster-wide `listDatabases` needs a privilege that
+ * URL-scoped roles (common on Atlas) often lack; a code-13 denial falls back to the database
+ * named in the connection URL so a single-database user still gets a working explorer. */
+async function listVisibleDatabases(client: MongoClient): Promise<string[]> {
+  try {
+    const { databases } = await client.db().admin().listDatabases({ nameOnly: true });
+    return databases.map(({ name }) => name);
+  } catch (error) {
+    if (classifyMongodbPermissionDenied(error) === undefined) throw error;
+    return [client.db().databaseName];
+  }
+}
+
 /** List user databases and collections in Qyre's schema shape. */
 export async function introspectSchemas(client: MongoClient): Promise<SchemaMetadata[]> {
-  const { databases } = await client.db().admin().listDatabases({ nameOnly: true });
   const schemas: SchemaMetadata[] = [];
-  for (const { name } of databases) {
+  for (const name of await listVisibleDatabases(client)) {
     if (SYSTEM_DATABASES.has(name)) continue;
     const collections = await client
       .db(name)

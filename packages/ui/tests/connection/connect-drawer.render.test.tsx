@@ -19,7 +19,8 @@ describe("composeConnectionString", () => {
         port: "5433",
         user: "alice",
         password: "s3cret",
-        database: "mydb"
+        database: "mydb",
+        srv: false
       })
     ).toBe("postgres://alice:s3cret@db.example.com:5433/mydb");
   });
@@ -32,7 +33,8 @@ describe("composeConnectionString", () => {
         port: "",
         user: "",
         password: "",
-        database: ""
+        database: "",
+        srv: false
       })
     ).toBe("mysql://localhost:3306");
   });
@@ -45,9 +47,24 @@ describe("composeConnectionString", () => {
         port: "",
         user: "alice",
         password: "",
-        database: ""
+        database: "",
+        srv: false
       })
     ).toBe("mongodb://alice@localhost:27017");
+  });
+
+  it("emits mongodb+srv with no port for an SRV target", () => {
+    expect(
+      composeConnectionString({
+        engine: "mongodb",
+        host: "cluster0.example.mongodb.net",
+        port: "",
+        user: "admin",
+        password: "s3cret",
+        database: "data",
+        srv: true
+      })
+    ).toBe("mongodb+srv://admin:s3cret@cluster0.example.mongodb.net/data");
   });
 
   it("percent-encodes special characters in user/password/database", () => {
@@ -58,7 +75,8 @@ describe("composeConnectionString", () => {
         port: "5432",
         user: "a@b",
         password: "p@ss/word",
-        database: "my db"
+        database: "my db",
+        srv: false
       })
     ).toBe("postgres://a%40b:p%40ss%2Fword@localhost:5432/my%20db");
   });
@@ -73,15 +91,24 @@ describe("parsePastedConnectionString", () => {
         port: "5433",
         user: "alice",
         password: "s3cret",
-        database: "mydb"
+        database: "mydb",
+        srv: false
       }
     );
   });
 
-  it("maps mongodb+srv to the mongodb engine", () => {
-    expect(parsePastedConnectionString("mongodb+srv://user@cluster.mongodb.net/app")?.engine).toBe(
-      "mongodb"
-    );
+  it("maps mongodb+srv to the mongodb engine with the srv flag set", () => {
+    const parsed = parsePastedConnectionString("mongodb+srv://user@cluster.mongodb.net/app");
+    expect(parsed?.engine).toBe("mongodb");
+    expect(parsed?.srv).toBe(true);
+    expect(parsed?.port).toBe("");
+  });
+
+  it("round-trips an SRV URL through parse and compose", () => {
+    const raw = "mongodb+srv://admin:s3cret@cluster0.example.mongodb.net/data";
+    const parsed = parsePastedConnectionString(raw);
+    expect(parsed).not.toBeNull();
+    expect(composeConnectionString(parsed!)).toBe(raw);
   });
 
   it("returns null for plain text that isn't a connection URL", () => {
@@ -201,6 +228,39 @@ describe("ConnectDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Connection refused");
+  });
+
+  it("shows the SRV toggle only for MongoDB and composes an SRV URL when checked", () => {
+    const onConnect = vi.fn().mockResolvedValue(undefined);
+    render(<ConnectDrawer {...baseProps} onConnect={onConnect} />);
+    fireEvent.click(screen.getByText("Use fields instead"));
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "MongoDB" }));
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(screen.getByLabelText("Port")).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Host"), {
+      target: { value: "cluster0.example.mongodb.net" }
+    });
+    fireEvent.change(screen.getByLabelText("User"), { target: { value: "admin" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "s3cret" } });
+    fireEvent.change(screen.getByLabelText("Database"), { target: { value: "data" } });
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+
+    expect(onConnect).toHaveBeenCalledWith(
+      "mongodb+srv://admin:s3cret@cluster0.example.mongodb.net/data"
+    );
+  });
+
+  it("truncates long recent-connection strings instead of overflowing the drawer", () => {
+    const raw = `postgresql://washbot:***@31.220.92.13:5455/${"x".repeat(120)}`;
+    render(
+      <ConnectDrawer {...baseProps} recentTargets={[{ raw, display: raw }]} onConnect={vi.fn()} />
+    );
+    const card = screen.getByTestId("recent-target-card");
+    expect(card).toHaveClass("truncate");
+    expect(card).toHaveAttribute("title", raw);
   });
 
   it("omits the Databases section when databases is undefined", () => {

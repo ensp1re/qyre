@@ -178,7 +178,7 @@ export function Sidebar({
               ) : isError ? (
                 <div
                   role="alert"
-                  className="flex min-h-32 items-center justify-center border-b border-border-subtle px-5 py-6 text-center"
+                  className="flex h-full items-center justify-center px-5 py-6 text-center"
                 >
                   <div className="flex max-w-48 flex-col items-center">
                     <CircleAlert

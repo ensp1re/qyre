@@ -76,17 +76,29 @@ const CAPABILITY_MESSAGE = "This session cannot manage databases.";
  */
 export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerContext): void {
   // List every non-system database on the connected server. A read - no mutating gate, no
-  // capability check (the underlying catalogs are readable regardless of write grants).
-  app.get("/api/databases", async (request, reply) => {
-    const db = requireAdapter(ctx.adapter);
-    const listDatabases = db.admin?.listDatabases;
-    if (!listDatabases) {
-      return reply
-        .status(400)
-        .send({ error: "This engine manages exactly one database per connection." });
+  // capability check. The permissionRoute config normalizes an engine-side denial (e.g. a
+  // MongoDB role without cluster-wide listDatabases) into the shared safe 403 body.
+  app.get(
+    "/api/databases",
+    permissionRoute(
+      {
+        operation: "list-databases",
+        target: "database",
+        likelyMissingGrant: "the listDatabases privilege on the connected server"
+      },
+      false
+    ),
+    async (request, reply) => {
+      const db = requireAdapter(ctx.adapter);
+      const listDatabases = db.admin?.listDatabases;
+      if (!listDatabases) {
+        return reply
+          .status(400)
+          .send({ error: "This engine manages exactly one database per connection." });
+      }
+      return { databases: await listDatabases() };
     }
-    return { databases: await listDatabases() };
-  });
+  );
 
   // Create a database. Non-destructive - a plain review-before-submit step, no typed confirmation.
   app.post<{ Body: unknown }>(

@@ -38,8 +38,8 @@ export function registerConnectRoute(app: FastifyInstance, ctx: ServerContext): 
       await newAdapter.disconnect().catch(() => {});
       if (newAdapter.classifyPermissionDenied?.(error)) {
         throw new Error(
-          "Connected, but this role is not authorized to browse the database (listing " +
-            "schemas/collections was denied). Check the credential's privileges."
+          "Connection is stable, but this role is not authorized to browse the database " +
+            "(listing schemas/collections was denied). Check the credential's privileges."
         );
       }
       throw error;

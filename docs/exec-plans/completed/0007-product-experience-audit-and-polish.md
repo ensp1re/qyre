@@ -1,11 +1,13 @@
 # Plan 0007: Product Experience Audit and Coherent UI Polish
 
-Status: Revised plan approved 2026-07-15; DF-10 audit and DF-11 editing integrity are delivered.
-DF-12 shared controls and complete typed editors is passing in draft PR #159. DF-13 is next after
-merge.
+Status: Retired 2026-07-18. DF-10 audit, DF-11 editing integrity, and DF-12 shared controls/typed
+editors shipped (`passing`). DF-13 through DF-19 below were never started and are retired with this
+plan, not completed - the underlying browser audit is from 2026-07-15 and predates F146-F149 and
+the subsequent workspace/palette refinements, so its findings are stale. A fresh audit will be run
+later and should produce a new plan rather than resume these slices as scoped.
 Owner: current product-design engagement
 Linked features: DF-10 audit (passing), DF-11 editing integrity (passing), DF-12 typed editors
-(passing)
+(passing), DF-13-DF-19 (retired, not started)
 Evidence captured: 2026-07-15
 
 ## Objective
@@ -934,3 +936,9 @@ personal taste.
   with 34/34 package tasks, smoke E2E (11 passed, 4 skipped), and full E2E (32 passed, 55 skipped).
   Draft PR #161 is pushed as `e1eff8d`; both hosted jobs fail before running any steps because
   GitHub Actions credits remain exhausted. Current step: rerun CI when credits return.
+- 2026-07-18: Retired without running DF-13 through DF-19. F148 and F149 (post-release Atlas QA)
+  and two unrelated UI refinement passes (`a181a20` color palette, `92f1660` workspace interactions)
+  landed after this plan's 2026-07-15 audit and changed the surfaces the audit describes, so the
+  remaining slices are no longer a reliable basis for work. Moved to `completed/` as a record of
+  what DF-10-DF-12 delivered; a fresh browser audit will produce a new plan for any remaining gaps
+  rather than resuming DF-13-DF-19 as scoped here.

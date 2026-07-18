@@ -2,11 +2,55 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 150,
+    "F": 154,
     "DF": 13
   },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
+    {
+      "id": "F150",
+      "behavior": "AI assistant plan 0008 slice 1: an `assistant` shell tab appears first (before SQL Editor); unconfigured it renders a centered empty state with an Open Settings action. Settings gains an AI Assistant category with exclusive provider configuration (Anthropic, OpenAI, or OpenRouter - one saved key at a time, the others' inputs disabled with a clear-to-switch hint), a masked API-key input, a required model-name input shown only for OpenRouter, and permission-scope toggles. Config persists via the versioned localStorage helpers; keys never appear in logs or exports. SECURITY.md and the README gain the documented opt-in carve-out for external AI provider calls.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/web typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm verify:pr",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/exec-plans/active/0008-ai-database-assistant.md",
+      "completedAt": null
+    },
+    {
+      "id": "F151",
+      "behavior": "AI assistant plan 0008 slice 2: POST /api/ai/chat streams provider responses over SSE through the local server (CSP blocks direct browser calls), with a provider abstraction covering Anthropic and OpenAI-compatible (OpenAI, OpenRouter) wire formats and normalized friendly errors for bad keys, rate limits, and network failures. A fixed database-only, engine-aware system prompt scopes the assistant; SQL in responses renders as a suggestion block with Copy and Apply, where Apply dispatches the existing queryLoaded action to load the SQL Editor. MongoDB sessions hide Apply and steer the prompt to find/aggregate.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm --filter @qyre/server typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm verify:pr",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/exec-plans/active/0008-ai-database-assistant.md",
+      "completedAt": null
+    },
+    {
+      "id": "F152",
+      "behavior": "AI assistant plan 0008 slice 3: the server-side tool loop ships list_tables and get_table_schema (require the share-schema scope) and run_read_query (requires the read-data scope, executes through the existing read-only query path, caps rows sent to the provider). A tool call missing its scope pauses the stream with a permission-request event; a consent card above the composer states exactly what will be shared, Allow persists the grant to localStorage and resumes, Deny feeds the refusal to the model. Settings toggles reflect and revoke grants. Verified across Postgres, MySQL, SQLite, and MongoDB.",
+      "verification": "pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm --filter @qyre/server typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm verify:pr",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/exec-plans/active/0008-ai-database-assistant.md",
+      "completedAt": null
+    },
+    {
+      "id": "F153",
+      "behavior": "AI assistant plan 0008 slice 4: the assistant emits a JSON chart spec ({type: bar|line, x, series}) when a visualization answers the question, rendered by a dependency-free token-colored SVG ChartBlock beneath the explanation; malformed specs degrade to a code block instead of crashing.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm verify:pr",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/exec-plans/active/0008-ai-database-assistant.md",
+      "completedAt": null
+    },
     {
       "id": "F149",
       "behavior": "Close the remaining MongoDB scoped-role and empty-database gaps found in post-v0.4.1 Atlas QA: MongoDB introspection passes authorizedCollections with nameOnly so a collection-scoped role lists its own collections instead of being denied; the GET /api/tables read routes normalize engine permission denials into the shared safe 403 body instead of leaking raw driver text; connectAndSwap runs a browse preflight (getOverview) before swapping, so credentials that authenticate but cannot browse are rejected inline in the Switch-database drawer with the previous connection untouched; and a connected but table-less database renders a centered sidebar empty state with a Switch-database action instead of a bare \"No tables found.\"",
@@ -15,7 +59,7 @@
       "commitHash": "9dae65d",
       "evidence": "Merged PR #167 (https://github.com/ensp1re/qyre/pull/167) as 9dae65d. Local unit suites pass: @qyre/mongodb 82/82 (with local Docker env, including the new authorizedCollections options assertion), @qyre/server 314/314 (read-route 403 normalization and both preflight rejection paths), @qyre/ui 447/447 (empty-state render and Switch-database action). Typecheck and build pass for core/mongodb/server/ui/web. Manually verified in the qyre-preview-postgres browser preview: connecting postgres://...@localhost:5432 with no database lands in the empty default database, the sidebar shows the centered \"No tables in this database\" state, and its Switch database button opens the drawer listing postgres/qyre_demo/qyre_test.",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
+      "spec": "docs/exec-plans/completed/0007-product-experience-audit-and-polish.md",
       "completedAt": "2026-07-17T21:07:38.000Z"
     },
     {
@@ -26,7 +70,7 @@
       "commitHash": "c780b89",
       "evidence": "Merged PR #165 (https://github.com/ensp1re/qyre/pull/165) as c780b89, released in v0.4.1. Local unit suites passed: @qyre/mongodb 81/81, @qyre/ui 445/445, @qyre/server 310/310; typecheck and build passed for core/mongodb/server/ui/web; the Node 22 pre-push `pnpm verify:pr` gate passed. Manually verified in the qyre-preview-mongo browser preview: long recent-connection entries truncate with a hover title; the MongoDB fields-mode SRV checkbox disables Port and composes/reconnects a mongodb+srv:// URL; the Switch-database drawer no longer shows \"Databases on this server\" for MongoDB; a forced /api/overview failure renders the sidebar error centered in the panel (not top-anchored); Settings shows only Connection/Appearance/Data & history, no Access category. Post-release Atlas QA found the follow-up scoped-role gaps tracked as F149.",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
+      "spec": "docs/exec-plans/completed/0007-product-experience-audit-and-polish.md",
       "completedAt": "2026-07-17T21:29:55.000Z"
     }
   ]

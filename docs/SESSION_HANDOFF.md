@@ -6,10 +6,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-07-18.
-- Branch: `main`.
-- Queue: F146-F149 are all passing. F149 merged in PR #167 as `9dae65d`. Plan 0007 is retired
-  (`docs/exec-plans/completed/0007-...md`); its DF-13-DF-19 slices were unstarted and stale. A
-  fresh UI audit is pending and will produce a new plan.
+- Branch: `main`. Released v0.4.2 (PR #169, tag pending publish).
+- Queue: F148/F149 passing; F150-F153 queued `not_started` for plan 0008, the approved opt-in AI
+  assistant tab (`docs/exec-plans/active/0008-ai-database-assistant.md`). Plan 0007 is retired
+  (`docs/exec-plans/completed/0007-...md`); a fresh UI audit is still pending separately.
 
 ## Completed
 
@@ -51,4 +51,6 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Run a fresh UI/UX browser audit and turn its findings into a new exec plan.
+- Activate F150 (plan 0008 slice 1): assistant tab gating, Settings AI category with exclusive
+  provider config, and the SECURITY.md/README opt-in carve-out.
+- Separately, run a fresh UI/UX browser audit and turn its findings into a new exec plan.

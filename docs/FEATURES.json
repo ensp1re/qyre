@@ -11,12 +11,12 @@
       "id": "F149",
       "behavior": "Close the remaining MongoDB scoped-role and empty-database gaps found in post-v0.4.1 Atlas QA: MongoDB introspection passes authorizedCollections with nameOnly so a collection-scoped role lists its own collections instead of being denied; the GET /api/tables read routes normalize engine permission denials into the shared safe 403 body instead of leaking raw driver text; connectAndSwap runs a browse preflight (getOverview) before swapping, so credentials that authenticate but cannot browse are rejected inline in the Switch-database drawer with the previous connection untouched; and a connected but table-less database renders a centered sidebar empty state with a Switch-database action instead of a bare \"No tables found.\"",
       "verification": "pnpm --filter @qyre/mongodb test && pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/core typecheck && pnpm --filter @qyre/server typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm verify:pr",
-      "state": "active",
-      "commitHash": null,
-      "evidence": "Local unit suites pass: @qyre/mongodb 82/82 (with local Docker env, including the new authorizedCollections options assertion), @qyre/server 314/314 (read-route 403 normalization and both preflight rejection paths), @qyre/ui 447/447 (empty-state render and Switch-database action). Typecheck and build pass for core/mongodb/server/ui/web. Manually verified in the qyre-preview-postgres browser preview: connecting postgres://...@localhost:5432 with no database lands in the empty default database, the sidebar shows the centered \"No tables in this database\" state, and its Switch database button opens the drawer listing postgres/qyre_demo/qyre_test.",
+      "state": "passing",
+      "commitHash": "9dae65d",
+      "evidence": "Merged PR #167 (https://github.com/ensp1re/qyre/pull/167) as 9dae65d. Local unit suites pass: @qyre/mongodb 82/82 (with local Docker env, including the new authorizedCollections options assertion), @qyre/server 314/314 (read-route 403 normalization and both preflight rejection paths), @qyre/ui 447/447 (empty-state render and Switch-database action). Typecheck and build pass for core/mongodb/server/ui/web. Manually verified in the qyre-preview-postgres browser preview: connecting postgres://...@localhost:5432 with no database lands in the empty default database, the sidebar shows the centered \"No tables in this database\" state, and its Switch database button opens the drawer listing postgres/qyre_demo/qyre_test.",
       "blockedReason": null,
       "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
-      "completedAt": null
+      "completedAt": "2026-07-17T21:07:38.000Z"
     },
     {
       "id": "F148",
@@ -28,28 +28,6 @@
       "blockedReason": null,
       "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
       "completedAt": "2026-07-17T21:29:55.000Z"
-    },
-    {
-      "id": "F147",
-      "behavior": "Fix Tables QA regressions in shared UI behavior: inline scalar Enter/Tab staging and filter keyboard actions use the live input value instead of render-lagged React state; the filter composer remains fully operable by Arrow keys, Enter, and Escape; and declared SQLite BOOLEAN cells render true/false labels while preserving MySQL TINYINT(1) as numeric 0/1. Preserve existing mutation validation, filter semantics, and cross-engine write behavior.",
-      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && node scripts/with-local-env.mjs pnpm exec playwright test e2e/row-editing-commit.spec.ts e2e/connect-and-inspect.spec.ts --project=postgres && pnpm verify:pr",
-      "state": "passing",
-      "commitHash": "2acd2f6",
-      "evidence": "Merged PR #161 (https://github.com/ensp1re/qyre/pull/161) as 2acd2f6. Claude Tables UX smoke QA reproduced immediate Enter staging failures on PostgreSQL and MySQL, keyboard-only filter composition failures, a top-level Escape focus failure, and SQLite declared-BOOLEAN display as raw 0/1. Inline Enter/Tab and filter keyboard actions now read live input values; the column step restores search focus; and declared SQLite BOOLEAN display maps 0/1 to false/true while MySQL TINYINT(1) and raw copy/export data remain numeric. UI tests pass 426/426; UI typecheck/build and five focused PostgreSQL browser journeys pass. The Node 22 local and pre-push `pnpm verify:pr` gates pass with 34/34 package tasks, smoke E2E (11 passed, 4 skipped), and full E2E (32 passed, 55 skipped) across PostgreSQL, MySQL, SQLite, and MongoDB.",
-      "blockedReason": null,
-      "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
-      "completedAt": "2026-07-16T23:11:07.000Z"
-    },
-    {
-      "id": "F146",
-      "behavior": "DataGrip-style grid editing across PostgreSQL, MySQL, SQLite, and MongoDB: single-click whole-cell selection; double-click/Enter/F2 inline editing for scalar values; shared Add row, Duplicate row, staged delete, JSON operation/SQL statement preview, and Commit bar; BSON-preserving MongoDB field updates with stable hexadecimal ObjectId row keys, optimistic conflict guards, and validated regex, timestamp, code, MinKey, and MaxKey JSON editors; shared True/False boolean and enum selectors; lossless date, time, time-with-time-zone, timestamp, and PostgreSQL interval editing; automatic dismissal of any active scalar, structured, or inserted-row editor when another body cell is clicked; compact right-side drawer editing for JSON, supported arrays, binary hex, XML, and intervals, with visible Format/Minify/Copy and fixed actions; grouped binary hex with byte count and ASCII preview under a friendly bytes label; binary values normalized to hex when duplicating rows; plain-text JSON/array substring filters on SQL engines and native structured containment on MongoDB; validated PostgreSQL bit-string and network editing; anchored SET editing with optional full-panel expansion; spreadsheet keyboard navigation, typed copy/paste, nullable clearing, undo, staged dirty-state feedback, and page-level commit; automatic catalog/row refresh after successful writes; fixed-width truncated columns; adaptive icon-only shell tabs and row actions below the desktop breakpoint; and a non-executing SQL Explain action with no Analyze control.",
-      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/core typecheck && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/web typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm --filter @qyre/qyre build && pnpm verify:pr",
-      "state": "passing",
-      "commitHash": "ed44633",
-      "evidence": "Merged PR #160 (https://github.com/ensp1re/qyre/pull/160) as ed44633 after rounds 8-16 were pushed through b06a89d. Rounds 3-16 live-review refinements include true whole-cell selection/editing, stable long-text geometry, shared typed scalar/structured/binary editors, lossless temporal and interval handling, SQL substring filters, immediate post-write refresh, and MongoDB's replacement of the separate whole-document drawer with the same Add/Duplicate/edit/delete/Commit grid used by SQL. MongoDB operations preview JSON, update changed fields through `$set`, preserve existing BSON types, reject same-field concurrent edits using original-value guards, and author regex, timestamp, code, MinKey, and MaxKey through validated JSON drawers with Add-row templates. Round 14 normalizes ObjectIds to stable lowercase hex across BSON package instances and safely accepts the `$oid` wire form. Round 15 additionally accepts only the exact legacy 12-byte buffer payload retained by an already-open pre-fix browser page. Round 16 commits the live input value on blur so fast click-away cannot drop the final scalar edit. Rebuilt production browser checks pass in MongoDB and PostgreSQL; server tests pass 309/309 and UI tests pass 421/421. The Node 22 local and pre-push `pnpm verify:pr` gates pass with 34/34 package tasks, check:state, smoke E2E (11 passed, 4 skipped), and full E2E (30 passed, 47 skipped) across PostgreSQL, MySQL, SQLite, and MongoDB. Hosted jobs could not run because GitHub Actions credits were exhausted.",
-      "blockedReason": null,
-      "spec": "docs/exec-plans/active/0007-product-experience-audit-and-polish.md",
-      "completedAt": "2026-07-16T19:33:24.000Z"
     }
   ]
 }

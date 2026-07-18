@@ -5,11 +5,11 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Current state
 
-- Date: 2026-07-17.
-- Branch: `feature/F149-browse-preflight-and-scoped-introspection`.
-- Queue: F147 and F148 are passing (F148 merged in PR #165 as `c780b89`, released as v0.4.1).
-  F149 is active for the follow-up gaps post-release Atlas QA found. DF-13 remains next after
-  F149.
+- Date: 2026-07-18.
+- Branch: `main`.
+- Queue: F146-F149 are all passing. F149 merged in PR #167 as `9dae65d`. Plan 0007 is retired
+  (`docs/exec-plans/completed/0007-...md`); its DF-13-DF-19 slices were unstarted and stale. A
+  fresh UI audit is pending and will produce a new plan.
 
 ## Completed
 
@@ -19,31 +19,22 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   SRV toggle, MongoDB hidden per-server database list, listDatabases fallback to the URL-scoped
   database, /api/overview + /api/databases permission normalization, centered sidebar error,
   and Settings Access removal.
+- F149 merged in PR #167 as `9dae65d`: MongoDB `listCollections` now passes
+  `nameOnly + authorizedCollections` (packages/drivers/mongodb/src/schema/introspection.ts, both
+  call sites), so a collection-scoped role lists its own collections instead of a code-13 denial.
+  The `GET /api/tables` read routes (all-tables, table metadata, rows) carry `permissionRoute`
+  config, so an engine denial returns the shared safe 403 body instead of leaking raw driver text
+  to the Schema tab. `connectAndSwap` (packages/server/src/routes/connection/connect.ts) runs a
+  browse preflight (`getOverview`) after ping and before the swap, rejecting credentials that
+  authenticate but cannot browse with a friendly inline error in the Switch-database drawer while
+  leaving the previous connection untouched, for both /api/connect and /api/connect/database. A
+  connected but table-less database renders a centered sidebar empty state — "No tables in this
+  database" with a Switch database button — instead of SchemaTree's bare "No tables found."
+  (packages/ui/src/schema/navigation/sidebar.tsx).
 
 ## In progress
 
-- F149 closes what post-v0.4.1 Atlas QA still hit:
-  - MongoDB `listCollections` now passes `nameOnly + authorizedCollections`
-    (packages/drivers/mongodb/src/schema/introspection.ts, both call sites), so a
-    collection-scoped role lists its own collections instead of a code-13 denial — this was the
-    remaining hard failure after F148's listDatabases fallback.
-  - The `GET /api/tables` read routes (all-tables, table metadata, rows) carry `permissionRoute`
-    config, so an engine denial returns the shared safe 403 body; raw driver text no longer
-    reaches the Schema tab (which reads /api/tables, not /api/overview).
-  - `connectAndSwap` (packages/server/src/routes/connection/connect.ts) runs a browse preflight
-    (`getOverview`) after ping and before the swap: credentials that authenticate but cannot
-    browse are rejected with a friendly inline error in the Switch-database drawer, the new
-    adapter is disconnected, and the previous connection stays untouched. Applies to both
-    /api/connect and /api/connect/database. The CLI's initial launch gate is intentionally
-    unchanged.
-  - A connected but table-less database (e.g. `postgres://...@host:5432` with no database path
-    landing in the empty default DB) renders a centered sidebar empty state — "No tables in this
-    database" with a Switch database button opening the drawer — instead of SchemaTree's bare
-    "No tables found." (packages/ui/src/schema/navigation/sidebar.tsx).
-  - Verification so far: @qyre/mongodb 82/82 (local Docker env), @qyre/server 314/314,
-    @qyre/ui 447/447; typecheck/build pass for core/mongodb/server/ui/web; the postgres browser
-    preview confirms the no-database connect flow end-to-end. `pnpm verify:pr` and the PR are
-    the remaining steps.
+- None.
 
 ## Known issues / blockers
 
@@ -60,6 +51,4 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Run `pnpm verify:pr` (Node 22), open the F149 PR, and move F149 to `passing` once the gate
-  confirms.
-- After F149 passes, return to `main` and activate DF-13, the guided Add/Duplicate row composer.
+- Run a fresh UI/UX browser audit and turn its findings into a new exec plan.

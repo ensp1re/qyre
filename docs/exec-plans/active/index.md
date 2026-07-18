@@ -2,5 +2,5 @@
 
 Plans currently driving work. One plan should have one clearly owned current step.
 
-- [`0007-product-experience-audit-and-polish.md`](0007-product-experience-audit-and-polish.md) -
-  revised plan approved and DF-10 delivered; current step is DF-11 editing integrity.
+None currently. A fresh UI audit is pending; it will produce a new plan (see `completed/0007-...`
+for the retired predecessor and why its remaining slices weren't resumed).

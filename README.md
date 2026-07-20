@@ -20,12 +20,6 @@ That one command detects which engine you pointed it at, starts a local server, 
 browser straight into a dense, VS Code-style IDE for the connection: a schema tree, a SQL editor, a
 row browser, a full-database schema overview, and more - all served from your own machine.
 
-## Screenshots
-
-| SQL Editor                                                                                   | Schema                                                                               | Tables                                                                        |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| ![SQL Editor: a joined query with results below the editor](docs/screenshots/sql-editor.png) | ![Schema tab: every table as a card, with PK/FK badges](docs/screenshots/schema.png) | ![Tables tab: a paginated, sortable row browser](docs/screenshots/tables.png) |
-
 ## Why not just use \_\_\_?
 
 - **pgAdmin / DBeaver / a full desktop DB IDE** - heavy installs, an account or a project file to

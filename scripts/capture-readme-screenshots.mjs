@@ -5,9 +5,10 @@
  * own to show. Run manually when the UI changes enough to need new screenshots; not part of any
  * CI or check gate.
  *
- * Usage:
- *   QYRE_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres \
- *     node scripts/capture-readme-screenshots.mjs
+ * Usage (tsx, not node - @qyre/testing ships TypeScript source; build web first so
+ * apps/web/dist reflects the UI being captured):
+ *   pnpm --filter @qyre/web... build
+ *   node scripts/with-local-env.mjs pnpm exec tsx scripts/capture-readme-screenshots.mjs
  */
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -64,26 +65,32 @@ async function main() {
     await page.getByTestId("status-badge").waitFor();
     await page.waitForTimeout(300);
 
-    // SQL Editor: a real query, run, with results below the editor.
+    // SQL Editor: a real query, run, with results below the editor. The editor is CodeMirror
+    // (same locator the e2e specs use), not a plain textarea.
     await page.getByRole("tab", { name: "SQL Editor" }).click();
-    await page.locator("textarea").fill(
-      `SELECT o.id, u.name, o.status, o.total
+    await page
+      .getByTestId("query-editor")
+      .locator(".cm-content")
+      .fill(
+        `SELECT o.id, u.name, o.status, o.total
 FROM qyre_readme_orders o
 JOIN ${FIXTURE.table} u ON u.id = o.user_id
 ORDER BY o.id`
-    );
+      );
     await page.getByRole("button", { name: "Run" }).click();
     await page.getByTestId("query-result").waitFor();
     await page.screenshot({ path: join(outDir, "sql-editor.png") });
 
-    // Schema tab: the full-database grid, including the FK badge on user_id.
+    // Schema tab: the default graph view - every table as a node with its FK edges laid out.
     await page.getByRole("tab", { name: "Schema" }).click();
-    await page.getByTestId("schema-grid").waitFor();
-    await page.waitForTimeout(200);
+    await page.getByTestId("schema-graph").waitFor();
+    await page.waitForTimeout(600);
     await page.screenshot({ path: join(outDir, "schema.png") });
 
-    // Tables tab: the paginated row browser for the fixture table.
-    await page.getByRole("button", { name: FIXTURE.table }).click();
+    // Tables tab: the paginated row browser for the fixture table. The sidebar renders tables as
+    // treeitems (same locator the e2e specs use); a bare button-role lookup can match the hidden
+    // query-history card containing the same table name.
+    await page.getByRole("treeitem", { name: FIXTURE.table }).click();
     await page.getByTestId("rows-table").waitFor();
     await page.waitForTimeout(200);
     await page.screenshot({ path: join(outDir, "tables.png") });

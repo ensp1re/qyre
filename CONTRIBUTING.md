@@ -6,10 +6,14 @@ feature tracking, definition of done) that this file only summarizes.
 
 ## Prerequisites
 
-- Node.js >= 20.11.0
+- Node.js 22 LTS for development. The runtime floor is `>=20.11.0` (`package.json` `engines`), but
+  the repo's `better-sqlite3` native binding is built against Node 22 - on newer majors (24/26)
+  tests fail to load it with a `NODE_MODULE_VERSION` mismatch. Use Node 22, or rebuild the binding
+  yourself if you know what you're doing.
 - [pnpm](https://pnpm.io/) (version pinned in `package.json`'s `packageManager` field)
-- [Docker](https://www.docker.com/) - only needed if you're testing against real Postgres/MySQL/
-  MongoDB databases, not for SQLite-only or UI-only work
+- [Docker](https://www.docker.com/) - needed for the Postgres/MySQL/MongoDB integration suites and
+  for the pre-push gate (`pnpm verify:pr` starts the compose stack); not for SQLite-only or
+  UI-only work
 
 ## Setup
 
@@ -20,8 +24,9 @@ pnpm verify:pr   # starts/checks DBs; checks, build, smoke E2E, full E2E
 
 **`pnpm check` needs the test databases below**: the Postgres/MySQL/MongoDB adapter integration
 suites run as part of `pnpm test` and fail loudly if their `QYRE_TEST_*` env var is unset (SQLite
-and pure unit tests need nothing external). The pre-push git hook also runs `pnpm check`, so the
-URLs must be present in `.env` or exported in the shell you push from.
+and pure unit tests need nothing external). The pre-push git hook runs the full `pnpm verify:pr`
+gate - it locates Docker, starts missing compose services, and runs checks plus smoke and full
+E2E, so Docker must be available in the shell you push from.
 
 ## Running the local test stack
 
@@ -75,9 +80,17 @@ Formatting and linting are enforced by `pnpm check` (Prettier + ESLint) and a pr
 - Describe what changed and why in the PR description - the "why" matters more than the "what",
   since the diff already shows the what.
 
+## Good first contributions
+
+New engine drivers are the ideal first contribution: adapters are additive by design
+(`packages/drivers/<engine>`), picked up by the same detection path with no engine-specific UI
+branches, and the shared `@qyre/testing-conformance` suite tells you when yours behaves like the
+existing four. Open a "New engine request" issue first so the scope is agreed before you build.
+
 ## Reporting issues
 
-Open a GitHub issue. For security-sensitive reports, see [`docs/SECURITY.md`](docs/SECURITY.md).
+Open a GitHub issue using the matching template. For security vulnerabilities, do **not** open a
+public issue - follow [`SECURITY.md`](SECURITY.md) to report privately.
 
 ## License
 

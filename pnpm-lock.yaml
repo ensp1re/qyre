@@ -23,6 +23,21 @@ importers:
       '@playwright/test':
         specifier: ^1.49.1
         version: 1.61.1
+      '@qyre/core':
+        specifier: workspace:*
+        version: link:packages/core
+      '@qyre/driver-contract':
+        specifier: workspace:*
+        version: link:packages/drivers/contract
+      '@qyre/postgres':
+        specifier: workspace:*
+        version: link:packages/drivers/postgres
+      '@qyre/server':
+        specifier: workspace:*
+        version: link:packages/server
+      '@qyre/testing':
+        specifier: workspace:*
+        version: link:packages/testing
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.0

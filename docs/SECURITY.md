@@ -1,7 +1,8 @@
 # SECURITY.md
 
 Security and safety rules that agents must not guess at. Qyre connects to real databases, so these
-rules are first-class.
+rules are first-class. This is the internal contract; the public vulnerability-reporting policy
+lives in the root [`SECURITY.md`](../SECURITY.md).
 
 ## Local-first boundary
 

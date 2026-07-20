@@ -5,6 +5,7 @@ choose, no account, no heavy GUI to install.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/ensp1re/qyre/ci.yml?branch=main&label=CI)](https://github.com/ensp1re/qyre/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/qyre.svg)](https://www.npmjs.com/package/qyre)
+[![node](https://img.shields.io/badge/node-%3E%3D20.11-brightgreen.svg)](package.json)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ```bash
@@ -58,7 +59,7 @@ affordances, and still lets the database make the authoritative decision on ever
 | -------------------------- | ------------------------ | ------------------------ | ------------------------ | ------------------------------ |
 | Schema and row inspection  | Yes                      | Yes                      | Yes                      | Collections and documents      |
 | Query editor               | Read and write SQL       | Read and write SQL       | Read and write SQL       | Not applicable                 |
-| Data editing               | Transactional grid batch | Transactional grid batch | Transactional grid batch | Whole-document Extended JSON   |
+| Data editing               | Transactional grid batch | Transactional grid batch | Transactional grid batch | Typed grid, BSON-preserving    |
 | Schema editing             | Tables, columns, indexes | Tables, columns, indexes | Tables, columns, indexes | Collections and indexes        |
 | Database/schema management | Databases and schemas    | Databases                | Not applicable           | List and drop databases        |
 | CSV import and data export | Yes                      | Yes                      | Yes                      | Yes                            |

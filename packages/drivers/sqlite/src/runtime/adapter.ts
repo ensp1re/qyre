@@ -267,7 +267,10 @@ export class SqliteAdapter implements DatabaseAdapter {
    * call that returns either shape uniformly. No statement timeout (better-sqlite3 is synchronous
    * and has none to honor here, matching `runReadOnlyQuery`'s own precedent). */
   async runQuery(sql: string): Promise<QueryExecutionResult> {
-    const stmt = this.getDb().prepare(capResultRows(sql)).safeIntegers(true);
+    // Deliberately uncapped - see the Postgres adapter's matching note (F154): the row cap's
+    // derived-table wrapper turns a `WITH`-led write into a syntax error, and only
+    // `read`-classified SQL (which never reaches here) carries the unbounded-rows risk.
+    const stmt = this.getDb().prepare(sql).safeIntegers(true);
     if (stmt.reader) {
       const rows = (stmt.all() as Array<Record<string, unknown>>).map(normalizeRow);
       return {

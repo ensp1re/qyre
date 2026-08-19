@@ -3,7 +3,10 @@ import { formatCell } from "../../primitives/format-cell.js";
 
 export const ROW_HEIGHT_ESTIMATE = 30;
 
-const FORMULA_LEADING_CHARS = /^[=+\-@]/;
+// Leading whitespace is part of the guard - Excel/Sheets strip a leading tab/CR/space on import
+// and then evaluate what follows, so `\t=cmd()` is as live a formula as `=cmd()` (F154). Kept in
+// lockstep with the server's own copy in packages/server/src/services/transfer/csv.ts.
+const FORMULA_LEADING_CHARS = /^\s*[=+\-@]/;
 export const DEFAULT_EXPORT_FORMATS: readonly RowExportFormat[] = ["csv"];
 
 export function exportFormatLabel(format: RowExportFormat, jsonMode: JsonExportMode): string {
@@ -21,7 +24,9 @@ export function toCsv(columns: string[], rows: Array<Record<string, unknown>>): 
     // Prefix a leading apostrophe so Excel/Sheets treats a value like `=cmd()` as text, not a
     // formula - CSV export can otherwise be used to inject formulas into the analyst's spreadsheet.
     const safeText = FORMULA_LEADING_CHARS.test(text) ? `'${text}` : text;
-    return /[",\n]/.test(safeText) ? `"${safeText.replace(/"/g, '""')}"` : safeText;
+    // `\r` belongs in the quote trigger alongside `\n` - a bare carriage return is a record
+    // separator to Excel and many CSV parsers, so an unquoted value carrying one splits its row.
+    return /[",\n\r]/.test(safeText) ? `"${safeText.replace(/"/g, '""')}"` : safeText;
   };
   const lines = [columns.map(escape).join(",")];
   for (const row of rows) lines.push(columns.map((column) => escape(row[column])).join(","));

@@ -32,11 +32,20 @@ const MUTATION_KEYWORDS = [
   "vacuum",
   "reindex",
   "refresh",
-  "lock"
+  "lock",
+  // `SELECT ... INTO OUTFILE/DUMPFILE` (MySQL) writes a file on the database server while leading
+  // with an allowed read keyword, and MySQL's `START TRANSACTION READ ONLY` backstop does not stop
+  // it - confirmed live against MySQL 8 in F154. Without these two words the statement classified
+  // as `read` and passed straight through `--read-only`.
+  "outfile",
+  "dumpfile"
 ];
 
-/** Remove SQL comments so keyword detection is not fooled by them. */
-function stripComments(sql: string): string {
+/** Remove SQL comments so keyword detection is not fooled by them. Exported so every keyword scan
+ * in this package (classification here, the F050 row cap in `query/result-cap.ts`) strips the same
+ * way - a leading comment used to hide the real first keyword from the cap while classification
+ * saw straight through it, which is exactly the disagreement F154 closed. */
+export function stripComments(sql: string): string {
   return sql.replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ");
 }
 

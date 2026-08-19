@@ -83,4 +83,26 @@ describe("assertReadOnly", () => {
   it("still tolerates a single trailing semicolon after a string literal containing one", () => {
     expect(() => assertReadOnly("SELECT 'a;b' AS x;")).not.toThrow();
   });
+
+  // F154: `SELECT ... INTO OUTFILE` leads with an allowed read keyword but writes a file on the
+  // MySQL server, and `START TRANSACTION READ ONLY` does not stop it (confirmed live against
+  // MySQL 8) - so the engine-level backstop cannot be the layer that catches this one.
+  it("rejects SELECT ... INTO OUTFILE/DUMPFILE, which write a file on the database server", () => {
+    expect(() =>
+      assertReadOnly("SELECT * FROM users INTO OUTFILE '/var/lib/mysql-files/x.txt'")
+    ).toThrow(ReadOnlyViolationError);
+    expect(() => assertReadOnly("SELECT * FROM users INTO DUMPFILE '/tmp/x'")).toThrow(
+      ReadOnlyViolationError
+    );
+  });
+
+  it("rejects an OUTFILE write hidden behind a leading comment", () => {
+    expect(() =>
+      assertReadOnly("-- innocuous\nSELECT 1 INTO OUTFILE '/var/lib/mysql-files/x.txt'")
+    ).toThrow(ReadOnlyViolationError);
+  });
+
+  it("does not false-positive on a column literally named outfile in a quoted identifier", () => {
+    expect(() => assertReadOnly('SELECT "outfile" FROM users')).not.toThrow();
+  });
 });

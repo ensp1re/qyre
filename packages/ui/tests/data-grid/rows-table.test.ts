@@ -24,4 +24,15 @@ describe("toCsv", () => {
   it("leaves ordinary values that merely contain those characters mid-string untouched", () => {
     expect(toCsv(["v"], [{ v: "a=b" }])).toBe("v\na=b");
   });
+
+  // F154, kept in lockstep with the server's own csvLine tests: spreadsheets strip leading
+  // whitespace before evaluating, and a bare CR separates records for many parsers.
+  it("prefixes a formula hidden behind leading whitespace", () => {
+    expect(toCsv(["v"], [{ v: "\t=cmd()" }])).toBe("v\n'\t=cmd()");
+    expect(toCsv(["v"], [{ v: " =cmd()" }])).toBe("v\n' =cmd()");
+  });
+
+  it("quotes a value containing a carriage return", () => {
+    expect(toCsv(["v"], [{ v: "line1\rline2" }])).toBe('v\n"line1\rline2"');
+  });
 });

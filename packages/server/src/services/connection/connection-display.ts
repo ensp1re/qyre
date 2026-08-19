@@ -31,7 +31,7 @@ const QUERY_PARAM_PATTERN = /([?&])([^=&\s"']+)=([^&\s"')]*)/g;
  * other credential surface. Unlike `redactConnectionString`, this operates on free text that may
  * only contain a connection string as a substring, not text that must itself parse as one URL.
  */
-function redactErrorMessage(message: string): string {
+export function redactErrorMessage(message: string): string {
   return message
     .replace(USERINFO_PATTERN, "$1:***@")
     .replace(QUERY_PARAM_PATTERN, (match, separator: string, key: string) =>

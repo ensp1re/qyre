@@ -36,4 +36,19 @@ describe("csvLine", () => {
   it("does not prefix a value that merely contains (not starts with) a formula char", () => {
     expect(csvLine(["a=b"])).toBe("a=b");
   });
+
+  // F154: Excel and Sheets strip leading whitespace on import and then evaluate what follows, so
+  // anchoring the guard on the bare character let every whitespace-prefixed variant through.
+  it("prefixes a formula hidden behind leading whitespace", () => {
+    expect(csvLine(["\t=cmd()"])).toBe("'\t=cmd()");
+    expect(csvLine([" =cmd()"])).toBe("' =cmd()");
+    // A CR-prefixed formula gets both defenses: the apostrophe, and quoting for the CR itself.
+    expect(csvLine(["\r=cmd()"])).toBe('"\'\r=cmd()"');
+  });
+
+  // F154: a bare carriage return is a record separator to Excel and many CSV parsers, so leaving
+  // it unquoted split the row it sat in.
+  it("quotes a field containing a carriage return", () => {
+    expect(csvLine(["line1\rline2"])).toBe('"line1\rline2"');
+  });
 });

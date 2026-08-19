@@ -1,6 +1,6 @@
 {
   "name": "@qyre/postgres",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "type": "module",
   "description": "PostgreSQL adapter for Qyre.",
   "license": "MIT",

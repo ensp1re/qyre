@@ -77,6 +77,43 @@ describe("parseArgs", () => {
   it("parses the --read-only flag (F096)", () => {
     expect(parseArgs(["postgres://localhost/db", "--read-only"]).readOnly).toBe(true);
   });
+
+  // F155: `--version` and `-v` report the package's own version and terminate with commander's
+  // zero exit code, which `bin.ts` translates into a successful process exit. Asserting the code
+  // is 0 is the part that matters - `--help` used to throw the same way and got reported as
+  // "Qyre failed to start".
+  it.each(["--version", "-v"])("reports the version and exits cleanly for %s", (flag) => {
+    let thrown: unknown;
+    try {
+      parseArgs([flag]);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(CommanderError);
+    expect((thrown as CommanderError).exitCode).toBe(0);
+    expect((thrown as CommanderError).message).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it("reports the same version the startup banner reads from package.json", () => {
+    let thrown: unknown;
+    try {
+      parseArgs(["--version"]);
+    } catch (error) {
+      thrown = error;
+    }
+    expect((thrown as CommanderError).message).toBe(resolveVersion(resolve(import.meta.dirname)));
+  });
+
+  it("still exits non-zero for an unknown flag", () => {
+    let thrown: unknown;
+    try {
+      parseArgs(["--definitely-not-a-flag"]);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(CommanderError);
+    expect((thrown as CommanderError).exitCode).not.toBe(0);
+  });
 });
 
 describe("resolvePort", () => {

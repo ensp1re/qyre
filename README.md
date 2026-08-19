@@ -100,6 +100,8 @@ qyre [target] [options]
 | `-p, --port <port>` | Port for the local server (also `QYRE_PORT`).                                                    |
 | `--files-dir <dir>` | Directory the Files tab may read `.sql` files from. Opt-in; disabled by default.                 |
 | `--verbose`         | Log every HTTP request instead of only warnings and errors.                                      |
+| `-v, --version`     | Print the installed version and exit.                                                            |
+| `-h, --help`        | Print usage and exit.                                                                            |
 
 Tip: if `npx postgres://...` errors with `EUNSUPPORTEDPROTOCOL`, you dropped the package name -
 npx tried to install the URL. It's `npx qyre <url>`, or just `npx qyre --login`.

@@ -77,6 +77,10 @@ export function parseArgs(argv: string[]): CliArgs {
   program
     .name("qyre")
     .description("Launch a local-first database management UI from your terminal.")
+    // Same `package.json` read the startup banner already uses, so `--version` can never disagree
+    // with the version the banner prints. Commander accepts one short and one long flag here, so
+    // this deliberately replaces its default `-V` with the lowercase `-v` people actually type.
+    .version(resolveVersion(dirname(fileURLToPath(import.meta.url))), "-v, --version")
     .argument(
       "[target]",
       "database connection string (postgres://user:pass@host:5432/db, mysql://user:pass@host:3306/db, mongodb://user:pass@host:27017/db) or a path to a SQLite file (./app.db). Omit to start with no database connected and connect from the browser instead."

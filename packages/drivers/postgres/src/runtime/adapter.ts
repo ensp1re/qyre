@@ -337,7 +337,13 @@ export class PostgresAdapter implements DatabaseAdapter {
       operationId,
       async (client, wasCancelledByUser) => {
         try {
-          const result = await client.query(capResultRows(sql));
+          // Deliberately uncapped: `capResultRows` wraps by leading keyword, so a writable CTE
+          // (`WITH d AS (DELETE FROM t RETURNING *) SELECT * FROM d` - valid Postgres) became
+          // `SELECT * FROM (WITH d AS (DELETE ...) ...) AS qyre_capped_query`, a syntax error that
+          // made every `WITH`-led write fail (F154). Only reads reach this method's caller with an
+          // unbounded row count anyway - `/api/query` routes every `read` classification to
+          // `runReadOnlyQuery`, which still caps.
+          const result = await client.query(sql);
           return {
             columns: result.fields.map((field) => field.name),
             rows: result.rows as Array<Record<string, unknown>>,

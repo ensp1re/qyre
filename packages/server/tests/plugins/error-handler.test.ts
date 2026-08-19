@@ -163,3 +163,54 @@ describe("permission-denied error mapping (F120)", () => {
     await app.close();
   });
 });
+
+// F154: the handler's own two sinks. Export downloads carry the live session token in the query
+// string (the one route the auth guard accepts it from), and driver errors can echo a connection
+// string verbatim - docs/SECURITY.md requires both redacted in logs and errors alike.
+describe("uncaught-error redaction (F154)", () => {
+  function throwingAdapter(message: string) {
+    return makeFakeAdapter({
+      getCapabilities: async () => WRITABLE_CAPABILITIES,
+      runQuery: async () => Promise.reject(new Error(message)),
+      runReadOnlyQuery: async () => Promise.reject(new Error(message))
+    });
+  }
+
+  it("keeps the session token out of the console event log", async () => {
+    const eventLog = new EventLog();
+    const app = createServer({ adapter: throwingAdapter("engine exploded"), eventLog });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/tables/public/users/export.csv?token=${app.authToken}`
+    });
+
+    expect(response.statusCode).toBeGreaterThanOrEqual(400);
+    const logged = eventLog.list().map((event) => event.message);
+    expect(logged.join("\n")).not.toContain(app.authToken);
+    await app.close();
+  });
+
+  it("redacts a connection string echoed by a driver error, in both the body and the log", async () => {
+    const eventLog = new EventLog();
+    const leaky = "connect failed for mongodb://admin:hunter2@cluster0.example.net/app";
+    const app = createServer({ adapter: throwingAdapter(leaky), eventLog });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/query",
+      payload: { sql: "SELECT 1" },
+      headers: authHeaders(app)
+    });
+
+    expect(response.body).not.toContain("hunter2");
+    expect(response.json().error).toContain("***");
+    expect(
+      eventLog
+        .list()
+        .map((event) => event.message)
+        .join("\n")
+    ).not.toContain("hunter2");
+    await app.close();
+  });
+});

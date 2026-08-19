@@ -5,38 +5,46 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Current state
 
-- Date: 2026-07-18.
-- Branch: `main`. Released v0.4.2 (PR #169, tag pending publish).
-- Queue: F148/F149 passing; F150-F153 queued `not_started` for plan 0008, the approved opt-in AI
-  assistant tab (`docs/exec-plans/active/0008-ai-database-assistant.md`). Plan 0007 is retired
-  (`docs/exec-plans/completed/0007-...md`); a fresh UI audit is still pending separately.
+- Date: 2026-08-19.
+- Branch: `main`. Releasing v0.4.3 (security fixes, F154).
+- Queue: F149/F154 passing; F150-F153 queued `not_started` for plan 0008, the approved opt-in AI
+  assistant tab (`docs/exec-plans/active/0008-ai-database-assistant.md`). Plan 0007 is retired;
+  plan 0009 (security audit) is completed. A fresh UI audit is still pending separately.
 
 ## Completed
 
-- F146 merged in PR #160 as `ed44633` (DataGrip-style grid editing across all four engines).
-- F147 merged in PR #161 as `2acd2f6` (Tables QA keyboard regressions).
-- F148 merged in PR #165 as `c780b89`, released in v0.4.1: RECENT card truncation, fields-mode
-  SRV toggle, MongoDB hidden per-server database list, listDatabases fallback to the URL-scoped
-  database, /api/overview + /api/databases permission normalization, centered sidebar error,
-  and Settings Access removal.
-- F149 merged in PR #167 as `9dae65d`: MongoDB `listCollections` now passes
-  `nameOnly + authorizedCollections` (packages/drivers/mongodb/src/schema/introspection.ts, both
-  call sites), so a collection-scoped role lists its own collections instead of a code-13 denial.
-  The `GET /api/tables` read routes (all-tables, table metadata, rows) carry `permissionRoute`
-  config, so an engine denial returns the shared safe 403 body instead of leaking raw driver text
-  to the Schema tab. `connectAndSwap` (packages/server/src/routes/connection/connect.ts) runs a
-  browse preflight (`getOverview`) after ping and before the swap, rejecting credentials that
-  authenticate but cannot browse with a friendly inline error in the Switch-database drawer while
-  leaving the previous connection untouched, for both /api/connect and /api/connect/database. A
-  connected but table-less database renders a centered sidebar empty state — "No tables in this
-  database" with a Switch database button — instead of SchemaTree's bare "No tables found."
-  (packages/ui/src/schema/navigation/sidebar.tsx).
+- PR #171 (`7d84752`), unrecorded at the time: open-source readiness - corrected stale README
+  facts, a public root `SECURITY.md` alongside the internal `docs/SECURITY.md`, `CODE_OF_CONDUCT.md`,
+  issue/PR templates, and regenerated screenshots.
+- F154 (plan 0009, this release): security audit fixes - `SELECT ... INTO OUTFILE/DUMPFILE` now
+  classifies as a write, `capResultRows` strips comments before keyword detection (the two composed
+  into a `--read-only` bypass writing files on a MySQL server, confirmed live), the global error
+  handler redacts both `request.url` (which carries the live session token on export downloads) and
+  the error message, the write path no longer wraps writable CTEs into a syntax error, MySQL retries
+  uncapped on ER_DUP_FIELDNAME so ordinary joins with repeated column names work, and both CSV
+  serializers quote a bare `\r` and prefix formulas hidden behind leading whitespace.
 
 ## In progress
 
 - None.
 
 ## Known issues / blockers
+
+### Deferred from the F154 audit (deliberate, each wants its own diff)
+
+- 7 `pnpm audit --prod` advisories in the Fastify chain, **none reachable** in Qyre's config
+  (reachability analysis in `docs/exec-plans/completed/0009-security-audit-hardening.md`). Five
+  clear with a lockfile refresh; `@fastify/static ^9 -> ^10` is a major bump wanting its own smoke
+  test of asset serving and the token-injecting `/` handler.
+- No npm publish provenance - manual publish, single maintainer, no attestation. Moving to GitHub
+  Actions with npm Trusted Publishing (OIDC, `--provenance`) is the highest-leverage supply-chain
+  fix outstanding.
+- Connection-string query params reach driver configs unvalidated (mysql2 `multipleStatements`/
+  `insecureAuth`, Mongo `tlsInsecure`, Postgres `sslmode=disable`) - a pasted string can silently
+  downgrade TLS with no UI signal.
+- The auth guard's `/api/` raw-URL prefix check is correct only because Fastify's
+  `ignoreDuplicateSlashes`/`ignoreTrailingSlash` default false and `caseSensitive` true. Nothing
+  pins that; a regression test would.
 
 - Repository verification must use Node 22 (Homebrew `node@22` at `/opt/homebrew/opt/node@22/bin`);
   newer Node cannot load the current `better-sqlite3` native binding.
@@ -52,5 +60,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Next steps
 
 - Activate F150 (plan 0008 slice 1): assistant tab gating, Settings AI category with exclusive
-  provider config, and the SECURITY.md/README opt-in carve-out.
+  provider config, and the SECURITY.md/README opt-in carve-out. Note plan 0008 predates PR #171
+  splitting security docs into the public root `SECURITY.md` and the internal `docs/SECURITY.md`;
+  its carve-out now spans both files.
+- Work the deferred F154 audit items above, publish provenance first.
 - Separately, run a fresh UI/UX browser audit and turn its findings into a new exec plan.

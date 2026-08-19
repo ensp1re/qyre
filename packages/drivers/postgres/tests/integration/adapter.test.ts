@@ -732,6 +732,30 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
+  // F154: the F050 row cap wrapped by leading keyword, so a writable CTE - valid Postgres, and the
+  // exact shape `classifyStatement` documents as the reason it scans past the leading keyword -
+  // became `SELECT * FROM (WITH d AS (DELETE ...) ...) AS qyre_capped_query`, a syntax error. Every
+  // `WITH`-led write failed. The write path no longer caps.
+  it("runQuery executes a writable CTE (WITH ... DELETE ... RETURNING) without wrapping it", async () => {
+    try {
+      await runStatements(databaseUrl, [
+        `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('CTE Target', 'cte-target@example.com')`
+      ]);
+
+      const result = await adapter.runQuery?.(
+        `WITH removed AS (DELETE FROM ${FIXTURE.table} WHERE email = 'cte-target@example.com' RETURNING *) SELECT * FROM removed`
+      );
+      expect(result?.rows).toHaveLength(1);
+
+      const page = await adapter.getRows(FIXTURE.schema, FIXTURE.table, 0, 50);
+      expect(page.rows.some((row) => row.email === "cte-target@example.com")).toBe(false);
+    } finally {
+      await runStatements(databaseUrl, [
+        `DELETE FROM ${FIXTURE.table} WHERE email = 'cte-target@example.com'`
+      ]);
+    }
+  });
+
   it("runQuery executes a DDL statement (F107)", async () => {
     await runStatements(databaseUrl, ["DROP TABLE IF EXISTS qyre_test_runquery_ddl"]);
     try {

@@ -16,6 +16,7 @@ import {
   assertReadOnly,
   capResultRows,
   classifyExplainTarget,
+  MAX_QUERY_RESULT_ROWS,
   OperationCancelledError,
   ReadOnlyViolationError,
   resolvePageRequest,
@@ -67,6 +68,23 @@ import { formatSqlInsert, streamRows } from "../query/row-export.js";
 import { buildFilterClause, quoteIdent } from "../query/sql.js";
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
+
+/**
+ * MySQL alone rejects a derived table whose SELECT list repeats a column name (ER_DUP_FIELDNAME,
+ * errno 1060) - Postgres and SQLite both allow it. That makes the F050 row cap's
+ * `SELECT * FROM (<query>) AS qyre_capped_query` wrapper fail for an ordinary join like
+ * `SELECT u.*, o.* FROM users u JOIN orders o ON ...` whenever both sides carry an `id`, which is
+ * a very common shape. Detected here so {@link MysqlAdapter.runReadOnlyQuery} can retry uncapped
+ * (F154).
+ */
+function isDuplicateColumnError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "errno" in error &&
+    (error as { errno?: unknown }).errno === 1060
+  );
+}
 
 function resolveStatementTimeoutMs(): number {
   const raw = Number(process.env.QYRE_STATEMENT_TIMEOUT_MS);
@@ -308,38 +326,52 @@ export class MysqlAdapter implements DatabaseAdapter {
       this.operationRegistry,
       operationId,
       async (connection, wasCancelledByUser) => {
+        // `truncateTo` is the client-side row bound used only by the uncapped retry below; the
+        // capped first attempt lets the database do the bounding and needs none.
+        const transactionClient = (truncateTo?: number) => ({
+          begin: async () => {
+            await connection.query("START TRANSACTION READ ONLY");
+          },
+          query: async (querySql: string) => {
+            const [rows, fields] = await connection.query<mysql.RowDataPacket[]>({
+              sql: querySql,
+              timeout: this.statementTimeoutMs
+            });
+            const allRows = rows as Array<Record<string, unknown>>;
+            return {
+              columns: fields.map((field) => field.name),
+              rows: truncateTo === undefined ? allRows : allRows.slice(0, truncateTo)
+            };
+          },
+          commit: async () => {
+            await connection.query("COMMIT");
+          },
+          rollback: async () => {
+            await connection.query("ROLLBACK");
+          },
+          // withCancellableConnection releases the connection in its own `finally` - this
+          // callback exists only to satisfy runInReadOnlyTransaction's shape.
+          release: () => {}
+        });
+
         try {
-          return await runInReadOnlyTransaction(
-            {
-              begin: async () => {
-                await connection.query("START TRANSACTION READ ONLY");
-              },
-              query: async (querySql) => {
-                const [rows, fields] = await connection.query<mysql.RowDataPacket[]>({
-                  sql: querySql,
-                  timeout: this.statementTimeoutMs
-                });
-                return {
-                  columns: fields.map((field) => field.name),
-                  rows: rows as Array<Record<string, unknown>>
-                };
-              },
-              commit: async () => {
-                await connection.query("COMMIT");
-              },
-              rollback: async () => {
-                await connection.query("ROLLBACK");
-              },
-              // withCancellableConnection releases the connection in its own `finally` - this
-              // callback exists only to satisfy runInReadOnlyTransaction's shape.
-              release: () => {}
-            },
-            capResultRows(sql)
-          );
+          return await runInReadOnlyTransaction(transactionClient(), capResultRows(sql));
         } catch (error) {
           if (isMysqlCancelError(error) && wasCancelledByUser())
             throw new OperationCancelledError();
-          throw error;
+          // The row cap's derived-table wrapper is the only reason a duplicate output column name
+          // is fatal here, so retry the user's own SQL unwrapped and bound the rows client-side
+          // instead (F154). `runInReadOnlyTransaction` already rolled the failed transaction back,
+          // so a fresh one can begin on this same connection. The retry buffers the full result
+          // before truncating - accepted for this narrow shape, which previously failed outright.
+          if (!isDuplicateColumnError(error)) throw error;
+          try {
+            return await runInReadOnlyTransaction(transactionClient(MAX_QUERY_RESULT_ROWS), sql);
+          } catch (retryError) {
+            if (isMysqlCancelError(retryError) && wasCancelledByUser())
+              throw new OperationCancelledError();
+            throw retryError;
+          }
         }
       }
     );
@@ -359,7 +391,10 @@ export class MysqlAdapter implements DatabaseAdapter {
           const [result, fields] = await connection.query<
             mysql.RowDataPacket[] | mysql.ResultSetHeader
           >({
-            sql: capResultRows(sql),
+            // Deliberately uncapped - see the Postgres adapter's matching note (F154): the row
+            // cap's derived-table wrapper turns a `WITH`-led write into a syntax error, and only
+            // `read`-classified SQL (which never reaches here) carries the unbounded-rows risk.
+            sql,
             timeout: this.statementTimeoutMs
           });
           if (Array.isArray(result)) {

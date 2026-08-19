@@ -5,6 +5,8 @@
  * much smaller `MAX_PAGE_SIZE` (200), which is a *default* page size for browsing, not a one-off
  * exploratory query.
  */
+import { stripComments } from "../safety/read-only.js";
+
 export const MAX_QUERY_RESULT_ROWS = 1000;
 
 const ROW_CARDINALITY_KEYWORDS = new Set(["select", "with", "values", "table"]);
@@ -19,7 +21,14 @@ const ROW_CARDINALITY_KEYWORDS = new Set(["select", "with", "values", "table"]);
  */
 export function capResultRows(sql: string, limit: number = MAX_QUERY_RESULT_ROWS): string {
   const withoutTrailingSemicolon = sql.trim().replace(/;\s*$/, "");
-  const firstKeyword = withoutTrailingSemicolon.split(/\s+/)[0]?.toLowerCase() ?? "";
+  // Detect the leading keyword against comment-stripped text, the same way `classifyStatement`
+  // does. Scanning raw SQL let a leading comment (`-- note\nSELECT ...`) read as first keyword
+  // `--`, so the cap silently did not apply and an unbounded scan streamed into memory - and on
+  // MySQL that skipped wrapper was also the only thing incidentally blocking
+  // `SELECT ... INTO OUTFILE` (F154). The comment-bearing SQL itself is still what executes; only
+  // keyword detection uses the stripped copy.
+  const firstKeyword =
+    stripComments(withoutTrailingSemicolon).trim().split(/\s+/)[0]?.toLowerCase() ?? "";
   if (!ROW_CARDINALITY_KEYWORDS.has(firstKeyword)) {
     return sql;
   }

@@ -138,7 +138,9 @@ by the same detection path - no engine selector and no engine-specific branches 
   final authority; native denials become safe, structured errors without leaking engine text.
 - `--read-only` is a hard session ceiling across every mutating route, regardless of database
   grants. Read queries keep their engine-level read-only backstops (read-only transactions on
-  Postgres/MySQL, `PRAGMA query_only` on SQLite).
+  Postgres/MySQL, `PRAGMA query_only` on SQLite), and Qyre's own statement classifier additionally
+  rejects the writes those backstops permit - notably `SELECT ... INTO OUTFILE`, which writes a
+  file on a MySQL server from inside a read-only transaction.
 - Row mutations use structured, parameterized adapter operations. Destructive SQL and DDL require
   explicit confirmation, and transactional engines commit staged grid changes atomically.
 - Qyre never transmits database contents, schemas, or credentials off the local machine.

@@ -721,6 +721,31 @@ describe("MysqlAdapter integration", () => {
     await expect(adapter.runReadOnlyQuery(`DELETE FROM ${FIXTURE.table}`)).rejects.toThrow();
   });
 
+  // F154: MySQL alone rejects a derived table whose SELECT list repeats a column name
+  // (ER_DUP_FIELDNAME), which the F050 row cap's wrapper creates for an ordinary self-join. This
+  // used to surface as a bare "Duplicate column name" error for a perfectly valid query.
+  it("returns rows for a query whose columns repeat a name, despite the row cap's wrapper", async () => {
+    const result = await adapter.runReadOnlyQuery(
+      `SELECT a.id, b.id FROM ${FIXTURE.table} a JOIN ${FIXTURE.table} b ON a.id = b.id`
+    );
+    expect(result.rows).toHaveLength(FIXTURE.rowCount);
+  });
+
+  // F154: `SELECT ... INTO OUTFILE` writes a file on the server and MySQL's own
+  // START TRANSACTION READ ONLY does not stop it, so the classifier has to.
+  it("rejects SELECT ... INTO OUTFILE, which the engine-level read-only backstop allows", async () => {
+    await expect(
+      adapter.runReadOnlyQuery(
+        `SELECT * FROM ${FIXTURE.table} INTO OUTFILE '/var/lib/mysql-files/qyre-f154.txt'`
+      )
+    ).rejects.toThrow();
+    await expect(
+      adapter.runReadOnlyQuery(
+        `-- innocuous\nSELECT * FROM ${FIXTURE.table} INTO OUTFILE '/var/lib/mysql-files/qyre-f154b.txt'`
+      )
+    ).rejects.toThrow();
+  });
+
   it("runQuery executes an INSERT and reports rowsAffected (F107)", async () => {
     try {
       const result = await adapter.runQuery?.(

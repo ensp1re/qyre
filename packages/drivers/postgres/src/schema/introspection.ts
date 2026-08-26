@@ -9,6 +9,10 @@ import type { Pool } from "pg";
 import { SYSTEM_SCHEMAS, tableKey } from "./catalog.js";
 import { quoteIdent } from "../query/sql.js";
 
+/** Postgres SQLSTATE for "relation does not exist" - raised when a table is dropped out from under
+ * an in-flight introspection query. */
+const UNDEFINED_TABLE = "42P01";
+
 interface TableTarget {
   schema: string;
   table: string;
@@ -353,6 +357,13 @@ async function fetchAllRowCountEstimates(
   const unanalyzed = countable.filter(
     ({ schema, table }) => (estimateByTable.get(tableKey(schema, table)) ?? 0) < 0
   );
+  // A table only reaches this exact-count path when it has never been analyzed (`reltuples` is -1),
+  // which is always true of a freshly created one - so the window between listing the targets above
+  // and counting them here is exactly when a table is most likely to still be appearing and
+  // disappearing. A concurrent DROP made the count raise `undefined_table` and took the whole
+  // `getAllTables` call down with it, so one dropped table anywhere in the database emptied the
+  // entire explorer. Treat a relation that vanished mid-introspection as simply having no count
+  // (F156); any other error still propagates.
   const exactCounts = await Promise.all(
     unanalyzed.map(({ schema, table }) =>
       pool
@@ -360,6 +371,10 @@ async function fetchAllRowCountEstimates(
           `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
         )
         .then((countResult) => Number(countResult.rows[0]?.count ?? 0))
+        .catch((error: unknown) => {
+          if ((error as { code?: string })?.code === UNDEFINED_TABLE) return undefined;
+          throw error;
+        })
     )
   );
   const exactByTable = new Map(

@@ -124,6 +124,33 @@ describe("RowsTable server-side sort (component rendering, F065)", () => {
     expect(screen.getByText(/3 of 178 matching rows/)).toBeInTheDocument();
     expect(screen.queryByText(/50,000/)).not.toBeInTheDocument();
   });
+
+  // F156: a view has no stored rows, so introspection returns no total and the segment vanishes.
+  // Without naming the kind, that absence - and the disabled editing that comes with it - reads as
+  // Qyre malfunctioning rather than as a property of the object.
+  it("names the kind for a view, which legitimately has no row total", () => {
+    renderTable({ tableKind: "view", tableName: "recent_funding", approxRowCount: undefined });
+
+    expect(screen.getByText(/· view · recent_funding/)).toBeInTheDocument();
+    expect(screen.queryByText(/total/)).not.toBeInTheDocument();
+  });
+
+  it("names a materialized view distinctly, since that one does carry a total", () => {
+    renderTable({
+      tableKind: "materialized-view",
+      tableName: "daily_rollup",
+      approxRowCount: 1_200
+    });
+
+    expect(screen.getByText(/~1,200 total · materialized view · daily_rollup/)).toBeInTheDocument();
+  });
+
+  it("leaves an ordinary table unannotated - the common case needs no label", () => {
+    renderTable({ tableKind: "table", tableName: "investor_identifiers", approxRowCount: 6_574 });
+
+    expect(screen.getByText(/~6,574 total · investor_identifiers/)).toBeInTheDocument();
+    expect(screen.queryByText(/· table ·/)).not.toBeInTheDocument();
+  });
 });
 
 describe("RowsTable header type badges (component rendering, F081)", () => {

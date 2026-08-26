@@ -311,6 +311,7 @@ export function TablesTab({
           columns={table.data?.columns}
           engine={engine}
           tableName={selected.table}
+          tableKind={table.data?.kind}
           approxRowCount={table.data?.rowCount}
           matchingRowCount={rows.data.rowPage.total}
           page={page}

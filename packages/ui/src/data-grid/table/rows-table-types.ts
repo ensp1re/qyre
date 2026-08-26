@@ -5,7 +5,8 @@ import type {
   JsonExportMode,
   RowFilter,
   RowExportFormat,
-  RowPage
+  RowPage,
+  TableKind
 } from "@qyre/core";
 
 export interface RowsTableProps {
@@ -13,6 +14,10 @@ export interface RowsTableProps {
   columns?: ColumnMetadata[];
   engine?: DatabaseEngine;
   tableName?: string;
+  /** What the selected object actually is. Surfaced in the footer for anything that isn't an
+   * ordinary table/collection, because a view legitimately has no row total and no editing - and
+   * without saying so, both absences read as Qyre malfunctioning (F156). */
+  tableKind?: TableKind;
   approxRowCount?: number;
   /** Exact count returned for an active server-side filter/search. */
   matchingRowCount?: number;

@@ -2,21 +2,32 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 156,
+    "F": 157,
     "DF": 13
   },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
     {
-      "id": "F155",
-      "behavior": "`qyre --version` (and `-v`) print the installed version and exit 0, read from the same package.json the startup banner uses so the two can never disagree. Fixes the pre-existing companion bug that `qyre --help` printed its full help and still exited 1 with a spurious \"Qyre failed to start: (outputHelp)\" on stderr: parseArgs sets commander's exitOverride(), so --help/--version throw instead of exiting, and bin.ts now treats a CommanderError carrying exitCode 0 as the successful run it is. An unknown flag still exits non-zero.",
-      "verification": "pnpm --filter @qyre/qyre test && pnpm --filter @qyre/qyre typecheck && pnpm --filter @qyre/qyre build && pnpm verify:pr",
+      "id": "F156",
+      "behavior": "The rows footer names the object kind for anything that is not an ordinary table or collection: `25 rows on page · view · recent_funding`. A view has no stored rows, so introspection returns no rowCount and the total segment vanished silently - which, together with editing being disabled for the same reason, read as Qyre malfunctioning rather than as a property of the object. Materialized views render as `materialized view` and still carry their total; ordinary tables and collections stay unlabeled. No new query is issued - the only way to total a view is to run its whole definition, which for a joined view would cost that on every metadata load. Separately, Postgres catalog introspection no longer fails wholesale when a table is dropped mid-flight: a never-analyzed table (reltuples -1, always true of a fresh one) takes the exact COUNT(*) path, so a concurrent DROP raised 42P01 and took the entire getAllTables call down, emptying the explorer over one unrelated table. That relation is now treated as simply having no count; any other error still propagates.",
+      "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/postgres test && pnpm --filter @qyre/ui typecheck && pnpm --filter @qyre/web typecheck && pnpm --filter @qyre/ui build && pnpm --filter @qyre/web build && pnpm verify:pr",
       "state": "not_started",
       "commitHash": null,
       "evidence": null,
       "blockedReason": null,
-      "spec": "README.md CLI reference",
+      "spec": "docs/product-specs/dashboard-ui.md",
       "completedAt": null
+    },
+    {
+      "id": "F155",
+      "behavior": "`qyre --version` (and `-v`) print the installed version and exit 0, read from the same package.json the startup banner uses so the two can never disagree. Fixes the pre-existing companion bug that `qyre --help` printed its full help and still exited 1 with a spurious \"Qyre failed to start: (outputHelp)\" on stderr: parseArgs sets commander's exitOverride(), so --help/--version throw instead of exiting, and bin.ts now treats a CommanderError carrying exitCode 0 as the successful run it is. An unknown flag still exits non-zero.",
+      "verification": "pnpm --filter @qyre/qyre test && pnpm --filter @qyre/qyre typecheck && pnpm --filter @qyre/qyre build && pnpm verify:pr",
+      "state": "passing",
+      "commitHash": "b039fed",
+      "evidence": "Merged PR #173 (https://github.com/ensp1re/qyre/pull/173) as b039fed; both CI jobs green. Verified against the built CLI: --version and -v print 0.4.3 and exit 0, --help exits 0 with clean stderr (was exit 1 with \"Qyre failed to start: (outputHelp)\"), and --nope still exits 1. 56/56 @qyre/qyre tests pass.",
+      "blockedReason": null,
+      "spec": "README.md CLI reference",
+      "completedAt": "2026-08-19T18:20:00.000Z"
     },
     {
       "id": "F154",

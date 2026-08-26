@@ -1,5 +1,19 @@
+import type { TableKind } from "@qyre/core";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
+
+/**
+ * A view has no stored rows, so introspection returns no `approxRowCount` for one and the total
+ * segment simply vanishes - which reads as Qyre failing rather than as a property of the object.
+ * Naming the kind restores the missing "why", and does it without counting: the only way to total
+ * a view is to run its whole query, which for a joined view means paying that cost on every
+ * metadata load (F156). Ordinary tables and collections stay unlabeled - the common case needs no
+ * annotation.
+ */
+const KIND_LABEL: Partial<Record<TableKind, string>> = {
+  view: "view",
+  "materialized-view": "materialized view"
+};
 
 interface RowsTableFooterProps {
   visibleCount: number;
@@ -9,6 +23,7 @@ interface RowsTableFooterProps {
   hasPageSearch: boolean;
   hasServerQuery: boolean;
   tableName: string | undefined;
+  tableKind: TableKind | undefined;
   page: number;
   canGoPrevious: boolean;
   canGoNext: boolean;
@@ -24,6 +39,7 @@ export function RowsTableFooter({
   hasPageSearch,
   hasServerQuery,
   tableName,
+  tableKind,
   page,
   canGoPrevious,
   canGoNext,
@@ -45,6 +61,7 @@ export function RowsTableFooter({
             : !hasServerQuery && approxRowCount !== undefined
               ? ` · ~${approxRowCount.toLocaleString()} total`
               : ""}
+        {tableKind && KIND_LABEL[tableKind] && <> · {KIND_LABEL[tableKind]}</>}
         {tableName && <> · {tableName}</>}
       </span>
       <div className="flex items-center gap-1">

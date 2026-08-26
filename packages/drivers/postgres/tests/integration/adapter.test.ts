@@ -143,6 +143,28 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
+  // F156: a never-analyzed table (reltuples -1, always true of a fresh one) takes the exact
+  // COUNT(*) path, so the gap between listing targets and counting them is exactly when a table is
+  // most likely to vanish. A concurrent DROP used to raise 42P01 and fail the whole call, emptying
+  // the explorer because of one unrelated table.
+  it("survives a table dropped mid-introspection instead of failing the whole catalog", async () => {
+    await runStatements(databaseUrl, [
+      "DROP TABLE IF EXISTS qyre_test_vanishing",
+      "CREATE TABLE qyre_test_vanishing (id serial PRIMARY KEY)"
+    ]);
+
+    // Drop it while getAllTables is in flight: the listing sees it, the count no longer can.
+    const catalog = adapter.getAllTables();
+    await runStatements(databaseUrl, ["DROP TABLE IF EXISTS qyre_test_vanishing"]);
+    const tables = await catalog;
+
+    // The fixture table is still reported - the point is that one vanished table doesn't take the
+    // rest of the catalog with it.
+    expect(
+      tables.some((table) => table.schema === FIXTURE.schema && table.name === FIXTURE.table)
+    ).toBe(true);
+  });
+
   it("reports enum choices and native array element metadata for typed editors", async () => {
     await runStatements(databaseUrl, [
       "DROP TABLE IF EXISTS qyre_test_moods",

@@ -34,6 +34,7 @@ export function RowsTable({
   columns = [],
   engine,
   tableName,
+  tableKind,
   approxRowCount,
   matchingRowCount,
   page,
@@ -703,6 +704,7 @@ export function RowsTable({
         hasPageSearch={Boolean(pageSearch)}
         hasServerQuery={Boolean(committedSearch || filters?.length)}
         tableName={tableName}
+        tableKind={tableKind}
         page={page}
         canGoPrevious={canGoPrevious}
         canGoNext={canGoNext}

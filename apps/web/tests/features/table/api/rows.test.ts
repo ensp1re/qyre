@@ -4,14 +4,20 @@ import { exportRowsUrl } from "../../../../src/features/table/api/rows.js";
 describe("exportRowsUrl (F118)", () => {
   beforeEach(() => {
     vi.stubGlobal("window", { __QYRE_TOKEN__: "session-token" });
+    // The export URL now carries a single-use download grant instead of the session token
+    // (PLAN.md P3), so building one requires a round trip to mint it.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ grant: "one-shot-grant" })))
+    );
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("builds a format-specific URL with the current sort, filters, search, and token", () => {
-    const value = exportRowsUrl(
+  it("builds a format-specific URL with the current sort, filters, search, and a grant", async () => {
+    const value = await exportRowsUrl(
       "public data",
       "order/items",
       "json",
@@ -28,11 +34,20 @@ describe("exportRowsUrl (F118)", () => {
       { column: "status", op: "eq", value: "open" }
     ]);
     expect(url.searchParams.get("search")).toBe("admin");
-    expect(url.searchParams.get("token")).toBe("session-token");
+    expect(url.searchParams.get("grant")).toBe("one-shot-grant");
   });
 
-  it("omits the query string when no optional state or token exists", () => {
-    vi.stubGlobal("window", {});
-    expect(exportRowsUrl("main", "users", "sql")).toBe("/api/tables/main/users/export.sql");
+  it("never puts the session token in the URL, which browser history would keep", async () => {
+    const value = await exportRowsUrl("main", "users", "sql");
+
+    expect(value).not.toContain("session-token");
+    expect(new URL(value, "http://localhost").searchParams.get("token")).toBeNull();
+  });
+
+  it("still carries a grant when there is no sort, filter, or search state", async () => {
+    const url = new URL(await exportRowsUrl("main", "users", "sql"), "http://localhost");
+
+    expect(url.pathname).toBe("/api/tables/main/users/export.sql");
+    expect(url.searchParams.get("grant")).toBe("one-shot-grant");
   });
 });

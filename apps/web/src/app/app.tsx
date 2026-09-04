@@ -422,6 +422,7 @@ export function App(): ReactNode {
         onOpenChange={(open) => dispatch({ type: "historyChanged", open })}
         entries={queryHistory.entries}
         onSelect={selectFromHistory}
+        onClear={queryHistory.clear}
       />
 
       <ConnectDrawer

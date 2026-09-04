@@ -1,0 +1,26 @@
+version: 2
+updates:
+  # Five of the seven advisories open at the 2026-08-26 audit were stale-lockfile artifacts: the
+  # declared ranges already permitted patched versions, but nothing ever triggered a refresh. This
+  # is that trigger. Minor/patch are grouped so the weekly PR is one review, not twenty.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Majors land deliberately, with their own smoke test - @fastify/static 9 -> 10 needed one
+      # for asset serving and the token-injecting `/` handler.
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -4,7 +4,13 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_PORT, parseConnectionTarget, type ConnectionTarget } from "@qyre/core";
+import {
+  connectionWarnings,
+  DEFAULT_PORT,
+  parseConnectionTarget,
+  type ConnectionTarget,
+  type ConnectionWarning
+} from "@qyre/core";
 import { resolveAdapter, type AdapterFactory, type DatabaseAdapter } from "@qyre/driver-contract";
 import { mongodbAdapterFactory } from "@qyre/mongodb";
 import { mysqlAdapterFactory } from "@qyre/mysql";
@@ -177,16 +183,25 @@ export function formatBanner(info: {
   version: string;
   target: string | null;
   url: string;
+  /** Transport-safety advisories for the connected string (plaintext to a remote host,
+   * posture-weakening query parameters). Shown under the status line because the terminal is the
+   * other place a connection string is supplied, and it was previously as silent as the drawer. */
+  warnings?: readonly ConnectionWarning[];
 }): string {
   const title = renderQyreTitle();
   const statusLine = info.target
     ? `${chalk.hex("#4fc46a")("●")} Connected to ${chalk.bold(info.target)}`
     : `${chalk.hex("#e09a40")("●")} No database connected yet ${chalk.dim("(run with --login for a guided terminal setup)")}`;
 
+  const warningLines = (info.warnings ?? []).map(
+    (warning) => `${chalk.hex("#e09a40")("!")} ${chalk.yellow(warning.message)}`
+  );
+
   return [
     title,
     `${chalk.dim(`v${info.version}`)}   ${statusLine}`,
     `${chalk.dim("Running at")} ${chalk.underline(info.url)}`,
+    ...warningLines,
     "",
     `${chalk.dim("Bugs:")}       https://github.com/ensp1re/qyre/issues`,
     `${chalk.dim("Contribute:")} https://github.com/ensp1re/qyre/blob/main/CONTRIBUTING.md`
@@ -365,7 +380,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     `${formatBanner({
       version: resolveVersion(here),
       target: target ? displayTarget(target) : null,
-      url: server.url
+      url: server.url,
+      warnings: target ? connectionWarnings(target.raw) : undefined
     })}\n`
   );
   await open(server.url);

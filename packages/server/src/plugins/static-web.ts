@@ -50,11 +50,14 @@ export function registerStaticWeb(
     // Disables @fastify/static's own default Cache-Control (public, max-age=0), which otherwise
     // wins over setHeaders below by being applied after it.
     cacheControl: false,
-    setHeaders: (res) => {
+    setHeaders: (reply) => {
       // Vite's build hashes every asset filename on content change, so these can be cached
       // aggressively and immutably; only hashed assets reach this handler now (index.html is
       // served separately, above).
-      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      // @fastify/static v10 hands this callback a FastifyReply; v9 handed it the raw Node
+      // ServerResponse, so this was `res.setHeader` before the bump. Calling the old method threw
+      // inside the plugin's send pump, which surfaced as a hung request rather than a clean error.
+      reply.header("Cache-Control", "public, max-age=31536000, immutable");
     }
   });
 

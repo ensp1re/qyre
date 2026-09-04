@@ -21,6 +21,7 @@ export * from "./types/transfer/csv-import.js";
 export * from "./types/connection/permission-denied.js";
 export * from "./errors.js";
 export * from "./connection-target.js";
+export * from "./connection-warnings.js";
 export * from "./pagination.js";
 export * from "./validation/query.js";
 export * from "./validation/rows.js";

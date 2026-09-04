@@ -1,4 +1,5 @@
 import {
+  connectionWarnings,
   connectRequestSchema,
   parseConnectionTarget,
   switchDatabaseRequestSchema,
@@ -59,7 +60,15 @@ export function registerConnectRoute(app: FastifyInstance, ctx: ServerContext): 
     ctx.eventLog.log("info", `Switched database connection to ${displayTarget(newTarget)}.`);
     if (oldAdapter) await oldAdapter.disconnect().catch(() => {});
 
-    return { target: displayTarget(newTarget) };
+    // Advisory only - the connection is already live. Surfacing plaintext-to-a-remote-host and
+    // posture-weakening query parameters here is the whole point: both were previously silent.
+    // Logged as well as returned: the connect drawer closes on success, so a response-only warning
+    // would flash and vanish, while the Console tab keeps it for the session.
+    const warnings = connectionWarnings(newTarget.raw);
+    for (const warning of warnings) ctx.eventLog.log("warn", warning.message);
+    return warnings.length > 0
+      ? { target: displayTarget(newTarget), warnings }
+      : { target: displayTarget(newTarget) };
   }
 
   app.post<{ Body: unknown }>("/api/connect", async (request, reply) => {

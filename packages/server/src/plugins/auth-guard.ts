@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { tokensMatch } from "../services/access/auth-token.js";
+import { consumeDownloadGrant } from "../services/access/download-grants.js";
 
 const BEARER_PREFIX = "Bearer ";
 
@@ -28,7 +29,21 @@ function extractToken(request: FastifyRequest): string | undefined {
  */
 export function registerAuthGuard(app: FastifyInstance, token: string): void {
   app.addHook("onRequest", async (request, reply) => {
-    if (!request.raw.url?.startsWith("/api/")) return;
+    // Guard on the *matched* route, not the raw URL. `request.raw.url.startsWith("/api/")` was
+    // correct only because Fastify's router defaults happen to be `ignoreDuplicateSlashes: false`,
+    // `ignoreTrailingSlash: false`, `caseSensitive: true` - flip any one of those and `//api/query`
+    // routes to the handler while the raw string no longer starts with `/api/`, skipping auth
+    // entirely. `routeOptions.url` is whatever find-my-way actually resolved, so it cannot
+    // disagree with the handler that is about to run. Falls back to the raw URL when no route
+    // matched (a 404), which keeps unmatched `/api/*` paths guarded too.
+    const matched = request.routeOptions.url ?? request.raw.url;
+    if (!matched?.startsWith("/api/")) return;
+    // A streamed export is a browser navigation and cannot set an Authorization header, so it
+    // presents a single-use `grant` minted by POST /api/exports/grant instead of the session token
+    // (PLAN.md P3). Checked before the bearer path because spending it is the whole point.
+    const grant = new URL(request.raw.url ?? "", "http://localhost").searchParams.get("grant");
+    if (grant && consumeDownloadGrant(grant)) return;
+
     const provided = extractToken(request);
     if (!provided || !tokensMatch(token, provided)) {
       return reply.status(401).send({ error: "Unauthorized: missing or invalid session token." });

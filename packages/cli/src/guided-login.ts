@@ -1,7 +1,8 @@
-import type { ConnectionTarget } from "@qyre/core";
+import { DATABASE_ENGINES, REMOTE_DATABASE_ENGINES } from "@qyre/core";
+import type { ConnectionTarget, RemoteDatabaseEngine } from "@qyre/core";
 import chalk from "chalk";
 
-export type GuidedEngine = "postgres" | "mysql" | "mongodb";
+export type GuidedEngine = RemoteDatabaseEngine;
 
 export const GUIDED_ENGINE_DEFAULT_PORT: Record<GuidedEngine, string> = {
   postgres: "5432",
@@ -15,7 +16,7 @@ const GUIDED_ENGINE_LABEL: Record<GuidedEngine, string> = {
   mongodb: "MongoDB"
 };
 
-const GUIDED_ENGINE_ORDER: GuidedEngine[] = ["postgres", "mysql", "mongodb"];
+const GUIDED_ENGINE_ORDER = REMOTE_DATABASE_ENGINES;
 
 export interface GuidedLoginFields {
   engine: GuidedEngine;
@@ -48,7 +49,7 @@ export function composeGuidedConnectionString(fields: GuidedLoginFields): string
 }
 
 export function needsCredentialPrompt(target: ConnectionTarget): boolean {
-  if (target.engine === "sqlite") return false;
+  if (target.engine === DATABASE_ENGINES.sqlite) return false;
   try {
     return new URL(target.raw).username === "";
   } catch {

@@ -1,4 +1,5 @@
-import type { ColumnMetadata, DatabaseEngine, TableKind, TableMetadata } from "@qyre/core";
+import { DATABASE_ENGINES } from "@qyre/core/connection-constants";
+import type { ColumnMetadata, DatabaseEngine, TableMetadata } from "@qyre/core";
 import { AlertTriangle, Pencil, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -7,15 +8,11 @@ import { AddColumnDialog } from "../dialogs/add-column-dialog.js";
 import type { CreateTableColumnInput } from "../dialogs/create-table-dialog.js";
 import { CreateIndexDialog, type CreateIndexInput } from "../dialogs/create-index-dialog.js";
 import { EditColumnDialog, type EditColumnUpdate } from "../dialogs/edit-column-dialog.js";
+import { TABLE_KIND_LABELS } from "../constants.js";
 import { TableDetail } from "./table-detail.js";
 import { ColumnRow, IndexRow } from "./table-structure-rows.js";
 
 const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-const KIND_BADGE_LABEL: Partial<Record<TableKind, string>> = {
-  view: "VIEW",
-  "materialized-view": "MATERIALIZED VIEW"
-};
 
 type DialogState =
   | { kind: "addColumn" }
@@ -68,7 +65,7 @@ export function TableStructure({
   const [renameBusy, setRenameBusy] = useState(false);
   const [renameError, setRenameError] = useState<string | undefined>(undefined);
 
-  const columnsEditable = canEditColumns && engine !== "mongodb";
+  const columnsEditable = canEditColumns && engine !== DATABASE_ENGINES.mongodb;
   const isMutableKind = table.kind === "table" || table.kind === "collection";
   const canWriteAnything = columnsEditable || canManageIndexes || canEditTable;
 
@@ -233,9 +230,9 @@ export function TableStructure({
               <span className="font-mono text-[12px] font-medium text-foreground">
                 {table.name}
               </span>
-              {KIND_BADGE_LABEL[table.kind] && (
+              {TABLE_KIND_LABELS[table.kind] && (
                 <span className="rounded-[2px] border border-border px-1 text-[8px] tracking-wide text-muted-foreground">
-                  {KIND_BADGE_LABEL[table.kind]}
+                  {TABLE_KIND_LABELS[table.kind]}
                 </span>
               )}
               {canEditTable && (

@@ -1,4 +1,5 @@
-import type { ConnectionStatus, RowFilter, StatementClassification } from "@qyre/core";
+import { DATABASE_ENGINES } from "@qyre/core/connection-constants";
+import type { ConnectionStatus, RowFilter } from "@qyre/core";
 import {
   ConnectDrawer,
   ErrorBoundary,
@@ -11,6 +12,7 @@ import {
   TabBar,
   WorkspaceActions
 } from "@qyre/ui";
+import type { DestructiveQueryConfirmation } from "@qyre/ui";
 import type { ReactNode } from "react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { cancelOperation } from "../shared/api/operations.js";
@@ -97,11 +99,12 @@ export function App(): ReactNode {
   const serverDatabasesSupported =
     status === "connected" &&
     overview.data !== undefined &&
-    overview.data.engine !== "sqlite" &&
-    overview.data.engine !== "mongodb";
+    overview.data.engine !== DATABASE_ENGINES.sqlite &&
+    overview.data.engine !== DATABASE_ENGINES.mongodb;
   const databases = useDatabases(serverDatabasesSupported);
   const canManageDatabases = sessionAllows(capabilities.data, "supportsDatabaseManagement");
-  const canManageSchemas = overview.data?.engine === "postgres" && canManageDatabases;
+  const canManageSchemas =
+    overview.data?.engine === DATABASE_ENGINES.postgres && canManageDatabases;
   const supportsSql = overview.data?.capabilities.supportsSql ?? true;
   useEffect(() => {
     if (status === "connected" && !supportsSql) {
@@ -121,7 +124,7 @@ export function App(): ReactNode {
   const clearConsole = useClearConsole();
   const runQuery = useRunQuery();
   const [pendingConfirmation, setPendingConfirmation] = useState<
-    { sql: string; classification: StatementClassification } | undefined
+    DestructiveQueryConfirmation | undefined
   >(undefined);
   const runOperationIdRef = useRef<string | undefined>(undefined);
 

@@ -1,4 +1,5 @@
 /** MongoDB adapter composition and lifecycle. */
+import { DATABASE_ENGINES } from "@qyre/core";
 import type {
   ColumnMetadata,
   ConnectionCapabilities,
@@ -65,7 +66,7 @@ function resolveStatementTimeoutMs(): number {
 }
 
 export class MongodbAdapter implements DatabaseAdapter {
-  public readonly engine = "mongodb";
+  public readonly engine = DATABASE_ENGINES.mongodb;
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
   public operationRegistry?: CancellationRegistry;
   public readonly mutations: RowMutationApi = {
@@ -151,7 +152,7 @@ export class MongodbAdapter implements DatabaseAdapter {
 
   async getOverview(): Promise<DatabaseOverview> {
     return {
-      engine: "mongodb",
+      engine: DATABASE_ENGINES.mongodb,
       schemas: await introspectSchemas(this.getClient()),
       capabilities: await this.getCapabilities()
     };
@@ -288,7 +289,7 @@ export class MongodbAdapter implements DatabaseAdapter {
 }
 
 export const mongodbAdapterFactory: AdapterFactory = {
-  engine: "mongodb",
-  supports: (target) => target.engine === "mongodb",
+  engine: DATABASE_ENGINES.mongodb,
+  supports: (target) => target.engine === DATABASE_ENGINES.mongodb,
   create: (target) => new MongodbAdapter(target)
 };

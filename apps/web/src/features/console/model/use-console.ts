@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clearConsoleEvents, fetchConsoleEvents } from "../api/console.js";
 import { QUERY_RETRY } from "../../../shared/lib/query/retry.js";
+import type { EnabledQueryOptions } from "../../../shared/lib/query/types.js";
 
 const QUERY_KEY = ["console"];
 
-export function useConsoleEvents(options: { enabled: boolean }) {
+export function useConsoleEvents(options: EnabledQueryOptions) {
   return useQuery({
     queryKey: QUERY_KEY,
     queryFn: fetchConsoleEvents,

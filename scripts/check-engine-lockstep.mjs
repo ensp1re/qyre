@@ -10,21 +10,23 @@ function read(relativePath) {
   return readFileSync(resolve(root, relativePath), "utf8");
 }
 
-// Derive the engine list from the canonical protocol detection source.
-let connectionTarget;
+// Derive the engine list from the shared constants source.
+let connectionConstants;
 try {
-  connectionTarget = read("packages/core/src/connection-target.ts");
+  connectionConstants = read("packages/core/src/constants/connection.ts");
 } catch (error) {
-  console.error(`Could not read packages/core/src/connection-target.ts: ${error.message}`);
+  console.error(`Could not read packages/core/src/constants/connection.ts: ${error.message}`);
   process.exit(1);
 }
 
 const engines = [
-  ...new Set([...connectionTarget.matchAll(/engine:\s*"([a-z]+)"/g)].map((match) => match[1]))
+  ...new Set(
+    [...connectionConstants.matchAll(/^\s+\w+:\s*"([a-z]+)",?$/gm)].map((match) => match[1])
+  )
 ].sort();
 
 if (engines.length === 0) {
-  console.error('Could not find any `engine: "..."` literals in connection-target.ts.');
+  console.error("Could not find any engine values in constants/connection.ts.");
   process.exit(1);
 }
 

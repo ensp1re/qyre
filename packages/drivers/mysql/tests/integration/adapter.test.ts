@@ -3,9 +3,9 @@ import {
   MYSQL_RELATIONSHIP_FIXTURE,
   requireReadOnlyTestMysqlUrl,
   requireRoleWriterTestMysqlUrl,
-  requireTestMysqlUrl,
-  setupMysqlFixture
+  requireTestMysqlUrl
 } from "@qyre/testing";
+import { setupMysqlFixture } from "@qyre/testing/mysql";
 import mysql from "mysql2/promise";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MysqlAdapter } from "../../src/index.js";

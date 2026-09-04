@@ -2,8 +2,9 @@ import type { ConnectionCapabilities } from "@qyre/core";
 import { useQuery } from "@tanstack/react-query";
 import { fetchOverviewForCapabilities } from "../../api/capabilities.js";
 import { QUERY_RETRY } from "../../../../shared/lib/query/retry.js";
+import type { EnabledQueryOptions } from "../../../../shared/lib/query/types.js";
 
-export function useCapabilities(options: { enabled: boolean }): {
+export function useCapabilities(options: EnabledQueryOptions): {
   data: ConnectionCapabilities | undefined;
   isLoading: boolean;
   isError: boolean;

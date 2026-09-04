@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
-import { ensureSqliteFile } from "../src/index.js";
+import { ensureSqliteFile } from "../src/fixtures/sqlite.js";
 
 const directories: string[] = [];
 

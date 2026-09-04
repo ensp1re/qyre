@@ -1,4 +1,5 @@
 /** Postgres adapter composition and lifecycle. */
+import { DATABASE_ENGINES } from "@qyre/core";
 import type {
   ColumnMetadata,
   ConnectionCapabilities,
@@ -77,7 +78,7 @@ import { formatSqlInsert, streamRows } from "../query/row-export.js";
 import { buildFilterClause, quoteIdent } from "../query/sql.js";
 
 export class PostgresAdapter implements DatabaseAdapter {
-  public readonly engine = "postgres";
+  public readonly engine = DATABASE_ENGINES.postgres;
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
   public operationRegistry?: CancellationRegistry;
   public readonly mutations: RowMutationApi = {
@@ -193,7 +194,7 @@ export class PostgresAdapter implements DatabaseAdapter {
 
   async getOverview(): Promise<DatabaseOverview> {
     return {
-      engine: "postgres",
+      engine: DATABASE_ENGINES.postgres,
       schemas: await introspectSchemas(this.getPool()),
       capabilities: await this.getCapabilities()
     };
@@ -378,7 +379,7 @@ export class PostgresAdapter implements DatabaseAdapter {
 }
 
 export const postgresAdapterFactory: AdapterFactory = {
-  engine: "postgres",
-  supports: (target) => target.engine === "postgres",
+  engine: DATABASE_ENGINES.postgres,
+  supports: (target) => target.engine === DATABASE_ENGINES.postgres,
   create: (target) => new PostgresAdapter(target)
 };

@@ -1,13 +1,9 @@
+import { EMPTY_TABLE_PERMISSIONS } from "@qyre/driver-contract";
 import type { ConnectionCapabilities, TablePermissions } from "@qyre/core";
 import type { Pool } from "pg";
 import { SYSTEM_SCHEMAS, tableKey } from "../schema/catalog.js";
 
-export const READ_ONLY_TABLE_PERMISSIONS: TablePermissions = {
-  select: false,
-  insert: false,
-  update: false,
-  delete: false
-};
+export const READ_ONLY_TABLE_PERMISSIONS = EMPTY_TABLE_PERMISSIONS;
 
 interface TablePermissionRow {
   table_schema: string;

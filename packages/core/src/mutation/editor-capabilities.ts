@@ -1,58 +1,18 @@
+import { DATABASE_ENGINES } from "../constants/connection.js";
 import type { DatabaseEngine } from "../types/connection/connection.js";
+import type {
+  MutationEditorCapability,
+  MutationEditorKind,
+  MutationEditorMetadata,
+  MutationEditorWidget
+} from "./types.js";
 
-export type MutationEditorKind =
-  | "text"
-  | "identifier"
-  | "numeric"
-  | "boolean"
-  | "date"
-  | "time"
-  | "timestamp-local"
-  | "timestamp-time-zone"
-  | "interval"
-  | "enum"
-  | "set"
-  | "structured"
-  | "binary"
-  | "bit-string"
-  | "network"
-  | "xml"
-  | "bson-regex"
-  | "bson-timestamp"
-  | "bson-code"
-  | "bson-min-key"
-  | "bson-max-key"
-  | "unknown"
-  | "null"
-  | "object-id";
-
-export type MutationEditorWidget =
-  | "text"
-  | "multiline"
-  | "decimal"
-  | "boolean"
-  | "date"
-  | "time"
-  | "timestamp"
-  | "interval"
-  | "enum"
-  | "set"
-  | "json"
-  | "array"
-  | "binary"
-  | "xml";
-
-export interface MutationEditorMetadata {
-  readonly allowedValues?: readonly string[];
-  readonly elementDataType?: string;
-}
-
-export interface MutationEditorCapability {
-  readonly kind: MutationEditorKind;
-  readonly editable: boolean;
-  readonly widget: MutationEditorWidget | null;
-  readonly unavailableReason?: string;
-}
+export type {
+  MutationEditorCapability,
+  MutationEditorKind,
+  MutationEditorMetadata,
+  MutationEditorWidget
+} from "./types.js";
 
 function available(
   kind: MutationEditorKind,
@@ -76,7 +36,7 @@ export function mutationEditorCapability(
 ): MutationEditorCapability {
   const type = dataType.trim().toLowerCase();
 
-  if (engine === "mongodb") {
+  if (engine === DATABASE_ENGINES.mongodb) {
     if (type === "objectid") return available("object-id", "text");
     if (type === "string") return available("text", "text");
     if (type === "number") return available("numeric", "decimal");
@@ -116,11 +76,12 @@ export function mutationEditorCapability(
   }
   if (type.startsWith("time")) return available("time", "time");
   if (type.startsWith("date")) return available("date", "date");
-  if (engine === "postgres" && type === "interval") return available("interval", "interval");
+  if (engine === DATABASE_ENGINES.postgres && type === "interval")
+    return available("interval", "interval");
 
   if (type.includes("json")) return available("structured", "json");
   if (metadata.elementDataType || type.includes("array") || type.endsWith("[]")) {
-    return engine === "postgres"
+    return engine === DATABASE_ENGINES.postgres
       ? available("structured", "array")
       : unavailable("structured", "Native array editing is supported only for PostgreSQL.");
   }
@@ -131,7 +92,7 @@ export function mutationEditorCapability(
     return available("binary", "binary");
   }
   if (
-    engine === "postgres" &&
+    engine === DATABASE_ENGINES.postgres &&
     (type === "bit" ||
       type.startsWith("bit(") ||
       type.startsWith("bit varying") ||
@@ -141,7 +102,7 @@ export function mutationEditorCapability(
     return available("bit-string", "text");
   }
   if (
-    engine === "postgres" &&
+    engine === DATABASE_ENGINES.postgres &&
     (type === "inet" || type === "cidr" || type === "macaddr" || type === "macaddr8")
   ) {
     return available("network", "text");

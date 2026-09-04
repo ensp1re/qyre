@@ -5,6 +5,7 @@ export default defineConfig(
   libConfig({
     entry: [
       "src/index.ts",
+      "src/constants/connection.ts",
       "src/filter-capabilities.ts",
       "src/mutation/editor-capabilities.ts",
       "src/mutation/editor-values.ts",

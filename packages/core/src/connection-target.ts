@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DATABASE_ENGINES } from "./constants/connection.js";
 import { InvalidConnectionTargetError } from "./errors.js";
 import type { ConnectionTarget } from "./types/connection/connection.js";
 
@@ -39,7 +40,7 @@ function resolveSqliteTarget(raw: string, path: string): ConnectionTarget {
         "./app.db), or a Postgres connection string (postgres://user:pass@localhost:5432/mydb)."
     );
   }
-  return { engine: "sqlite", raw };
+  return { engine: DATABASE_ENGINES.sqlite, raw };
 }
 
 export function parseConnectionTarget(input: string | undefined): ConnectionTarget {
@@ -62,13 +63,13 @@ export function parseConnectionTarget(input: string | undefined): ConnectionTarg
 
   if (url) {
     if (POSTGRES_PROTOCOLS.has(url.protocol)) {
-      return { engine: "postgres", raw: trimmed };
+      return { engine: DATABASE_ENGINES.postgres, raw: trimmed };
     }
     if (MYSQL_PROTOCOLS.has(url.protocol)) {
-      return { engine: "mysql", raw: trimmed };
+      return { engine: DATABASE_ENGINES.mysql, raw: trimmed };
     }
     if (MONGODB_PROTOCOLS.has(url.protocol)) {
-      return { engine: "mongodb", raw: trimmed };
+      return { engine: DATABASE_ENGINES.mongodb, raw: trimmed };
     }
     if (url.protocol === "file:") {
       return resolveSqliteTarget(trimmed, fileURLToPath(url));

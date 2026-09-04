@@ -2,7 +2,8 @@ import { existsSync, statSync } from "node:fs";
 import { fileContentQuerySchema, FILES_PREVIEW_MAX_BYTES } from "@qyre/core";
 import type { FileContent, FilesOverview } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
+import type { QueryParams } from "../../types/routes.js";
 import {
   buildFileTree,
   InvalidFilePathError,
@@ -16,7 +17,7 @@ export function registerFilesRoutes(app: FastifyInstance, ctx: ServerContext): v
     return { enabled: true, tree: buildFileTree(ctx.filesRoot) };
   });
 
-  app.get<{ Querystring: Record<string, string> }>("/api/files/content", async (request, reply) => {
+  app.get<{ Querystring: QueryParams }>("/api/files/content", async (request, reply) => {
     if (!ctx.filesRoot) {
       return reply.status(503).send({ error: "File browsing is not configured." });
     }

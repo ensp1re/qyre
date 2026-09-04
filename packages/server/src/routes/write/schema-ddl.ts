@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 import { registerColumnDdlRoutes } from "./schema-ddl/column-routes.js";
 import { registerIndexDdlRoutes } from "./schema-ddl/index-routes.js";
 import { registerTableDdlRoutes } from "./schema-ddl/table-routes.js";

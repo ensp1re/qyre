@@ -22,7 +22,11 @@ import { RowsTableToolbar } from "./rows-table-toolbar.js";
 import { useRowsTableModel } from "./use-rows-table.js";
 
 export { toCsv };
-export type { RowsTableProps };
+export type {
+  RowsTablePendingChanges,
+  RowsTablePendingInsert,
+  RowsTableProps
+} from "./rows-table-types.js";
 
 const COLUMN_WIDTH = 220;
 

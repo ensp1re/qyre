@@ -5,7 +5,13 @@
   "type": "module",
   "description": "Internal test utilities and fixtures for Qyre. Not part of the public API.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./environment": "./src/environment.ts",
+    "./fixtures": "./src/fixtures/definitions.ts",
+    "./postgres": "./src/fixtures/postgres.ts",
+    "./sqlite": "./src/fixtures/sqlite.ts",
+    "./mysql": "./src/fixtures/mysql.ts",
+    "./mongodb": "./src/fixtures/mongodb.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

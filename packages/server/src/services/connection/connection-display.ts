@@ -1,8 +1,10 @@
+import { DATABASE_ENGINES, redactConnectionString } from "@qyre/core";
 import type { ConnectionTarget } from "@qyre/core";
-import { redactConnectionString } from "@qyre/core";
 
 export function displayTarget(target: ConnectionTarget): string {
-  return target.engine === "sqlite" ? target.raw : redactConnectionString(target.raw);
+  return target.engine === DATABASE_ENGINES.sqlite
+    ? target.raw
+    : redactConnectionString(target.raw);
 }
 
 const CREDENTIAL_QUERY_PARAM_PATTERN = /password|pwd|secret|token/i;

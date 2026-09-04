@@ -1,5 +1,6 @@
 /** SQLite adapter composition and lifecycle. */
 import { resolve } from "node:path";
+import { DATABASE_ENGINES } from "@qyre/core";
 import type {
   ColumnMetadata,
   ConnectionCapabilities,
@@ -71,7 +72,7 @@ async function loadBetterSqlite3(): Promise<typeof Database> {
 
 /** SQLite queries are synchronous, so no operation cancellation is registered. */
 export class SqliteAdapter implements DatabaseAdapter {
-  public readonly engine = "sqlite";
+  public readonly engine = DATABASE_ENGINES.sqlite;
   public readonly admin: DatabaseAdminApi = {
     inspectAccess: () => inspectAccess(this.resolvedPath ?? resolve(this.target.raw), this.getDb())
   };
@@ -169,7 +170,7 @@ export class SqliteAdapter implements DatabaseAdapter {
       { name: MAIN_SCHEMA, tables: targets.map((target) => target.name) }
     ];
 
-    return { engine: "sqlite", schemas, capabilities: await this.getCapabilities() };
+    return { engine: DATABASE_ENGINES.sqlite, schemas, capabilities: await this.getCapabilities() };
   }
 
   async getCapabilities(): Promise<ConnectionCapabilities> {
@@ -296,7 +297,7 @@ export class SqliteAdapter implements DatabaseAdapter {
 
 /** Factory that creates SQLite adapter instances. */
 export const sqliteAdapterFactory: AdapterFactory = {
-  engine: "sqlite",
-  supports: (target) => target.engine === "sqlite",
+  engine: DATABASE_ENGINES.sqlite,
+  supports: (target) => target.engine === DATABASE_ENGINES.sqlite,
   create: (target) => new SqliteAdapter(target)
 };

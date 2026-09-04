@@ -1,3 +1,4 @@
+import { DATABASE_ENGINES } from "@qyre/core/connection-constants";
 import type { MutationOp } from "@qyre/core";
 import type { PendingEdits, PendingInserts } from "./pending-changes.js";
 
@@ -58,7 +59,7 @@ function formatWhereClause(key: Record<string, unknown>): string {
 }
 
 export function buildPreviewLine(op: MutationOp, engine?: "mongodb"): string {
-  if (engine === "mongodb") {
+  if (engine === DATABASE_ENGINES.mongodb) {
     if (op.type === "insert") return JSON.stringify({ insertOne: { document: op.values } });
     if (op.type === "update") {
       return JSON.stringify({ updateOne: { filter: op.key, update: { $set: op.changes } } });

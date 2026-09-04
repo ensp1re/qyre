@@ -1,6 +1,11 @@
 import type { DatabaseEngine } from "../connection/connection.js";
 import type { JsonExportMode, RowExportFormat } from "../query/query.js";
 
+export interface TableReference {
+  readonly schema: string;
+  readonly table: string;
+}
+
 export interface SchemaMetadata {
   readonly name: string;
   readonly tables: string[];

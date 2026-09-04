@@ -1,10 +1,12 @@
+import { DATABASE_ENGINES } from "@qyre/core";
+import type { SchemaParams, DatabaseParams } from "../../types/routes.js";
 import {
   confirmedNameRequestSchema,
   createDatabaseRequestSchema,
   createSchemaRequestSchema
 } from "@qyre/core";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 import { applyReadOnlyOverride } from "../../services/access/read-only-capabilities.js";
 import { permissionRoute } from "../../services/access/permission-denied.js";
 import { requireAdapter } from "../../services/connection/require-adapter.js";
@@ -101,7 +103,7 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
       if (!createDatabase) {
         return reply.status(400).send({
           error:
-            db.engine === "mongodb"
+            db.engine === DATABASE_ENGINES.mongodb
               ? "MongoDB creates databases implicitly on the first write into them - create a collection instead."
               : "This engine does not support creating databases."
         });
@@ -133,7 +135,7 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
     }
   );
 
-  app.delete<{ Params: { database: string }; Body: unknown }>(
+  app.delete<{ Params: DatabaseParams; Body: unknown }>(
     "/api/databases/:database",
     permissionRoute({
       operation: "drop-database",
@@ -232,7 +234,7 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
     }
   );
 
-  app.delete<{ Params: { schema: string }; Body: unknown }>(
+  app.delete<{ Params: SchemaParams; Body: unknown }>(
     "/api/schemas/:schema",
     permissionRoute({
       operation: "drop-schema",

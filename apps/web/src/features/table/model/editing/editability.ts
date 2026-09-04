@@ -1,3 +1,4 @@
+import { DATABASE_ENGINES } from "@qyre/core/connection-constants";
 import type { ConnectionCapabilities, DatabaseEngine, TableMetadata } from "@qyre/core";
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import {
@@ -45,14 +46,14 @@ export function computeTableEditability(
 ): TableEditability {
   if (!table) return NOT_EDITABLE;
 
-  const expectedKind = engine === "mongodb" ? "collection" : "table";
+  const expectedKind = engine === DATABASE_ENGINES.mongodb ? "collection" : "table";
   if (table.kind !== expectedKind) {
     const reason =
       table.kind === "view"
         ? "Views are read-only - they have no rows of their own to update."
         : table.kind === "materialized-view"
           ? "Materialized views are refreshed, not edited row-by-row."
-          : engine === "mongodb"
+          : engine === DATABASE_ENGINES.mongodb
             ? "Only MongoDB collections can be edited."
             : "This isn't editable.";
     return {
@@ -98,7 +99,7 @@ export function computeTableEditability(
 
   const mutationEditableColumns = table.columns.filter((column) => {
     if (
-      engine === "mongodb" &&
+      engine === DATABASE_ENGINES.mongodb &&
       (column.name.includes(".") ||
         column.name.startsWith("$") ||
         ["__proto__", "constructor", "prototype"].includes(column.name))

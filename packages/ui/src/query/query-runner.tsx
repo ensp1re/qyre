@@ -25,14 +25,15 @@ import {
 import { IconButton } from "../primitives/controls/icon-button.js";
 import { ResizeHandle } from "../primitives/resize-handle.js";
 import { QueryPlanPanel } from "./query-plan-panel.js";
-import type { CompletionTable } from "./sql-completion.js";
+import type { CompletionTable, QueryResultExportFormat } from "./types.js";
 import { createSqlCompletionSource } from "./sql-completion.js";
 
 export const RESULTS_DEFAULT_HEIGHT = 256;
 const RESULTS_MIN_HEIGHT = 120;
 const RESULTS_MAX_HEIGHT = 600;
 type OutputMode = "results" | "plan" | "messages";
-export type QueryResultExportFormat = "csv" | "json";
+
+export type { QueryResultExportFormat } from "./types.js";
 
 function moveOutputTabFocus(event: KeyboardEvent<HTMLDivElement>): void {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;

@@ -3,11 +3,9 @@ import { FolderOpen, Plus, Search, Table2, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { cn } from "../../cn.js";
+import type { SelectedTable } from "../types.js";
 
-export interface SelectedTable {
-  schema: string;
-  table: string;
-}
+export type { SelectedTable } from "../types.js";
 
 export interface SchemaTreeProps {
   schemas: SchemaMetadata[];

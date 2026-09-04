@@ -1,30 +1,14 @@
+import { DATABASE_ENGINES } from "./constants/connection.js";
 import type { ColumnMetadata } from "./types/query/table.js";
+import type { DatabaseEngine } from "./types/connection/connection.js";
 import type { FilterOp } from "./types/query/query.js";
+import type { FilterColumnKind, FilterCapability } from "./types/query/filter-capabilities.js";
 
-export type FilterValueInput =
-  "text" | "number" | "boolean" | "date" | "time" | "datetime-local" | "json";
-
-export type FilterColumnKind =
-  | "text"
-  | "numeric"
-  | "boolean"
-  | "date"
-  | "time"
-  | "datetime"
-  | "identifier"
-  | "objectId"
-  | "null"
-  | "structured"
-  | "binary"
-  | "unknown";
-
-export interface FilterCapability {
-  readonly kind: FilterColumnKind;
-  readonly label: string;
-  readonly operators: readonly FilterOp[];
-  readonly valueInput: FilterValueInput | null;
-  readonly unavailableReason?: string;
-}
+export type {
+  FilterColumnKind,
+  FilterCapability,
+  FilterValueInput
+} from "./types/query/filter-capabilities.js";
 
 const NULL_OPS: readonly FilterOp[] = ["isNull", "isNotNull"];
 
@@ -32,10 +16,13 @@ function withNullability(ops: readonly FilterOp[], column: ColumnMetadata): read
   return column.nullable ? [...ops, ...NULL_OPS] : ops;
 }
 
-export function classifyFilterColumnKind(dataType: string, engine?: string): FilterColumnKind {
+export function classifyFilterColumnKind(
+  dataType: string,
+  engine?: DatabaseEngine
+): FilterColumnKind {
   const type = dataType.trim().toLowerCase();
 
-  if (engine === "mongodb") {
+  if (engine === DATABASE_ENGINES.mongodb) {
     if (type === "objectid") return "objectId";
     if (type === "string") return "text";
     if (type === "number") return "numeric";
@@ -90,7 +77,7 @@ export function classifyFilterColumnKind(dataType: string, engine?: string): Fil
 
 export function filterCapabilityForColumn(
   column: ColumnMetadata,
-  engine?: string
+  engine?: DatabaseEngine
 ): FilterCapability {
   const kind = classifyFilterColumnKind(column.dataType, engine);
 
@@ -155,13 +142,14 @@ export function filterCapabilityForColumn(
       return { kind, label: "null", operators: NULL_OPS, valueInput: null };
     case "structured":
       if (
-        (engine === "postgres" &&
+        (engine === DATABASE_ENGINES.postgres &&
           (column.dataType.toLowerCase().includes("json") ||
             column.dataType.toLowerCase().includes("array") ||
             column.dataType.endsWith("[]"))) ||
-        ((engine === "mysql" || engine === "sqlite") &&
+        ((engine === DATABASE_ENGINES.mysql || engine === DATABASE_ENGINES.sqlite) &&
           column.dataType.toLowerCase().includes("json")) ||
-        (engine === "mongodb" && ["object", "array"].includes(column.dataType.toLowerCase()))
+        (engine === DATABASE_ENGINES.mongodb &&
+          ["object", "array"].includes(column.dataType.toLowerCase()))
       ) {
         return {
           kind,
@@ -202,7 +190,7 @@ export function filterCapabilityForColumn(
 export function isFilterOpSupported(
   column: ColumnMetadata,
   op: FilterOp,
-  engine?: string
+  engine?: DatabaseEngine
 ): boolean {
   return filterCapabilityForColumn(column, engine).operators.includes(op);
 }

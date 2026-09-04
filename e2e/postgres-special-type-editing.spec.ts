@@ -1,4 +1,5 @@
-import { requireTestDatabaseUrl, runStatements, setupFixture } from "@qyre/testing";
+import { requireTestDatabaseUrl } from "@qyre/testing";
+import { runStatements, setupFixture } from "@qyre/testing/postgres";
 import { expect, test } from "./support/test.js";
 
 test("@full PostgreSQL temporal, interval, bytea, bit, network, and XML cells edit and persist", async ({

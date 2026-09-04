@@ -6,8 +6,28 @@ import type {
   RowFilter,
   RowExportFormat,
   RowPage,
+  RowSort,
+  SortDirection,
   TableKind
 } from "@qyre/core";
+
+export interface RowsTablePendingInsert {
+  readonly id: string;
+  readonly values: Readonly<Record<string, unknown>>;
+}
+
+export interface RowsTablePendingChanges {
+  getEdit: (rowKey: string, column: string) => { next: unknown } | undefined;
+  stageEdit: (rowKey: string, column: string, original: unknown, next: unknown) => void;
+  revertEdit: (rowKey: string, column: string) => void;
+  inserts: readonly RowsTablePendingInsert[];
+  addInsert: (initialValues?: Record<string, unknown>) => string;
+  updateInsertValue: (id: string, column: string, value: unknown) => void;
+  removeInsert: (id: string) => void;
+  deletes: ReadonlySet<string>;
+  stageDelete: (rowKey: string) => void;
+  unstageDelete: (rowKey: string) => void;
+}
 
 export interface RowsTableProps {
   rowPage: RowPage;
@@ -25,8 +45,8 @@ export interface RowsTableProps {
   onRefresh?: () => void;
   onNavigateToForeignKey?: (reference: ForeignKeyReference, value: unknown) => void;
   sortColumn?: string;
-  sortDirection?: "asc" | "desc";
-  onSortChange?: (sort: { column: string; direction: "asc" | "desc" } | undefined) => void;
+  sortDirection?: SortDirection;
+  onSortChange?: (sort: RowSort | undefined) => void;
   exportFormats?: readonly RowExportFormat[];
   jsonExportMode?: JsonExportMode;
   onExportAllRows?: (format: RowExportFormat) => void;
@@ -42,18 +62,7 @@ export interface RowsTableProps {
   editableColumns?: ReadonlySet<string>;
   editingDisabledReason?: string;
   primaryKeyColumns?: readonly string[];
-  pendingChanges?: {
-    getEdit: (rowKey: string, column: string) => { next: unknown } | undefined;
-    stageEdit: (rowKey: string, column: string, original: unknown, next: unknown) => void;
-    revertEdit: (rowKey: string, column: string) => void;
-    inserts: readonly { id: string; values: Readonly<Record<string, unknown>> }[];
-    addInsert: (initialValues?: Record<string, unknown>) => string;
-    updateInsertValue: (id: string, column: string, value: unknown) => void;
-    removeInsert: (id: string) => void;
-    deletes: ReadonlySet<string>;
-    stageDelete: (rowKey: string) => void;
-    unstageDelete: (rowKey: string) => void;
-  };
+  pendingChanges?: RowsTablePendingChanges;
   canInsert?: boolean;
   insertableColumns?: ReadonlySet<string>;
   canDelete?: boolean;

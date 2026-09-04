@@ -1,3 +1,4 @@
+import { DATABASE_ENGINES, REMOTE_DATABASE_ENGINES } from "@qyre/core/connection-constants";
 import { Database, X } from "lucide-react";
 import type { ClipboardEvent, FormEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -6,34 +7,20 @@ import { Spinner } from "../feedback/spinner.js";
 import { Segmented } from "../primitives/segmented.js";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
 import { DatabasePanel } from "./database-panel.js";
+import type { ConnectionFields, FieldEngine, RecentTarget } from "./types.js";
 
-export interface RecentTarget {
-  readonly raw: string;
-  readonly display: string;
-}
-
-export type FieldEngine = "postgres" | "mysql" | "mongodb";
-
-export interface ConnectionFields {
-  engine: FieldEngine;
-  host: string;
-  port: string;
-  user: string;
-  password: string;
-  database: string;
-  srv: boolean;
-}
+export type { ConnectionFields, FieldEngine, RecentTarget } from "./types.js";
 
 export const FIELD_ENGINE_DEFAULT_PORT: Record<FieldEngine, string> = {
-  postgres: "5432",
-  mysql: "3306",
-  mongodb: "27017"
+  [DATABASE_ENGINES.postgres]: "5432",
+  [DATABASE_ENGINES.mysql]: "3306",
+  [DATABASE_ENGINES.mongodb]: "27017"
 };
 
 const FIELD_ENGINE_LABEL: Record<FieldEngine, string> = {
-  postgres: "Postgres",
-  mysql: "MySQL",
-  mongodb: "MongoDB"
+  [DATABASE_ENGINES.postgres]: "Postgres",
+  [DATABASE_ENGINES.mysql]: "MySQL",
+  [DATABASE_ENGINES.mongodb]: "MongoDB"
 };
 
 export function composeConnectionString(fields: ConnectionFields): string {
@@ -46,7 +33,7 @@ export function composeConnectionString(fields: ConnectionFields): string {
     ? `${encodeURIComponent(user)}${password ? `:${encodeURIComponent(password)}` : ""}@`
     : "";
   const path = database ? `/${encodeURIComponent(database)}` : "";
-  if (fields.engine === "mongodb" && fields.srv) {
+  if (fields.engine === DATABASE_ENGINES.mongodb && fields.srv) {
     return `mongodb+srv://${auth}${host}${path}`;
   }
   const port = fields.port.trim() || FIELD_ENGINE_DEFAULT_PORT[fields.engine];
@@ -54,11 +41,11 @@ export function composeConnectionString(fields: ConnectionFields): string {
 }
 
 const FIELD_ENGINE_BY_PROTOCOL: Record<string, FieldEngine> = {
-  "postgres:": "postgres",
-  "postgresql:": "postgres",
-  "mysql:": "mysql",
-  "mongodb:": "mongodb",
-  "mongodb+srv:": "mongodb"
+  "postgres:": DATABASE_ENGINES.postgres,
+  "postgresql:": DATABASE_ENGINES.postgres,
+  "mysql:": DATABASE_ENGINES.mysql,
+  "mongodb:": DATABASE_ENGINES.mongodb,
+  "mongodb+srv:": DATABASE_ENGINES.mongodb
 };
 
 export function parsePastedConnectionString(text: string): ConnectionFields | null {
@@ -103,7 +90,7 @@ export interface ConnectDrawerProps {
 }
 
 const EMPTY_FIELDS: ConnectionFields = {
-  engine: "postgres",
+  engine: DATABASE_ENGINES.postgres,
   host: "",
   port: "",
   user: "",
@@ -302,13 +289,13 @@ export function ConnectDrawer({
                 aria-label="Engine"
                 value={fields.engine}
                 onChange={(engine) => setFields({ ...EMPTY_FIELDS, engine })}
-                options={(["postgres", "mysql", "mongodb"] as const).map((engine) => ({
+                options={REMOTE_DATABASE_ENGINES.map((engine) => ({
                   value: engine,
                   label: FIELD_ENGINE_LABEL[engine]
                 }))}
               />
 
-              {fields.engine === "mongodb" && (
+              {fields.engine === DATABASE_ENGINES.mongodb && (
                 <label className="flex items-center gap-1.5 font-mono text-[10px] text-quiet-foreground">
                   <input
                     type="checkbox"

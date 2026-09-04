@@ -2,11 +2,22 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 159,
+    "F": 160,
     "DF": 13
   },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
+    {
+      "id": "F159",
+      "behavior": "TypeScript declarations and finite domain values have one owning module per domain. Shared core contracts cover engine identifiers, table references, row sorting, CSV modes, and column updates; server, driver-contract, UI, testing, and E2E modules expose cohesive type boundaries through compatibility-preserving barrels. The testing entrypoint no longer eagerly loads every database driver, so native SQLite remains an optional engine dependency for consumers that do not use it. E2E project fixture selection uses one typed project configuration, including the restricted SQLite project.",
+      "verification": "pnpm verify:pr",
+      "state": "passing",
+      "commitHash": "9176ca899b5e0db459e64ae66cb14b6ccf431916",
+      "evidence": "PR #181 (https://github.com/ensp1re/qyre/pull/181), feature commit 9176ca899b5e0db459e64ae66cb14b6ccf431916; pnpm verify:pr passed locally with checks, build, smoke E2E, and full E2E; GitHub CI Lint, typecheck, test, build and End-to-end passed.",
+      "blockedReason": null,
+      "spec": "docs/CODE_ORGANIZATION.md and TypeScript Structure audit",
+      "completedAt": "2026-09-04T13:40:38.000Z"
+    },
     {
       "id": "F158",
       "behavior": "The codebase uses concise comments: comments explain only non-obvious contracts, invariants, compatibility constraints, security boundaries, or required workarounds; routine implementation narration, feature-history labels, and comments inside functions without a concrete purpose are removed. Compiler directives, license headers, generated-file markers, and necessary public API contract comments remain.",

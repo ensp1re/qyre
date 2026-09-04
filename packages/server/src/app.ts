@@ -1,9 +1,13 @@
 import { DEFAULT_PORT } from "@qyre/core";
-import type { ConnectionTarget, HealthResponse } from "@qyre/core";
-import type { AdapterFactory, DatabaseAdapter } from "@qyre/driver-contract";
 import multipart from "@fastify/multipart";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
+import type {
+  CreateServerOptions,
+  RunningServer,
+  ServerContext,
+  StartServerOptions
+} from "./types/server.js";
 import { registerAuthGuard } from "./plugins/auth-guard.js";
 import { registerAccessRoute } from "./routes/admin/access.js";
 import { registerErrorHandler } from "./plugins/error-handler.js";
@@ -29,7 +33,6 @@ import { registerOperationsRoutes } from "./routes/observability/operations.js";
 import { generateAuthToken } from "./services/access/auth-token.js";
 import { EventLog } from "./services/observability/event-log.js";
 import { buildLoggerOptions } from "./services/observability/log-redaction.js";
-import type { ServerLoggerOption } from "./services/observability/log-redaction.js";
 import { OperationRegistry } from "./services/observability/operation-registry.js";
 
 // Keep augmentation in an imported module so downstream package type-checks see it.
@@ -39,29 +42,12 @@ declare module "fastify" {
   }
 }
 
-export interface CreateServerOptions {
-  adapter?: DatabaseAdapter;
-  target?: ConnectionTarget;
-  logger?: ServerLoggerOption;
-  webRoot?: string;
-  filesRoot?: string;
-  eventLog?: EventLog;
-  adapterFactories?: AdapterFactory[];
-  authToken?: string;
-  readOnly?: boolean;
-}
-
-export interface ServerContext {
-  adapter?: DatabaseAdapter;
-  target?: ConnectionTarget;
-  readonly eventLog: EventLog;
-  readonly filesRoot?: string;
-  readonly adapterFactories?: AdapterFactory[];
-  lastKnownStatus?: HealthResponse["database"];
-  lastError: string | null;
-  readonly readOnly: boolean;
-  readonly operationRegistry: OperationRegistry;
-}
+export type {
+  CreateServerOptions,
+  RunningServer,
+  ServerContext,
+  StartServerOptions
+} from "./types/server.js";
 
 export function createServer(options: CreateServerOptions = {}): FastifyInstance {
   const app = Fastify({ logger: buildLoggerOptions(options.logger) });
@@ -106,19 +92,6 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
   registerStaticWeb(app, options.webRoot, authToken);
 
   return app;
-}
-
-export interface StartServerOptions extends CreateServerOptions {
-  port?: number;
-  host?: string;
-}
-
-export interface RunningServer {
-  app: FastifyInstance;
-  url: string;
-  eventLog: EventLog;
-  authToken: string;
-  close: () => Promise<void>;
 }
 
 export async function startServer(options: StartServerOptions = {}): Promise<RunningServer> {

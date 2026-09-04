@@ -1,3 +1,4 @@
+import { DATABASE_ENGINES } from "@qyre/core";
 import type { FilterOp, RowFilter } from "@qyre/core";
 import { classifyFilterColumnKind } from "@qyre/core/filter-capabilities";
 import { escapeLikePattern, type ResolvedRowSearch } from "@qyre/driver-contract";
@@ -44,7 +45,7 @@ export function buildFilterClause(
     return `${column} ${COMPARE_OPERATORS[filter.op]} $${params.length}`;
   });
   const searchable = search?.columns.filter(
-    (column) => classifyFilterColumnKind(column.dataType, "postgres") !== "binary"
+    (column) => classifyFilterColumnKind(column.dataType, DATABASE_ENGINES.postgres) !== "binary"
   );
   if (search && searchable && searchable.length > 0) {
     params.push(`%${escapeLikePattern(search.value)}%`);

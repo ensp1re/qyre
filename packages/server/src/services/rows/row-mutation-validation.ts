@@ -1,4 +1,5 @@
-import type { ColumnMetadata, DatabaseEngine, MutationOp, TableMetadata } from "@qyre/core";
+import { DATABASE_ENGINES } from "@qyre/core";
+import type { ColumnMetadata, MutationOp, TableMetadata, TableReference } from "@qyre/core";
 import { classifyFilterColumnKind, type FilterColumnKind } from "@qyre/core/filter-capabilities";
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import { isExactNumericText, validateMutationValue } from "@qyre/core/mutation-editor-values";
@@ -107,7 +108,7 @@ function resolveEditableValue(
     allowedValues: column.allowedValues,
     elementDataType: column.elementDataType
   };
-  const databaseEngine = engine as DatabaseEngine;
+  const databaseEngine = engine;
   const capability = mutationEditorCapability(column.dataType, databaseEngine, metadata);
   if (!capability.editable) {
     throw badRequest(
@@ -237,7 +238,7 @@ export function resolveInsertValues(
   body: Record<string, unknown>,
   engine: DatabaseAdapter["engine"]
 ): Record<string, unknown> {
-  if (engine === "mongodb") return body;
+  if (engine === DATABASE_ENGINES.mongodb) return body;
   return resolveColumnValues(tableMetadata, body, engine, false);
 }
 
@@ -246,7 +247,7 @@ export function resolveUpdateChanges(
   body: Record<string, unknown>,
   engine: DatabaseAdapter["engine"]
 ): Record<string, unknown> {
-  if (engine === "mongodb") return body;
+  if (engine === DATABASE_ENGINES.mongodb) return body;
   if (Object.keys(body).length === 0) {
     throw badRequest("changes must include at least one column.");
   }
@@ -278,7 +279,7 @@ export function resolveKey(
     if (key[column.name] === null) {
       throw badRequest("Rows with a NULL primary key cannot be targeted.");
     }
-    if (engine === "mongodb") {
+    if (engine === DATABASE_ENGINES.mongodb) {
       const kind = classifyFilterColumnKind(column.dataType, engine);
       resolved[column.name] = coerceRowValue(kind, key[column.name], column.nullable, column.name);
     } else {
@@ -309,13 +310,13 @@ function resolveOneOp(
     return {
       ...op,
       values:
-        engine === "mongodb"
+        engine === DATABASE_ENGINES.mongodb
           ? resolveMongoGridValues(tableMetadata, op.values, "insert")
           : resolveInsertValues(tableMetadata, op.values, engine)
     };
   }
   if (op.type === "update") {
-    if (engine === "mongodb") {
+    if (engine === DATABASE_ENGINES.mongodb) {
       const missing = new Set(op.missingOriginalFields ?? []);
       if (!op.originalValues) throw badRequest("MongoDB updates require originalValues.");
       for (const field of Object.keys(op.changes)) {
@@ -347,7 +348,7 @@ export async function resolveBatchOps(
   db: DatabaseAdapter,
   ops: MutationOp[]
 ): Promise<MutationOp[]> {
-  const targets = new Map<string, { schema: string; table: string }>();
+  const targets = new Map<string, TableReference>();
   for (const op of ops) {
     const key = batchTargetKey(op);
     if (!targets.has(key)) targets.set(key, { schema: op.schema, table: op.table });

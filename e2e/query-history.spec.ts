@@ -1,25 +1,12 @@
-import {
-  FIXTURE,
-  requireTestDatabaseUrl,
-  requireTestMysqlUrl,
-  requireTestSqlitePath,
-  setupFixture,
-  setupMysqlFixture,
-  setupSqliteFixture
-} from "@qyre/testing";
+import { FIXTURE } from "@qyre/testing";
 import { expect, test } from "./support/test.js";
+import { setupProjectFixture } from "./support/fixture-setup.js";
 
 test("@full SQL Editor records a successful query and prefills it from history", async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name === "mongodb", "MongoDB has no SQL Editor.");
-  if (testInfo.project.name === "sqlite") {
-    setupSqliteFixture(requireTestSqlitePath());
-  } else if (testInfo.project.name === "mysql") {
-    await setupMysqlFixture(requireTestMysqlUrl());
-  } else {
-    await setupFixture(requireTestDatabaseUrl());
-  }
+  await setupProjectFixture(testInfo.project.name);
 
   await page.goto("/");
   await page.getByRole("tab", { name: "SQL Editor" }).click();

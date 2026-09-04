@@ -1,4 +1,9 @@
-import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyre/core";
+import type {
+  ColumnDefinition,
+  ColumnUpdateRequest,
+  ColumnUpdateResult,
+  IndexDefinition
+} from "@qyre/core";
 import type mysql from "mysql2/promise";
 import { quoteIdent } from "../query/sql.js";
 
@@ -125,10 +130,7 @@ export async function renameAndAlterColumn(
   schema: string,
   table: string,
   column: string,
-  update: {
-    newName?: string;
-    changes?: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>;
-  }
+  update: ColumnUpdateRequest
 ): Promise<ColumnUpdateResult> {
   let currentName = column;
   if (update.newName !== undefined) {

@@ -1,3 +1,4 @@
+import type { ColumnUpdateRequest } from "@qyre/core";
 import { AlertTriangle, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -6,10 +7,9 @@ import { useFocusTrap } from "../../primitives/use-focus-trap.js";
 
 const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-export interface EditColumnUpdate {
-  newName?: string;
-  changes?: { dataType?: string; nullable?: boolean };
-}
+export type EditColumnUpdate = {
+  -readonly [Key in keyof ColumnUpdateRequest]?: ColumnUpdateRequest[Key];
+};
 
 export interface EditColumnDialogProps {
   table: string;

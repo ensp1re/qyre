@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../app.js";
+import type { ServerContext } from "../types/server.js";
 
 declare module "fastify" {
   interface FastifyContextConfig {

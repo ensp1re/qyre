@@ -1,8 +1,8 @@
-import { commitMutationsRequestSchema } from "@qyre/core";
+import { commitMutationsRequestSchema, DATABASE_ENGINES } from "@qyre/core";
 import type { DeleteRowsResult, InsertRowResult, UpdateRowResult } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 import { requireAdapter } from "../../services/connection/require-adapter.js";
 import { permissionRoute } from "../../services/access/permission-denied.js";
 import { resolveBatchOps } from "../../services/rows/row-mutation-validation.js";
@@ -70,7 +70,7 @@ export function registerMutationsRoutes(app: FastifyInstance, ctx: ServerContext
       const db = requireAdapter(ctx.adapter);
       const resolvedOps = await resolveBatchOps(db, parsedBody.data.ops);
 
-      if (db.engine === "mongodb") {
+      if (db.engine === DATABASE_ENGINES.mongodb) {
         const startedAt = performance.now();
         const result = await commitMongoGridOps(db, resolvedOps);
         const durationMs = Math.round(performance.now() - startedAt);

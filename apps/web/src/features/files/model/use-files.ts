@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchFileContent, fetchFilesOverview } from "../api/files.js";
 import { QUERY_RETRY } from "../../../shared/lib/query/retry.js";
+import type { EnabledQueryOptions } from "../../../shared/lib/query/types.js";
 
-export function useFilesOverview(options: { enabled: boolean }) {
+export function useFilesOverview(options: EnabledQueryOptions) {
   return useQuery({
     queryKey: ["files"],
     queryFn: fetchFilesOverview,

@@ -1,6 +1,6 @@
 import type { HealthResponse } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 import { describeError, displayTarget } from "../../services/connection/connection-display.js";
 
 export function registerHealthRoute(app: FastifyInstance, ctx: ServerContext): void {

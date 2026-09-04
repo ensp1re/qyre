@@ -4,8 +4,9 @@ import {
   removeStoredValue,
   writeVersionedStorage
 } from "../../../shared/lib/storage/versioned-storage.js";
+import type { SavedPositions } from "./graph-types.js";
 
-export type SavedPositions = Record<string, { x: number; y: number }>;
+export type { SavedPositions } from "./graph-types.js";
 
 function storageKey(databaseKey: string): string {
   return `qyre-schema-graph-positions:${databaseKey}`;

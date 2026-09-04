@@ -1,8 +1,9 @@
-import type { ColumnDefinition, TableMetadata } from "@qyre/core";
+import { DATABASE_ENGINES } from "@qyre/core";
+import type { ColumnDefinition, DatabaseEngine, TableMetadata } from "@qyre/core";
 import { MYSQL_COLUMN_TYPES, POSTGRES_COLUMN_TYPES, SQLITE_COLUMN_TYPES } from "@qyre/core";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 import type { FastifyRequest } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 
 export type DdlOperation =
   | "createTable"
@@ -37,7 +38,7 @@ export function assertIndexColumnsExist(
   columns: string[],
   engine: DatabaseAdapter["engine"]
 ): void {
-  if (engine === "mongodb") return;
+  if (engine === DATABASE_ENGINES.mongodb) return;
   for (const column of columns) {
     if (!tableMetadata.columns.some((candidate) => candidate.name === column)) {
       throw badRequest(`Unknown column "${column}".`);
@@ -51,10 +52,10 @@ export function assertIndexExists(tableMetadata: TableMetadata, indexName: strin
   }
 }
 
-const COLUMN_TYPE_CATALOG: Partial<Record<string, readonly string[]>> = {
-  postgres: POSTGRES_COLUMN_TYPES,
-  mysql: MYSQL_COLUMN_TYPES,
-  sqlite: SQLITE_COLUMN_TYPES
+const COLUMN_TYPE_CATALOG: Partial<Record<DatabaseEngine, readonly string[]>> = {
+  [DATABASE_ENGINES.postgres]: POSTGRES_COLUMN_TYPES,
+  [DATABASE_ENGINES.mysql]: MYSQL_COLUMN_TYPES,
+  [DATABASE_ENGINES.sqlite]: SQLITE_COLUMN_TYPES
 };
 
 /** Validate DDL types before interpolating them into engine statements. */

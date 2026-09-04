@@ -1,10 +1,12 @@
+import { DATABASE_ENGINES } from "@qyre/core";
+import type { DatabaseEngine } from "@qyre/core";
 import type { FastifyRequest } from "fastify";
-import type { ServerContext } from "../../../app.js";
+import type { ServerContext } from "../../../types/server.js";
 import type { DdlOperation } from "../../../services/schema/schema-ddl-validation.js";
 
 /** MongoDB collections have no fixed column structure to alter. */
-export function mongoColumnRoutesNotApplicable(engine: string): boolean {
-  return engine === "mongodb";
+export function mongoColumnRoutesNotApplicable(engine: DatabaseEngine): boolean {
+  return engine === DATABASE_ENGINES.mongodb;
 }
 
 export function logDdlSuccess(

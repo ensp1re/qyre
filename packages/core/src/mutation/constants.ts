@@ -1,0 +1,43 @@
+export const MUTATION_EDITOR_KINDS = {
+  text: "text",
+  identifier: "identifier",
+  numeric: "numeric",
+  boolean: "boolean",
+  date: "date",
+  time: "time",
+  timestampLocal: "timestamp-local",
+  timestampTimeZone: "timestamp-time-zone",
+  interval: "interval",
+  enum: "enum",
+  set: "set",
+  structured: "structured",
+  binary: "binary",
+  bitString: "bit-string",
+  network: "network",
+  xml: "xml",
+  bsonRegex: "bson-regex",
+  bsonTimestamp: "bson-timestamp",
+  bsonCode: "bson-code",
+  bsonMinKey: "bson-min-key",
+  bsonMaxKey: "bson-max-key",
+  unknown: "unknown",
+  null: "null",
+  objectId: "object-id"
+} as const;
+
+export const MUTATION_EDITOR_WIDGETS = {
+  text: "text",
+  multiline: "multiline",
+  decimal: "decimal",
+  boolean: "boolean",
+  date: "date",
+  time: "time",
+  timestamp: "timestamp",
+  interval: "interval",
+  enum: "enum",
+  set: "set",
+  json: "json",
+  array: "array",
+  binary: "binary",
+  xml: "xml"
+} as const;

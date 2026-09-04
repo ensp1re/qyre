@@ -8,7 +8,7 @@ import {
 import type { ConnectionTarget, ConnectResponse } from "@qyre/core";
 import { resolveAdapter } from "@qyre/driver-contract";
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 import { describeError, displayTarget } from "../../services/connection/connection-display.js";
 
 export function registerConnectRoute(app: FastifyInstance, ctx: ServerContext): void {

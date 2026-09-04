@@ -2,8 +2,9 @@ import { Calendar, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../cn.js";
+import type { DateTimeInputKind } from "./date-time-types.js";
 
-export type DateTimeInputKind = "date" | "time" | "datetime-local";
+export type { DateTimeInputKind } from "./date-time-types.js";
 
 export interface DateTimeInputProps {
   id?: string;

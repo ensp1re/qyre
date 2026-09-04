@@ -1,10 +1,11 @@
+import type { SchemaParams, TableParams } from "../../../types/routes.js";
 import {
   confirmedNameRequestSchema,
   createTableRequestSchema,
   renameTableRequestSchema
 } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../../app.js";
+import type { ServerContext } from "../../../types/server.js";
 import { applyReadOnlyOverride } from "../../../services/access/read-only-capabilities.js";
 import { permissionRoute } from "../../../services/access/permission-denied.js";
 import { requireAdapter } from "../../../services/connection/require-adapter.js";
@@ -16,7 +17,7 @@ import {
 import { logDdlFailure, logDdlSuccess } from "./route-support.js";
 
 export function registerTableDdlRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  app.post<{ Params: { schema: string }; Body: unknown }>(
+  app.post<{ Params: SchemaParams; Body: unknown }>(
     "/api/schemas/:schema/tables",
     permissionRoute({ operation: "create-table", target: "table", likelyMissingGrant: "CREATE" }),
     async (request, reply) => {
@@ -66,7 +67,7 @@ export function registerTableDdlRoutes(app: FastifyInstance, ctx: ServerContext)
     }
   );
 
-  app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
+  app.post<{ Params: TableParams; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/rename",
     permissionRoute({ operation: "rename-table", target: "table", likelyMissingGrant: "ALTER" }),
     async (request, reply) => {
@@ -114,7 +115,7 @@ export function registerTableDdlRoutes(app: FastifyInstance, ctx: ServerContext)
     }
   );
 
-  app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
+  app.post<{ Params: TableParams; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/truncate",
     permissionRoute({
       operation: "truncate-table",
@@ -177,7 +178,7 @@ export function registerTableDdlRoutes(app: FastifyInstance, ctx: ServerContext)
     }
   );
 
-  app.delete<{ Params: { schema: string; table: string }; Body: unknown }>(
+  app.delete<{ Params: TableParams; Body: unknown }>(
     "/api/tables/:schema/:table",
     permissionRoute({
       operation: "drop-table",

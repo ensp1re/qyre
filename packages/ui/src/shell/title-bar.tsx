@@ -2,11 +2,15 @@ import type { ConnectionStatus } from "@qyre/core";
 import { Database, Menu, Moon, RefreshCw, Settings, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
+import type { Theme } from "./types.js";
+import { CONNECTION_STATUS_LABELS } from "./status.js";
+
+export type { Theme } from "./types.js";
 
 export interface TitleBarProps {
   status: ConnectionStatus;
   target: string | null;
-  theme: "light" | "dark";
+  theme: Theme;
   onToggleTheme: () => void;
   onRefresh: () => void;
   isRefreshing?: boolean;
@@ -14,12 +18,6 @@ export interface TitleBarProps {
   onOpenConnection: () => void;
   onOpenSettings: () => void;
 }
-
-const STATUS_LABEL: Record<ConnectionStatus, string> = {
-  connected: "Connected",
-  disconnected: "Disconnected",
-  unconfigured: "No database"
-};
 
 function splitTarget(target: string): { prefix?: string; name: string } {
   const lastSlash = target.lastIndexOf("/");
@@ -67,9 +65,13 @@ export function TitleBar({
         )}
       </div>
 
-      <span data-testid="status-badge" data-status={status} title={STATUS_LABEL[status]}>
+      <span
+        data-testid="status-badge"
+        data-status={status}
+        title={CONNECTION_STATUS_LABELS[status]}
+      >
         <span data-testid="connection-summary" className="sr-only">
-          {STATUS_LABEL[status]}
+          {CONNECTION_STATUS_LABELS[status]}
         </span>
       </span>
 

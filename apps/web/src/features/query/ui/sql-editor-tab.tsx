@@ -1,5 +1,6 @@
-import type { ConnectionCapabilities, DatabaseEngine, StatementClassification } from "@qyre/core";
+import type { ConnectionCapabilities, DatabaseEngine } from "@qyre/core";
 import type { CompletionTable } from "@qyre/ui";
+import type { DestructiveQueryConfirmation } from "@qyre/ui";
 import {
   ConfirmDestructiveStatementDialog,
   QueryRunner,
@@ -45,7 +46,7 @@ export interface SqlEditorTabProps {
   engine?: DatabaseEngine;
   resultsHeight: number;
   onResultsHeightChange: (height: number) => void;
-  pendingConfirmation?: { sql: string; classification: StatementClassification };
+  pendingConfirmation?: DestructiveQueryConfirmation;
   onConfirmDestructive: () => void;
   onCancelDestructive: () => void;
 }

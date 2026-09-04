@@ -1,3 +1,4 @@
+import { DATABASE_ENGINES } from "@qyre/core";
 import type { RowFilter, RowSort, SortDirection, TableMetadata } from "@qyre/core";
 import { filterCapabilityForColumn } from "@qyre/core/filter-capabilities";
 import type { DatabaseAdapter, ResolvedRowSearch } from "@qyre/driver-contract";
@@ -54,7 +55,7 @@ export function resolveRowFilters(
         );
       }
       if (
-        engine === "mongodb" &&
+        engine === DATABASE_ENGINES.mongodb &&
         type === "object" &&
         (!candidate || typeof candidate !== "object" || Array.isArray(candidate))
       ) {

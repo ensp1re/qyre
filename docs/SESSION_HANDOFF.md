@@ -6,7 +6,7 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-09-04.
-- Branch: `main`. v0.4.3 published; F155/F156/F157 merged and unreleased.
+- Branch: `main`. v0.4.4 published; F155-F159 merged.
 - Queue: F149/F154 passing; F150-F153 queued `not_started` for plan 0008, the approved opt-in AI
   assistant tab (`docs/exec-plans/active/0008-ai-database-assistant.md`). Plan 0007 is retired;
   plan 0009 (security audit) is completed. A fresh UI audit is still pending separately.

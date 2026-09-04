@@ -1,6 +1,6 @@
 {
   "name": "qyre",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "type": "module",
   "description": "Launch a local-first database management UI from your terminal. Bare-named alias for @qyre/qyre, published only so `npx qyre` and `npm install -g qyre` work.",
   "keywords": [

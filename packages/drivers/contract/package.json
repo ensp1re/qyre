@@ -1,6 +1,6 @@
 {
   "name": "@qyre/driver-contract",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "type": "module",
   "description": "Engine-agnostic database adapter contracts for Qyre.",
   "license": "MIT",

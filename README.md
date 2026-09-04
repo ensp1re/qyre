@@ -8,6 +8,8 @@ choose, no account, no heavy GUI to install.**
 [![node](https://img.shields.io/badge/node-%3E%3D20.11-brightgreen.svg)](package.json)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+Current release: `v0.4.4`
+
 ```bash
 npx qyre postgres://user:pass@localhost:5432/mydb
 # or MySQL

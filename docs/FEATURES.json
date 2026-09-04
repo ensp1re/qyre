@@ -13,7 +13,7 @@
       "verification": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:state && review the full diff for comment-only changes",
       "state": "passing",
       "commitHash": "d0162b0bb4e8f4def63354ffb8ce20b4637e0c21",
-      "evidence": "Draft PR #179 (https://github.com/ensp1re/qyre/pull/179); pnpm verify:pr passed locally; GitHub CI checks Lint, typecheck, test, build and End-to-end passed.",
+      "evidence": "PR #179 (https://github.com/ensp1re/qyre/pull/179), merged as 14a2e796074f5feb865506fd1e5b405eba5ab3f0; follow-up PR #180 (https://github.com/ensp1re/qyre/pull/180) records this queue update; pnpm verify:pr passed locally; GitHub CI checks Lint, typecheck, test, build and End-to-end passed.",
       "blockedReason": null,
       "spec": "AGENTS.md comment style",
       "completedAt": "2026-09-04T11:47:13.000Z"

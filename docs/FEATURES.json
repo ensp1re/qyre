@@ -11,12 +11,12 @@
       "id": "F158",
       "behavior": "The codebase uses concise comments: comments explain only non-obvious contracts, invariants, compatibility constraints, security boundaries, or required workarounds; routine implementation narration, feature-history labels, and comments inside functions without a concrete purpose are removed. Compiler directives, license headers, generated-file markers, and necessary public API contract comments remain.",
       "verification": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:state && review the full diff for comment-only changes",
-      "state": "active",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "d0162b0bb4e8f4def63354ffb8ce20b4637e0c21",
+      "evidence": "Draft PR #179 (https://github.com/ensp1re/qyre/pull/179); pnpm verify:pr passed locally; GitHub CI checks Lint, typecheck, test, build and End-to-end passed.",
       "blockedReason": null,
       "spec": "AGENTS.md comment style",
-      "completedAt": null
+      "completedAt": "2026-09-04T11:47:13.000Z"
     },
     {
       "id": "F157",
@@ -39,28 +39,6 @@
       "blockedReason": null,
       "spec": "docs/product-specs/dashboard-ui.md",
       "completedAt": null
-    },
-    {
-      "id": "F155",
-      "behavior": "`qyre --version` (and `-v`) print the installed version and exit 0, read from the same package.json the startup banner uses so the two can never disagree. Fixes the pre-existing companion bug that `qyre --help` printed its full help and still exited 1 with a spurious \"Qyre failed to start: (outputHelp)\" on stderr: parseArgs sets commander's exitOverride(), so --help/--version throw instead of exiting, and bin.ts now treats a CommanderError carrying exitCode 0 as the successful run it is. An unknown flag still exits non-zero.",
-      "verification": "pnpm --filter @qyre/qyre test && pnpm --filter @qyre/qyre typecheck && pnpm --filter @qyre/qyre build && pnpm verify:pr",
-      "state": "passing",
-      "commitHash": "b039fed",
-      "evidence": "Merged PR #173 (https://github.com/ensp1re/qyre/pull/173) as b039fed; both CI jobs green. Verified against the built CLI: --version and -v print 0.4.3 and exit 0, --help exits 0 with clean stderr (was exit 1 with \"Qyre failed to start: (outputHelp)\"), and --nope still exits 1. 56/56 @qyre/qyre tests pass.",
-      "blockedReason": null,
-      "spec": "README.md CLI reference",
-      "completedAt": "2026-08-19T18:20:00.000Z"
-    },
-    {
-      "id": "F154",
-      "behavior": "Security audit fixes (plan 0009). classifyStatement rejects SELECT ... INTO OUTFILE/DUMPFILE, which write a file on a MySQL server while leading with an allowed read keyword and which START TRANSACTION READ ONLY does not block; capResultRows detects its leading keyword against comment-stripped text so a leading comment can no longer skip the F050 row cap (the two compose into a --read-only bypass, confirmed live on MySQL 8). The global error handler redacts both sinks: request.url (export downloads carry the live session token as ?token=, previously written verbatim into the Console event log) and the error message (driver text can echo a connection string). The write path no longer applies the row cap, so a writable CTE is no longer wrapped into a syntax error; MySQL retries uncapped when its derived-table wrapper hits ER_DUP_FIELDNAME, so an ordinary join with repeated column names returns rows. Both CSV serializers quote a bare carriage return and prefix the formula guard through leading whitespace.",
-      "verification": "pnpm --filter @qyre/driver-contract test && pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/postgres test && pnpm --filter @qyre/mysql test && pnpm --filter @qyre/sqlite test && pnpm --filter @qyre/mongodb test && pnpm verify:pr",
-      "state": "passing",
-      "commitHash": "2df1061",
-      "evidence": "PR #172 (https://github.com/ensp1re/qyre/pull/172), commit 2df1061; both CI jobs green (lint/typecheck/test/build 3m30s, E2E 6m11s). Local pnpm verify:pr passed: 1,575 tests across 22 packages, smoke + full E2E. Findings reproduced before fixing: SELECT ... INTO OUTFILE wrote /var/lib/mysql-files/pwn.txt inside START TRANSACTION READ ONLY on live MySQL 8; capResultRows left '-- note\\nSELECT ...' uncapped; Postgres rejected the wrapped writable CTE with 'WITH clause containing a data-modifying statement must be at the top level'; MySQL rejected the wrapped duplicate-column join with ERROR 1060. New tests were each re-run against a reverted fix and observed failing, so none passes vacuously. Verified across Postgres, MySQL, SQLite, and MongoDB; the OUTFILE and ER_DUP_FIELDNAME cases are MySQL-only by nature, the writable-CTE case Postgres-only.",
-      "blockedReason": null,
-      "spec": "docs/exec-plans/completed/0009-security-audit-hardening.md",
-      "completedAt": "2026-08-19T17:45:00.000Z"
     },
     {
       "id": "F150",

@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
+import type { Theme } from "@qyre/ui";
 import { writeRawStorage } from "../../shared/lib/storage/versioned-storage.js";
 
-export type Theme = "light" | "dark";
+export type { Theme } from "@qyre/ui";
 
 // index.html reads this key before React mounts.
 const STORAGE_KEY = "qyre-theme";

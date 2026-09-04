@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { DATABASE_ENGINES, type DatabaseEngine } from "@qyre/core";
 
-export type FixtureEngine = "mongodb" | "mysql" | "postgres" | "sqlite";
+export type FixtureEngine = DatabaseEngine;
 
 export interface FixtureEngineLock {
   release(): void;
@@ -27,23 +28,15 @@ const DEFAULT_ORPHAN_GRACE_MS = 1_000;
 const DEFAULT_STALE_AFTER_MS = 10 * 60_000;
 const OWNER_FILE = "owner.json";
 
-const PROJECT_ENGINES: Readonly<Record<string, FixtureEngine>> = {
-  mongodb: "mongodb",
-  "mongodb-readonly": "mongodb",
-  mysql: "mysql",
-  "mysql-restricted": "mysql",
-  postgres: "postgres",
-  "postgres-restricted": "postgres",
-  readonly: "postgres",
-  sqlite: "sqlite",
-  "sqlite-restricted": "sqlite"
-};
-
 /** Return the underlying mutable fixture shared by a Playwright project. */
 export function fixtureEngineForProject(projectName: string): FixtureEngine {
-  const engine = PROJECT_ENGINES[projectName];
-  if (!engine) throw new Error(`Unknown Playwright fixture project: ${projectName}`);
-  return engine;
+  const baseName = projectName.replace(/-restricted$/, "");
+  if (baseName === "readonly") return DATABASE_ENGINES.postgres;
+  if (baseName === "mongodb-readonly") return DATABASE_ENGINES.mongodb;
+  if (Object.values(DATABASE_ENGINES).includes(baseName as DatabaseEngine)) {
+    return baseName as FixtureEngine;
+  }
+  throw new Error(`Unknown Playwright fixture project: ${projectName}`);
 }
 
 /** Acquire fixture locks in stable order and reclaim abandoned workers. */

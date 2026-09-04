@@ -27,7 +27,7 @@ const MYSQL_COLUMN_TYPES = [
 
 const SQLITE_COLUMN_TYPES = ["TEXT", "INTEGER", "REAL", "BLOB", "NUMERIC"] as const;
 
-export function columnTypeCatalogForEngine(engine: string | undefined): readonly string[] {
+export function columnTypeCatalogForEngine(engine: DatabaseEngine | undefined): readonly string[] {
   switch (engine) {
     case "postgres":
       return POSTGRES_COLUMN_TYPES;
@@ -39,3 +39,4 @@ export function columnTypeCatalogForEngine(engine: string | undefined): readonly
       return [];
   }
 }
+import type { DatabaseEngine } from "@qyre/core";

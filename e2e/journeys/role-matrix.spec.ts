@@ -1,15 +1,7 @@
 import { randomUUID } from "node:crypto";
-import {
-  FIXTURE,
-  requireTestDatabaseUrl,
-  requireTestMongoUrl,
-  requireTestMysqlUrl,
-  requireTestSqlitePath,
-  setupFixture,
-  setupMongoFixture,
-  setupMysqlFixture,
-  setupSqliteFixture
-} from "@qyre/testing";
+import { FIXTURE } from "@qyre/testing";
+import { setupProjectFixture, schemaForProject } from "../support/fixture-setup.js";
+import { readSessionToken } from "../support/session-token.js";
 import { expect, test } from "../support/test.js";
 
 const READ_ONLY_PROJECTS = new Set([
@@ -61,29 +53,6 @@ const MUTATING_REQUESTS: readonly MutatingRequest[] = [
   }
 ];
 
-async function setupProjectFixture(project: string): Promise<void> {
-  if (project === "sqlite") {
-    setupSqliteFixture(requireTestSqlitePath());
-  } else if (project === "mongodb" || project === "mongodb-readonly") {
-    await setupMongoFixture(requireTestMongoUrl());
-  } else if (project === "mysql" || project === "mysql-restricted") {
-    await setupMysqlFixture(requireTestMysqlUrl());
-  } else {
-    await setupFixture(requireTestDatabaseUrl());
-  }
-}
-
-function schemaForProject(project: string): string {
-  if (project.startsWith("sqlite")) return "main";
-  if (project.startsWith("mysql")) {
-    return decodeURIComponent(new URL(requireTestMysqlUrl()).pathname.slice(1));
-  }
-  if (project.startsWith("mongodb")) {
-    return decodeURIComponent(new URL(requireTestMongoUrl()).pathname.slice(1));
-  }
-  return "public";
-}
-
 test("@full @role-matrix every read-only role keeps reads and hides writes", async ({
   page,
   request
@@ -104,9 +73,7 @@ test("@full @role-matrix every read-only role keeps reads and hides writes", asy
   await expect(page.getByTestId("rows-table").getByText("ada@example.com")).toBeVisible();
   await expect(page.getByRole("button", { name: WRITE_CONTROL_PATTERN })).toHaveCount(0);
 
-  const token = await page.evaluate(
-    () => (window as Window & { __QYRE_TOKEN__?: string }).__QYRE_TOKEN__
-  );
+  const token = await readSessionToken(page);
   expect(token).toBeTruthy();
   const schema = schemaForProject(project);
   const denial = await request.post(`/api/tables/${schema}/${FIXTURE.table}/rows`, {
@@ -127,11 +94,9 @@ test("@full @role-matrix every mutating API rejects read-only and tokenless call
   request
 }, testInfo) => {
   test.skip(testInfo.project.name !== "readonly", "One central-guard instance covers all routes.");
-  await setupFixture(requireTestDatabaseUrl());
+  await setupProjectFixture("readonly");
   await page.goto("/");
-  const token = await page.evaluate(
-    () => (window as Window & { __QYRE_TOKEN__?: string }).__QYRE_TOKEN__
-  );
+  const token = await readSessionToken(page);
   expect(token).toBeTruthy();
 
   for (const route of MUTATING_REQUESTS) {

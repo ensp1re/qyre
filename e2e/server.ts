@@ -10,14 +10,10 @@ import { mysqlAdapterFactory } from "@qyre/mysql";
 import { postgresAdapterFactory } from "@qyre/postgres";
 import { sqliteAdapterFactory } from "@qyre/sqlite";
 import { startServer } from "@qyre/server";
-import {
-  ensureSqliteFile,
-  requireReadOnlyTestDatabaseUrl,
-  requireReadOnlyTestMysqlUrl,
-  setupFixture,
-  setupMysqlFixture,
-  setupSqliteFixture
-} from "@qyre/testing";
+import { requireReadOnlyTestDatabaseUrl, requireReadOnlyTestMysqlUrl } from "@qyre/testing";
+import { setupFixture } from "@qyre/testing/postgres";
+import { setupMysqlFixture } from "@qyre/testing/mysql";
+import { ensureSqliteFile, setupSqliteFixture } from "@qyre/testing/sqlite";
 
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/web/dist");
 

@@ -1,10 +1,6 @@
 import type { RowFilter, RowSort } from "@qyre/core";
-import type { ShellTab } from "@qyre/ui";
-
-export interface SelectedTable {
-  schema: string;
-  table: string;
-}
+import type { SelectedTable, ShellTab } from "@qyre/ui";
+export type { SelectedTable } from "@qyre/ui";
 
 export interface WorkspaceState {
   selected?: SelectedTable;

@@ -1,9 +1,11 @@
+import { DATABASE_ENGINES } from "@qyre/core/connection-constants";
 import type {
   ConnectionCapabilities,
   DatabaseEngine,
   ForeignKeyReference,
   RowFilter,
-  RowSort
+  RowSort,
+  TableReference
 } from "@qyre/core";
 import {
   CommitBar,
@@ -32,7 +34,7 @@ import { columnTypeCatalogForEngine } from "../../../shared/lib/ddl/column-type-
 import { ViewButton } from "../../../shared/ui/view-button.js";
 
 export interface TablesTabProps {
-  selected: { schema: string; table: string } | undefined;
+  selected: TableReference | undefined;
   table: ReturnType<typeof useTable>;
   engine?: DatabaseEngine;
   capabilities?: ConnectionCapabilities;
@@ -240,7 +242,7 @@ export function TablesTab({
     pendingChanges.deletes
   );
   const previewLines = ops.map((op) =>
-    buildPreviewLine(op, engine === "mongodb" ? "mongodb" : undefined)
+    buildPreviewLine(op, engine === DATABASE_ENGINES.mongodb ? DATABASE_ENGINES.mongodb : undefined)
   );
 
   async function handleCommit(): Promise<void> {
@@ -255,14 +257,14 @@ export function TablesTab({
         const applied = result.appliedCount ?? 0;
         setCommitError({
           message:
-            engine === "mongodb" && applied > 0
+            engine === DATABASE_ENGINES.mongodb && applied > 0
               ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; ${applied} earlier operation(s) were applied. Rows were refreshed.`
-              : engine === "mongodb"
+              : engine === DATABASE_ENGINES.mongodb
                 ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; no changes were applied.`
                 : `Commit failed and was rolled back at operation ${result.failedIndex + 1}.`,
           failedIndex: result.failedIndex
         });
-        if (engine === "mongodb" && applied > 0) {
+        if (engine === DATABASE_ENGINES.mongodb && applied > 0) {
           pendingChanges.clear();
           rows.refetch();
         }

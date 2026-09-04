@@ -1,4 +1,9 @@
-import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyre/core";
+import type {
+  ColumnDefinition,
+  ColumnUpdateRequest,
+  ColumnUpdateResult,
+  IndexDefinition
+} from "@qyre/core";
 import type { Pool, PoolClient } from "pg";
 import { quoteIdent } from "../query/sql.js";
 
@@ -111,10 +116,7 @@ export async function renameAndAlterColumn(
   schema: string,
   table: string,
   column: string,
-  update: {
-    newName?: string;
-    changes?: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>;
-  }
+  update: ColumnUpdateRequest
 ): Promise<ColumnUpdateResult> {
   const client = await pool.connect();
   try {

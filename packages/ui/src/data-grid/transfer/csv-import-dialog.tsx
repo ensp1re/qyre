@@ -2,6 +2,7 @@ import type {
   ColumnMetadata,
   CsvImportInspection,
   CsvImportMapping,
+  CsvImportMode,
   CsvImportResult
 } from "@qyre/core";
 import { CSV_IMPORT_MAX_FILE_BYTES } from "@qyre/core/csv-import";
@@ -23,8 +24,6 @@ export interface CsvImportDialogProps {
   onClose: () => void;
 }
 
-type BusyStage = "inspect" | "validate" | "import" | undefined;
-
 export function CsvImportDialog({
   tableName,
   columns,
@@ -41,7 +40,7 @@ export function CsvImportDialog({
   const [mapping, setMapping] = useState<CsvImportMapping>({});
   const [validation, setValidation] = useState<CsvImportResult | undefined>(undefined);
   const [result, setResult] = useState<CsvImportResult | undefined>(undefined);
-  const [busy, setBusy] = useState<BusyStage>(undefined);
+  const [busy, setBusy] = useState<CsvImportMode | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {

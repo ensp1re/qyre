@@ -1,11 +1,17 @@
-import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyre/core";
+import type {
+  ColumnDefinition,
+  ColumnUpdateRequest,
+  ColumnUpdateResult,
+  IndexDefinition,
+  TableReference
+} from "@qyre/core";
 import { fetchJson } from "../../../shared/api/fetch-json.js";
 
 export function renameTable(
   schema: string,
   table: string,
   newName: string
-): Promise<{ schema: string; table: string }> {
+): Promise<TableReference> {
   return fetchJson(
     `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/ddl/rename`,
     {
@@ -20,7 +26,7 @@ export function truncateTable(
   schema: string,
   table: string,
   confirmedName: string
-): Promise<{ schema: string; table: string }> {
+): Promise<TableReference> {
   return fetchJson(
     `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/ddl/truncate`,
     {
@@ -43,7 +49,7 @@ export function addColumn(
   schema: string,
   table: string,
   column: ColumnDefinition
-): Promise<{ schema: string; table: string; column: string }> {
+): Promise<TableReference & { column: string }> {
   return fetchJson(
     `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/ddl/columns`,
     {
@@ -58,8 +64,8 @@ export function updateColumn(
   schema: string,
   table: string,
   column: string,
-  update: { newName?: string; changes?: { dataType?: string; nullable?: boolean } }
-): Promise<{ schema: string; table: string } & ColumnUpdateResult> {
+  update: ColumnUpdateRequest
+): Promise<TableReference & ColumnUpdateResult> {
   return fetchJson(
     `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/ddl/columns/${encodeURIComponent(column)}`,
     {
@@ -90,7 +96,7 @@ export function createIndex(
   schema: string,
   table: string,
   index: IndexDefinition
-): Promise<{ schema: string; table: string; index: string }> {
+): Promise<TableReference & { index: string }> {
   return fetchJson(
     `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/ddl/indexes`,
     {

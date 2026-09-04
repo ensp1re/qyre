@@ -1,10 +1,5 @@
-import {
-  FIXTURE,
-  requireReadOnlyTestDatabaseUrl,
-  requireTestDatabaseUrl,
-  runStatements,
-  setupFixture
-} from "@qyre/testing";
+import { FIXTURE, requireReadOnlyTestDatabaseUrl, requireTestDatabaseUrl } from "@qyre/testing";
+import { runStatements, setupFixture } from "@qyre/testing/postgres";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PostgresAdapter } from "../../src/index.js";

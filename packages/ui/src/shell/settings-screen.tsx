@@ -5,10 +5,14 @@ import { useState } from "react";
 import { cn } from "../cn.js";
 import { IconButton } from "../primitives/controls/icon-button.js";
 import { Segmented } from "../primitives/segmented.js";
+import type { Theme } from "./types.js";
+import { CONNECTION_STATUS_LABELS } from "./status.js";
+
+export type { Theme } from "./types.js";
 
 export interface SettingsScreenProps {
-  theme: "light" | "dark";
-  onThemeChange: (theme: "light" | "dark") => void;
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
   onClose: () => void;
   connectionStatus: ConnectionStatus;
   connectionTarget: string | null;
@@ -23,12 +27,6 @@ const STATUS_DOT_COLOR: Record<ConnectionStatus, string> = {
   connected: "bg-[var(--c-green)]",
   disconnected: "bg-[var(--c-red)]",
   unconfigured: "bg-muted-foreground"
-};
-
-const STATUS_LABEL: Record<ConnectionStatus, string> = {
-  connected: "Connected",
-  disconnected: "Disconnected",
-  unconfigured: "No database"
 };
 
 type SettingsCategory = "connection" | "appearance" | "data";
@@ -100,7 +98,7 @@ export function SettingsScreen({
                 title="Connection"
                 description="The database this Qyre instance is currently attached to."
               >
-                <Row label="Active database" hint={STATUS_LABEL[connectionStatus]}>
+                <Row label="Active database" hint={CONNECTION_STATUS_LABELS[connectionStatus]}>
                   <div className="flex min-w-0 items-center gap-2">
                     <span
                       className={cn(

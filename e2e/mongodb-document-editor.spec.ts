@@ -1,4 +1,5 @@
-import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@qyre/testing";
+import { FIXTURE, requireTestMongoUrl } from "@qyre/testing";
+import { setupMongoFixture } from "@qyre/testing/mongodb";
 import { expect, test } from "./support/test.js";
 
 test("@full MongoDB uses the shared typed grid for edit, insert, and delete", async ({

@@ -2,7 +2,7 @@ import { TypeIcon } from "@qyre/ui";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Link, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
-import type { TableFlowNode } from "../../model/graph-model.js";
+import type { TableFlowNode } from "../../model/graph-types.js";
 
 const MAX_VISIBLE_ROWS = 12;
 

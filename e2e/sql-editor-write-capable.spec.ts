@@ -1,4 +1,5 @@
-import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@qyre/testing";
+import { FIXTURE, requireTestDatabaseUrl } from "@qyre/testing";
+import { runStatements, setupFixture } from "@qyre/testing/postgres";
 import { expect, test } from "./support/test.js";
 
 test("@full a write-capable session runs a mutation directly and confirms a destructive statement", async ({

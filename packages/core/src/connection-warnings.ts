@@ -1,7 +1,6 @@
-export interface ConnectionWarning {
-  readonly kind: "insecure-transport" | "risky-parameter";
-  readonly message: string;
-}
+import type { ConnectionWarning } from "./types/connection/warnings.js";
+
+export type { ConnectionWarning } from "./types/connection/warnings.js";
 
 const TLS_ENABLING_PARAMS = new Map<string, (value: string) => boolean>([
   ["sslmode", (value) => value.toLowerCase() !== "disable"],

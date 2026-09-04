@@ -22,18 +22,20 @@ const ENGINE_DISPLAY_NAMES = {
   mongodb: "MongoDB"
 };
 
-let connectionTarget;
+let connectionConstants;
 try {
-  connectionTarget = readFileSync(
-    resolve(here, "../packages/core/src/connection-target.ts"),
+  connectionConstants = readFileSync(
+    resolve(here, "../packages/core/src/constants/connection.ts"),
     "utf8"
   );
 } catch (error) {
-  console.error(`Could not read connection-target.ts: ${error.message}`);
+  console.error(`Could not read constants/connection.ts: ${error.message}`);
   process.exit(1);
 }
 const engines = [
-  ...new Set([...connectionTarget.matchAll(/engine:\s*"([a-z]+)"/g)].map((match) => match[1]))
+  ...new Set(
+    [...connectionConstants.matchAll(/^\s+\w+:\s*"([a-z]+)",?$/gm)].map((match) => match[1])
+  )
 ].sort();
 
 const checks = [

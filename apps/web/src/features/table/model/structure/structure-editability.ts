@@ -1,3 +1,4 @@
+import { DATABASE_ENGINES } from "@qyre/core/connection-constants";
 import type { ConnectionCapabilities, DatabaseEngine, TableMetadata } from "@qyre/core";
 import { sessionAllows } from "../../../../shared/lib/capabilities/capability-gates.js";
 
@@ -22,7 +23,7 @@ export function computeTableStructureEditability(
 
   const ddl = sessionAllows(capabilities, "supportsDdl");
   return {
-    canEditColumns: ddl && engine !== "mongodb",
+    canEditColumns: ddl && engine !== DATABASE_ENGINES.mongodb,
     canManageIndexes: sessionAllows(capabilities, "supportsIndexManagement"),
     canEditTable: ddl
   };

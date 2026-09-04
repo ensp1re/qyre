@@ -1,3 +1,5 @@
+import type { DateTimeInputKind } from "./date-time-types.js";
+
 export function formatCell(value: unknown): string {
   if (value === null || value === undefined) {
     return "";
@@ -36,7 +38,7 @@ export function friendlyTypeLabel(dataType: string): string {
   return dataType;
 }
 
-export function dateInputKind(dataType: string): "date" | "time" | "datetime-local" | null {
+export function dateInputKind(dataType: string): DateTimeInputKind | null {
   const type = dataType.toLowerCase();
   if (type.startsWith("timestamp") || type.startsWith("datetime")) return "datetime-local";
   if (type.startsWith("time")) return "time";

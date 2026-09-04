@@ -1,6 +1,6 @@
 import type { ConsoleEvents } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 
 export function registerConsoleRoutes(app: FastifyInstance, ctx: ServerContext): void {
   app.get("/api/console", async (): Promise<ConsoleEvents> => {

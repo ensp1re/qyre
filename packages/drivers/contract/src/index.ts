@@ -1,3 +1,4 @@
+export * from "./constants/capabilities.js";
 export * from "./types/capabilities.js";
 export * from "./types/contract.js";
 export * from "./safety/errors.js";

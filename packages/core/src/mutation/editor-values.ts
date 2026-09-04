@@ -1,5 +1,6 @@
+import { DATABASE_ENGINES } from "../constants/connection.js";
 import type { DatabaseEngine } from "../types/connection/connection.js";
-import type { MutationEditorCapability, MutationEditorMetadata } from "./editor-capabilities.js";
+import type { MutationEditorCapability, MutationEditorMetadata } from "./types.js";
 
 export type MutationValueResult =
   | { readonly valid: true; readonly value: unknown }
@@ -58,7 +59,7 @@ function isLocalTime(value: string): boolean {
 }
 
 export function isExactTimeText(value: string, engine?: DatabaseEngine): boolean {
-  if (engine === "mysql") return MYSQL_TIME.test(value);
+  if (engine === DATABASE_ENGINES.mysql) return MYSQL_TIME.test(value);
   const withoutOffset = value.replace(OFFSET, "");
   return isLocalTime(withoutOffset);
 }
@@ -239,7 +240,7 @@ export function validateMutationValue(
       return typeof value === "string" && isExactTimeText(value, engine)
         ? { valid: true, value }
         : invalid(
-            engine === "mysql"
+            engine === DATABASE_ENGINES.mysql
               ? "Use MySQL TIME format HH:MM:SS[.fraction], including an optional leading minus."
               : "Use HH:MM[:SS[.fraction]][Z|±HH|±HHMM|±HH:MM]."
           );

@@ -1,13 +1,9 @@
+import { READ_ONLY_TABLE_PERMISSIONS } from "@qyre/driver-contract";
 import type { ConnectionCapabilities, TablePermissions } from "@qyre/core";
 import type { MongoClient } from "mongodb";
 import { isSystemCollection, SYSTEM_DATABASES } from "../schema/catalog.js";
 
-export const READ_ONLY_TABLE_PERMISSIONS: TablePermissions = {
-  select: true,
-  insert: false,
-  update: false,
-  delete: false
-};
+export { READ_ONLY_TABLE_PERMISSIONS };
 
 interface PrivilegeResource {
   db?: string;

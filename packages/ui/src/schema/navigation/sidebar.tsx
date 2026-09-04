@@ -14,7 +14,8 @@ import { Button } from "../../primitives/controls/button.js";
 import { CreateNamedDialog } from "../../primitives/create-named-dialog.js";
 import { ResizeHandle } from "../../primitives/resize-handle.js";
 import { AccessBadge } from "../../shell/status-bar.js";
-import { SchemaTree, type SelectedTable } from "./schema-tree.js";
+import type { SelectedTable } from "../types.js";
+import { SchemaTree } from "./schema-tree.js";
 
 type SchemaDialogState = { kind: "create" } | { kind: "drop"; schema: string } | undefined;
 

@@ -1,4 +1,4 @@
-import type { ColumnMetadata, RowExportFormat, RowPage } from "@qyre/core";
+import type { ColumnMetadata, RowExportFormat, RowPage, SortDirection } from "@qyre/core";
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import { mutationValueText } from "@qyre/core/mutation-editor-values";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -14,7 +14,7 @@ interface RowsTableModelInput {
   columns: ColumnMetadata[];
   engine: RowsTableProps["engine"];
   sortColumn: string | undefined;
-  sortDirection: "asc" | "desc" | undefined;
+  sortDirection: SortDirection | undefined;
   onSortChange: RowsTableProps["onSortChange"];
   onFiltersChange: RowsTableProps["onFiltersChange"];
   tableSearch: RowsTableProps["tableSearch"];

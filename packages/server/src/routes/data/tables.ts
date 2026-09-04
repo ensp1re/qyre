@@ -1,5 +1,12 @@
+import type {
+  QueryParams,
+  TableDocumentParams,
+  TableExportParams,
+  TableParams
+} from "../../types/routes.js";
 import { Readable } from "node:stream";
 import {
+  DATABASE_ENGINES,
   deleteRowsRequestSchema,
   insertRowRequestSchema,
   ROW_EXPORT_FORMATS,
@@ -9,7 +16,7 @@ import {
 import type { AllTablesResponse, RowExportFormat } from "@qyre/core";
 import { OperationCancelledError } from "@qyre/driver-contract";
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 import { formatRowExport } from "../../services/rows/row-export.js";
 import { issueDownloadGrant } from "../../services/access/download-grants.js";
 import { permissionRoute } from "../../services/access/permission-denied.js";
@@ -45,7 +52,7 @@ const READ_TABLE_ROUTE = permissionRoute(
 );
 
 export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  app.get<{ Params: { schema: string; table: string } }>(
+  app.get<{ Params: TableParams }>(
     "/api/tables/:schema/:table",
     READ_TABLE_ROUTE,
     async (request) => {
@@ -70,12 +77,12 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  app.get<{ Params: { schema: string; table: string; id: string } }>(
+  app.get<{ Params: TableDocumentParams }>(
     "/api/tables/:schema/:table/document/:id",
     async (request, reply) => {
       const { schema, table, id } = request.params;
       const db = requireAdapter(ctx.adapter);
-      if (db.engine !== "mongodb" || !db.mutations?.getDocumentText) {
+      if (db.engine !== DATABASE_ENGINES.mongodb || !db.mutations?.getDocumentText) {
         return reply.status(400).send({ error: "This engine does not support document editing." });
       }
       const document = await db.mutations.getDocumentText(schema, table, id);
@@ -86,7 +93,7 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  app.get<{ Params: { schema: string; table: string }; Querystring: Record<string, string> }>(
+  app.get<{ Params: TableParams; Querystring: QueryParams }>(
     "/api/tables/:schema/:table/rows",
     READ_TABLE_ROUTE,
     async (request, reply) => {
@@ -130,7 +137,7 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
+  app.post<{ Params: TableParams; Body: unknown }>(
     "/api/tables/:schema/:table/rows",
     permissionRoute({ operation: "insert", target: "table", likelyMissingGrant: "INSERT" }),
     async (request, reply) => {
@@ -162,7 +169,7 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  app.patch<{ Params: { schema: string; table: string }; Body: unknown }>(
+  app.patch<{ Params: TableParams; Body: unknown }>(
     "/api/tables/:schema/:table/rows",
     permissionRoute({ operation: "update", target: "table", likelyMissingGrant: "UPDATE" }),
     async (request, reply) => {
@@ -179,18 +186,18 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
       }
 
       const rawChanges =
-        db.engine === "mongodb" ? parsedBody.data.document : parsedBody.data.changes;
+        db.engine === DATABASE_ENGINES.mongodb ? parsedBody.data.document : parsedBody.data.changes;
       if (!rawChanges) {
         return reply.status(400).send({ error: "Request body must include changes." });
       }
-      if (db.engine === "mongodb" && !parsedBody.data.originalDocument) {
+      if (db.engine === DATABASE_ENGINES.mongodb && !parsedBody.data.originalDocument) {
         return reply.status(400).send({ error: "Request body must include originalDocument." });
       }
 
       const key = resolveKey(tableMetadata, parsedBody.data.key, db.engine);
       const changes = resolveUpdateChanges(tableMetadata, rawChanges, db.engine);
       const expectedOriginal =
-        db.engine === "mongodb" ? parsedBody.data.originalDocument : undefined;
+        db.engine === DATABASE_ENGINES.mongodb ? parsedBody.data.originalDocument : undefined;
 
       const startedAt = performance.now();
       const result = await db.mutations.updateRowByKey(
@@ -231,7 +238,7 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  app.delete<{ Params: { schema: string; table: string }; Body: unknown }>(
+  app.delete<{ Params: TableParams; Body: unknown }>(
     "/api/tables/:schema/:table/rows",
     permissionRoute({ operation: "delete", target: "table", likelyMissingGrant: "DELETE" }),
     async (request, reply) => {
@@ -294,8 +301,8 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
   app.post("/api/exports/grant", async () => ({ grant: issueDownloadGrant() }));
 
   app.get<{
-    Params: { schema: string; table: string; format: string };
-    Querystring: Record<string, string>;
+    Params: TableExportParams;
+    Querystring: QueryParams;
   }>("/api/tables/:schema/:table/export.:format", async (request, reply) => {
     const format = request.params.format as RowExportFormat;
     if (!ROW_EXPORT_FORMATS.includes(format)) {

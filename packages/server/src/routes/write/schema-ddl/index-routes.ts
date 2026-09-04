@@ -1,6 +1,7 @@
+import type { TableParams, TableIndexParams } from "../../../types/routes.js";
 import { indexDefinitionSchema } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../../app.js";
+import type { ServerContext } from "../../../types/server.js";
 import { applyReadOnlyOverride } from "../../../services/access/read-only-capabilities.js";
 import { permissionRoute } from "../../../services/access/permission-denied.js";
 import { requireAdapter } from "../../../services/connection/require-adapter.js";
@@ -13,7 +14,7 @@ import {
 import { logDdlFailure, logDdlSuccess } from "./route-support.js";
 
 export function registerIndexDdlRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
+  app.post<{ Params: TableParams; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/indexes",
     permissionRoute({
       operation: "create-index",
@@ -68,7 +69,7 @@ export function registerIndexDdlRoutes(app: FastifyInstance, ctx: ServerContext)
     }
   );
 
-  app.delete<{ Params: { schema: string; table: string; indexName: string } }>(
+  app.delete<{ Params: TableIndexParams }>(
     "/api/tables/:schema/:table/ddl/indexes/:indexName",
     permissionRoute({
       operation: "drop-index",

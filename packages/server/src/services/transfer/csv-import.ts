@@ -3,7 +3,8 @@ import {
   CSV_IMPORT_MAX_ERRORS,
   CSV_IMPORT_MAX_ROWS,
   CSV_IMPORT_PREVIEW_ROWS,
-  CSV_IMPORT_SQL_BATCH_SIZE
+  CSV_IMPORT_SQL_BATCH_SIZE,
+  DATABASE_ENGINES
 } from "@qyre/core";
 import type {
   CsvImportInspection,
@@ -110,7 +111,7 @@ function coerceCsvValue(
           `Column "${column.name}" expects an ISO-8601 date/time value.`
         );
       }
-      return engine === "mongodb" ? { $date: trimmed } : trimmed;
+      return engine === DATABASE_ENGINES.mongodb ? { $date: trimmed } : trimmed;
     case "objectId":
       if (!/^[0-9a-f]{24}$/i.test(trimmed)) {
         throw rowError(
@@ -119,7 +120,7 @@ function coerceCsvValue(
           `Column "${column.name}" expects a 24-character hex ObjectId.`
         );
       }
-      return engine === "mongodb" ? { $oid: trimmed } : trimmed;
+      return engine === DATABASE_ENGINES.mongodb ? { $oid: trimmed } : trimmed;
     case "null":
     case "structured":
     case "binary":
@@ -206,7 +207,7 @@ export async function processCsvImport(
   if (!db.mutations?.insertRow) {
     throw requestError("This engine does not support row inserts.");
   }
-  if (db.engine !== "mongodb" && !db.mutations.commitBatch) {
+  if (db.engine !== DATABASE_ENGINES.mongodb && !db.mutations.commitBatch) {
     throw requestError("This engine does not support transactional import batches.");
   }
 
@@ -286,7 +287,7 @@ export async function processCsvImport(
       if (preview.length < CSV_IMPORT_PREVIEW_ROWS) preview.push({ line, values });
       if (mode === "validate") continue;
 
-      if (db.engine === "mongodb") {
+      if (db.engine === DATABASE_ENGINES.mongodb) {
         try {
           await db.mutations.insertRow(schema, tableName, values);
           insertedRows += 1;
@@ -301,7 +302,7 @@ export async function processCsvImport(
       if (batch.length === CSV_IMPORT_SQL_BATCH_SIZE) await flushBatch();
     }
     if (!headers) throw requestError("The CSV file is empty.");
-    if (mode === "import" && db.engine !== "mongodb") await flushBatch();
+    if (mode === "import" && db.engine !== DATABASE_ENGINES.mongodb) await flushBatch();
   } catch (error) {
     input.destroy();
     parser.destroy();

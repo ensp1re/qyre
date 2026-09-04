@@ -1,4 +1,5 @@
-import { FIXTURE, requireTestMongoUrl, setupMongoFixture } from "@qyre/testing";
+import { FIXTURE, requireTestMongoUrl } from "@qyre/testing";
+import { setupMongoFixture } from "@qyre/testing/mongodb";
 import { EJSON } from "bson";
 import { Binary, BSONRegExp, Code, Long, MaxKey, MinKey, MongoClient, Timestamp } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

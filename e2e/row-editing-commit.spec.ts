@@ -1,4 +1,5 @@
-import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@qyre/testing";
+import { FIXTURE, requireTestDatabaseUrl } from "@qyre/testing";
+import { runStatements, setupFixture } from "@qyre/testing/postgres";
 import { replaceInputAndPressEnterSynchronously } from "./support/live-input.js";
 import { expect, test } from "./support/test.js";
 

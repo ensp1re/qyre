@@ -1,16 +1,12 @@
-import type { TableKind, TableMetadata } from "@qyre/core";
+import type { TableMetadata } from "@qyre/core";
 import { Link, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { TypeIcon } from "../../primitives/type-icon.js";
+import { TABLE_KIND_LABELS } from "../constants.js";
 
 export interface TableDetailProps {
   table: TableMetadata;
 }
-
-const KIND_BADGE_LABEL: Partial<Record<TableKind, string>> = {
-  view: "VIEW",
-  "materialized-view": "MATERIALIZED VIEW"
-};
 
 export function TableDetail({ table }: TableDetailProps): ReactNode {
   return (
@@ -21,12 +17,12 @@ export function TableDetail({ table }: TableDetailProps): ReactNode {
       <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
         <Table2 className="h-3 w-3 shrink-0" style={{ color: "var(--c-blue)" }} />
         <span className="font-mono text-[12px] font-medium text-foreground">{table.name}</span>
-        {KIND_BADGE_LABEL[table.kind] && (
+        {TABLE_KIND_LABELS[table.kind] && (
           <span
             data-testid="table-kind-badge"
             className="rounded-[2px] border border-border px-1 text-[8px] tracking-wide text-muted-foreground"
           >
-            {KIND_BADGE_LABEL[table.kind]}
+            {TABLE_KIND_LABELS[table.kind]}
           </span>
         )}
         {table.rowCount !== undefined && (

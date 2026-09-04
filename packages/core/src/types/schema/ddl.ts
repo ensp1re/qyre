@@ -46,3 +46,8 @@ export interface ColumnUpdateResult {
   readonly altered: boolean;
   readonly alterError?: string;
 }
+
+export interface ColumnUpdateRequest {
+  readonly newName?: string;
+  readonly changes?: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>;
+}

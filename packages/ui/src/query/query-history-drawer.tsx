@@ -1,15 +1,11 @@
-import type { StatementClassification } from "@qyre/core";
 import { History, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useRef } from "react";
 import { cn } from "../cn.js";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
+import type { QueryHistoryEntry } from "./types.js";
 
-export interface QueryHistoryEntry {
-  readonly sql: string;
-  readonly ranAt: number;
-  readonly classification?: StatementClassification;
-}
+export type { QueryHistoryEntry } from "./types.js";
 
 export interface QueryHistoryDrawerProps {
   open: boolean;

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 import { permissionRoute } from "../../services/access/permission-denied.js";
 import { applyReadOnlyOverride } from "../../services/access/read-only-capabilities.js";
 import { requireAdapter } from "../../services/connection/require-adapter.js";

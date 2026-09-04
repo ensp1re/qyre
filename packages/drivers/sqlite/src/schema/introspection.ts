@@ -1,18 +1,10 @@
 import type { ColumnMetadata, IndexMetadata, TableKind, TableMetadata } from "@qyre/core";
 import type Database from "better-sqlite3";
 import { quoteIdent } from "../query/sql.js";
+import type { ForeignKeyListRow, TableInfoRow } from "./types.js";
 
 /** SQLite has a single implicit namespace; the UI still expects a schema name. */
 export const MAIN_SCHEMA = "main";
-
-export interface TableInfoRow {
-  cid: number;
-  name: string;
-  type: string;
-  notnull: number;
-  dflt_value: string | null;
-  pk: number;
-}
 
 interface IndexListRow {
   seq: number;
@@ -26,17 +18,6 @@ interface IndexInfoRow {
   seqno: number;
   cid: number;
   name: string;
-}
-
-export interface ForeignKeyListRow {
-  id: number;
-  seq: number;
-  table: string;
-  from: string;
-  to: string | null;
-  on_update: string;
-  on_delete: string;
-  match: string;
 }
 
 /** Raw `PRAGMA table_info` rows (cid/type/notnull/dflt_value/pk) - unlike `ColumnMetadata`, this

@@ -1,4 +1,5 @@
-import { FIXTURE, requireTestDatabaseUrl, setupFixture } from "@qyre/testing";
+import { FIXTURE, requireTestDatabaseUrl } from "@qyre/testing";
+import { setupFixture } from "@qyre/testing/postgres";
 import { expect, test } from "./support/test.js";
 
 test("@full structured jsonb cell values open an inspector drawer, three levels deep", async ({

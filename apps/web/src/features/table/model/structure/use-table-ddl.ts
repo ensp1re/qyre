@@ -1,4 +1,4 @@
-import type { ColumnDefinition, IndexDefinition } from "@qyre/core";
+import type { ColumnDefinition, ColumnUpdateRequest, IndexDefinition } from "@qyre/core";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   addColumn,
@@ -27,10 +27,7 @@ export function useTableDdlMutations(schema: string, table: string) {
       await addColumn(schema, table, column);
       await refreshTable();
     },
-    editColumn: async (
-      columnName: string,
-      update: { newName?: string; changes?: { dataType?: string; nullable?: boolean } }
-    ): Promise<void> => {
+    editColumn: async (columnName: string, update: ColumnUpdateRequest): Promise<void> => {
       const result = await updateColumn(schema, table, columnName, update);
       // MySQL may commit the rename before the follow-up change fails.
       await refreshTable();

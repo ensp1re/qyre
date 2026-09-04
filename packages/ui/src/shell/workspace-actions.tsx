@@ -2,9 +2,12 @@ import { Database, Menu, Moon, RefreshCw, Settings, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
 import { IconButton } from "../primitives/controls/icon-button.js";
+import type { Theme } from "./types.js";
+
+export type { Theme } from "./types.js";
 
 export interface WorkspaceActionsProps {
-  theme: "light" | "dark";
+  theme: Theme;
   onToggleTheme: () => void;
   onRefresh: () => void;
   isRefreshing?: boolean;

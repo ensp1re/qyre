@@ -6,7 +6,7 @@ import {
 } from "@qyre/driver-contract";
 import type { DatabaseAdapter, StatementClassification } from "@qyre/driver-contract";
 import type { FastifyInstance, FastifyReply } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 import { applyReadOnlyOverride } from "../../services/access/read-only-capabilities.js";
 import { permissionRoute } from "../../services/access/permission-denied.js";
 import { requireAdapter } from "../../services/connection/require-adapter.js";

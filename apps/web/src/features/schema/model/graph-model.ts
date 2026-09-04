@@ -1,19 +1,9 @@
 import type { TableMetadata } from "@qyre/core";
 import Dagre from "@dagrejs/dagre";
-import type { Edge, Node } from "@xyflow/react";
+import type { Edge } from "@xyflow/react";
+import type { RelationshipHighlight, TableFlowNode } from "./graph-types.js";
 
-export interface TableNodeData extends Record<string, unknown> {
-  table: TableMetadata;
-  highlighted?: boolean;
-  dimmed?: boolean;
-}
-
-export type TableFlowNode = Node<TableNodeData, "table">;
-
-export interface RelationshipHighlight {
-  nodeIds: Set<string>;
-  edgeIds: Set<string>;
-}
+export type { RelationshipHighlight, TableFlowNode, TableNodeData } from "./graph-types.js";
 
 export function tableNodeId(schema: string | undefined, name: string): string {
   return schema ? `${schema}.${name}` : name;

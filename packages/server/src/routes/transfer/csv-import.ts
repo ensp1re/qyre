@@ -1,3 +1,4 @@
+import type { TableParams } from "../../types/routes.js";
 import {
   CSV_IMPORT_MAX_FIELD_BYTES,
   CSV_IMPORT_MAX_FILE_BYTES,
@@ -6,7 +7,7 @@ import {
 } from "@qyre/core";
 import type { CsvImportMapping, CsvImportResponse } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../app.js";
+import type { ServerContext } from "../../types/server.js";
 import { processCsvImport } from "../../services/transfer/csv-import.js";
 import { permissionRoute } from "../../services/access/permission-denied.js";
 import { requireAdapter } from "../../services/connection/require-adapter.js";
@@ -24,7 +25,7 @@ export const CSV_IMPORT_MULTIPART_LIMITS = {
 } as const;
 
 export function registerCsvImportRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  app.post<{ Params: { schema: string; table: string } }>(
+  app.post<{ Params: TableParams }>(
     "/api/tables/:schema/:table/import.csv",
     permissionRoute({ operation: "csv-import", target: "table", likelyMissingGrant: "INSERT" }),
     async (request, reply) => {

@@ -1,5 +1,5 @@
 import type { FastifyError, FastifyInstance } from "fastify";
-import type { ServerContext } from "../app.js";
+import type { ServerContext } from "../types/server.js";
 import { permissionDeniedResponse } from "../services/access/permission-denied.js";
 import { redactErrorMessage } from "../services/connection/connection-display.js";
 import { redactSensitiveQueryParams } from "../services/observability/log-redaction.js";

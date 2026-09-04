@@ -17,10 +17,13 @@ import {
   buildGraph,
   layoutGraph,
   relationshipHighlightForEdge,
-  relationshipHighlightForNode,
-  type RelationshipHighlight,
-  type TableFlowNode
+  relationshipHighlightForNode
 } from "../../model/graph-model.js";
+import type {
+  RelationshipHighlight,
+  SavedPositions,
+  TableFlowNode
+} from "../../model/graph-types.js";
 import { TableNode } from "./table-node.js";
 import { useGraphPositions } from "../../model/use-graph-positions.js";
 
@@ -33,10 +36,7 @@ export interface SchemaGraphProps {
   databaseKey: string;
 }
 
-function positionedNodes(
-  tables: TableMetadata[],
-  saved: Record<string, { x: number; y: number }>
-): TableFlowNode[] {
+function positionedNodes(tables: TableMetadata[], saved: SavedPositions): TableFlowNode[] {
   const { nodes, edges } = buildGraph(tables);
   const laidOut = layoutGraph(nodes, edges);
   return laidOut.map((node) => {

@@ -5,37 +5,17 @@ import { mysqlAdapterFactory } from "@qyre/mysql";
 import { postgresAdapterFactory } from "@qyre/postgres";
 import { startServer } from "@qyre/server";
 import { sqliteAdapterFactory } from "@qyre/sqlite";
-import {
-  FIXTURE,
-  requireTestDatabaseUrl,
-  requireTestMongoUrl,
-  requireTestMysqlUrl,
-  requireTestSqlitePath,
-  runStatements,
-  setupFixture,
-  setupMongoFixture,
-  setupMysqlFixture,
-  setupSqliteFixture
-} from "@qyre/testing";
+import { FIXTURE, requireTestDatabaseUrl, requireTestMongoUrl } from "@qyre/testing";
+import { runStatements, setupFixture } from "@qyre/testing/postgres";
+import { setupMongoFixture } from "@qyre/testing/mongodb";
 import { expect, test } from "./support/test.js";
 import { expectNoAccessibilityViolations } from "./support/accessibility.js";
+import { setupProjectFixture } from "./support/fixture-setup.js";
 import { replaceInputAndPressEnterSynchronously } from "./support/live-input.js";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/web/dist");
-
-async function setupProjectFixture(projectName: string): Promise<void> {
-  if (projectName === "sqlite") {
-    setupSqliteFixture(requireTestSqlitePath());
-  } else if (projectName === "mongodb") {
-    await setupMongoFixture(requireTestMongoUrl());
-  } else if (projectName === "mysql") {
-    await setupMysqlFixture(requireTestMysqlUrl());
-  } else {
-    await setupFixture(requireTestDatabaseUrl());
-  }
-}
 
 test("@full connect and inspect a table", async ({ page }, testInfo) => {
   await setupProjectFixture(testInfo.project.name);

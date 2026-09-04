@@ -2,6 +2,7 @@ import type { ConnectionCapabilities, ConnectionStatus, DatabaseEngine } from "@
 import { Clock } from "lucide-react";
 import type { ReactNode } from "react";
 import { READ_ONLY_REASON_LABEL } from "./read-only-reason.js";
+import { CONNECTION_STATUS_SHORT_LABELS } from "./status.js";
 
 export interface StatusBarProps {
   status: ConnectionStatus;
@@ -45,12 +46,6 @@ export function AccessBadge({
   );
 }
 
-const STATUS_LABEL: Record<ConnectionStatus, string> = {
-  connected: "connected",
-  disconnected: "disconnected",
-  unconfigured: "no database"
-};
-
 const STATUS_COLOR: Record<ConnectionStatus, string> = {
   connected: "var(--c-green)",
   disconnected: "var(--c-red)",
@@ -91,7 +86,7 @@ export function StatusBar({
     <footer className="flex h-6 shrink-0 items-center justify-between gap-3 border-t border-border bg-sidebar px-3 sm:px-4 font-mono text-[10px]">
       <div className="flex min-w-0 items-center gap-3 text-quiet-foreground">
         <span style={{ color: STATUS_COLOR[status] }} title={statusTitle}>
-          {STATUS_LABEL[status]}
+          {CONNECTION_STATUS_SHORT_LABELS[status]}
         </span>
         {engineLabel && (
           <>

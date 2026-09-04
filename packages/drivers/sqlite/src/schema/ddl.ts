@@ -1,7 +1,13 @@
-import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyre/core";
+import type {
+  ColumnDefinition,
+  ColumnUpdateRequest,
+  ColumnUpdateResult,
+  IndexDefinition
+} from "@qyre/core";
 import type Database from "better-sqlite3";
-import { fetchForeignKeyList, fetchTableInfo, type TableInfoRow } from "./introspection.js";
+import { fetchForeignKeyList, fetchTableInfo } from "./introspection.js";
 import { quoteIdent } from "../query/sql.js";
+import type { TableInfoRow } from "./types.js";
 
 /** Format a SQLite DDL default literal; booleans use SQLite's integer representation. */
 function formatDefaultLiteral(value: string | number | boolean): string {
@@ -171,10 +177,7 @@ export function renameAndAlterColumn(
   db: Database.Database,
   table: string,
   column: string,
-  update: {
-    newName?: string;
-    changes?: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>;
-  }
+  update: ColumnUpdateRequest
 ): ColumnUpdateResult {
   let currentName = column;
   db.transaction(() => {

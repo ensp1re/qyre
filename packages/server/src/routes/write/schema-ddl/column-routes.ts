@@ -1,10 +1,11 @@
+import type { TableParams, TableColumnParams } from "../../../types/routes.js";
 import {
   columnDefinitionSchema,
   confirmedNameRequestSchema,
   updateColumnRequestSchema
 } from "@qyre/core";
 import type { FastifyInstance } from "fastify";
-import type { ServerContext } from "../../../app.js";
+import type { ServerContext } from "../../../types/server.js";
 import { applyReadOnlyOverride } from "../../../services/access/read-only-capabilities.js";
 import { permissionRoute } from "../../../services/access/permission-denied.js";
 import { requireAdapter } from "../../../services/connection/require-adapter.js";
@@ -17,7 +18,7 @@ import {
 import { logDdlFailure, logDdlSuccess, mongoColumnRoutesNotApplicable } from "./route-support.js";
 
 export function registerColumnDdlRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
+  app.post<{ Params: TableParams; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/columns",
     permissionRoute({ operation: "add-column", target: "column", likelyMissingGrant: "ALTER" }),
     async (request, reply) => {
@@ -71,7 +72,7 @@ export function registerColumnDdlRoutes(app: FastifyInstance, ctx: ServerContext
     }
   );
 
-  app.patch<{ Params: { schema: string; table: string; column: string }; Body: unknown }>(
+  app.patch<{ Params: TableColumnParams; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/columns/:column",
     permissionRoute({ operation: "alter-column", target: "column", likelyMissingGrant: "ALTER" }),
     async (request, reply) => {
@@ -154,7 +155,7 @@ export function registerColumnDdlRoutes(app: FastifyInstance, ctx: ServerContext
     }
   );
 
-  app.delete<{ Params: { schema: string; table: string; column: string }; Body: unknown }>(
+  app.delete<{ Params: TableColumnParams; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/columns/:column",
     permissionRoute({ operation: "drop-column", target: "column", likelyMissingGrant: "ALTER" }),
     async (request, reply) => {

@@ -6,7 +6,8 @@ import { parseConnectionTarget } from "@qyre/core";
 import { resolveAdapter } from "@qyre/driver-contract";
 import { postgresAdapterFactory } from "@qyre/postgres";
 import { startServer } from "@qyre/server";
-import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@qyre/testing";
+import { FIXTURE, requireTestDatabaseUrl } from "@qyre/testing";
+import { runStatements, setupFixture } from "@qyre/testing/postgres";
 import { chromium } from "@playwright/test";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));

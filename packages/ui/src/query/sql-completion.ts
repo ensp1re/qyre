@@ -3,7 +3,11 @@ import type {
   CompletionResult,
   CompletionSource
 } from "@codemirror/autocomplete";
+import { DATABASE_ENGINES } from "@qyre/core/connection-constants";
 import type { DatabaseEngine } from "@qyre/core";
+import type { CompletionTable } from "./types.js";
+
+export type { CompletionTable } from "./types.js";
 
 export const READ_ONLY_SQL_KEYWORDS = [
   "SELECT",
@@ -46,11 +50,6 @@ export function matchColumns(prefix: string, columnNames: readonly string[]): st
   if (!prefix) return [...columnNames];
   const lower = prefix.toLowerCase();
   return columnNames.filter((name) => name.toLowerCase().startsWith(lower));
-}
-
-export interface CompletionTable {
-  readonly name: string;
-  readonly columns: readonly string[];
 }
 
 const CLAUSE_KEYWORDS =
@@ -107,7 +106,7 @@ export function needsQuoting(identifier: string): boolean {
 
 export function quoteIdentifier(identifier: string, engine: DatabaseEngine): string {
   if (!needsQuoting(identifier)) return identifier;
-  if (engine === "mysql") return `\`${identifier.replace(/`/g, "``")}\``;
+  if (engine === DATABASE_ENGINES.mysql) return `\`${identifier.replace(/`/g, "``")}\``;
   return `"${identifier.replace(/"/g, '""')}"`;
 }
 

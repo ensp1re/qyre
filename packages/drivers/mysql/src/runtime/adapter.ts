@@ -1,4 +1,5 @@
 /** MySQL adapter composition and lifecycle. */
+import { DATABASE_ENGINES } from "@qyre/core";
 import type {
   ColumnMetadata,
   ConnectionCapabilities,
@@ -85,7 +86,7 @@ function resolveStatementTimeoutMs(): number {
 }
 
 export class MysqlAdapter implements DatabaseAdapter {
-  public readonly engine = "mysql";
+  public readonly engine = DATABASE_ENGINES.mysql;
   public onConnectionEvent?: DatabaseAdapter["onConnectionEvent"];
   public operationRegistry?: CancellationRegistry;
   public readonly mutations: RowMutationApi = {
@@ -197,7 +198,7 @@ export class MysqlAdapter implements DatabaseAdapter {
 
   async getOverview(): Promise<DatabaseOverview> {
     return {
-      engine: "mysql",
+      engine: DATABASE_ENGINES.mysql,
       schemas: await introspectSchemas(this.getPool()),
       capabilities: await this.getCapabilities()
     };
@@ -438,7 +439,7 @@ export class MysqlAdapter implements DatabaseAdapter {
 }
 
 export const mysqlAdapterFactory: AdapterFactory = {
-  engine: "mysql",
-  supports: (target) => target.engine === "mysql",
+  engine: DATABASE_ENGINES.mysql,
+  supports: (target) => target.engine === DATABASE_ENGINES.mysql,
   create: (target) => new MysqlAdapter(target)
 };

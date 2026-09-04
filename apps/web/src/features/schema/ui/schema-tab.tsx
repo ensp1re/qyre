@@ -1,4 +1,4 @@
-import type { ConnectionCapabilities, SchemaMetadata } from "@qyre/core";
+import type { ConnectionCapabilities, DatabaseEngine, SchemaMetadata } from "@qyre/core";
 import { Button, CreateTableDialog, ErrorState, SchemaGrid, Spinner } from "@qyre/ui";
 import { LayoutGrid, Network, Plus } from "lucide-react";
 import type { ReactNode } from "react";
@@ -16,7 +16,7 @@ export interface SchemaTabProps {
   databaseKey: string | null;
   schemas: SchemaMetadata[];
   selectedSchema?: string;
-  engine: string | undefined;
+  engine: DatabaseEngine | undefined;
   capabilities: ConnectionCapabilities | undefined;
 }
 

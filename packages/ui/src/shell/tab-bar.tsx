@@ -1,8 +1,9 @@
 import { FileCode2, FolderOpen, Network, Table2, Terminal, type LucideIcon } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { cn } from "../cn.js";
+import type { ShellTab } from "./types.js";
 
-export type ShellTab = "sql-editor" | "tables" | "schema" | "files" | "console";
+export type { ShellTab } from "./types.js";
 
 const TABS: { id: ShellTab; label: string; icon: LucideIcon }[] = [
   { id: "sql-editor", label: "SQL Editor", icon: FileCode2 },

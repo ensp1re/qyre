@@ -21,6 +21,10 @@ export interface QueryHistoryDrawerProps {
   onOpenChange: (open: boolean) => void;
   entries: QueryHistoryEntry[];
   onSelect: (sql: string) => void;
+  /** Clears the stored history. History is persisted to localStorage as raw SQL, so a statement
+   * with an inline secret (`UPDATE users SET api_key = '...'`) outlives the session; the control
+   * belongs here, next to what it deletes, not only in Settings (PLAN.md P4). */
+  onClear?: () => void;
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -43,7 +47,8 @@ export function QueryHistoryDrawer({
   open,
   onOpenChange,
   entries,
-  onSelect
+  onSelect,
+  onClear
 }: QueryHistoryDrawerProps): ReactNode {
   const asideRef = useRef<HTMLElement | null>(null);
   useFocusTrap(asideRef, open);
@@ -72,11 +77,24 @@ export function QueryHistoryDrawer({
           <span className="font-mono text-[9px] uppercase tracking-widest text-quiet-foreground">
             Query History
           </span>
+          {onClear && entries.length > 0 && (
+            <button
+              type="button"
+              aria-label="Clear history"
+              onClick={onClear}
+              className="ml-auto rounded px-1 py-0.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+            >
+              Clear
+            </button>
+          )}
           <button
             type="button"
             aria-label="Close history"
             onClick={() => onOpenChange(false)}
-            className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+            className={cn(
+              "rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+              !(onClear && entries.length > 0) && "ml-auto"
+            )}
           >
             <X className="h-3 w-3" />
           </button>

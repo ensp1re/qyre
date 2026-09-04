@@ -1,5 +1,4 @@
 import type { RowExportFormat, RowFilter, RowPage, RowSort } from "@qyre/core";
-import { getAuthToken } from "../../../shared/api/auth-token.js";
 import { fetchJson } from "../../../shared/api/fetch-json.js";
 
 /** Shared by fetchRows/exportRowsUrl - `filters` is JSON-encoded into one query param (F072),
@@ -47,21 +46,23 @@ export function fetchRows(
  * Deliberately not fetched via `fetchJson` - the caller triggers a real browser navigation/download
  * to this URL instead, so the download streams straight to disk rather than buffering the whole
  * table in a JS Blob (which would defeat the point of the server streaming it in bounded batches).
- * A real navigation can't set an Authorization header, so the session token (F122) travels as a
- * `token` query param instead - the one route the auth guard accepts that from.
+ * A real navigation can't set an Authorization header. It used to carry the session token as a
+ * `token` query param, which put a working credential into browser history and any proxy log on
+ * the way; it now fetches a single-use, one-minute `grant` first and puts that in the URL instead
+ * (PLAN.md P3). Async as a result - the caller awaits the URL before navigating.
  */
-export function exportRowsUrl(
+export async function exportRowsUrl(
   schema: string,
   table: string,
   format: RowExportFormat,
   sort?: RowSort,
   filters?: RowFilter[],
   search?: string
-): string {
+): Promise<string> {
   const params = new URLSearchParams();
   appendSortAndFilterParams(params, sort, filters, search);
-  const token = getAuthToken();
-  if (token) params.set("token", token);
+  const { grant } = await fetchJson<{ grant: string }>("/api/exports/grant", { method: "POST" });
+  params.set("grant", grant);
   const query = params.toString();
   const path = `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/export.${format}`;
   return query ? `${path}?${query}` : path;

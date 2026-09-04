@@ -327,8 +327,8 @@ export function TablesTab({
           exportFormats={capabilities?.rowExportFormats}
           jsonExportMode={capabilities?.jsonExportMode}
           onExportAllRows={(format) =>
-            downloadExport(
-              exportRowsUrl(selected.schema, selected.table, format, sort, filters, search)
+            void exportRowsUrl(selected.schema, selected.table, format, sort, filters, search).then(
+              downloadExport
             )
           }
           onExportSelectedRows={(csv) => downloadCsv(`${selected.table}-selected.csv`, csv)}

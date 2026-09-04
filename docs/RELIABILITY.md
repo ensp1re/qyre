@@ -66,6 +66,18 @@ Each journey has a repeatable verification path and clear failure signals.
 - a health endpoint reporting server + database connectivity
 - user-visible error states for recoverable failures (unreachable DB, bad connection string)
 
+## Known limitation: a SQLite query cannot be interrupted
+
+Postgres and MySQL run every statement under a 30s `statement_timeout` and can be cancelled
+mid-flight from the pool. SQLite has neither: `better-sqlite3` is synchronous, so a runaway
+statement (a `WITH RECURSIVE` with no termination case is the usual way in) blocks the Node event
+loop and freezes the whole server - every request, every engine, and the UI - until the process is
+killed with Ctrl-C. Nothing is lost; the database is untouched and restarting is clean.
+
+Upgrading this means moving SQLite execution onto a `worker_thread` so `worker.terminate()` can
+back the existing `OperationRegistry` cancel contract. Not done yet: no user has hit it, and the
+recovery (Ctrl-C) is immediate and safe.
+
 ## Reliability rules
 
 - No feature is complete if the system cannot restart cleanly afterward.

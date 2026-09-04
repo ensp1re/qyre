@@ -240,6 +240,28 @@ describe("resolveVersion", () => {
   });
 });
 
+describe("formatBanner transport warnings (PLAN.md P1)", () => {
+  it("prints a warning line for a remote target with no TLS", () => {
+    const banner = formatBanner({
+      version: "1.0.0",
+      target: "postgres://user:***@db.example.com:5432/app",
+      url: "http://127.0.0.1:7717",
+      warnings: [{ kind: "insecure-transport", message: "db.example.com is not a local address" }]
+    });
+    expect(banner).toContain("db.example.com is not a local address");
+  });
+
+  it("prints nothing extra when there is nothing to warn about", () => {
+    const banner = formatBanner({
+      version: "1.0.0",
+      target: "postgres://user:***@localhost:5432/app",
+      url: "http://127.0.0.1:7717",
+      warnings: []
+    });
+    expect(banner).not.toContain("!");
+  });
+});
+
 describe("formatBanner", () => {
   it("includes a multi-line figlet title, the version, target, url, and issue/contributing links", () => {
     const banner = formatBanner({

@@ -2,11 +2,22 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 157,
+    "F": 158,
     "DF": 13
   },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
+    {
+      "id": "F157",
+      "behavior": "Works through docs/PLAN.md's security audit in one pass. Transport safety: connectionWarnings() classifies a connection string's host and warns when a remote target carries no TLS parameter, and flags posture-weakening query parameters (multipleStatements, insecureAuth, tlsInsecure, tlsAllowInvalidCertificates, tlsAllowInvalidHostnames, sslmode=disable, allowLoadLocalInfile) - surfaced in the CLI banner, the POST /api/connect response, and the Console event log; advisory, never blocking. Supply chain: pnpm audit --prod reports no known vulnerabilities via a lockfile-only refresh plus a deliberate @fastify/static ^9 -> ^10 major bump (whose setHeaders signature change from ServerResponse to FastifyReply broke asset caching and is fixed), .github/dependabot.yml runs weekly, release.yml publishes on a v* tag with OIDC Trusted Publishing and --provenance, and ci.yml declares contents: read with all actions pinned to SHAs. Auth: the guard keys on the matched route rather than the raw URL, and exports spend a single-use 60s grant instead of putting the session token in a URL. Installation: better-sqlite3 ^11 -> ^13 (prebuilt on Node 26) and moved to optionalDependencies with a lazy import, so a failed native build no longer aborts npm i qyre or blocks Postgres/MySQL/MongoDB; it is marked external in tsup, without which esbuild inlined it and broke its binding lookup. Plus a Clear control on the query-history drawer and a documented SQLite non-interruptibility limitation.",
+      "verification": "pnpm audit --prod && pnpm verify:pr",
+      "state": "not_started",
+      "commitHash": null,
+      "evidence": null,
+      "blockedReason": null,
+      "spec": "docs/PLAN.md",
+      "completedAt": null
+    },
     {
       "id": "F156",
       "behavior": "The rows footer names the object kind for anything that is not an ordinary table or collection: `25 rows on page · view · recent_funding`. A view has no stored rows, so introspection returns no rowCount and the total segment vanished silently - which, together with editing being disabled for the same reason, read as Qyre malfunctioning rather than as a property of the object. Materialized views render as `materialized view` and still carry their total; ordinary tables and collections stay unlabeled. No new query is issued - the only way to total a view is to run its whole definition, which for a joined view would cost that on every metadata load. Separately, Postgres catalog introspection no longer fails wholesale when a table is dropped mid-flight: a never-analyzed table (reltuples -1, always true of a fresh one) takes the exact COUNT(*) path, so a concurrent DROP raised 42P01 and took the entire getAllTables call down, emptying the explorer over one unrelated table. That relation is now treated as simply having no count; any other error still propagates.",

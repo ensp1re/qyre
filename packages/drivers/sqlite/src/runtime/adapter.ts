@@ -28,7 +28,7 @@ import type {
   RowMutationApi,
   SchemaDdlApi
 } from "@qyre/driver-contract";
-import Database from "better-sqlite3";
+import type Database from "better-sqlite3";
 import { inspectAccess } from "../access/access.js";
 import { buildSqliteExplainSql, sqlitePlanLines } from "../query/explain.js";
 import { computeCapabilities, tablePermissionsFromCapabilities } from "./capabilities.js";
@@ -51,6 +51,32 @@ import { classifySqlitePermissionDenied } from "../access/permission-errors.js";
 import { normalizeRow } from "./row-values.js";
 import { formatSqlInsert, streamRows } from "../query/row-export.js";
 import { buildFilterClause, quoteIdent } from "../query/sql.js";
+
+/**
+ * Loads `better-sqlite3` on first connect rather than at module load.
+ *
+ * It is an optional dependency: its native addon is compiled per Node ABI, and when npm finds no
+ * prebuilt binary for the running Node it falls back to node-gyp, which fails outright on a
+ * machine with no compiler. As a required dependency that failure aborted `npm i qyre` entirely -
+ * so a user who only ever connects to Postgres could not install the tool at all. Optional plus
+ * this lazy import means the install succeeds, the other three engines work, and only an actual
+ * SQLite connection reports the problem, with the fix in the message instead of a node-gyp dump.
+ */
+async function loadBetterSqlite3(): Promise<typeof Database> {
+  try {
+    return (await import("better-sqlite3")).default;
+  } catch (error) {
+    throw Object.assign(
+      new Error(
+        "SQLite support needs the native better-sqlite3 binding, which is not installed for this " +
+          `Node version (${process.version}). Postgres, MySQL, and MongoDB work without it. ` +
+          "To use SQLite, reinstall on a Node release with a prebuilt binary (the current LTS), " +
+          `or install build tools so it can compile. Original error: ${(error as Error).message}`
+      ),
+      { statusCode: 400 }
+    );
+  }
+}
 
 /**
  * SQLite has no cancellation support (F126) and intentionally omits `operationRegistry` - unlike
@@ -128,14 +154,15 @@ export class SqliteAdapter implements DatabaseAdapter {
 
   async connect(): Promise<void> {
     this.resolvedPath = resolve(this.target.raw);
+    const Driver = await loadBetterSqlite3();
     try {
-      this.db = new Database(this.resolvedPath, { fileMustExist: true });
+      this.db = new Driver(this.resolvedPath, { fileMustExist: true });
     } catch {
       // A normal open can fail outright in rare OS-permission edge cases (e.g. the file itself is
       // unreadable) - fall back to an explicit read-only open so Qyre can still inspect the
       // database instead of refusing to connect at all. getCapabilities() (F094) determines real
       // writability independently, so a connection degraded here never gets reported as writable.
-      this.db = new Database(this.resolvedPath, { readonly: true, fileMustExist: true });
+      this.db = new Driver(this.resolvedPath, { readonly: true, fileMustExist: true });
     }
   }
 

@@ -24,11 +24,13 @@
   },
   "dependencies": {
     "@qyre/core": "workspace:*",
-    "@qyre/driver-contract": "workspace:*",
-    "better-sqlite3": "^11.10.0"
+    "@qyre/driver-contract": "workspace:*"
   },
   "devDependencies": {
     "@qyre/config": "workspace:*",
     "@types/better-sqlite3": "^7.6.13"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^13.0.3"
   }
 }

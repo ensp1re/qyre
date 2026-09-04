@@ -5,8 +5,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Current state
 
-- Date: 2026-08-19.
-- Branch: `main`. Releasing v0.4.3 (security fixes, F154).
+- Date: 2026-09-04.
+- Branch: `main`. v0.4.3 published; F155/F156/F157 merged and unreleased.
 - Queue: F149/F154 passing; F150-F153 queued `not_started` for plan 0008, the approved opt-in AI
   assistant tab (`docs/exec-plans/active/0008-ai-database-assistant.md`). Plan 0007 is retired;
   plan 0009 (security audit) is completed. A fresh UI audit is still pending separately.
@@ -30,21 +30,19 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Known issues / blockers
 
-### Deferred from the F154 audit (deliberate, each wants its own diff)
+### Outstanding after F157
 
-- 7 `pnpm audit --prod` advisories in the Fastify chain, **none reachable** in Qyre's config
-  (reachability analysis in `docs/exec-plans/completed/0009-security-audit-hardening.md`). Five
-  clear with a lockfile refresh; `@fastify/static ^9 -> ^10` is a major bump wanting its own smoke
-  test of asset serving and the token-injecting `/` handler.
-- No npm publish provenance - manual publish, single maintainer, no attestation. Moving to GitHub
-  Actions with npm Trusted Publishing (OIDC, `--provenance`) is the highest-leverage supply-chain
-  fix outstanding.
-- Connection-string query params reach driver configs unvalidated (mysql2 `multipleStatements`/
-  `insecureAuth`, Mongo `tlsInsecure`, Postgres `sslmode=disable`) - a pasted string can silently
-  downgrade TLS with no UI signal.
-- The auth guard's `/api/` raw-URL prefix check is correct only because Fastify's
-  `ignoreDuplicateSlashes`/`ignoreTrailingSlash` default false and `caseSensitive` true. Nothing
-  pins that; a regression test would.
+F157 closed every item in `docs/PLAN.md` except one, and each heading there carries its outcome.
+
+- **Native SQLite runtime independence (P1, partially fixed).** The `better-sqlite3` `^11 -> ^13`
+  bump plus `optionalDependencies` and a lazy import mean a failed native build no longer aborts
+  `npm i qyre` or blocks the other three engines, and Node 26 now installs a prebuild in ~7s. The
+  plan's actual requirement - independence from the user's Node ABI, via WASM or a bundled runtime -
+  is unstarted, needs the direction decided first, and carries its own install matrix and
+  conformance burden.
+- **npm Trusted Publishing needs one manual registration** before `release.yml` can publish: add
+  org/repo `ensp1re/qyre`, workflow `release.yml` as the Trusted Publisher for each package on
+  npmjs.com. Until then the publish step fails closed rather than falling back to a token.
 
 - Repository verification must use Node 22 (Homebrew `node@22` at `/opt/homebrew/opt/node@22/bin`);
   newer Node cannot load the current `better-sqlite3` native binding.

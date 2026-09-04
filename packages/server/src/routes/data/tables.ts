@@ -11,6 +11,7 @@ import { OperationCancelledError } from "@qyre/driver-contract";
 import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../../app.js";
 import { formatRowExport } from "../../services/rows/row-export.js";
+import { issueDownloadGrant } from "../../services/access/download-grants.js";
 import { permissionRoute } from "../../services/access/permission-denied.js";
 import { requireAdapter } from "../../services/connection/require-adapter.js";
 import {
@@ -317,6 +318,10 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
 
   // F118: one native adapter cursor/query stream per whole-result export. Readable.from propagates
   // response backpressure and closes the adapter iterator if the client disconnects.
+  // Mints the single-use credential the export navigation below presents. Authed like any other
+  // /api route, so only a caller that already holds the session token can obtain one (PLAN.md P3).
+  app.post("/api/exports/grant", async () => ({ grant: issueDownloadGrant() }));
+
   app.get<{
     Params: { schema: string; table: string; format: string };
     Querystring: Record<string, string>;

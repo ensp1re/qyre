@@ -25,6 +25,11 @@ const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
+// `--ci` is how .github/workflows/release.yml publishes: the tag already exists and its commit
+// already passed CI on main, so the branch check, the local `pnpm check`, and the tag creation
+// below are all redundant there - and the branch check would fail outright, since a tag build is
+// a detached HEAD. It also adds --provenance, which only works with the workflow's OIDC token.
+const ci = args.includes("--ci");
 const onlyFlagIndex = args.indexOf("--only");
 const onlyPackage = onlyFlagIndex !== -1 ? args[onlyFlagIndex + 1] : null;
 if (onlyFlagIndex !== -1 && !onlyPackage) {
@@ -137,10 +142,12 @@ const currentVersion = readPackageJson(join(cliPkg.path, "package.json")).versio
 
 // Handle the direct publish of current version (on main after PR is merged)
 if (bumpType === "publish") {
-  const currentBranch = runCapture("git", ["branch", "--show-current"]);
-  if (currentBranch !== "main") {
-    console.error('Publishing must be run from the "main" branch.');
-    process.exit(1);
+  if (!ci) {
+    const currentBranch = runCapture("git", ["branch", "--show-current"]);
+    if (currentBranch !== "main") {
+      console.error('Publishing must be run from the "main" branch.');
+      process.exit(1);
+    }
   }
   console.log(
     `${dryRun ? "[dry run] " : ""}Publishing current version v${currentVersion} to npm...`
@@ -151,21 +158,28 @@ if (bumpType === "publish") {
     process.exit(0);
   }
 
-  // Verify main is clean & passes check
-  run("pnpm", ["check"]);
+  if (!ci) {
+    // Verify main is clean & passes check
+    run("pnpm", ["check"]);
 
-  // Create release tag locally
-  run("git", ["tag", `v${currentVersion}`]);
+    // Create release tag locally
+    run("git", ["tag", `v${currentVersion}`]);
+  }
 
   // Publish in dependency order
+  // --no-git-checks: a tag build is a detached HEAD, which pnpm otherwise refuses to publish from.
+  const publishArgs = ["publish", "--access", "public"];
+  if (ci) publishArgs.push("--provenance", "--no-git-checks");
   for (const pkg of orderedPackages) {
     console.log(`Publishing ${pkg.name}@${currentVersion}...`);
-    run("pnpm", ["publish", "--access", "public"], { cwd: pkg.path });
+    run("pnpm", publishArgs, { cwd: pkg.path });
   }
 
   console.log(
-    `\nSuccessfully published v${currentVersion}. Push the release tag with:\n` +
-      `  git push origin v${currentVersion}`
+    ci
+      ? `\nSuccessfully published v${currentVersion} with provenance.`
+      : `\nSuccessfully published v${currentVersion}. Push the release tag with:\n` +
+          `  git push origin v${currentVersion}`
   );
   process.exit(0);
 }

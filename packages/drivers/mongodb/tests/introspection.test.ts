@@ -2,8 +2,7 @@ import type { MongoClient } from "mongodb";
 import { describe, expect, it } from "vitest";
 import { introspectSchemas } from "../src/schema/introspection.js";
 
-/** Minimal MongoClient stand-in: `db()` with no name is the URL-scoped database. Records the
- * options every `listCollections` call receives so tests can assert the authorization flags. */
+/** Record collection-list options while providing the minimal MongoClient surface under test. */
 function stubClient(options: {
   listDatabasesError?: unknown;
   databases?: string[];

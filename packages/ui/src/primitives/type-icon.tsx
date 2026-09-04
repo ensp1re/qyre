@@ -6,14 +6,6 @@ export interface TypeIconProps {
   dataType: string;
 }
 
-/**
- * Column-kind classification for `ColumnMetadata.dataType`, which is engine-reported text, not a
- * normalized enum: Postgres reports `information_schema` names ("integer", "character varying",
- * "timestamp with time zone"), SQLite reports raw declared types ("INTEGER", "TEXT", "REAL", or
- * "any" - see packages/drivers/sqlite). Prefix-matched case-insensitively so both read the same way.
- * Exported for FilterBar (F072), which orders its operator list by the picked column's kind -
- * reusing this exact classification so the filter flow and the type icons never disagree.
- */
 export function classifyColumnKind(
   dataType: string
 ): "numeric" | "text" | "boolean" | "datetime" | "other" {
@@ -43,7 +35,6 @@ export function classifyColumnKind(
   return "other";
 }
 
-/** A small colored icon for a column's data type, matching docs/references/design-system.md's mapping. */
 export function TypeIcon({ dataType }: TypeIconProps): ReactNode {
   switch (classifyColumnKind(dataType)) {
     case "numeric":

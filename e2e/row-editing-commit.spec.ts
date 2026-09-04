@@ -4,13 +4,6 @@ import { expect, test } from "./support/test.js";
 
 const KEYBOARD_EDIT_TABLE = "qyre_keyboard_edit";
 
-/**
- * F105: the SQL pending-changes workflow completes end to end - a cell edit, an inserted row
- * (Add row), and a row staged for deletion all commit together through F102's batch endpoint, and
- * the grid reflects the committed state once it refetches. Runs on Postgres only - F099-F102's own
- * conformance tests already cover every engine at the adapter/route layer; this is a UI roundtrip
- * proof, not another adapter-parity check.
- */
 test("@full editing, inserting, and deleting rows commits together and persists", async ({
   page
 }, testInfo) => {
@@ -24,7 +17,6 @@ test("@full editing, inserting, and deleting rows commits together and persists"
   const table = page.getByTestId("rows-table");
   await expect(table.getByText("Ada Lovelace")).toBeVisible();
 
-  // Edit an existing row's name.
   const graceCell = table.getByRole("button", { name: "Grace Hopper" });
   await graceCell.click();
   await graceCell.press("Enter");
@@ -33,7 +25,6 @@ test("@full editing, inserting, and deleting rows commits together and persists"
   await editInput.press("ControlOrMeta+Enter");
   await expect(table.getByText("Grace Hopper-Murray")).toBeVisible();
 
-  // Insert a new row (name/email are NOT NULL with no default, so both must be filled).
   await page.getByRole("button", { name: "Add row" }).click();
   await page.getByRole("button", { name: "Set name" }).click();
   await page.getByRole("textbox", { name: "name", exact: true }).fill("Marie Curie");
@@ -42,7 +33,6 @@ test("@full editing, inserting, and deleting rows commits together and persists"
   await page.getByRole("textbox", { name: "email", exact: true }).fill("marie@example.com");
   await page.getByRole("textbox", { name: "email", exact: true }).press("ControlOrMeta+Enter");
 
-  // Stage a row for deletion via selection - Alan Turing is row 2.
   await page.getByLabel("Select row 2").check();
   await page.getByRole("button", { name: "Delete 1 selected" }).click();
 
@@ -50,7 +40,6 @@ test("@full editing, inserting, and deleting rows commits together and persists"
   await expect(commitSummary).toBeVisible();
   await page.getByRole("button", { name: "Commit", exact: true }).click();
 
-  // Buffer cleared and rows refetched from the server - committed changes persisted.
   await expect(commitSummary).not.toBeVisible();
   await expect(table.getByText("Grace Hopper-Murray")).toBeVisible();
   await expect(table.getByText("Marie Curie")).toBeVisible();

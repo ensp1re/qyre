@@ -10,9 +10,6 @@ export interface EditorActionsProps {
   applyDisabled?: boolean;
 }
 
-/** Icon-only confirm/cancel controls, matching JetBrains DataGrip's inline cell-editor pattern
- * (F146) - the previous "Cancel"/"Apply" text buttons added label-reading overhead to what should
- * be a single glance-and-click action once the keyboard shortcut is learned. */
 export function EditorActions({
   onApply,
   onCancel,

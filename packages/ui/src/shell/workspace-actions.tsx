@@ -14,7 +14,6 @@ export interface WorkspaceActionsProps {
   lastQueryMs?: number;
 }
 
-/** Window-level actions docked into the workspace tab strip instead of a separate website header. */
 export function WorkspaceActions({
   theme,
   onToggleTheme,

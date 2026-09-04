@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createServer } from "../src/index.js";
 
-/** A pino destination stream that collects every written line for assertions - stands in for the
- * terminal/log file `--verbose` writes to in the real CLI. */
 function collectingStream(): { write(msg: string): void; lines: string[] } {
   const lines: string[] = [];
   return {
@@ -30,8 +28,7 @@ describe("request logging redacts the session token (F130)", () => {
     expect(stream.lines.length).toBeGreaterThan(0);
     const logged = stream.lines.join("\n");
     expect(logged).not.toContain("super-secret-token");
-    // URL-encoded `[redacted]` (searchParams.set percent-encodes brackets) - see
-    // log-redaction.test.ts for the direct, unencoded assertion on the helper itself.
+    // URLSearchParams encodes [redacted] in the logged query.
     expect(logged).toContain("token=%5Bredacted%5D");
   });
 
@@ -51,8 +48,6 @@ describe("request logging redacts the session token (F130)", () => {
 
   it("logs nothing at all when logger is omitted (default false)", async () => {
     const app = createServer({ authToken: "t" });
-    // No stream to inspect - this just proves construction doesn't throw and behavior is
-    // unchanged from before F130 for the common (non-verbose) case.
     const response = await app.inject({
       method: "GET",
       url: "/api/health",

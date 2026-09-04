@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 
-/** A single toggle button in a view-switcher group (Schema tab's Graph/Grid, F074; Tables tab's
- * Rows/Structure, F114) - shared once a second real usage needed the identical look/behavior. */
 export function ViewButton({
   active,
   onClick,

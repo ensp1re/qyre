@@ -20,11 +20,6 @@ export interface CreateIndexDialogProps {
   onClose: () => void;
 }
 
-/**
- * Create-index flow for F114's Structure view (F112's `POST .../ddl/indexes`) - name, one or more
- * existing columns via checkboxes (never free text; the server independently re-validates against
- * the table's real structure), and a unique toggle.
- */
 export function CreateIndexDialog({
   table,
   availableColumns,

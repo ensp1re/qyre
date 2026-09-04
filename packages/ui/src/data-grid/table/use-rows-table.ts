@@ -59,13 +59,7 @@ export function useRowsTableModel({
     value: unknown;
     anchorRect: DOMRect;
   } | null>(null);
-  // The one cell editor allowed open across the whole grid at a time (F146) - a stable per-cell id
-  // (see cellEditorId below), not the cell's own local state, so activating one editor closes any
-  // other and the table never shows the stacked-popover clutter of independent per-cell state.
   const [activeEditor, setActiveEditor] = useState<string | null>(null);
-  // The grid's single selected cell (F146) - separate from `activeEditor`: a click selects without
-  // editing, and arrow/Tab keys move this instead of DOM focus alone so selection survives
-  // virtualized rows scrolling in and out of the DOM.
   const [selectedCell, setSelectedCell] = useState<{
     rowIndex: number;
     column: string;
@@ -80,8 +74,6 @@ export function useRowsTableModel({
 
   const indexed = useMemo(() => rowPage.rows.map((row, index) => ({ row, index })), [rowPage.rows]);
 
-  // Rows arrive already sorted server-side (F065) when a sort is active - this only narrows by the
-  // free-text filter below, it never reorders.
   const committedSearch = tableSearch?.trim() ?? "";
   const pageSearch = search.trim() === committedSearch ? "" : search.trim();
   const filtered = useMemo(() => {
@@ -118,9 +110,6 @@ export function useRowsTableModel({
     };
   }, []);
 
-  // F051: only the visible rows (plus overscan) mount as DOM nodes, instead of every row in the
-  // current page - a wide table at the SQL Editor's 1000-row cap (F050) would otherwise mount
-  // thousands of cells.
   const rowVirtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => scrollRef.current,
@@ -153,9 +142,6 @@ export function useRowsTableModel({
     if (committedSearch) onTableSearchChange?.(undefined);
   }
 
-  /** Clicking a primary-key cell's value drills into just that row (F072) - replaces the active
-   * filter set rather than adding to it, since appending to whatever filters happened to already
-   * be active would be surprising. */
   function filterToPrimaryKeyValue(column: string, value: unknown): void {
     onFiltersChange?.([{ column, op: "eq", value: formatCell(value) }]);
   }
@@ -230,13 +216,8 @@ export function useRowsTableModel({
     onExportSelectedRows?.(toCsv(rowPage.columns, rows));
   }
 
-  // F104: Add-row/Duplicate-row are hidden entirely (not disabled) when the session/table can't
-  // insert - see docs/product-specs/row-editing.md.
   const canAddRow = Boolean(canInsert && pendingChanges);
 
-  /** Pre-fills a new draft from an existing row's insertable columns, primary key excluded - a
-   * duplicate never proposes an exact copy of another row's key, which would just collide on
-   * insert; the user (or the engine, if auto-generated) supplies a new one. */
   function duplicateRow(row: Record<string, unknown>): void {
     if (!pendingChanges || !insertableColumns) return;
     const initialValues: Record<string, unknown> = {};
@@ -254,13 +235,8 @@ export function useRowsTableModel({
     pendingChanges.addInsert(initialValues);
   }
 
-  // F105: staging is hidden entirely (not disabled) when the session/table can't delete, mirroring
-  // canAddRow above.
   const canStageDelete = Boolean(canDelete && pendingChanges && primaryKeyColumns);
 
-  /** Stages every currently-selected row for deletion - clicking this button IS the explicit
-   * confirming click docs/product-specs/row-editing.md requires for delete, distinct from mere
-   * selection (which stays a read-only, side-effect-free action everywhere else in this table). */
   function stageSelectedForDelete(): void {
     if (!pendingChanges || !primaryKeyColumns) return;
     for (const { row, index } of filtered) {

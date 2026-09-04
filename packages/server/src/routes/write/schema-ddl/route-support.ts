@@ -33,8 +33,6 @@ export function logDdlFailure(
   startedAt: number,
   error: unknown
 ): void {
-  // The global handler owns authoritative denials so their raw engine text is never logged and
-  // the EventLog receives exactly one safe denial entry.
   if (ctx.adapter?.classifyPermissionDenied(error)) return;
   const durationMs = Math.round(performance.now() - startedAt);
   const detail = error instanceof Error ? error.message : String(error);

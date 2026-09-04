@@ -3,16 +3,7 @@ import type Database from "better-sqlite3";
 import { fetchForeignKeyList, fetchTableInfo, type TableInfoRow } from "./introspection.js";
 import { quoteIdent } from "../query/sql.js";
 
-/**
- * `column.dataType`/`column.name` are already validated by the caller (identifier shape for new
- * names, `dataType` against SQLite's curated type-affinity catalog) - see
- * packages/server/src/services/schema/schema-ddl-validation.ts. A default literal can't be parameter-bound
- * (it sits inside DDL, not a value position a prepared statement can target), so it's formatted
- * here the same way `quoteIdent` formats identifiers - doubling the delimiter, the standard SQL
- * escape for a string literal. SQLite has no native boolean type - `TRUE`/`FALSE` map to the
- * integer affinity `1`/`0`, matching how every boolean value is already stored elsewhere in this
- * adapter.
- */
+/** Format a SQLite DDL default literal; booleans use SQLite's integer representation. */
 function formatDefaultLiteral(value: string | number | boolean): string {
   if (typeof value === "boolean") return value ? "1" : "0";
   if (typeof value === "number") {
@@ -41,9 +32,7 @@ export function renameTable(db: Database.Database, table: string, newName: strin
   db.exec(`ALTER TABLE ${quoteIdent(table)} RENAME TO ${quoteIdent(newName)}`);
 }
 
-/** No native `TRUNCATE` - a plain `DELETE FROM` matches TRUNCATE's own row-removal effect, per
- * docs/product-specs/schema-editing.md. `VACUUM` is deliberately not run automatically (a
- * full-database operation, out of scope for a single-table action). */
+/** SQLite has no TRUNCATE; DELETE provides the table-scoped row removal required here. */
 export function truncateTable(db: Database.Database, table: string): void {
   db.exec(`DELETE FROM ${quoteIdent(table)}`);
 }
@@ -52,8 +41,7 @@ export function dropTable(db: Database.Database, table: string): void {
   db.exec(`DROP TABLE ${quoteIdent(table)}`);
 }
 
-/** Native `ADD COLUMN` (real limits apply - no non-constant default, no `PRIMARY KEY`/`UNIQUE`,
- * no `NOT NULL` unless a default is given - SQLite's own constraint, not this adapter's). */
+/** Add a column using SQLite's native ALTER TABLE constraints. */
 export function addColumn(db: Database.Database, table: string, column: ColumnDefinition): void {
   db.exec(`ALTER TABLE ${quoteIdent(table)} ADD COLUMN ${columnDefinitionSql(column)}`);
 }
@@ -70,16 +58,12 @@ export function renameColumn(
   );
 }
 
-/** Native `DROP COLUMN` (3.35+, refuses a column that's part of a primary key, a foreign key, an
- * index, or a generated column - SQLite's own constraint surfaces as a real error). */
+/** Drop a column using SQLite 3.35+'s native operation. */
 export function dropColumn(db: Database.Database, table: string, column: string): void {
   db.exec(`ALTER TABLE ${quoteIdent(table)} DROP COLUMN ${quoteIdent(column)}`);
 }
 
-/** Builds one column's definition for the rebuilt table - `override` carries `alterColumn`'s
- * requested changes for the one column being altered; every other column is carried over verbatim
- * from its existing `PRAGMA table_info` row, including `dflt_value`'s text exactly as SQLite
- * itself stores it (already valid, reusable SQL - re-quoting it would risk double-escaping). */
+/** Build a column definition while preserving stored defaults for untouched columns. */
 function rebuildColumnSql(
   row: TableInfoRow,
   isSoleIntegerPrimaryKey: boolean,
@@ -100,18 +84,7 @@ function rebuildColumnSql(
   return parts.join(" ");
 }
 
-/**
- * SQLite's own documented workaround for a column change its native `ALTER TABLE` can't express
- * directly (a type change, or a nullable/default change beyond `ADD COLUMN`'s own limits) - the
- * 12-step rebuild pattern: `PRAGMA foreign_keys=OFF` (a no-op if toggled mid-transaction, so this
- * must run first), create a new table with the desired final schema, copy every row across, drop
- * the old table, rename the new one into its place, recreate every index/trigger that referenced
- * the old table (from `sqlite_master`'s own stored `CREATE INDEX`/`CREATE TRIGGER` text - a view's
- * stored SQL only names the table, so it keeps working once the rebuilt table exists under the
- * same name, unaffected by the swap), `PRAGMA foreign_key_check`, commit, `PRAGMA foreign_keys=ON`.
- * Every `alterColumn` call takes this one path - never a "fast path for safe changes" that could
- * silently diverge from it, per docs/product-specs/schema-editing.md.
- */
+/** Rebuild the table using SQLite's documented 12-step alter-column workaround. */
 function rebuildTable(
   db: Database.Database,
   table: string,
@@ -193,15 +166,7 @@ export function alterColumn(
   rebuildTable(db, table, column, changes);
 }
 
-/**
- * Runs a rename and/or alter as one transaction (F134) - `renameColumn`'s `ALTER TABLE ... RENAME
- * COLUMN` and `alterColumn`'s own internal 12-step rebuild both run inside `db.transaction()`;
- * better-sqlite3 nests transaction functions as SAVEPOINTs, so wrapping both in an outer
- * transaction here rolls back a mid-request alter failure - including an already-issued rename -
- * instead of leaving it committed with the alter reported as failed. Only ever resolves once every
- * requested step actually applied; any failure throws instead (nothing partial to report),
- * matching {@link ColumnUpdateResult}'s contract for a transactional engine.
- */
+/** Apply rename and alter atomically using better-sqlite3's nested transaction support. */
 export function renameAndAlterColumn(
   db: Database.Database,
   table: string,

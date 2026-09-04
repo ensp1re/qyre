@@ -1,8 +1,3 @@
-/**
- * Internal test utilities and fixtures for Qyre.
- *
- * Private package: never imported by product code, only by tests and E2E specs.
- */
 import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
@@ -20,7 +15,7 @@ export {
 /** Environment variable that holds the Postgres URL used by integration and end-to-end tests. */
 export const TEST_DB_ENV = "QYRE_TEST_DATABASE_URL";
 
-/** Optional override for the restricted Postgres fixture user (F092). */
+/** Optional override for the restricted Postgres fixture user. */
 export const TEST_READONLY_DB_ENV = "QYRE_TEST_READONLY_DATABASE_URL";
 
 /** Environment variable that holds the SQLite fixture file path used by end-to-end tests. */
@@ -29,12 +24,10 @@ export const TEST_SQLITE_ENV = "QYRE_TEST_SQLITE_PATH";
 /** Environment variable that holds the MySQL URL used by integration and end-to-end tests. */
 export const TEST_MYSQL_ENV = "QYRE_TEST_MYSQL_URL";
 
-/** Optional override for the restricted MySQL fixture user (F093). */
+/** Optional override for the restricted MySQL fixture user. */
 export const TEST_READONLY_MYSQL_ENV = "QYRE_TEST_READONLY_MYSQL_URL";
 
-/** Optional override for the MySQL fixture user whose write grants come only from an active
- * default role, not a direct grant (F093) - proves role-derived privileges are actually visible,
- * not just directly-granted ones. */
+/** Optional override for the MySQL fixture user whose write grants come from an active default role. */
 export const TEST_ROLE_WRITER_MYSQL_ENV = "QYRE_TEST_ROLE_WRITER_MYSQL_URL";
 
 /** Environment variable that holds the MongoDB URL used by integration tests. */
@@ -45,10 +38,7 @@ export function isTestDatabaseConfigured(): boolean {
   return Boolean(process.env[TEST_DB_ENV]?.trim());
 }
 
-/**
- * Return the configured test database URL, or throw an actionable error.
- * We never silently skip required verification - see docs/RELIABILITY.md.
- */
+/** Return the configured test database URL or throw when verification is unconfigured. */
 export function requireTestDatabaseUrl(): string {
   const url = process.env[TEST_DB_ENV]?.trim();
   if (!url) {
@@ -75,10 +65,7 @@ export function requireReadOnlyTestDatabaseUrl(primaryConnectionString: string):
   return url.toString();
 }
 
-/**
- * Return the configured SQLite fixture path, or throw an actionable error.
- * We never silently skip required verification - see docs/RELIABILITY.md.
- */
+/** Return the configured SQLite fixture path or throw when verification is unconfigured. */
 export function requireTestSqlitePath(): string {
   const path = process.env[TEST_SQLITE_ENV]?.trim();
   if (!path) {
@@ -89,10 +76,7 @@ export function requireTestSqlitePath(): string {
   return path;
 }
 
-/**
- * Return the configured MySQL test database URL, or throw an actionable error.
- * We never silently skip required verification - see docs/RELIABILITY.md.
- */
+/** Return the configured MySQL test database URL or throw when verification is unconfigured. */
 export function requireTestMysqlUrl(): string {
   const url = process.env[TEST_MYSQL_ENV]?.trim();
   if (!url) {
@@ -107,7 +91,7 @@ export function requireTestMysqlUrl(): string {
   return url;
 }
 
-/** Return the restricted MySQL fixture user's URL (F093). Defaults to the configured MySQL
+/** Return the restricted MySQL fixture user's URL. Defaults to the configured MySQL
  * target so Docker Compose and CI need only configure the normal admin fixture URL. */
 export function requireReadOnlyTestMysqlUrl(primaryConnectionString: string): string {
   const configured = process.env[TEST_READONLY_MYSQL_ENV]?.trim();
@@ -119,7 +103,7 @@ export function requireReadOnlyTestMysqlUrl(primaryConnectionString: string): st
   return url.toString();
 }
 
-/** Return the role-only-writer MySQL fixture user's URL (F093). */
+/** Return the role-only-writer MySQL fixture user's URL. */
 export function requireRoleWriterTestMysqlUrl(primaryConnectionString: string): string {
   const configured = process.env[TEST_ROLE_WRITER_MYSQL_ENV]?.trim();
   if (configured) return configured;
@@ -130,10 +114,7 @@ export function requireRoleWriterTestMysqlUrl(primaryConnectionString: string): 
   return url.toString();
 }
 
-/**
- * Return the configured MongoDB test database URL, or throw an actionable error.
- * We never silently skip required verification - see docs/RELIABILITY.md.
- */
+/** Return the configured MongoDB test database URL or throw when verification is unconfigured. */
 export function requireTestMongoUrl(): string {
   const url = process.env[TEST_MONGO_ENV]?.trim();
   if (!url) {
@@ -166,21 +147,13 @@ export const MYSQL_RELATIONSHIP_FIXTURE = {
 /** Arbitrary fixed key for setupFixture's advisory lock - scoped to this one fixture, not shared. */
 const FIXTURE_LOCK_KEY = 958312;
 
-/**
- * Create a small, deterministic fixture table in the target database.
- * Idempotent under concurrent Playwright workers. The table stays present after its first creation;
- * each reset uses transactional TRUNCATE+INSERT, so a browser introspecting in parallel sees either
- * the previous complete fixture or the next one, never the old DROP+CREATE gap. The advisory lock
- * serializes writers and must be acquired/released on the same checked-out client.
- */
+/** Create the shared Postgres fixture under an advisory lock. */
 export async function setupFixture(connectionString: string): Promise<void> {
   const pool = new Pool({ connectionString });
   const client = await pool.connect();
   try {
     await client.query("SELECT pg_advisory_lock($1)", [FIXTURE_LOCK_KEY]);
     try {
-      // The role is part of Docker Compose's init fixture too, but creating it here keeps the
-      // same restricted-user contract available in CI service containers and custom local stacks.
       await client.query(`DO $$
         BEGIN
           IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${READONLY_POSTGRES_ROLE}') THEN
@@ -198,10 +171,6 @@ export async function setupFixture(connectionString: string): Promise<void> {
       await client.query(
         `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ${READONLY_POSTGRES_ROLE}`
       );
-      // `profile` is jsonb, nullable, only populated for one row - exercises F016's expandable
-      // cell viewer (nested three levels deep: object -> object -> array) without needing a
-      // second table, which would make the Schema tab show 2 table-detail cards and break
-      // connect-and-inspect.spec.ts's singular assertion under concurrent @full specs.
       await client.query(`CREATE TABLE IF NOT EXISTS ${FIXTURE.table} (
          id serial PRIMARY KEY,
          name text NOT NULL,
@@ -235,10 +204,7 @@ function quoteDatabaseIdentifier(connectionString: string): string {
   return `"${decodeURIComponent(database).replace(/"/g, '""')}"`;
 }
 
-/**
- * Run a sequence of raw SQL statements against a target database, sequentially in one pool.
- * A generic low-level helper for ad hoc/manual fixture and seed scripts.
- */
+/** Run raw SQL statements sequentially in one pool. */
 export async function runStatements(connectionString: string, statements: string[]): Promise<void> {
   const pool = new Pool({ connectionString });
   try {
@@ -250,11 +216,7 @@ export async function runStatements(connectionString: string, statements: string
   }
 }
 
-/**
- * Ensure a valid (possibly empty) SQLite file exists at `path`, creating it if missing.
- * Needed before an e2e server opens its own read-only connection (`fileMustExist: true`, see
- * packages/drivers/sqlite/src/index.ts), which cannot create a new file itself.
- */
+/** Ensure a valid SQLite fixture file exists before the read-only server opens it. */
 export function ensureSqliteFile(path: string): void {
   mkdirSync(dirname(path), { recursive: true });
   try {
@@ -274,27 +236,12 @@ export function ensureSqliteFile(path: string): void {
       throw error;
     }
 
-    // E2E fixtures are generated artifacts, never user databases. Recreate a stale/corrupt file
-    // instead of letting every SQLite project fail before the browser journey begins.
     rmSync(path, { force: true });
     new Database(path).close();
   }
 }
 
-/**
- * Create the same fixture table/rows as {@link setupFixture}'s Postgres version, in a SQLite file.
- * Idempotent: safe to run repeatedly - including concurrently, from multiple Playwright workers
- * running different @full specs against the same fixture file at once. Without this, DROP+CREATE
- * isn't race-safe across separate processes (each statement auto-commits on its own, so another
- * process's DROP+CREATE can interleave between this one's DROP and CREATE) - the exact same class
- * of bug setupFixture's Postgres advisory lock already fixes, reproduced here once a third @full
- * engine project pushed total worker parallelism higher (F014). Fixed the same way: the whole
- * DROP+CREATE+INSERT sequence runs in one transaction (SQLite's own file lock is then held for the
- * whole sequence, not per-statement), with a busy_timeout so a concurrent writer waits for the lock
- * instead of immediately failing with SQLITE_BUSY. Opens its own read-write connection and closes
- * it when done - the long-lived e2e server holds a separate read-only connection to the same file
- * (see docs/product-specs/connect-and-inspect-sqlite.md's read-only enforcement).
- */
+/** Recreate the SQLite fixture atomically so concurrent workers cannot observe partial state. */
 export function setupSqliteFixture(path: string): void {
   ensureSqliteFile(path);
   const db = new Database(path);
@@ -332,12 +279,7 @@ function quoteMysqlDatabaseIdentifier(connectionString: string): string {
   return `\`${decodeURIComponent(database).replace(/`/g, "``")}\``;
 }
 
-/**
- * Create the same fixture table/rows as {@link setupFixture}'s Postgres version, in MySQL.
- * Idempotent and safe under concurrent Playwright workers. Tables stay present after first
- * creation and row replacement is transactional, so catalog readers never observe a DROP/CREATE
- * gap. MySQL's named lock (`GET_LOCK`/`RELEASE_LOCK`) serializes writers on one held connection.
- */
+/** Create the MySQL fixture while serializing workers with a named lock. */
 export async function setupMysqlFixture(connectionString: string): Promise<void> {
   const pool = mysql.createPool(connectionString);
   const connection = await pool.getConnection();
@@ -346,12 +288,6 @@ export async function setupMysqlFixture(connectionString: string): Promise<void>
     try {
       const databaseIdent = quoteMysqlDatabaseIdentifier(connectionString);
 
-      // Restricted fixtures for permission introspection tests (F093). qyre_role_writer's write
-      // grants come only from an active default role, never a direct grant on the user itself -
-      // the exact case plain information_schema.TABLE_PRIVILEGES/SCHEMA_PRIVILEGES (and even
-      // ROLE_TABLE_GRANTS, which only sees exact-table role grants) would miss entirely. See
-      // packages/drivers/mysql/src/permissions.ts's top comment for why introspection reads
-      // SHOW GRANTS instead of those views.
       await connection.query(
         `CREATE USER IF NOT EXISTS '${MYSQL_READONLY_USER}'@'%' IDENTIFIED BY '${MYSQL_READONLY_USER}'`
       );
@@ -410,14 +346,7 @@ export async function setupMysqlFixture(connectionString: string): Promise<void>
   }
 }
 
-/**
- * Create the same fixture collection/documents as {@link setupFixture}'s Postgres version, in
- * MongoDB - plus a nested `profile` field on one document (matching F016's structured-cell-value
- * e2e fixture), since a Mongo document's nested fields are the common case this engine exists to
- * browse (see docs/product-specs/connect-and-inspect-mongodb.md). Fixed ObjectIds and replacement
- * upserts make concurrent Playwright setup idempotent: overlapping workers converge on the same
- * three documents instead of duplicating rows between a collection drop and insert.
- */
+/** Create the shared MongoDB fixture with fixed IDs and idempotent replacement upserts. */
 export async function setupMongoFixture(connectionString: string): Promise<void> {
   const databaseName = new URL(connectionString).pathname.slice(1) || "qyre_test";
   const client = new MongoClient(connectionString);

@@ -8,9 +8,6 @@ import { permissionRoute } from "../../services/access/permission-denied.js";
 import { resolveBatchOps } from "../../services/rows/row-mutation-validation.js";
 
 function rowCountFor(result: InsertRowResult | UpdateRowResult | DeleteRowsResult): number {
-  // Checked in this order deliberately: `InsertRowResult.row` is optional, so `"row" in result`
-  // can't narrow it out of the other branches the way `matched`/`deleted` (always-present on their
-  // own result types) can - insert is the safe default once those two are ruled out.
   if ("matched" in result) return result.matched;
   if ("deleted" in result) return result.deleted;
   return 1;
@@ -55,12 +52,6 @@ async function commitMongoGridOps(db: DatabaseAdapter, ops: Parameters<typeof re
 }
 
 export function registerMutationsRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  // F102/F146: staged grid commit. SQL adapters run a native all-or-nothing transaction; MongoDB
-  // applies validated JSON field operations in order because standalone deployments cannot offer a
-  // transaction. Every op is validated against
-  // its own table's real columns/permissions/kind before the transaction starts - a validation
-  // failure on any op aborts the whole commit before any write happens, same as the per-op routes'
-  // own validation but applied up front across the whole array.
   app.post<{ Body: unknown }>(
     "/api/mutations/commit",
     permissionRoute({

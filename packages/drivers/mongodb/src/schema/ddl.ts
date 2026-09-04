@@ -1,11 +1,7 @@
 import type { ColumnDefinition, IndexDefinition } from "@qyre/core";
 import type { MongoClient } from "mongodb";
 
-/**
- * MongoDB is schemaless - there is no `ALTER COLLECTION` concept, so `columns` is ignored entirely
- * (accepted only for API-shape parity with the SQL engines), per docs/product-specs/
- * schema-editing.md's "MongoDB's column operations" section.
- */
+/** MongoDB collections are schemaless; `_columns` is accepted for adapter parity. */
 export async function createTable(
   client: MongoClient,
   schema: string,
@@ -36,9 +32,6 @@ export async function dropTable(client: MongoClient, schema: string, table: stri
   await client.db(schema).collection(table).drop();
 }
 
-/** `columns` entries are top-level or dotted field paths (not SQL column names), per
- * docs/product-specs/schema-editing.md - passed straight through as MongoDB's own compound-index
- * key spec (each field ascending, matching every other index this codebase creates). */
 export async function createIndex(
   client: MongoClient,
   schema: string,

@@ -9,9 +9,6 @@ import { applyReadOnlyOverride } from "../../services/access/read-only-capabilit
 import { permissionRoute } from "../../services/access/permission-denied.js";
 import { requireAdapter } from "../../services/connection/require-adapter.js";
 
-/** Database/schema-lifecycle operations landed by F115, per docs/product-specs/schema-editing.md's
- * audit-event contract - a separate type from schema-ddl-validation.ts's `DdlOperation` since these
- * target a database/schema, not a `schema.table` pair. `listDatabases` is a read, never audited. */
 type AdminOperation = "createDatabase" | "dropDatabase" | "createSchema" | "dropSchema";
 
 function logAdminSuccess(
@@ -42,9 +39,6 @@ function logAdminFailure(
   request.log.error({ operation, target, durationMs, outcome: "error" }, `${operation} failed`);
 }
 
-/** A "warn"/"rejected" outcome (confirmed-name mismatch or capability rejection) - the same
- * explicit pre-throw logging schema-ddl-validation.ts's `ddlRejected` does, since the generic
- * error handler only logs an EventLog entry for >=500s. */
 function adminRejected(
   ctx: ServerContext,
   request: FastifyRequest,
@@ -65,19 +59,7 @@ function adminRejected(
 
 const CAPABILITY_MESSAGE = "This session cannot manage databases.";
 
-/**
- * Database/schema-lifecycle routes (F115), per docs/product-specs/schema-editing.md's "Database
- * and schema lifecycle" section. Every mutating route is gated by both the F096 central read-only
- * guard (`config: { mutating: true }`) and the session's `supportsDatabaseManagement` capability -
- * the same two-tier gate every DDL route already applies. An absent adapter member is a clean
- * per-engine 400 (SQLite has no admin namespace at all; MongoDB has no `createDatabase`; only
- * Postgres has the schema pair), mirroring the MongoDB column-routes precedent - never a bare 404
- * that could read as a routing bug.
- */
 export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  // List every non-system database on the connected server. A read - no mutating gate, no
-  // capability check. The permissionRoute config normalizes an engine-side denial (e.g. a
-  // MongoDB role without cluster-wide listDatabases) into the shared safe 403 body.
   app.get(
     "/api/databases",
     permissionRoute(
@@ -100,7 +82,6 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
     }
   );
 
-  // Create a database. Non-destructive - a plain review-before-submit step, no typed confirmation.
   app.post<{ Body: unknown }>(
     "/api/databases",
     permissionRoute({
@@ -152,8 +133,6 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
     }
   );
 
-  // Drop a database. Destructive: requires the caller to type the database's exact name,
-  // re-validated server-side, per the spec's typed-confirmation rule.
   app.delete<{ Params: { database: string }; Body: unknown }>(
     "/api/databases/:database",
     permissionRoute({
@@ -218,8 +197,6 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
     }
   );
 
-  // Create a schema (Postgres only - MySQL's "schema" IS its database, SQLite/MongoDB have no
-  // schema concept below the database). Non-destructive - no typed confirmation.
   app.post<{ Body: unknown }>(
     "/api/schemas",
     permissionRoute({ operation: "create-schema", target: "schema", likelyMissingGrant: "CREATE" }),
@@ -255,9 +232,6 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
     }
   );
 
-  // Drop a schema (Postgres only). Destructive: requires the caller to type the schema's exact
-  // name, re-validated server-side. No CASCADE - dropping a non-empty schema surfaces Postgres's
-  // own dependency error rather than silently taking every contained table with it.
   app.delete<{ Params: { schema: string }; Body: unknown }>(
     "/api/schemas/:schema",
     permissionRoute({
@@ -278,10 +252,6 @@ export function registerDatabaseAdminRoutes(app: FastifyInstance, ctx: ServerCon
         return reply.status(400).send({ error: "This engine does not support dropping schemas." });
       }
 
-      // No exists-first 404 here, unlike dropDatabase: getOverview() derives schemas from tables,
-      // so a legitimately empty schema (the most common drop target) never appears in it, and
-      // there is no other schema list in the adapter surface. A nonexistent schema surfaces
-      // Postgres's own "schema does not exist" error instead.
       if (parsedBody.data.confirmedName !== schema) {
         throw adminRejected(
           ctx,

@@ -23,13 +23,6 @@ export interface EditColumnDialogProps {
   onClose: () => void;
 }
 
-/**
- * Rename-and/or-alter a column in one submission (F114), matching `PATCH .../ddl/columns/:column`'s
- * combined shape (F111) - only the fields that actually changed are sent, per the route's own "at
- * least one of newName/changes" requirement. Default-value editing is deliberately out of scope
- * here (kept to name/type/nullability), mirroring F113's precedent of narrowing a form's scope
- * rather than exposing every field the API could theoretically accept.
- */
 export function EditColumnDialog({
   table,
   columnName,

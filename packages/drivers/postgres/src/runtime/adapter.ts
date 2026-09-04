@@ -309,8 +309,6 @@ export class PostgresAdapter implements DatabaseAdapter {
               rollback: async () => {
                 await client.query("ROLLBACK");
               },
-              // withCancellableClient releases the client in its own `finally` - this callback
-              // exists only to satisfy runInReadOnlyTransaction's shape, not to double-release.
               release: () => {}
             },
             capResultRows(rewritten)
@@ -323,13 +321,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     );
   }
 
-  /**
-   * F107: executes a single mutation/ddl/confirmed-destructive statement directly on the pool, no
-   * `READ ONLY` transaction wrapper. CRITICAL: deliberately does NOT call
-   * `coerceUnknownQuotedIdentifiers` - that DWIM double-quote-to-string rewrite is acceptable on
-   * `runReadOnlyQuery`'s read path but must never silently alter a mutation's SQL (see
-   * docs/product-specs/sql-editor.md).
-   */
+  /** Execute a mutation or DDL statement without a read-only transaction wrapper. */
   async runQuery(sql: string, operationId?: string): Promise<QueryExecutionResult> {
     return withCancellableClient(
       this.getPool(),
@@ -337,12 +329,6 @@ export class PostgresAdapter implements DatabaseAdapter {
       operationId,
       async (client, wasCancelledByUser) => {
         try {
-          // Deliberately uncapped: `capResultRows` wraps by leading keyword, so a writable CTE
-          // (`WITH d AS (DELETE FROM t RETURNING *) SELECT * FROM d` - valid Postgres) became
-          // `SELECT * FROM (WITH d AS (DELETE ...) ...) AS qyre_capped_query`, a syntax error that
-          // made every `WITH`-led write fail (F154). Only reads reach this method's caller with an
-          // unbounded row count anyway - `/api/query` routes every `read` classification to
-          // `runReadOnlyQuery`, which still caps.
           const result = await client.query(sql);
           return {
             columns: result.fields.map((field) => field.name),

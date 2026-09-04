@@ -3,11 +3,6 @@ import { createServer } from "../../src/index.js";
 import { permissionRoute } from "../../src/services/access/permission-denied.js";
 import { authHeaders } from "../helpers/auth.js";
 
-/**
- * No mutating route exists yet (F096 lands before any write feature), so these tests register a
- * These tests register a throwaway route directly on the built app to exercise the guard the same
- * way a real write route does: opting into both mutating and permission-denial metadata.
- */
 describe("read-only guard (F096)", () => {
   it("rejects a route marked mutating when the session is read-only", async () => {
     const app = createServer({ readOnly: true });

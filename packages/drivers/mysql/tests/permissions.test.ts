@@ -6,9 +6,7 @@ import {
   fetchTablePermissions
 } from "../src/access/permissions.js";
 
-/** A fake `mysql2` pool that answers by inspecting the query text, since
- * `fetchConnectionCapabilities`/`fetchAllTablePermissions` issue more than one query (some in
- * parallel via `Promise.all`, so a fixed call-order fake would be fragile). */
+/** Match fake pool responses by query because the implementation runs requests in parallel. */
 function fakePool(opts: {
   grantLines: string[];
   isGlobalReadOnly?: boolean;
@@ -66,9 +64,6 @@ describe("fetchTablePermissions (F093)", () => {
   });
 
   it("reports a role-derived grant the same way, since SHOW GRANTS already merged it in (F093)", async () => {
-    // This is the exact shape MySQL prints for a user with an active default role that grants
-    // INSERT/UPDATE/DELETE at the schema level - the case plain TABLE_PRIVILEGES/SCHEMA_PRIVILEGES
-    // (and even ROLE_TABLE_GRANTS, which only sees exact-table role grants) would miss entirely.
     const pool = fakePool({
       grantLines: [
         "GRANT USAGE ON *.* TO `writer`@`%`",

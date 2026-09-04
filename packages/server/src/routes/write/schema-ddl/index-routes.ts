@@ -13,9 +13,6 @@ import {
 import { logDdlFailure, logDdlSuccess } from "./route-support.js";
 
 export function registerIndexDdlRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  // Create an index. Non-destructive - a plain review-before-submit step, no typed confirmation.
-  // Gated on supportsIndexManagement (not supportsDdl - a distinct capability F090 reserved for
-  // index grants specifically), per docs/product-specs/schema-editing.md.
   app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/indexes",
     permissionRoute({
@@ -71,10 +68,6 @@ export function registerIndexDdlRoutes(app: FastifyInstance, ctx: ServerContext)
     }
   );
 
-  // Drop an index. A plain explicit confirming click, not typed confirmation - an index carries no
-  // user data of its own and is recoverable by recreating it, a materially lower-risk action than
-  // dropping table structure or row data (docs/product-specs/schema-editing.md's "Typed-
-  // confirmation" section).
   app.delete<{ Params: { schema: string; table: string; indexName: string } }>(
     "/api/tables/:schema/:table/ddl/indexes/:indexName",
     permissionRoute({

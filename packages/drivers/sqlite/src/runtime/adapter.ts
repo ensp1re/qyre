@@ -52,16 +52,7 @@ import { normalizeRow } from "./row-values.js";
 import { formatSqlInsert, streamRows } from "../query/row-export.js";
 import { buildFilterClause, quoteIdent } from "../query/sql.js";
 
-/**
- * Loads `better-sqlite3` on first connect rather than at module load.
- *
- * It is an optional dependency: its native addon is compiled per Node ABI, and when npm finds no
- * prebuilt binary for the running Node it falls back to node-gyp, which fails outright on a
- * machine with no compiler. As a required dependency that failure aborted `npm i qyre` entirely -
- * so a user who only ever connects to Postgres could not install the tool at all. Optional plus
- * this lazy import means the install succeeds, the other three engines work, and only an actual
- * SQLite connection reports the problem, with the fix in the message instead of a node-gyp dump.
- */
+/** Load the optional native SQLite binding only when SQLite is used. */
 async function loadBetterSqlite3(): Promise<typeof Database> {
   try {
     return (await import("better-sqlite3")).default;
@@ -78,26 +69,14 @@ async function loadBetterSqlite3(): Promise<typeof Database> {
   }
 }
 
-/**
- * SQLite has no cancellation support (F126) and intentionally omits `operationRegistry` - unlike
- * Postgres/MySQL's connection-pool cancel commands or MongoDB's `killOp`, better-sqlite3 runs every
- * query synchronously on Node's single thread, so the process can't receive and act on a cancel
- * request while a query is in flight; there is no "second connection" to send one from. This is
- * true for reads as much as writes, so a writes-only worker-thread migration (the one place a
- * synchronous engine could plausibly support cancellation) wouldn't help the dominant Cancel use
- * case anyway (the Rows-table fetch is always a read). A full read+write worker-thread rewrite is
- * out of scope for this slice; callers should treat SQLite as non-cancellable and hide/disable any
- * Cancel control for it.
- */
+/** SQLite queries are synchronous, so no operation cancellation is registered. */
 export class SqliteAdapter implements DatabaseAdapter {
   public readonly engine = "sqlite";
   public readonly admin: DatabaseAdminApi = {
     inspectAccess: () => inspectAccess(this.resolvedPath ?? resolve(this.target.raw), this.getDb())
   };
   public readonly mutations: RowMutationApi = {
-    // async, not a plain arrow returning Promise.resolve(...) - insertRow() throws synchronously
-    // on a readonly database, and only an async function body converts that into a rejection
-    // instead of an uncaught throw at the call site (better-sqlite3 has no async API to await).
+    // Keep this wrapper async so synchronous driver errors become rejected promises.
     insertRow: async (_schema, table, values) => insertRow(this.getDb(), table, values),
     updateRowByKey: async (_schema, table, key, changes) =>
       updateRowByKey(this.getDb(), table, key, changes),
@@ -160,7 +139,7 @@ export class SqliteAdapter implements DatabaseAdapter {
     } catch {
       // A normal open can fail outright in rare OS-permission edge cases (e.g. the file itself is
       // unreadable) - fall back to an explicit read-only open so Qyre can still inspect the
-      // database instead of refusing to connect at all. getCapabilities() (F094) determines real
+      // database instead of refusing to connect at all. getCapabilities() determines real
       // writability independently, so a connection degraded here never gets reported as writable.
       this.db = new Driver(this.resolvedPath, { readonly: true, fileMustExist: true });
     }
@@ -205,13 +184,7 @@ export class SqliteAdapter implements DatabaseAdapter {
     return { ...introspectTable(this.getDb(), schema, table), permissions };
   }
 
-  /**
-   * SQLite has no cross-table catalog query (each pragma above is per-table by design) - F123's
-   * batching win here is moving the fan-out from the *route* (an unbounded `Promise.all` across
-   * every adapter call) into the adapter as a plain sequential loop over `introspectTable`.
-   * Permissions (F094) are computed once and shared across every table, not recomputed per table -
-   * they are uniform for the whole file, unlike Postgres/MySQL's per-table grant queries.
-   */
+  /** Enumerate and introspect SQLite tables sequentially. */
   async getAllTables(): Promise<TableMetadata[]> {
     const targets = fetchAllTableTargets(this.getDb());
     const permissions = tablePermissionsFromCapabilities(await this.getCapabilities());
@@ -232,7 +205,7 @@ export class SqliteAdapter implements DatabaseAdapter {
     search?: ResolvedRowSearch
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
-    // sort.column is already validated by the caller against the table's real columns (F065).
+    // sort.column is already validated by the caller against the table's real columns.
     const orderBy = sort
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
       : "";
@@ -267,10 +240,7 @@ export class SqliteAdapter implements DatabaseAdapter {
   async runReadOnlyQuery(sql: string): Promise<RowPage> {
     assertReadOnly(sql);
 
-    // assertReadOnly is a heuristic string check; SQLite's own `query_only` pragma is the
-    // authoritative guarantee, refusing any write regardless of what the string check missed -
-    // toggled only around this one query (never left on) since F094 stopped connect() forcing
-    // every connection permanently read-only, so the open mode alone no longer guarantees this.
+    // Enforce SQLite's authoritative read-only guard for this query.
     const db = this.getDb();
     db.pragma("query_only = 1");
     try {
@@ -288,15 +258,9 @@ export class SqliteAdapter implements DatabaseAdapter {
     }
   }
 
-  /** F107: executes a single mutation/ddl/confirmed-destructive statement directly, no
-   * `query_only` toggling. better-sqlite3's prepared-statement `reader` flag tells us ahead of
-   * `.run()`/`.all()` which shape the statement produces - unlike Postgres/MySQL there's no single
-   * call that returns either shape uniformly. No statement timeout (better-sqlite3 is synchronous
-   * and has none to honor here, matching `runReadOnlyQuery`'s own precedent). */
+  /** Execute one mutation, DDL, or confirmed destructive statement. */
   async runQuery(sql: string): Promise<QueryExecutionResult> {
-    // Deliberately uncapped - see the Postgres adapter's matching note (F154): the row cap's
-    // derived-table wrapper turns a `WITH`-led write into a syntax error, and only
-    // `read`-classified SQL (which never reaches here) carries the unbounded-rows risk.
+    // Leave writes uncapped; the read row-cap wrapper cannot wrap them safely.
     const stmt = this.getDb().prepare(sql).safeIntegers(true);
     if (stmt.reader) {
       const rows = (stmt.all() as Array<Record<string, unknown>>).map(normalizeRow);
@@ -330,7 +294,7 @@ export class SqliteAdapter implements DatabaseAdapter {
   }
 }
 
-/** Factory that creates {@link SqliteAdapter} instances for SQLite targets. */
+/** Factory that creates SQLite adapter instances. */
 export const sqliteAdapterFactory: AdapterFactory = {
   engine: "sqlite",
   supports: (target) => target.engine === "sqlite",

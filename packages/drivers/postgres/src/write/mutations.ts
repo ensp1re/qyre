@@ -9,16 +9,9 @@ import type { Pool, PoolClient } from "pg";
 import { classifyPostgresPermissionDenied } from "../access/permission-errors.js";
 import { quoteIdent } from "../query/sql.js";
 
-/** Either the pool (single-op routes) or a transaction-scoped client (F102's batch commit) - both
- * expose the same `.query()` signature `pg` needs here. */
+/** Queryable pool or transaction client. */
 type Queryable = Pool | PoolClient;
 
-/**
- * `values` is already validated/coerced against the table's real columns by the caller
- * (packages/server/src/services/rows/row-mutation-validation.ts) - this only builds the parameterized
- * statement. `RETURNING *` reports the inserted row (including any engine-assigned default/serial
- * values) without a second round trip, per docs/product-specs/row-editing.md.
- */
 export async function insertRow(
   pool: Queryable,
   schema: string,
@@ -39,11 +32,6 @@ export async function insertRow(
   return { row: result.rows[0] as Record<string, unknown> | undefined };
 }
 
-/**
- * `key`/`changes` are already validated/coerced (full primary-key match enforced, PK columns
- * excluded from `changes`) by the caller - see row-mutation-validation.ts. `matched` comes straight
- * from `rowCount`: a composite key still identifies at most one row, so 0 vs 1 is the whole story.
- */
 export async function updateRowByKey(
   pool: Queryable,
   schema: string,
@@ -69,12 +57,6 @@ export async function updateRowByKey(
   return { matched: result.rowCount ?? 0 };
 }
 
-/**
- * Each key is already validated/coerced (full primary-key match enforced) by the caller - see
- * row-mutation-validation.ts. One parameterized DELETE per key, summed into `deleted`: simpler and
- * just as correct as a single compound-WHERE statement for the small, explicit key lists this spec
- * covers (no filter-based bulk delete), and avoids composite-key IN-clause complexity entirely.
- */
 export async function deleteRowsByKey(
   pool: Queryable,
   schema: string,
@@ -97,12 +79,7 @@ export async function deleteRowsByKey(
   return { deleted };
 }
 
-/**
- * Runs every staged op in one native transaction (F102), all-or-nothing, on a single checked-out
- * client (a real `BEGIN`/`COMMIT`/`ROLLBACK` needs one session, unlike `pool.query`'s per-call
- * pooling). A stale update (`matched: 0`) or delete (`deleted < keys.length`) rolls back and reports
- * that op's index, same treatment a native constraint-violation error gets in the `catch` below.
- */
+/** Run staged operations atomically on one checked-out client. */
 export async function commitBatch(pool: Pool, ops: MutationOp[]): Promise<CommitMutationsResult> {
   const client = await pool.connect();
   const results: Array<InsertRowResult | UpdateRowResult | DeleteRowsResult> = [];

@@ -1,12 +1,6 @@
 import type { Pool } from "pg";
 import { quoteIdent } from "../query/sql.js";
 
-/**
- * Database/schema-lifecycle operations (F115), per docs/product-specs/schema-editing.md's
- * "Database and schema lifecycle" section. `name` is already validated (conservative identifier
- * pattern) by the caller - see packages/server/src/services/schema/schema-ddl-validation.ts - and is
- * quoted here regardless, same as every ddl.ts statement.
- */
 export async function listDatabases(pool: Pool): Promise<string[]> {
   const result = await pool.query<{ datname: string }>(
     "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname"

@@ -4,12 +4,6 @@ import { useEffect, useRef } from "react";
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/**
- * Traps Tab/Shift+Tab focus within `containerRef` while `active`, and restores focus to whatever
- * element had it beforehand once `active` goes false (or the component unmounts) - so a modal
- * drawer can't leak keyboard focus into obscured background content, and closing it doesn't strand
- * focus on `document.body`.
- */
 export function useFocusTrap(containerRef: RefObject<HTMLElement | null>, active: boolean): void {
   const triggerRef = useRef<HTMLElement | null>(null);
 

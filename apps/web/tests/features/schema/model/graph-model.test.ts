@@ -59,7 +59,6 @@ describe("buildGraph (F074)", () => {
   });
 
   it("skips a foreign key whose target table isn't among the fetched tables", () => {
-    // posts references users, but users isn't included here -> dangling edge skipped.
     const { nodes, edges } = buildGraph([posts]);
     expect(nodes).toHaveLength(1);
     expect(edges).toHaveLength(0);
@@ -196,7 +195,6 @@ describe("layoutGraph (F074)", () => {
       expect(Number.isFinite(node.position.x)).toBe(true);
       expect(Number.isFinite(node.position.y)).toBe(true);
     }
-    // Connected nodes land on different rows (dagre TB layout), not stacked at the origin.
     const [a, b] = laidOut;
     expect(a?.position.y).not.toBe(b?.position.y);
   });

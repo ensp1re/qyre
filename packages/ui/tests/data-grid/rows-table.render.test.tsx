@@ -38,17 +38,14 @@ describe("RowsTable server-side sort (component rendering, F065)", () => {
   });
 
   it("does not reorder rows itself even when a sort is already active via props", () => {
-    // Rows are expected to already arrive sorted from the server (F065) - RowsTable must not
-    // additionally reorder them client-side, unlike the old F055 client-side sort behavior.
+    // RowsTable receives server-sorted rows and does not reorder them client-side.
     renderTable({ sortColumn: "name", sortDirection: "asc" });
     const cells = screen.getAllByText(/^(Charlie|Alice|Bob)$/);
     expect(cells.map((cell) => cell.textContent)).toEqual(["Charlie", "Alice", "Bob"]);
   });
 
   it("cycles asc -> desc -> cleared as a controlled parent re-renders with each reported sort", () => {
-    // RowsTable is a controlled component here (F065) - it has no local sort state of its own, so
-    // the cycle only advances when the parent actually re-renders with the sortColumn/
-    // sortDirection onSortChange just reported, exactly as apps/web's App.tsx does.
+    // The parent must rerender with the reported sort to advance the cycle.
     const onSortChange = vi.fn();
     const baseProps: ComponentProps<typeof RowsTable> = {
       rowPage,
@@ -125,9 +122,7 @@ describe("RowsTable server-side sort (component rendering, F065)", () => {
     expect(screen.queryByText(/50,000/)).not.toBeInTheDocument();
   });
 
-  // F156: a view has no stored rows, so introspection returns no total and the segment vanishes.
-  // Without naming the kind, that absence - and the disabled editing that comes with it - reads as
-  // Qyre malfunctioning rather than as a property of the object.
+  // Views have no stored row total, so the kind label explains the missing count.
   it("names the kind for a view, which legitimately has no row total", () => {
     renderTable({ tableKind: "view", tableName: "recent_funding", approxRowCount: undefined });
 

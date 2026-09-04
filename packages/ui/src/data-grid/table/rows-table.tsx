@@ -24,9 +24,6 @@ import { useRowsTableModel } from "./use-rows-table.js";
 export { toCsv };
 export type { RowsTableProps };
 
-/** Fixed per-column pixel width (F146/A01) - paired with `table-layout: fixed` so a long value
- * truncates with an ellipsis instead of expanding the column/row indefinitely. The full value
- * stays reachable via CellValueDrawer/DateDetailPopover, never silently hidden. */
 const COLUMN_WIDTH = 220;
 
 export function RowsTable({
@@ -129,8 +126,6 @@ export function RowsTable({
     canDelete
   });
 
-  // Columns Tab/Shift+Tab may land on - editable, non-PK, and (when FK navigation is available)
-  // non-FK, mirroring `isEditableCell`'s column-level conditions below without the per-row ones.
   const editableColumnOrder = rowPage.columns.filter((name) => {
     const meta = columnByName.get(name);
     if (!editableColumns?.has(name) || meta?.isPrimaryKey) return false;
@@ -147,9 +142,6 @@ export function RowsTable({
     });
   }
 
-  /** Moves the grid's selection after Enter/Tab/Shift+Tab commits an inline edit (F146) -
-   * spreadsheet-style "commit and advance" so editing several cells/rows in sequence never dead-
-   * ends back at a plain display cell with no next step. */
   function moveSelection(rowIndex: number, column: string, direction: CommitDirection): void {
     let nextRowIndex = rowIndex;
     let nextColumn = column;
@@ -181,16 +173,12 @@ export function RowsTable({
     if (nextRowKey) focusCell(`${nextRowKey}:${nextColumn}`);
   }
 
-  /** The click event starts after focus/blur processing, so an inline input can stage its draft
-   * first. Then any different table cell dismisses the old scalar, structured, or insert editor. */
   function dismissEditorFromOtherCell(event: ReactMouseEvent<HTMLDivElement>): void {
     if (!activeEditor || !(event.target instanceof Element)) return;
     const clickedCell = event.target.closest<HTMLTableCellElement>("td");
     if (clickedCell && clickedCell.dataset.editorId !== activeEditor) setActiveEditor(null);
   }
 
-  /** Arrow-key/copy/paste/revert grid shortcuts (F146), scoped to the current `selectedCell` -
-   * attached to the scroll container so it fires regardless of which cell's control has DOM focus. */
   function handleGridKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
     if (!selectedCell || activeEditor) return;
     const item = filtered[selectedCell.rowIndex];
@@ -270,8 +258,6 @@ export function RowsTable({
               targetMetadata
             );
             if (!capability.editable) return;
-            // Skip (never stage) a pasted value that fails type validation - safer than silently
-            // corrupting a cell with an unparseable value the user didn't mean to paste there.
             const result = parseMutationDraft(cellText, capability, engine, targetMetadata);
             if (!result.valid) return;
             pendingChanges.stageEdit(
@@ -573,10 +559,6 @@ export function RowsTable({
                       const editorCapability = meta
                         ? mutationEditorCapability(meta.dataType, engine, meta)
                         : undefined;
-                      // FK-with-navigation and PK-with-filter-click keep their existing single-click
-                      // behavior even when this column is otherwise editable - PK columns are never
-                      // in `editableColumns` in the first place (F103), so only the FK case actually
-                      // needs this explicit precedence check.
                       const isEditableCell =
                         editable &&
                         !reference &&

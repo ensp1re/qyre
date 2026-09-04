@@ -5,11 +5,6 @@ import { useRef } from "react";
 import { cn } from "../cn.js";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
 
-/** One past successful SQL Editor query (F012). Persisted by the caller (apps/web), not this
- * package - packages/ui stays presentation-only per FRONTEND.md. `classification` (F108) is
- * absent for a query recorded before this field existed, or for a read-only session (which never
- * computes one, per docs/product-specs/sql-editor.md's "read-only sessions keep today's editor
- * exactly"). */
 export interface QueryHistoryEntry {
   readonly sql: string;
   readonly ranAt: number;
@@ -21,9 +16,6 @@ export interface QueryHistoryDrawerProps {
   onOpenChange: (open: boolean) => void;
   entries: QueryHistoryEntry[];
   onSelect: (sql: string) => void;
-  /** Clears the stored history. History is persisted to localStorage as raw SQL, so a statement
-   * with an inline secret (`UPDATE users SET api_key = '...'`) outlives the session; the control
-   * belongs here, next to what it deletes, not only in Settings (PLAN.md P4). */
   onClear?: () => void;
 }
 
@@ -38,11 +30,6 @@ function formatRelativeTime(timestamp: number): string {
   return `${Math.round(diffHour / 24)}d ago`;
 }
 
-/**
- * A right-anchored slide-in drawer listing past successful queries, most recent first (F012).
- * Clicking a card only reports the selection via `onSelect` - the caller decides what that means
- * (prefill the editor and close), same division of responsibility as Sidebar's `onSelect`.
- */
 export function QueryHistoryDrawer({
   open,
   onOpenChange,

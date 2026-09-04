@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// Git pre-push hook body: refuse to push a `main` branch update directly.
-// Feature work must land via a `feature/<ID>-<slug>` branch and a PR (see docs/NAMING.md).
+// Refuse direct pushes to main; feature work goes through a PR.
 
 import { readFileSync } from "node:fs";
 

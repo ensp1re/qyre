@@ -7,17 +7,11 @@ import { Segmented } from "../primitives/segmented.js";
 import { useFocusTrap } from "../primitives/use-focus-trap.js";
 import { DatabasePanel } from "./database-panel.js";
 
-/** One previously-connected target (F064), most recent first. Persisted by the caller (apps/web),
- * not this package - packages/ui stays presentation-only per FRONTEND.md. */
 export interface RecentTarget {
-  /** The raw connection string/file path, so reconnecting doesn't require retyping credentials. */
   readonly raw: string;
-  /** Redacted, safe-to-render form of `raw`. */
   readonly display: string;
 }
 
-/** Engines the field-entry form supports (F073) - SQLite is a file path, not a
- * host/port/user/password shape, so it stays URL/path-only via the existing text input. */
 export type FieldEngine = "postgres" | "mysql" | "mongodb";
 
 export interface ConnectionFields {
@@ -27,7 +21,6 @@ export interface ConnectionFields {
   user: string;
   password: string;
   database: string;
-  /** MongoDB DNS seed-list scheme (`mongodb+srv://`) - host-only, the scheme forbids a port. */
   srv: boolean;
 }
 
@@ -43,14 +36,6 @@ const FIELD_ENGINE_LABEL: Record<FieldEngine, string> = {
   mongodb: "MongoDB"
 };
 
-/**
- * Composes a connection string from discrete fields (F073) - an alternative to pasting one for
- * developers who think in host/port/user/password rather than URL syntax. `host`/`port` fall back
- * to `localhost`/each engine's default port when left blank, matching how a developer would type
- * the URL by hand. `user`/`password`/`database` are percent-encoded so a special character in a
- * password doesn't corrupt the resulting URL's structure. MongoDB SRV targets emit
- * `mongodb+srv://` with no port - the scheme resolves hosts via DNS and rejects an explicit port.
- */
 export function composeConnectionString(fields: ConnectionFields): string {
   const host = fields.host.trim() || "localhost";
   const user = fields.user.trim();
@@ -76,13 +61,6 @@ const FIELD_ENGINE_BY_PROTOCOL: Record<string, FieldEngine> = {
   "mongodb+srv:": "mongodb"
 };
 
-/**
- * The inverse of `composeConnectionString` - splits a pasted full connection string back into
- * discrete fields, so pasting a URL into any single field-mode input (not just a dedicated "paste
- * here" box) fills in the whole form instead of dropping the raw string into that one field.
- * Returns null for anything that isn't a URL with a supported engine scheme, so an ordinary paste
- * (e.g. just a hostname) falls through to the default single-field paste behavior.
- */
 export function parsePastedConnectionString(text: string): ConnectionFields | null {
   let url: URL;
   try {
@@ -109,32 +87,21 @@ export function parsePastedConnectionString(text: string): ConnectionFields | nu
 export interface ConnectDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The current connection's redacted display string, or null when nothing is connected. */
   currentTarget: string | null;
   recentTargets: RecentTarget[];
-  /** Attempts to connect to `raw`. Resolves/rejects; a rejection's message is shown inline. */
   onConnect: (raw: string) => Promise<void>;
   isConnecting: boolean;
-  /** Sibling databases on the current server (F115/F116) - omit the whole "Databases on this
-   * server" section (e.g. SQLite, which has no database-list concept, or no connection yet) by
-   * leaving `databases` undefined and `onSwitchDatabase`/`onCreateDatabase`/`onDropDatabase` unset. */
   databases?: string[];
   databasesLoading?: boolean;
   databasesError?: string;
   currentDatabase?: string;
   canManageDatabases?: boolean;
-  /** Why `canManageDatabases` is false, e.g. "Qyre was started with --read-only." */
   databaseManagementReason?: string;
   onSwitchDatabase?: (database: string) => Promise<void>;
   onCreateDatabase?: (database: string) => Promise<void>;
   onDropDatabase?: (database: string) => Promise<void>;
 }
 
-/**
- * A right-anchored slide-in drawer (same pattern as `QueryHistoryDrawer`/`CellValueDrawer`) for
- * switching the running Qyre instance to a different database connection without restarting the
- * CLI (F064). See docs/product-specs/database-switching.md.
- */
 const EMPTY_FIELDS: ConnectionFields = {
   engine: "postgres",
   host: "",
@@ -188,10 +155,6 @@ export function ConnectDrawer({
   const [fields, setFields] = useState<ConnectionFields>(EMPTY_FIELDS);
   const [error, setError] = useState<string | undefined>();
 
-  // The drawer never unmounts (it's always rendered, just translated off-canvas when closed - see
-  // the `aside` below), so a leftover draft from a prior open/cancel would otherwise still be
-  // sitting in the form the next time it opens. Reset on every open so switching databases always
-  // starts from a clean slate, not whatever was last typed.
   useEffect(() => {
     if (!open) return;
     setMode("url");

@@ -3,12 +3,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 export interface DateDetailPopoverProps {
-  /** The cell's raw value as received - a date/timestamp column always arrives as a string over
-   * JSON (a raw Date never survives JSON.stringify as anything but its own ISO string), but this
-   * accepts unknown so a malformed/unparseable value still renders a graceful fallback. */
   value: unknown;
-  /** The triggering cell's `getBoundingClientRect()` - the popover anchors just below it, clamped
-   * so it never renders past the right edge of the viewport (F070's "attached to that row" ask). */
   anchorRect: DOMRect;
   onClose: () => void;
 }
@@ -19,7 +14,6 @@ function pad(value: number, width = 2): string {
   return String(value).padStart(width, "0");
 }
 
-/** e.g. "UTC+02:00" / "UTC-05:30" from a Date's own (browser-local) getTimezoneOffset(). */
 function formatUtcOffset(date: Date): string {
   const offsetMinutes = -date.getTimezoneOffset();
   const sign = offsetMinutes >= 0 ? "+" : "-";
@@ -27,7 +21,6 @@ function formatUtcOffset(date: Date): string {
   return `UTC${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
 }
 
-/** e.g. "3 days ago" / "in 2 hours" - the coarsest unit that keeps the magnitude readable. */
 export function formatRelativeTime(date: Date, now: Date = new Date()): string {
   const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
   const diffSeconds = Math.round((date.getTime() - now.getTime()) / 1000);
@@ -47,7 +40,6 @@ export function formatRelativeTime(date: Date, now: Date = new Date()): string {
   return rtf.format(0, "second");
 }
 
-/** One labeled, copyable row of date detail. */
 function DetailRow({
   label,
   text,
@@ -81,13 +73,6 @@ function DetailRow({
   );
 }
 
-/**
- * A small popover anchored just under a clicked date/timestamp cell (F070), showing the raw stored
- * value, ISO 8601 UTC, the browser's local timezone conversion, relative time, and unix epoch -
- * each individually copyable. Unlike CellValueDrawer (a full right-anchored panel for exploring a
- * structured/long value), this is deliberately small and positioned at the click site, matching
- * the "attached to that row" ask - a modal-style panel would be overkill for five short lines.
- */
 export function DateDetailPopover({
   value,
   anchorRect,

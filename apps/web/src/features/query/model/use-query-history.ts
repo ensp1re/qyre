@@ -18,12 +18,6 @@ function readEntries(): QueryHistoryEntry[] {
   return readVersionedStorage(localStorage, STORAGE, []);
 }
 
-/**
- * Tracks successful SQL Editor queries in localStorage (F012), most recent first, capped at
- * MAX_ENTRIES. Re-running a query that's already in history moves it to the front instead of
- * appending a duplicate card. Shared across every connected database, not scoped per connection -
- * see docs/product-specs/sql-editor.md.
- */
 export function useQueryHistory(): {
   entries: QueryHistoryEntry[];
   record: (sql: string, classification?: StatementClassification) => void;

@@ -23,9 +23,6 @@ function isPermissionDeniedResponse(value: unknown): value is PermissionDeniedRe
   );
 }
 
-/** Converts a non-2xx body into the error every fetcher throws. Structured denials notify the app
- * before throwing so active capability/table-permission queries refetch even when the caller only
- * renders the error message. */
 export function apiResponseError(body: unknown, status: number): Error {
   if (isPermissionDeniedResponse(body)) {
     for (const listener of listeners) listener(body);

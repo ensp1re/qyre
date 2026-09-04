@@ -1,21 +1,3 @@
-/**
- * MySQL permission introspection (F093), following the same shape as
- * `packages/drivers/postgres/src/permissions.ts` (F092) but built around a different mechanism.
- *
- * The plan's original text called for unioning `information_schema.USER_PRIVILEGES`,
- * `SCHEMA_PRIVILEGES`, `TABLE_PRIVILEGES`, and role-derived `ROLE_TABLE_GRANTS`/
- * `ROLE_SCHEMA_GRANTS`. Verified live against MySQL 8.4: `ROLE_SCHEMA_GRANTS` does not exist as an
- * information_schema view at all, and `ROLE_TABLE_GRANTS` only captures grants issued at the exact
- * `db.table` level - a role granted privileges at `db.*` (the common case) is invisible to either
- * table, the same "role grants are invisible" bug this feature exists to fix, just one level up.
- *
- * `SHOW GRANTS` (no arguments, run on the connection's own authenticated session) sidesteps this
- * entirely: MySQL itself resolves and returns the *effective* grant set - direct grants plus every
- * currently-active default role's grants, already merged - because that's what the connected
- * session can actually do. This needs no version-gated fallback (unlike `ROLE_TABLE_GRANTS`,
- * gated to 8.0.19+): `SHOW GRANTS` has reflected active roles correctly since roles were
- * introduced in MySQL 8.0.0.
- */
 import type { ConnectionCapabilities, TablePermissions } from "@qyre/core";
 import type mysql from "mysql2/promise";
 import { SYSTEM_SCHEMAS } from "../schema/catalog.js";
@@ -42,12 +24,7 @@ function unquoteIdentifier(raw: string): string {
   return raw.replace(/^`|`$/g, "").replace(/``/g, "`");
 }
 
-/**
- * Parses one `SHOW GRANTS` output line, e.g.
- * "GRANT SELECT, INSERT ON `qyre_test`.`users` TO `bob`@`%`" - or "GRANT ALL PRIVILEGES ON *.* TO
- * ... WITH GRANT OPTION". Returns undefined for a line with no `ON` clause (a role-assignment line
- * like "GRANT `writer_role`@`%` TO `bob`@`%`", which carries no schema/table privilege of its own).
- */
+/** Parse one `SHOW GRANTS` line with a schema or table target. */
 function parseGrantLine(line: string): ParsedGrant | undefined {
   const match = /^GRANT\s+(.+?)\s+ON\s+(\S+)\s+TO\s+/i.exec(line.trim());
   if (!match) return undefined;
@@ -62,9 +39,7 @@ function parseGrantLine(line: string): ParsedGrant | undefined {
   };
 }
 
-/** Every grant applicable to the current session - direct privileges plus active default roles',
- * already resolved by MySQL itself. See this file's top comment for why `SHOW GRANTS` rather than
- * the role-grant information_schema views. */
+/** Every grant applicable to the current session, including active default roles. */
 export async function fetchGrantLines(pool: mysql.Pool): Promise<string[]> {
   const [rows] = await pool.query<mysql.RowDataPacket[]>("SHOW GRANTS");
   return rows.map((row) => String(Object.values(row)[0]));
@@ -106,8 +81,7 @@ function hasAnyPrivilege(grants: ParsedGrant[], privileges: string[]): boolean {
   );
 }
 
-/** select/insert/update/delete for one specific table, from the same parsed grant list every
- * other check in this file reads - no extra query per table, batched or not. */
+/** Resolve table-level CRUD permissions from the parsed grant list. */
 function tablePermissionsFromGrants(
   grants: ParsedGrant[],
   schema: string,
@@ -137,8 +111,7 @@ export async function fetchTablePermissions(
   return tablePermissionsFromGrants(grants, schema, table);
 }
 
-/** Every (schema, table) pair with SELECT-able status, in one round trip to the grant list plus
- * one to list every non-system table. */
+/** Resolve SELECT visibility for every non-system table. */
 export async function fetchAllTablePermissions(
   pool: mysql.Pool
 ): Promise<Map<string, TablePermissions>> {

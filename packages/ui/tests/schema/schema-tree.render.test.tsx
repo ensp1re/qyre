@@ -30,9 +30,7 @@ describe("SchemaTree (component rendering, F055)", () => {
   it("filters to matching tables (and their ancestor path) for a 2+ character query", () => {
     render(<SchemaTree schemas={schemas} onSelect={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Search tables"), { target: { value: "ord" } });
-    expect(screen.getByText("public")).toBeInTheDocument(); // ancestor path stays visible
-    // "orders" itself is split across a <mark> (matching "ord") and a plain-text sibling ("ers"),
-    // so getByText("orders") can't match it as a single text node - assert on the row instead.
+    expect(screen.getByText("public")).toBeInTheDocument();
     expect(screen.getByRole("treeitem", { name: "orders" })).toBeInTheDocument();
     expect(screen.queryByText("users")).not.toBeInTheDocument();
   });
@@ -64,9 +62,6 @@ describe("SchemaTree (component rendering, F055)", () => {
   });
 
   it("does not apply role=tree when there are no rows to render (aria-required-children)", () => {
-    // Regression: `role="tree"` requires a treeitem/group descendant. With zero schemas (the
-    // disconnected/unconfigured screen the smoke test scans) this used to leave the nav's role
-    // on a message-only div, which axe flags as a critical aria-required-children violation.
     render(<SchemaTree schemas={[]} onSelect={vi.fn()} />);
     expect(screen.getByText("No tables found.")).toBeInTheDocument();
     expect(screen.queryByRole("tree")).not.toBeInTheDocument();
@@ -106,8 +101,6 @@ describe("SchemaTree schema management (F116)", () => {
     );
     fireEvent.click(screen.getByLabelText("Drop schema public"));
     expect(onRequestDropSchema).toHaveBeenCalledWith("public");
-    // The schema was expanded by default (depth 0) and stays that way - the drop click didn't
-    // also toggle collapse via the row's own activate() handler.
     expect(screen.getByText("users")).toBeInTheDocument();
   });
 });

@@ -17,11 +17,6 @@ import { EditorPopover } from "../editing/editor-popover.js";
 import { type CommitDirection, InlineCellEditor } from "../editing/inline-cell-editor.js";
 import { TypedValueEditor } from "../editing/typed-value-editor.js";
 
-/** Whether CellValue would render `displayValue` as an interactive inspect chip (structured,
- * binary) or clickable date rather than plain text - determines whether editing needs its own
- * separate activation control alongside the chip, instead of the chip/value itself doubling as
- * the edit button. Long text and URLs both render as plain text (F146) - no special chip/preview,
- * so they use the plain-button edit path like any other string. */
 function hasInspectAffordance(
   displayValue: unknown,
   dataType: string,
@@ -35,8 +30,6 @@ function hasInspectAffordance(
 }
 
 export interface EditableCellProps {
-  /** A stable id for this cell (e.g. `${rowKey}:${column}`) - lets the grid find and focus this
-   * cell's DOM node for keyboard navigation (F146). */
   cellId?: string;
   columnName?: string;
   displayValue: unknown;
@@ -47,33 +40,17 @@ export interface EditableCellProps {
   nullable: boolean;
   dirty: boolean;
   onInspect?: (value: InspectableValue) => void;
-  /** Reports a date/timestamp cell click for DateDetailPopover (F070) - passed through to CellValue
-   * exactly like the read-only/non-editable path so editable date columns keep the same UTC/local/
-   * relative-time detail affordance instead of losing it once a column becomes editable. */
   onInspectDate?: (value: unknown, anchorRect: DOMRect) => void;
   onCommit: (next: unknown) => void;
   onRevert: () => void;
-  /** Whether this cell is the table's current single active editor (F146) - only one cell editor
-   * may be open across the whole grid at a time, so opening another closes this one. Optional:
-   * omitting all three falls back to self-managed local open/close state, so a cell can still be
-   * used standalone (e.g. in isolation tests) without a coordinating parent. */
   isActive?: boolean;
   onActivate?: () => void;
   onDeactivate?: () => void;
-  /** Whether this cell is the grid's current selection (F146) - a single click selects without
-   * editing; double-click, Enter, or F2 then starts editing. Optional, same self-managed fallback
-   * as `isActive`. */
   isSelected?: boolean;
   onSelect?: () => void;
-  /** Fired after a successful commit triggered by Enter/Tab/Shift+Tab, so the grid can advance
-   * selection to the next cell (F146). */
   onCommitKey?: (direction: CommitDirection) => void;
 }
 
-/** One mutation-safe grid cell (F146): single click selects, double-click/Enter/F2 edits. Simple
- * types edit directly in place; JSON/arrays/binary/XML open in the right-side drawer, while SET
- * uses the anchored popover with an optional drawer expansion. Nothing here resizes the table or
- * row. */
 export function EditableCell({
   cellId,
   columnName = "value",

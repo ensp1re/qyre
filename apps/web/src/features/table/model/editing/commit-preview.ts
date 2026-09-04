@@ -1,18 +1,10 @@
 import type { MutationOp } from "@qyre/core";
 import type { PendingEdits, PendingInserts } from "./pending-changes.js";
 
-/** Reconstructs the primary-key value map a row key was derived from - `computeRowKey` is
- * `JSON.stringify` of a sorted `[column, value][]` array, so parsing it back and rebuilding an
- * object is exact and needs no extra state alongside the buffer. */
 export function parseRowKey(rowKey: string): Record<string, unknown> {
   return Object.fromEntries(JSON.parse(rowKey) as [string, unknown][]);
 }
 
-/**
- * Builds the ordered `MutationOp[]` a batch commit (F102's `POST /api/mutations/commit`) expects
- * from the buffer's current staged state - inserts, then updates, then one delete op batching every
- * staged key, matching `MutationOp`'s delete shape (`keys: Array<...>`, not one op per row).
- */
 export function buildMutationOps(
   schema: string,
   table: string,
@@ -65,12 +57,6 @@ function formatWhereClause(key: Record<string, unknown>): string {
     .join(" AND ");
 }
 
-/**
- * A human-readable preview of the statement one staged operation will run on commit - parameter
- * values shown inline for readability, per docs/product-specs/row-editing.md ("parameter
- * placeholders shown with their bound values inline... this is a preview, not the real query text
- * sent to the driver"). Never sent anywhere; display-only.
- */
 export function buildPreviewLine(op: MutationOp, engine?: "mongodb"): string {
   if (engine === "mongodb") {
     if (op.type === "insert") return JSON.stringify({ insertOne: { document: op.values } });

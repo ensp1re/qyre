@@ -5,19 +5,11 @@ import { useFocusTrap } from "../../primitives/use-focus-trap.js";
 import { IconButton } from "../../primitives/controls/icon-button.js";
 
 export interface CellEditorDrawerProps {
-  /** Column name, shown in the header for orientation. */
   title: string;
   children: ReactNode;
   onClose: () => void;
 }
 
-/**
- * A right-anchored drawer shell for editing one JSON/array/long-text cell value (F146) - the
- * counterpart to EditorPopover for widgets too large for a small anchored popover to hold
- * comfortably. Shares the same right-side-panel convention as CellValueDrawer/
- * Other right-side drawers; unlike inspectors, this hosts an arbitrary editor (TypedValueEditor) rather than
- * a fixed layout, so it stays a thin shell and lets the child own its own footer/actions.
- */
 export function CellEditorDrawer({ title, children, onClose }: CellEditorDrawerProps): ReactNode {
   const asideRef = useRef<HTMLElement>(null);
   useFocusTrap(asideRef, true);

@@ -1,26 +1,3 @@
-/**
- * Shared parametrized adapter-conformance suite (F054): the same pagination-clamping and
- * empty-collection assertions run against every engine that has its `QYRE_TEST_*` env var set, so
- * a future engine can't silently diverge in behavior from the others - the class of bug F019
- * already fixed once for column-type fidelity, but for pagination/empty-handling specifically.
- *
- * Each engine's *setup* (creating a fixture table/collection) is necessarily engine-specific - the
- * DDL/API differs - but the *assertions* are written once and shared. Read-only rejection and
- * bigint/date fidelity are deliberately not duplicated here: every SQL adapter's `runReadOnlyQuery`
- * already shares the exact same `assertReadOnly` call (conformant by construction, see
- * `@qyre/driver-contract`), and each engine's own integration test file already covers bigint/date
- * fidelity against fixtures too engine-specific to usefully generalize (F019's
- * `column-type-fidelity.md`). Query cancellation (F126) is the same story: each engine needs its
- * own "genuinely slow query" trigger (Postgres `pg_sleep`, MySQL `SLEEP`, MongoDB a raw `$where`
- * sleep this fixture's typed `getRows` API can't express) too engine-specific to share one
- * assertion - see each engine's own `tests/integration/adapter.test.ts` for its "cancels a running
- * query, and the connection remains usable afterward" case; SQLite has none, documented as
- * non-cancellable in `packages/drivers/sqlite/src/adapter.ts`.
- *
- * Each engine skips gracefully (not silently - see the console.warn) when its env var is unset,
- * distinct from that engine's own integration test file, which fails loudly - this file's purpose
- * is cross-engine consistency, not gating whether that one engine's own suite ran.
- */
 import { randomUUID } from "node:crypto";
 import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -41,19 +18,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 interface ConformanceFixture {
   /** The `schema`/`database` argument getTable/getRows expect for this engine. */
   schema: string;
-  /** A table/collection with exactly this many rows. */
   populatedTable: string;
   populatedRowCount: number;
-  /** A table/collection with zero rows. */
   emptyTable: string;
-  /** A read-only view (a MongoDB view for that engine) over `populatedTable` (F124). */
+  /** A read-only view over `populatedTable`. */
   viewTable: string;
 }
 
 interface PermissionDenialFixture {
-  /** A separate adapter target whose writes can be denied without affecting the main fixture. */
   raw: string;
-  /** Revokes grants after connect where the engine supports live grants. */
   revoke?: () => Promise<void>;
   expectedKind: "permission" | "read-only";
 }
@@ -63,7 +36,7 @@ interface EngineCase {
   envVar: string;
   factory: AdapterFactory;
   engine: DatabaseEngine;
-  /** Creates the populated/empty fixtures and returns their identifiers, or undefined to skip. */
+  /** Set up the fixture or return undefined when its engine is unavailable. */
   setup: () => Promise<
     | {
         raw: string;
@@ -90,8 +63,7 @@ const cases: EngineCase[] = [
       const raw = process.env[TEST_DB_ENV]?.trim();
       if (!raw) return undefined;
       const pool = new Pool({ connectionString: raw });
-      // label is nullable text (F072 fixture: one NULL row, "apple"/"banana" so contains/isNull/
-      // isNotNull have something real to filter on, not just the numeric n column).
+      // Include a nullable label and searchable values for filter coverage.
       await pool.query(
         `CREATE TABLE ${populatedTable} (id serial PRIMARY KEY, n int, label text, payload jsonb)`
       );
@@ -209,7 +181,7 @@ const cases: EngineCase[] = [
   },
   {
     name: "sqlite",
-    envVar: "", // self-contained, no env var needed
+    envVar: "", // SQLite uses a temporary local fixture.
     factory: sqliteAdapterFactory,
     engine: "sqlite",
     setup: async () => {
@@ -293,9 +265,7 @@ const cases: EngineCase[] = [
 ];
 
 describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, engine, setup }) => {
-  // Known synchronously (before any test runs) so it.skipIf can mark unconfigured engines as
-  // properly SKIPPED in the report, rather than a bare early-return making them look like a
-  // passing test that asserted nothing.
+  // Resolve this before tests so unconfigured engines appear as skipped.
   const configured = envVar === "" || Boolean(process.env[envVar]?.trim());
   if (!configured) {
     console.warn(`Skipping adapter-conformance suite for ${name}: ${envVar} is not set.`);
@@ -339,8 +309,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(capabilities.jsonExportMode).toBe(engine === "mongodb" ? "extended-json" : "json");
       expect(capabilities.supportsAccessInspection).toBe(true);
       if (engine === "postgres" || engine === "mysql") {
-        // The conformance Postgres/MySQL fixtures connect as the Docker/CI superuser/root. F092/F093
-        // replace their F091 stubs with real session facts, so every capability is available here.
+        // Docker/CI uses a superuser for the Postgres and MySQL fixtures.
         expect(capabilities).toMatchObject({
           supportsRowMutations: true,
           supportsDdl: true,
@@ -350,10 +319,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
           readOnlyReason: null
         });
       } else if (engine === "sqlite") {
-        // The conformance SQLite fixture is a normal writable tempdir file, so F094's real
-        // introspection reports full writability too - except supportsDatabaseManagement, which
-        // SQLite has no concept of (the file itself is "the database"; unlike Postgres/MySQL's
-        // CREATE DATABASE, there's no separate database-creation privilege to check).
+        // SQLite treats its file as the database and has no database-management API.
         expect(capabilities).toMatchObject({
           supportsRowMutations: true,
           supportsDdl: true,
@@ -363,12 +329,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
           readOnlyReason: null
         });
       } else {
-        // The conformance MongoDB fixture connects with no authentication - the docker-compose/CI
-        // container runs with no authorization enabled at all, so F095's real introspection reports
-        // full access too (an unauthenticated connection has no access control applied, matching
-        // mongod's own default), including supportsDatabaseManagement since F115 models the
-        // dropDatabase action - except supportsTransactions, which needs replica-set topology
-        // detection this slice doesn't model (see packages/drivers/mongodb/src/permissions.ts).
+        // MongoDB runs without auth and without replica-set transaction support in the fixture.
         expect(capabilities).toMatchObject({
           supportsRowMutations: true,
           supportsDdl: true,
@@ -392,9 +353,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     expect(serialized).not.toMatch(/"(?:password|credentials|authenticationString)":/i);
   });
 
-  // MongoDB is explicitly not applicable for the live-revocation half: the shared local/CI
-  // mongod runs with authorization disabled, so there is no restricted role to revoke. Its native
-  // code-13 classifier remains covered by the shared assertion below and its driver unit test.
+  // MongoDB has no restricted role when fixture authorization is disabled.
   it.skipIf(!configured || engine === "mongodb")(
     "classifies denied insert, update, and DDL after grants change (F120)",
     async () => {
@@ -438,9 +397,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
           { label: "denied-update" }
         )
       );
-      // MySQL applies revoked table privileges to subsequent requests, but database-level grants
-      // such as CREATE can remain cached on already-pooled sessions until reconnect. Reconnect only
-      // for the DDL assertion; insert/update above still prove live mid-session revocation.
+      // Reconnect MySQL before DDL because pooled sessions may cache database grants.
       if (engine === "mysql") {
         await deniedAdapter.disconnect();
         await deniedAdapter.connect();
@@ -567,7 +524,6 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       const view = await adapter.getTable(fixture.schema, fixture.viewTable);
       expect(view.kind).toBe("view");
 
-      // Same via the batched path (F123 parity holds for kind too).
       const batched = await adapter.getAllTables();
       const batchedView = batched.find(
         (table) => table.schema === fixture.schema && table.name === fixture.viewTable
@@ -580,7 +536,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     "clamps an oversized pageSize but only returns the rows that actually exist",
     async () => {
       const page = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10_000);
-      expect(page.pageSize).toBe(200); // MAX_PAGE_SIZE
+      expect(page.pageSize).toBe(200);
       expect(page.rows).toHaveLength(fixture.populatedRowCount);
     }
   );
@@ -781,10 +737,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     }
   );
 
-  // Declared last in the block deliberately: it permanently adds a row to fixture.populatedTable,
-  // which every row-count-sensitive assertion above (clamping, sorting, filtering) depends on
-  // staying at exactly fixture.populatedRowCount - the fixture is dropped in afterAll right after,
-  // so there's nothing to clean up here.
+  // Keep this mutating assertion last because it changes the shared row count.
   it.skipIf(!configured)(
     "insertRow inserts a row that becomes visible via getRows (F099)",
     async () => {
@@ -812,8 +765,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     }
   );
 
-  // MongoDB has no SQL query runner at all (supportsSql: false) - runQuery is absent there by
-  // design, not a gap (F107, docs/product-specs/sql-editor.md's "Write-capable SQL execution").
+  // MongoDB has no SQL query runner.
   it.skipIf(!configured || engine === "mongodb")(
     "runQuery executes an INSERT directly and reports rowsAffected, visible via getRows (F107)",
     async () => {
@@ -1080,10 +1032,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(afterTruncate.rows).toHaveLength(0);
 
       await adapter.ddl?.dropTable?.(fixture.schema, renamed);
-      // Not every engine's getTable rejects for a dropped target (Postgres's own introspection
-      // falls back to an empty-but-present result rather than erroring, since it reads pg_class's
-      // catalog-level row estimate rather than issuing a live query against the table) - checking
-      // the schema's table list is the one assertion that holds uniformly across all four engines.
+      // Check the overview because dropped-table getTable errors differ by engine.
       const overview = await adapter.getOverview();
       const schema = overview.schemas.find((candidate) => candidate.name === fixture.schema);
       expect(schema?.tables).not.toContain(renamed);
@@ -1177,9 +1126,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     "create/list/drop database roundtrip (F115)",
     async () => {
       const databaseName = `qyre_admin_${suffix}`;
-      // MongoDB has no createDatabase member - databases come into existence implicitly on the
-      // first write (docs/product-specs/schema-editing.md's "Database and schema lifecycle"), so
-      // its creation path here is createTable, the same way a real user would create one.
+      // MongoDB creates databases on first write.
       if (engine === "mongodb") {
         await adapter.ddl?.createTable?.(databaseName, "seed", []);
       } else {
@@ -1209,8 +1156,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     async () => {
       const schemaName = `qyre_admin_schema_${suffix}`;
       await adapter.admin?.createSchema?.(schemaName);
-      // getOverview() derives schemas from tables, so an empty schema never appears in it - a
-      // table inside the new schema is what proves the schema really exists.
+      // Add a table because empty schemas are omitted from getOverview().
       await adapter.ddl?.createTable?.(schemaName, "probe", [
         { name: "id", dataType: "integer", nullable: true, default: null }
       ]);
@@ -1221,8 +1167,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       await adapter.admin?.dropSchema?.(schemaName);
       const withoutSchema = await adapter.getOverview();
       expect(withoutSchema.schemas.some((schema) => schema.name === schemaName)).toBe(false);
-      // Dropping the now-nonexistent schema again surfaces Postgres's own error - the route layer
-      // deliberately has no exists-first 404 for schemas (see routes/database-admin.ts).
+      // The route does not precheck schema existence.
       await expect(adapter.admin?.dropSchema?.(schemaName)).rejects.toThrow();
     }
   );

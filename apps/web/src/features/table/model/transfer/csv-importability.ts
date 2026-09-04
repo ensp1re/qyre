@@ -17,7 +17,6 @@ export interface CsvImportability {
 
 const NOT_IMPORTABLE: CsvImportability = { canImport: false, columns: [] };
 
-/** Import is insert-only, so unlike row update/delete it does not require a primary key. */
 export function computeCsvImportability(
   table: TableMetadata | undefined,
   capabilities: ConnectionCapabilities | undefined,

@@ -15,16 +15,11 @@ const TABS: { id: ShellTab; label: string; icon: LucideIcon }[] = [
 export interface TabBarProps {
   active: ShellTab;
   onChange: (tab: ShellTab) => void;
-  /** Tabs that do not apply to the current connection/capability surface and should not appear. */
   hiddenTabs?: ShellTab[];
-  /** Tabs the caller has disabled, mapped to a reason shown as a tooltip (e.g. "not available for
-   * this engine") - unclickable rather than silently accepting an action that can never work. */
   disabledTabs?: Partial<Record<ShellTab, string>>;
-  /** Window-level utility actions docked to the right of the tab strip. */
   actions?: ReactNode;
 }
 
-/** The IDE-style tab strip switching between the shell's five content panes. */
 export function TabBar({
   active,
   onChange,

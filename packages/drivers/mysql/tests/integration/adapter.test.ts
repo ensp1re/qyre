@@ -1,10 +1,3 @@
-/**
- * Integration tests for {@link MysqlAdapter} against a real MySQL database.
- *
- * Requires QYRE_TEST_MYSQL_URL (see docs/RELIABILITY.md). We never silently skip required
- * verification: a missing env var fails these tests with an actionable message instead of passing
- * trivially.
- */
 import {
   FIXTURE,
   MYSQL_RELATIONSHIP_FIXTURE,
@@ -100,11 +93,6 @@ describe("MysqlAdapter integration", () => {
   });
 
   it("reports write permissions granted only through an active default role (F093 regression)", async () => {
-    // qyre_role_writer has SELECT granted directly, but INSERT/UPDATE/DELETE only through an
-    // active default role (packages/testing's setupMysqlFixture) - plain
-    // information_schema.TABLE_PRIVILEGES/SCHEMA_PRIVILEGES (and even ROLE_TABLE_GRANTS, which
-    // only sees exact-table role grants) would report this user as read-only. This is the bug
-    // F093 exists to fix.
     const roleWriterAdapter = new MysqlAdapter({
       engine: "mysql",
       raw: requireRoleWriterTestMysqlUrl(databaseUrl)
@@ -171,7 +159,6 @@ describe("MysqlAdapter integration", () => {
     const table = await adapter.getTable(databaseName, MYSQL_RELATIONSHIP_FIXTURE.table);
     const userIdColumn = table.columns.find((column) => column.name === "user_id");
     expect(userIdColumn?.isForeignKey).toBe(true);
-    // F061/F084: resolves what the FK references so graph consumers can draw a real edge.
     expect(userIdColumn?.references).toEqual({
       schema: databaseName,
       table: FIXTURE.table,
@@ -331,10 +318,6 @@ describe("MysqlAdapter integration", () => {
       ]);
       await pool.query(`INSERT INTO ${table} (id, note) VALUES (1, 'not-a-number')`);
 
-      // MySQL's DDL auto-commits per statement - RENAME COLUMN below has already committed by the
-      // time MODIFY COLUMN's strict-mode cast failure happens, so this can never roll back the
-      // way Postgres/SQLite's single-transaction version does. renameAndAlterColumn must report
-      // that partial outcome instead of throwing and hiding the already-committed rename.
       const result = await adapter.ddl?.renameAndAlterColumn?.(databaseName, table, "note", {
         newName: "remark",
         changes: { dataType: "INT" }
@@ -721,9 +704,6 @@ describe("MysqlAdapter integration", () => {
     await expect(adapter.runReadOnlyQuery(`DELETE FROM ${FIXTURE.table}`)).rejects.toThrow();
   });
 
-  // F154: MySQL alone rejects a derived table whose SELECT list repeats a column name
-  // (ER_DUP_FIELDNAME), which the F050 row cap's wrapper creates for an ordinary self-join. This
-  // used to surface as a bare "Duplicate column name" error for a perfectly valid query.
   it("returns rows for a query whose columns repeat a name, despite the row cap's wrapper", async () => {
     const result = await adapter.runReadOnlyQuery(
       `SELECT a.id, b.id FROM ${FIXTURE.table} a JOIN ${FIXTURE.table} b ON a.id = b.id`
@@ -731,8 +711,6 @@ describe("MysqlAdapter integration", () => {
     expect(result.rows).toHaveLength(FIXTURE.rowCount);
   });
 
-  // F154: `SELECT ... INTO OUTFILE` writes a file on the server and MySQL's own
-  // START TRANSACTION READ ONLY does not stop it, so the classifier has to.
   it("rejects SELECT ... INTO OUTFILE, which the engine-level read-only backstop allows", async () => {
     await expect(
       adapter.runReadOnlyQuery(
@@ -782,10 +760,6 @@ describe("MysqlAdapter integration", () => {
   });
 
   it("MySQL's own READ ONLY transaction refuses a write, independent of assertReadOnly", async () => {
-    // Proves the actual backstop mechanism (not just that assertReadOnly's string scan catches an
-    // obvious DELETE, which the "rejects a mutating query" test above already covers): open the
-    // same START TRANSACTION READ ONLY runReadOnlyQuery relies on directly, bypassing the adapter
-    // (and therefore assertReadOnly) entirely, and confirm MySQL itself still refuses the write.
     const pool = mysql.createPool(databaseUrl);
     const connection = await pool.getConnection();
     try {
@@ -820,8 +794,6 @@ describe("MysqlAdapter integration", () => {
   });
 
   it("aborts a runaway query once it exceeds the configured statement timeout (F032)", async () => {
-    // A dedicated adapter/pool with a tiny timeout (via QYRE_STATEMENT_TIMEOUT_MS, read at
-    // connect() time) proves the mechanism fires without waiting out the real 30s default.
     process.env.QYRE_STATEMENT_TIMEOUT_MS = "200";
     const shortTimeoutAdapter = new MysqlAdapter({ engine: "mysql", raw: databaseUrl });
     try {

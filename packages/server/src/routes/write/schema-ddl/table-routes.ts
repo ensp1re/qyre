@@ -16,8 +16,6 @@ import {
 import { logDdlFailure, logDdlSuccess } from "./route-support.js";
 
 export function registerTableDdlRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  // Create a new table/collection scoped to an existing schema/database. Non-destructive - a plain
-  // review-before-submit step in the UI, no typed confirmation.
   app.post<{ Params: { schema: string }; Body: unknown }>(
     "/api/schemas/:schema/tables",
     permissionRoute({ operation: "create-table", target: "table", likelyMissingGrant: "CREATE" }),
@@ -68,8 +66,6 @@ export function registerTableDdlRoutes(app: FastifyInstance, ctx: ServerContext)
     }
   );
 
-  // Rename a table/collection. Non-destructive - a plain review-before-submit step, no typed
-  // confirmation.
   app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/rename",
     permissionRoute({ operation: "rename-table", target: "table", likelyMissingGrant: "ALTER" }),
@@ -118,8 +114,6 @@ export function registerTableDdlRoutes(app: FastifyInstance, ctx: ServerContext)
     }
   );
 
-  // Truncate - deletes every row, keeps the table/collection itself. Destructive: requires the
-  // caller to type the table's exact name, re-validated server-side.
   app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/truncate",
     permissionRoute({
@@ -183,9 +177,6 @@ export function registerTableDdlRoutes(app: FastifyInstance, ctx: ServerContext)
     }
   );
 
-  // Drop table/collection. Destructive: requires the caller to type the table's exact name,
-  // re-validated server-side. A request body on DELETE is valid HTTP, matching row-editing.md's
-  // identical precedent for its own DELETE route.
   app.delete<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table",
     permissionRoute({

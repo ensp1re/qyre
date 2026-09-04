@@ -7,12 +7,9 @@ export interface FilesTabProps {
   fileContent: ReturnType<typeof useFileContent>;
   selectedFilePath: string | undefined;
   onSelectFile: (path: string) => void;
-  /** Runs the previewed file's SQL in the SQL Editor (F062). Omitted when the SQL Editor isn't
-   * available for the current connection, e.g. MongoDB. */
   onRunInEditor?: (content: string) => void;
 }
 
-/** Files tab content - a read-only browser for `.sql` files near the launch target. */
 export function FilesTab({
   filesOverview,
   fileContent,

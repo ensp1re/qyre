@@ -24,9 +24,7 @@ describe("CellValueDrawer with a plain string value (F069)", () => {
   });
 
   it("attempts an image preview for any http(s) URL, not just extension-matched ones", () => {
-    // Real image CDNs (picsum.photos, unsplash) serve images from extensionless URLs -
-    // classifyUrlValue's extension check is only a hint, so the preview always attempts to load
-    // and relies on onError to hide itself for genuinely non-image links.
+    // Extensionless image URLs still need a preview attempt; onError handles non-images.
     const value = "https://picsum.photos/seed/abc/200/300";
     render(<CellValueDrawer value={value} onClose={vi.fn()} />);
 

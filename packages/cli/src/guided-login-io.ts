@@ -1,8 +1,3 @@
-/**
- * Real stdin/stdout wiring for `GuidedLoginPrompts` (see `guided-login.ts`). Takes injectable
- * streams (defaulting to `process.stdin`/`process.stdout`) so masking can be exercised in tests
- * against a plain stream instead of a real TTY.
- */
 import type { GuidedLoginPrompts } from "./guided-login.js";
 
 export interface GuidedLoginStream extends NodeJS.ReadableStream {
@@ -14,16 +9,12 @@ const ENTER_CHARS = new Set(["\n", "\r"]);
 const CTRL_C_CHAR = String.fromCharCode(3);
 const BACKSPACE_CHARS = new Set([String.fromCharCode(127), "\b"]);
 
-/** Builds a `GuidedLoginPrompts` backed by `input`/`output`. In a real TTY, `askMasked` disables
- * local echo and substitutes `*` per keystroke; against a plain (non-TTY) stream it just reads a
- * line, since there's no terminal echo to suppress either way. */
+/** Creates prompt IO with terminal masking when supported. */
 export function createStreamGuidedLoginIO(
   input: GuidedLoginStream,
   output: NodeJS.WritableStream
 ): GuidedLoginPrompts {
-  // Characters received past a line's terminator, carried over to the next prompt - piped/scripted
-  // input commonly arrives as one chunk containing every answer, and only reading up to the first
-  // newline of whatever chunk happens to be current would silently drop the rest.
+  // Preserve input received after the first line terminator for the next prompt.
   let leftover = "";
 
   function readLine(question: string, masked: boolean): Promise<string> {
@@ -40,8 +31,6 @@ export function createStreamGuidedLoginIO(
         resolve(value.trim());
       }
 
-      // Consumes `text` char-by-char; returns true once a full line was found (and resolved),
-      // stashing anything past the terminator in `leftover` for the next `readLine` call.
       function consume(text: string): boolean {
         for (let i = 0; i < text.length; i++) {
           const char = text[i]!;

@@ -30,18 +30,10 @@ export interface EditorPopoverProps {
   anchorRect: DOMRect;
   children: ReactNode;
   testId?: string;
-  /** Overrides the popover's default width (F146) - the timestamp mini-picker uses a narrower one
-   * so it reads as attached to a compact column instead of a large disconnected form. */
   width?: number;
-  /** Called when the anchor's scroll container scrolls (F146) - `anchorRect` is measured once at
-   * open time and this is `position: fixed`, so it can't track the anchor cell moving under a
-   * virtualized table's own scroll; closing on scroll avoids the popover visibly detaching from
-   * its cell instead of trying to keep repositioning it every frame. */
   onDismiss?: () => void;
 }
 
-/** A grid-safe editor surface. Portalling prevents table overflow and sticky headers from clipping
- * the editor; viewport collision keeps every action reachable in narrow or short windows. */
 export function EditorPopover({
   anchorRect,
   children,
@@ -53,14 +45,12 @@ export function EditorPopover({
 
   useEffect(() => {
     if (!onDismiss) return;
-    // `scroll` doesn't bubble, but a capture-phase listener on `window` still sees it fire on any
-    // descendant scrollable container. Keep editor-owned scrolling usable while still dismissing
-    // when the virtualized table moves the fixed anchor cell away.
     const dismissFromExternalScroll = (event: Event): void => {
       const target = event.target;
       if (target instanceof Node && popoverRef.current?.contains(target)) return;
       onDismiss();
     };
+    // Capture scroll events from nested containers so the anchored editor stays current.
     window.addEventListener("scroll", dismissFromExternalScroll, true);
     return () => window.removeEventListener("scroll", dismissFromExternalScroll, true);
   }, [onDismiss]);

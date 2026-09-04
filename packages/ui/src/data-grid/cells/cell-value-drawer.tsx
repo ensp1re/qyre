@@ -12,20 +12,12 @@ import {
 
 const HEX_DUMP_BYTE_LIMIT = 1024;
 
-/**
- * Attempts a strict UTF-8 decode of raw bytes, rejecting anything that isn't valid UTF-8 or
- * contains non-whitespace control characters - both strong signals the data is genuinely binary,
- * not text stored in a blob/bytea column (a common real-world case this makes readable instead of
- * showing only a hex dump).
- */
 function decodeUtf8Printable(bytes: readonly number[]): string | null {
+  // Control characters distinguish binary data from printable UTF-8.
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bytes));
     for (let i = 0; i < text.length; i++) {
       const code = text.charCodeAt(i);
-      // Reject non-whitespace control characters (tab/newline/CR at 9/10/13 stay allowed) - a
-      // strong signal this is genuinely binary data, not text, even though it decoded as valid
-      // UTF-8.
       const isControlChar = code <= 0x1f && code !== 9 && code !== 10 && code !== 13;
       if (isControlChar) return null;
     }
@@ -35,9 +27,6 @@ function decodeUtf8Printable(bytes: readonly number[]): string | null {
   }
 }
 
-// 16 bytes/row (the traditional `xxd`/`hexdump` width) doesn't fit this drawer's ~360px content
-// width without forcing a horizontal scrollbar across the offset/hex/ASCII columns - 8 fits
-// comfortably at the drawer's font size instead.
 const HEX_DUMP_BYTES_PER_ROW = 8;
 
 function HexDump({ value }: { value: BinaryValue }): ReactNode {
@@ -91,7 +80,6 @@ function HexDump({ value }: { value: BinaryValue }): ReactNode {
 }
 
 export interface CellValueDrawerProps {
-  /** Column the inspected value came from - shown in the header for orientation. */
   column?: string;
   value: InspectableValue;
   onClose: () => void;
@@ -102,7 +90,6 @@ function PrimitiveValue({ value }: { value: unknown }): ReactNode {
     return <span className="italic text-quiet-foreground">null</span>;
   }
   if (typeof value === "string") {
-    // JSON.stringify keeps the quotes, so "3" stays visually distinct from the number 3.
     return (
       <span className="whitespace-pre-wrap break-all" style={{ color: "var(--c-blue)" }}>
         {JSON.stringify(value)}
@@ -132,10 +119,6 @@ function UrlPreviewPane({ value }: { value: string }): ReactNode {
         <ExternalLink className="h-3 w-3 shrink-0" />
         <span className="truncate">{preview.href}</span>
       </a>
-      {/* Many real image CDNs (picsum.photos, unsplash, imgix) serve images from extensionless
-       * URLs, so `classifyUrlValue`'s pathname-extension check is only a hint, not a guarantee.
-       * Always attempt the thumbnail and let onError hide it - cheap for a single inspected value,
-       * unlike doing this per-row in the table. */}
       {!imageFailed && (
         <img
           src={preview.href}
@@ -159,8 +142,6 @@ function TreeNode({
   depth: number;
   defaultOpen?: boolean;
 }): ReactNode {
-  // Local to this drawer instance only - collapsed by default so a huge nested document never
-  // builds its deeper levels until the developer actually expands them.
   const [open, setOpen] = useState(defaultOpen);
   const indent = { paddingLeft: `${depth * 14}px` };
 
@@ -214,13 +195,6 @@ function TreeNode({
   );
 }
 
-/**
- * A right-anchored drawer for exploring one cell value in full - a structured value as an
- * expandable tree, a binary value as a hex dump, or (F069) a long plain string as wrapped text
- * with a character count - the counterpart to CellValue's compact in-table chip/truncated text,
- * following QueryHistoryDrawer's drawer pattern. The root level of a structured value is expanded
- * on open; deeper levels expand on click, built lazily.
- */
 export function CellValueDrawer({ column, value, onClose }: CellValueDrawerProps): ReactNode {
   const [copied, setCopied] = useState(false);
   const binary = isBinaryValue(value) ? value : null;

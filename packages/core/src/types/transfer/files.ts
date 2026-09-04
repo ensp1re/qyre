@@ -12,14 +12,10 @@ export interface FilesOverview {
   readonly tree: FileNode[];
 }
 
-/** Above this size (F133 review finding S5), `GET /api/files/content` returns only the file's
- * first `FILES_PREVIEW_MAX_BYTES` bytes instead of reading the whole file into memory - a large
- * dump file (`.sql` files near a launch target commonly are) would otherwise block the event loop
- * and ship as one multi-gigabyte JSON string. */
+/** Maximum bytes returned by `GET /api/files/content`. */
 export const FILES_PREVIEW_MAX_BYTES = 1024 * 1024;
 
-/** Response for `GET /api/files/content`. `truncated` is true when `content` is only the file's
- * first `FILES_PREVIEW_MAX_BYTES` bytes, not the whole file (F133). */
+/** Response from `GET /api/files/content`. */
 export interface FileContent {
   readonly path: string;
   readonly content: string;

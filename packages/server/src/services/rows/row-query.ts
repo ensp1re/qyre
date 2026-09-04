@@ -2,14 +2,6 @@ import type { RowFilter, RowSort, SortDirection, TableMetadata } from "@qyre/cor
 import { filterCapabilityForColumn } from "@qyre/core/filter-capabilities";
 import type { DatabaseAdapter, ResolvedRowSearch } from "@qyre/driver-contract";
 
-/**
- * Validates a requested sort column against the table's real columns before it's ever used in a
- * query (F065) - this is the actual injection surface `page`/`pageSize` don't have, since a column
- * name is a raw identifier rather than a value Zod can numeric-coerce or a driver can
- * parameter-bind. Throws a 400-shaped error (matching `requireAdapter`'s convention, caught by the
- * global error handler) for an unrecognized column; returns undefined when no sort was requested
- * at all.
- */
 export function resolveRowSort(
   tableMetadata: TableMetadata,
   sortColumn: string | undefined,
@@ -22,12 +14,6 @@ export function resolveRowSort(
   return { column: sortColumn, direction: sortDirection };
 }
 
-/**
- * Validates each requested filter's column against the table's real columns before it's ever used
- * in a query (F072) - same injection-surface reasoning as {@link resolveRowSort}'s `sortColumn`.
- * Throws a 400-shaped error naming the first unrecognized column; returns undefined when no
- * filters were requested at all.
- */
 export function resolveRowFilters(
   tableMetadata: TableMetadata,
   filters: RowFilter[] | undefined,
@@ -90,12 +76,6 @@ export function resolveRowSearch(
   return value ? { value, columns: tableMetadata.columns } : undefined;
 }
 
-/**
- * Resolves sort and filters together, sharing a single `getTable` introspection call between them
- * - and skipping that call entirely when neither was requested, matching `resolveRowSort`'s
- * previous lazy behavior (the common unsorted/unfiltered request shouldn't pay for introspection
- * it doesn't need).
- */
 export async function resolveRowQuery(
   db: DatabaseAdapter,
   schema: string,

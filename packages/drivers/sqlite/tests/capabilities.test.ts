@@ -1,9 +1,3 @@
-/**
- * Unit tests for {@link computeCapabilities}/{@link tablePermissionsFromCapabilities} (F094)
- * against real temp SQLite files and directories - SQLite is just a local file, so exercising real
- * chmod'd fixtures is as cheap and self-contained as mocking would be, and actually proves the
- * behavior rather than asserting a mock was called correctly.
- */
 import { chmodSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,8 +49,6 @@ describe("computeCapabilities (F094)", () => {
     const { dbPath } = makeFixture();
     chmodSync(dbPath, 0o444);
     chmoddedPaths.push(dbPath);
-    // A normal (non-forced-readonly) open still succeeds against a read-only file - SQLite only
-    // discovers it can't write on the first write attempt, not at open time (verified live).
     const db = new Database(dbPath, { fileMustExist: true });
     openHandles.push(db);
 
@@ -73,9 +65,6 @@ describe("computeCapabilities (F094)", () => {
     const db = new Database(dbPath, { fileMustExist: true });
     openHandles.push(db);
 
-    // db.readonly alone would miss this - the file itself opens read/write, and SQLite doesn't
-    // discover the directory can't hold WAL/rollback-journal sidecar files until a write is
-    // actually attempted. The explicit directory fs check is what catches it in advance.
     expect(computeCapabilities(dbPath, db)).toMatchObject({
       supportsRowMutations: false,
       readOnlyReason: "connection"
@@ -84,8 +73,6 @@ describe("computeCapabilities (F094)", () => {
 
   it("reports read-only for a connection explicitly opened read-only (a 'mode=ro' target)", () => {
     const { dbPath } = makeFixture();
-    // File and directory are both fully writable here - only the open mode itself forces read-only,
-    // proving that gate is checked independently of the fs-permission gates above.
     const db = new Database(dbPath, { readonly: true, fileMustExist: true });
     openHandles.push(db);
 

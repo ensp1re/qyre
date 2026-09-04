@@ -18,8 +18,6 @@ import { SchemaTree, type SelectedTable } from "./schema-tree.js";
 
 type SchemaDialogState = { kind: "create" } | { kind: "drop"; schema: string } | undefined;
 
-/** The default/min/max are exported so the caller owning persistence (F071's `usePanelSize`) can
- * seed and clamp against the same numbers this component uses, instead of duplicating them. */
 export const SIDEBAR_DEFAULT_WIDTH = 256;
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 480;
@@ -33,11 +31,8 @@ export interface SidebarProps {
   onRetry?: () => void | Promise<unknown>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Width in px while open (F071). Omitted keeps the previous fixed 256px (`w-64`) - both this
-   * and `onWidthChange` must be supplied together for the resize handle to appear. */
   width?: number;
   onWidthChange?: (width: number) => void;
-  /** Whether schema create/drop controls render at all (F116, Postgres only). */
   canManageSchemas?: boolean;
   onCreateSchema?: (name: string) => Promise<void>;
   onDropSchema?: (name: string) => Promise<void>;
@@ -61,11 +56,6 @@ function databaseNameFromTarget(target?: string | null): string {
   return trimmed.slice(trimmed.lastIndexOf("/") + 1) || "Database";
 }
 
-/**
- * The app shell's left rail: a searchable schema tree. Desktop collapses to an icon rail; below
- * the `md` breakpoint it becomes an off-canvas overlay drawer (opened via TitleBar's hamburger),
- * both driven by the same `open` state so there is one source of truth for visibility.
- */
 export function Sidebar({
   schemas,
   selected,
@@ -205,9 +195,6 @@ export function Sidebar({
                   </div>
                 </div>
               ) : status === "connected" && schemas.length === 0 ? (
-                // F149: a connected but table-less database (e.g. postgres:// with no database
-                // path landing in the empty default DB) gets an actionable route to the
-                // Switch-database drawer instead of SchemaTree's bare "No tables found."
                 <div
                   data-testid="empty-database-state"
                   className="flex h-full items-center justify-center px-5 py-6 text-center"
@@ -237,9 +224,6 @@ export function Sidebar({
                   selected={selected}
                   onSelect={(schema, table) => {
                     onSelect(schema, table);
-                    // Only the mobile off-canvas drawer should auto-close on selection - the
-                    // desktop rail should stay open, since collapsing it every click is the
-                    // opposite of useful there.
                     if (window.innerWidth < 768) onOpenChange(false);
                   }}
                   canManageSchemas={canManageSchemas}

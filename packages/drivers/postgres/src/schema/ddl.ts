@@ -2,19 +2,10 @@ import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyr
 import type { Pool, PoolClient } from "pg";
 import { quoteIdent } from "../query/sql.js";
 
-/** `renameColumn`/`alterColumn` run against either a `Pool` (their own single-statement callers)
- * or a checked-out `PoolClient` ({@link renameAndAlterColumn}'s shared transaction below) - both
- * expose the same `.query(sql)` shape. */
+/** Queryable pool or transaction client. */
 type Queryable = Pool | PoolClient;
 
-/**
- * `column.dataType`/`column.name` are already validated by the caller (identifier shape for new
- * names, `dataType` against Postgres's curated type catalog) - see
- * packages/server/src/services/schema/schema-ddl-validation.ts. A default literal can't be parameter-bound
- * (it sits inside DDL, not a value position a prepared statement can target), so it's formatted
- * here the same way `quoteIdent` formats identifiers - doubling the delimiter, the standard SQL
- * escape for a string literal.
- */
+/** Format a Postgres DDL default literal. */
 function formatDefaultLiteral(value: string | number | boolean): string {
   if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
   if (typeof value === "number") {
@@ -52,8 +43,7 @@ export async function renameTable(
   );
 }
 
-/** No automatic `VACUUM` - a full-database operation out of scope for a single-table action, per
- * docs/product-specs/schema-editing.md. */
+/** Truncate the table without starting a full-database VACUUM. */
 export async function truncateTable(pool: Pool, schema: string, table: string): Promise<void> {
   await pool.query(`TRUNCATE ${quoteIdent(schema)}.${quoteIdent(table)}`);
 }
@@ -85,14 +75,7 @@ export async function renameColumn(
   );
 }
 
-/**
- * Postgres expresses each changed facet as its own `ALTER COLUMN` clause in one `ALTER TABLE`
- * statement (unlike MySQL's `MODIFY COLUMN`, which needs the column's full resulting definition) -
- * `changes` maps directly onto that, one clause per key actually present. No `USING` clause is
- * added for a type change - Postgres's implicit assignment cast covers every transition between
- * the curated catalog's own types that's meaningful without one; a genuinely incompatible cast
- * surfaces as a real Postgres error, same as typing the statement by hand would.
- */
+/** Alter each requested Postgres column facet in one ALTER TABLE statement. */
 export async function alterColumn(
   pool: Queryable,
   schema: string,
@@ -122,13 +105,7 @@ export async function alterColumn(
   await pool.query(`ALTER TABLE ${target} ${clauses.join(", ")}`);
 }
 
-/**
- * Runs a rename and/or alter as one transaction (F134) - Postgres DDL is transactional, so a mid-
- * request failure (e.g. an incompatible type cast) rolls back the whole thing, including an
- * already-issued rename, rather than leaving it committed with the alter reported as failed. Only
- * ever resolves once every requested step actually applied; any failure throws instead (nothing
- * partial to report), matching {@link ColumnUpdateResult}'s contract for a transactional engine.
- */
+/** Apply rename and alter atomically using Postgres's transactional DDL. */
 export async function renameAndAlterColumn(
   pool: Pool,
   schema: string,

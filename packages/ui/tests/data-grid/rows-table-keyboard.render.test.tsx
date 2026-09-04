@@ -107,7 +107,6 @@ describe("RowsTable keyboard navigation and shortcuts (F146)", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
-    // Selection moved to row 2's "name" cell - Enter (F2) starts editing it directly.
     fireEvent.keyDown(screen.getByText("Grace"), { key: "Enter" });
     expect(screen.getByLabelText("name")).toHaveValue("Grace");
   });
@@ -168,8 +167,6 @@ describe("RowsTable keyboard navigation and shortcuts (F146)", () => {
 
   it("does not offer Delete-to-NULL or paste for a non-nullable column", () => {
     render(<RowsTable {...baseProps({ editable: false })} />);
-    // With editing off entirely, Delete on a selected display cell is a no-op - the grid never
-    // opens an editor or mutates anything.
     fireEvent.click(screen.getByText("Ada"));
     fireEvent.keyDown(screen.getByTestId("rows-table"), { key: "Delete" });
     expect(screen.getByText("Ada")).toBeInTheDocument();

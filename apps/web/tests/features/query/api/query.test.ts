@@ -31,10 +31,8 @@ function mockFetchOnce(status: number, body: unknown): void {
 }
 
 describe("runQuery (F107/F108)", () => {
-  // apps/web's vitest environment is plain Node (no window/document) - getAuthToken reads
-  // window.__QYRE_TOKEN__, so every test needs a stand-in window global, same as it would get for
-  // free in a real browser tab.
   beforeEach(() => {
+    // The Vitest environment is Node, while getAuthToken reads the browser window.
     vi.stubGlobal("window", {});
   });
 

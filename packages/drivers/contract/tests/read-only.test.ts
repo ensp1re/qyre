@@ -84,9 +84,6 @@ describe("assertReadOnly", () => {
     expect(() => assertReadOnly("SELECT 'a;b' AS x;")).not.toThrow();
   });
 
-  // F154: `SELECT ... INTO OUTFILE` leads with an allowed read keyword but writes a file on the
-  // MySQL server, and `START TRANSACTION READ ONLY` does not stop it (confirmed live against
-  // MySQL 8) - so the engine-level backstop cannot be the layer that catches this one.
   it("rejects SELECT ... INTO OUTFILE/DUMPFILE, which write a file on the database server", () => {
     expect(() =>
       assertReadOnly("SELECT * FROM users INTO OUTFILE '/var/lib/mysql-files/x.txt'")

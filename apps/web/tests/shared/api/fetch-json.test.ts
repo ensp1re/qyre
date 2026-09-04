@@ -8,8 +8,7 @@ function mockResponse(init: { status: number; body?: unknown }): Response {
 
 describe("fetchJson", () => {
   beforeEach(() => {
-    // getAuthToken reads window.__QYRE_TOKEN__ (F122) - this suite runs under Node, not jsdom, so
-    // it needs a minimal stand-in rather than a real window.
+    // The Vitest environment is Node, while getAuthToken reads the browser window.
     vi.stubGlobal("window", {});
   });
 

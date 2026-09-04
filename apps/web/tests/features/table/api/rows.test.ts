@@ -4,8 +4,6 @@ import { exportRowsUrl } from "../../../../src/features/table/api/rows.js";
 describe("exportRowsUrl (F118)", () => {
   beforeEach(() => {
     vi.stubGlobal("window", { __QYRE_TOKEN__: "session-token" });
-    // The export URL now carries a single-use download grant instead of the session token
-    // (PLAN.md P3), so building one requires a round trip to mint it.
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({ grant: "one-shot-grant" })))

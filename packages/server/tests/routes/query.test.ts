@@ -20,8 +20,6 @@ const WRITABLE_CAPABILITIES: ConnectionCapabilities = {
   readOnlyReason: null
 };
 
-/** A minimal write-capable fake adapter (F107) - `getCapabilities` reports full write access and
- * `runQuery` is a spy so tests can assert it was (or wasn't) called for a given statement. */
 function writeCapableAdapter(runQueryImpl: DatabaseAdapter["runQuery"]): {
   adapter: DatabaseAdapter;
   runQuery: ReturnType<typeof vi.fn>;
@@ -41,9 +39,7 @@ function writeCapableAdapter(runQueryImpl: DatabaseAdapter["runQuery"]): {
     }),
     getTable: async () => ({ schema: "public", name: "x", columns: [] }),
     getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
-    // Mirrors every real adapter's runReadOnlyQuery: rejects anything assertReadOnly rejects, so
-    // the "read-only always wins for non-read statements" behavior is genuinely exercised here,
-    // not just assumed.
+    // Apply the same read-only gate as real adapters.
     runReadOnlyQuery: async (sql) => {
       assertReadOnly(sql);
       return { columns: [], rows: [], page: 0, pageSize: 0 };
@@ -67,12 +63,7 @@ describe("POST /api/query", () => {
   });
 
   it("returns the real error message (not a generic one) when a query fails for a reason other than a read-only violation", async () => {
-    // F017: found while testing F012 - a bad table name (or any non-ReadOnlyViolationError query
-    // failure) used to fall through to Fastify's default error handler, which returns
-    // { statusCode, error: "Internal Server Error", message: "<real detail>" } - apps/web's
-    // fetchJson reads `error`, so the developer saw the useless reason phrase instead of the real
-    // reason their query failed. The global error handler must fix this for any adapter, not just
-    // Postgres specifically.
+    // Preserve the driver's message for errors other than read-only violations.
     const adapter: DatabaseAdapter = {
       engine: "postgres",
       connect: async () => {},
@@ -297,11 +288,7 @@ describe("POST /api/query", () => {
     });
 
     it("calls runQuery bound to the adapter instance, not detached (regression: a real adapter's runQuery relies on `this`, unlike the arrow-function fakes above)", async () => {
-      // Every real adapter's runQuery is a plain class method (this.getPool()/this.getDb()) -
-      // calling it detached from the instance (e.g. `const fn = adapter.runQuery; fn(sql)`) throws
-      // inside the method itself. This class-based fake reproduces that shape; the arrow-function
-      // fakes elsewhere in this file (vi.fn(async (sql) => ...)) don't rely on `this` at all and so
-      // would never have caught this bug.
+      // A class method catches accidental loss of the adapter's this binding.
       class ClassBasedAdapter implements DatabaseAdapter {
         engine = "postgres";
         ranWith: string | undefined;
@@ -330,8 +317,6 @@ describe("POST /api/query", () => {
           return { columns: [], rows: [], page: 0, pageSize: 0 };
         }
         async runQuery(sql: string) {
-          // Throws if called without `this` bound to this instance - exactly what a real
-          // adapter's this.getPool()/this.getDb() call does.
           this.ranWith = sql;
           return { columns: [], rows: [], rowsAffected: 1 };
         }

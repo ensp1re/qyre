@@ -15,13 +15,6 @@ export interface CreateNamedDialogProps {
   onClose: () => void;
 }
 
-/**
- * A minimal "name, then create" modal - shared by F116's New-database (in the connection switcher)
- * and New-schema (Postgres only, in the sidebar) flows, the same reuse `ConfirmTypedNameDialog`
- * (F114) already established for the three typed-confirmation destructive flows. Neither database
- * nor schema creation takes any option beyond a name (`DatabaseAdminApi.createDatabase`/
- * `createSchema` are both single-string-argument methods), so there's nothing else to collect.
- */
 export function CreateNamedDialog({
   title,
   label,

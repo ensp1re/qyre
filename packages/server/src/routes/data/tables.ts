@@ -39,9 +39,6 @@ function exportFilename(table: string, format: RowExportFormat): string {
   return `${safeTable}.${format}`;
 }
 
-// Read routes carry `permissionRoute` config too (F149): an engine-side denial (e.g. a MongoDB
-// role without read access on a collection) must normalize into the shared safe 403 body, never
-// leak raw driver error text into the browser.
 const READ_TABLE_ROUTE = permissionRoute(
   { operation: "read-table", target: "table", likelyMissingGrant: "SELECT" },
   false
@@ -57,12 +54,6 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  // Backs the Schema tab (F027): previously the browser fanned useAllTables out into one HTTP
-  // request per table (plus several catalog queries within each), which could mean hundreds of
-  // concurrent requests on a large database. Fetching every table's metadata server-side in one
-  // request keeps that fan-out off the browser's connection pool; getAllTables() (F123) keeps it
-  // off the database too, replacing the adapter-side per-table fan-out this route used to drive
-  // (an unbounded Promise.all(getTable) per table) with each engine's own batched introspection.
   app.get(
     "/api/tables",
     permissionRoute(
@@ -79,8 +70,6 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  // Compatibility route for clients that still need one full relaxed-EJSON document. The Tables
-  // UI now uses staged field-level grid changes. This remains read-only.
   app.get<{ Params: { schema: string; table: string; id: string } }>(
     "/api/tables/:schema/:table/document/:id",
     async (request, reply) => {
@@ -141,9 +130,6 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  // F099: structured row insert. Gated by the F096 central read-only guard (`config: { mutating:
-  // true }`) and the table's own insert permission (assertMutable) - defense in depth on top of
-  // the database's own real enforcement, per docs/product-specs/permissions-and-capabilities.md.
   app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/rows",
     permissionRoute({ operation: "insert", target: "table", likelyMissingGrant: "INSERT" }),
@@ -176,10 +162,6 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  // F100: structured row update by full primary-key match. This per-row compatibility route keeps
-  // MongoDB whole-document replacement; the shared grid uses POST /api/mutations/commit. A
-  // 0-matched result is a distinct "stale row" outcome, reported as 409, never a silent
-  // no-op 200 - the caller may have staged an edit against a row that was already changed/removed.
   app.patch<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/rows",
     permissionRoute({ operation: "update", target: "table", likelyMissingGrant: "UPDATE" }),
@@ -201,10 +183,6 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
       if (!rawChanges) {
         return reply.status(400).send({ error: "Request body must include changes." });
       }
-      // MongoDB whole-document compatibility callers must prove they started from the document currently
-      // stored, not just supply a replacement - lost-update protection per
-      // docs/product-specs/row-editing.md. Required (not merely accepted) so the protection can
-      // never be silently skipped for this engine.
       if (db.engine === "mongodb" && !parsedBody.data.originalDocument) {
         return reply.status(400).send({ error: "Request body must include originalDocument." });
       }
@@ -253,9 +231,6 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  // F101: structured row delete by an explicit list of primary-key matches - no filter-based bulk
-  // delete (see docs/product-specs/row-editing.md). `deleted` less than the requested key count is
-  // reported as 409, same "stale row" treatment F100's update gets, never a silent 200.
   app.delete<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/rows",
     permissionRoute({ operation: "delete", target: "table", likelyMissingGrant: "DELETE" }),
@@ -316,10 +291,6 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  // F118: one native adapter cursor/query stream per whole-result export. Readable.from propagates
-  // response backpressure and closes the adapter iterator if the client disconnects.
-  // Mints the single-use credential the export navigation below presents. Authed like any other
-  // /api route, so only a caller that already holds the session token can obtain one (PLAN.md P3).
   app.post("/api/exports/grant", async () => ({ grant: issueDownloadGrant() }));
 
   app.get<{

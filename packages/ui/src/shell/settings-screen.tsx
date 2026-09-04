@@ -12,7 +12,6 @@ export interface SettingsScreenProps {
   onClose: () => void;
   connectionStatus: ConnectionStatus;
   connectionTarget: string | null;
-  /** Opens the connection switcher (the drawer that used to hide behind the gear). */
   onOpenConnection: () => void;
   queryHistoryCount: number;
   onClearQueryHistory: () => void;
@@ -40,12 +39,6 @@ const SETTINGS_CATEGORIES = [
   { id: "data", label: "Data & history", icon: History }
 ] as const;
 
-/**
- * A full-screen, grouped configuration view (F087). Every control applies immediately - there is
- * no separate save/discard step. It replaces the old one-off panel where the title-bar gear
- * silently opened the connection drawer - that switcher now lives in its own labeled section here
- * and behind its own title-bar button.
- */
 export function SettingsScreen({
   theme,
   onThemeChange,

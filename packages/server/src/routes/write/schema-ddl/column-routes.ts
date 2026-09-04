@@ -17,7 +17,6 @@ import {
 import { logDdlFailure, logDdlSuccess, mongoColumnRoutesNotApplicable } from "./route-support.js";
 
 export function registerColumnDdlRoutes(app: FastifyInstance, ctx: ServerContext): void {
-  // Add a column. Non-destructive - a plain review-before-submit step, no typed confirmation.
   app.post<{ Params: { schema: string; table: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/columns",
     permissionRoute({ operation: "add-column", target: "column", likelyMissingGrant: "ALTER" }),
@@ -72,9 +71,6 @@ export function registerColumnDdlRoutes(app: FastifyInstance, ctx: ServerContext
     }
   );
 
-  // Rename and/or alter a column in one request - either or both together, per
-  // docs/product-specs/schema-editing.md's API-shapes section. Non-destructive - a plain
-  // review-before-submit step, no typed confirmation.
   app.patch<{ Params: { schema: string; table: string; column: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/columns/:column",
     permissionRoute({ operation: "alter-column", target: "column", likelyMissingGrant: "ALTER" }),
@@ -119,12 +115,6 @@ export function registerColumnDdlRoutes(app: FastifyInstance, ctx: ServerContext
           .send({ error: "This engine does not support renaming or altering columns." });
       }
 
-      // F134: one call combining both steps - Postgres/SQLite run it as one transaction (a mid-
-      // request failure rolls back everything, including an already-issued rename, so this only
-      // ever resolves fully applied or throws); MySQL has no transactional DDL to wrap, so a
-      // rename that already committed before a following alter failure is reported back as a
-      // partial result instead of thrown, so the caller never treats a half-applied edit as a
-      // total failure or retries into "Unknown column".
       const operation = newName !== undefined ? "renameColumn" : "alterColumn";
       const startedAt = performance.now();
       let result;
@@ -164,9 +154,6 @@ export function registerColumnDdlRoutes(app: FastifyInstance, ctx: ServerContext
     }
   );
 
-  // Drop a column. Destructive: requires the caller to type the column's exact name, re-validated
-  // server-side. A request body on DELETE is valid HTTP, matching row-editing.md's identical
-  // precedent for its own DELETE route.
   app.delete<{ Params: { schema: string; table: string; column: string }; Body: unknown }>(
     "/api/tables/:schema/:table/ddl/columns/:column",
     permissionRoute({ operation: "drop-column", target: "column", likelyMissingGrant: "ALTER" }),

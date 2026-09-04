@@ -1,16 +1,4 @@
 #!/usr/bin/env node
-/**
- * Verify the `@qyre/qyre` package actually works standalone outside this monorepo (F010) - not
- * just that the build succeeds. Packs it exactly as `pnpm publish` would, extracts that tarball
- * into a fresh temp directory with no relationship to this repo, and starts the real server
- * against a real SQLite file from there. If `packages/cli`'s web-root resolution regresses back to
- * a monorepo-relative path, this fails where a plain `pnpm build` would not.
- *
- * Rebuilds @qyre/web and @qyre/qyre fresh so this is trustworthy standalone, not dependent on
- * some prior build step having run correctly.
- *
- * Usage: node scripts/verify-npm-package.mjs
- */
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -30,7 +18,7 @@ function fail(message) {
   process.exit(1);
 }
 
-/** Spawns the harness and resolves once it prints "READY", or rejects on error/timeout. */
+/** Wait for the packed server to signal readiness. */
 function waitForReady(child) {
   return new Promise((resolvePromise, reject) => {
     const timeout = setTimeout(
@@ -75,17 +63,12 @@ if (!existsSync(bundledIndexHtml)) {
 }
 console.log("OK: packed tarball includes a bundled apps/web build (dist/web/index.html).");
 
-// Real dependency resolution against the npm registry isn't possible pre-publish (these workspace
-// packages don't exist there yet) - substitute the equivalent local resolution so the server
-// actually runs, the same way a real `npm install qyre` would once published.
+// Use local dependencies because workspace packages are not published yet.
 symlinkSync(join(cliRoot, "node_modules"), join(extractedRoot, "node_modules"));
 
 const dbPath = join(standaloneDir, "verify.db");
 execFileSync("sqlite3", [dbPath, "CREATE TABLE demo (id INTEGER PRIMARY KEY, name TEXT);"]);
 
-// Imports the real defaultWebRoot() this package exports (via node's self-referencing package
-// resolution, since this harness lives inside the packed package itself) rather than
-// re-implementing its logic - this proves the actual shipped function, not a stand-in for it.
 const harnessPath = join(extractedRoot, "verify-harness.mjs");
 writeFileSync(
   harnessPath,

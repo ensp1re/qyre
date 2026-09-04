@@ -9,11 +9,9 @@ export interface QueryPlanPanelProps {
   error?: string;
   onRetry: () => void;
   height?: number;
-  /** Removes the outer partition when QueryRunner already provides the output-tab border. */
   embedded?: boolean;
 }
 
-/** Focused monospaced text/tree rendering for a database-native execution plan (F128). */
 export function QueryPlanPanel({
   result,
   loading,

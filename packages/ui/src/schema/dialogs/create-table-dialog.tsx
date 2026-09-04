@@ -7,8 +7,6 @@ import { classifyColumnKind } from "../../primitives/type-icon.js";
 
 const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-/** One column as the form collects it - `default` stays raw text until submit, so a
- * half-typed number ("-", "1.") doesn't get silently coerced away while the user is still typing. */
 interface ColumnDraft {
   key: string;
   name: string;
@@ -17,8 +15,6 @@ interface ColumnDraft {
   defaultText: string;
 }
 
-/** The shape `onCreate` submits - matches `ColumnDefinition` (`@qyre/core`) without importing it
- * directly, so this presentational package doesn't need a hard dependency on the domain type. */
 export interface CreateTableColumnInput {
   readonly name: string;
   readonly dataType: string;
@@ -28,23 +24,15 @@ export interface CreateTableColumnInput {
 
 export interface CreateTableDialogProps {
   schema: string;
-  /** Available SQL schemas. The controlled `schema` value is selected by default. */
   schemas?: readonly string[];
   onSchemaChange?: (schema: string) => void;
-  /** The curated per-engine type catalog (F110's `POSTGRES_COLUMN_TYPES` and siblings). Empty for
-   * MongoDB, which has no column DDL at all (schemaless) - the dialog degrades to a name-only
-   * new-collection form when this is empty, per docs/product-specs/schema-editing.md's "MongoDB's
-   * column operations" section. */
   columnTypes: readonly string[];
   creating: boolean;
-  /** A create failure - shown inline, the dialog stays open so the user's draft isn't lost. */
   error?: string;
   onCreate: (table: string, columns: CreateTableColumnInput[]) => void;
   onClose: () => void;
 }
 
-/** Coerces a raw default-value draft to `ColumnDefinition["default"]`'s shape based on the column's
- * type - shared with F114's `AddColumnDialog`, which collects a single column the same way. */
 export function coerceDefaultValue(
   text: string,
   dataType: string
@@ -68,14 +56,6 @@ function formatDefaultPreview(value: string | number | boolean | null): string {
   return ` DEFAULT ${value}`;
 }
 
-/**
- * A human-readable preview of the statement `onCreate` will run - a display-only approximation,
- * not literal per-engine SQL (each adapter's own quoting/type-mapping lives server-side,
- * packages/drivers/*\/src/ddl.ts; duplicating that here would risk the preview drifting from what
- * actually runs). Mirrors the "preview, not the real query text" precedent
- * apps/web/src/features/table/model/editing/commit-preview.ts's `buildPreviewLine` already established for
- * row mutations, per docs/product-specs/schema-editing.md's own review-before-submit requirement.
- */
 function buildPreview(schema: string, table: string, columns: ColumnDraft[]): string {
   if (columns.length === 0) return `CREATE TABLE "${schema}"."${table || "..."}" ()`;
   const lines = columns.map((column) => {
@@ -96,17 +76,6 @@ function makeColumnDraft(dataType: string): ColumnDraft {
   return { key: `col-${nextColumnKey}`, name: "", dataType, nullable: true, defaultText: "" };
 }
 
-/**
- * Permission-gated new-table flow (F113, docs/product-specs/schema-editing.md) - the caller only
- * renders this at all when the session's `supportsDdl` capability is true (F097's "hidden without
- * the capability" rule). Collects a table name and, for SQL engines, a column list (type from the
- * curated catalog, nullability, default); MongoDB gets a name-only new-collection form since
- * collections have no fixed structure to declare. Primary-key marking is deliberately not offered
- * here - `ColumnDefinition`/`createTable` (F110) has no first-class way to express one, per the
- * spec's own "the columns you pass are enough to define the table" scope note; adding a PK today
- * needs the SQL Editor. Never calls the server itself - `onCreate` is the caller's (packages/ui
- * components don't fetch, per FRONTEND.md).
- */
 export function CreateTableDialog({
   schema,
   schemas = [schema],

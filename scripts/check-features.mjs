@@ -1,11 +1,4 @@
 #!/usr/bin/env node
-/**
- * Validate docs/FEATURES.json as the single source of truth for feature state.
- *
- * Enforces the invariants documented in docs/FEATURES.md so the feature list can be trusted when
- * choosing the next task, judging completion, and writing the session handoff. Exits non-zero on
- * any violation.
- */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -14,7 +7,6 @@ const here = dirname(fileURLToPath(import.meta.url));
 const featuresPath = resolve(here, "../docs/FEATURES.json");
 
 const ALLOWED_STATES = ["not_started", "active", "blocked", "passing"];
-// F### for backend/product features, DF-## for frontend/design-driven work (docs/NAMING.md).
 const ID_PATTERN = /^(F\d{3}|DF-\d{2,})$/;
 const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/i;
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;

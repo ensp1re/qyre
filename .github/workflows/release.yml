@@ -1,17 +1,5 @@
 name: Release
 
-# Publishes every workspace package to npm with a provenance attestation, from CI rather than a
-# maintainer's laptop. Before this, releases were `pnpm release publish` run locally against a
-# long-lived npm token: a compromised developer machine could publish a malicious `qyre` to
-# everyone running `npx qyre`, with nothing for consumers to verify against.
-#
-# One-time npm setup, required before the first run of this workflow:
-#   npm access                        # confirm you own every @qyre/* name plus `qyre`
-#   For each package, on npmjs.com -> Settings -> Trusted Publisher, add:
-#     org/repo: ensp1re/qyre   workflow: release.yml   environment: (leave blank)
-# Trusted Publishing exchanges the OIDC token below for a short-lived npm credential, so no
-# NPM_TOKEN secret needs to exist at all. Until every package is configured, the publish step
-# fails closed rather than falling back to a token.
 on:
   push:
     tags:
@@ -32,12 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Required for npm Trusted Publishing (OIDC) and for the provenance attestation.
       id-token: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: pnpm
@@ -45,12 +32,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Provenance attests to the source commit that produced the tarball, so the build must be
-      # the one this workflow just made - never a stale dist/ from the checkout.
       - run: pnpm build
 
-      # The tag is the release's only input, so it has to agree with what the packages actually
-      # say. A mismatch here means the version bump was never committed.
       - name: Verify the tag matches the package version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |

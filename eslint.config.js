@@ -22,7 +22,7 @@ export default tseslint.config(
       globals: { ...globals.node, ...globals.browser }
     },
     rules: {
-      // TypeScript handles undefined-symbol checking; no-undef is redundant and misfires on DOM/Node.
+      // TypeScript handles this check; no-undef misfires with mixed DOM/Node globals.
       "no-undef": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",

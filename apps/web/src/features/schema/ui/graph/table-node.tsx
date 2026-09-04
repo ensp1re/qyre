@@ -4,17 +4,8 @@ import { Link, Table2 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { TableFlowNode } from "../../model/graph-model.js";
 
-/** How many column rows a node shows before it scrolls internally - keeps one wide table from
- * dominating the canvas (mirrors the spec's "caps its visible column list" note). */
 const MAX_VISIBLE_ROWS = 12;
 
-/**
- * A single table rendered as a React Flow node (F074), reusing `TableDetail`'s visual vocabulary
- * (header with row count, column rows with type icon + PK/FK badges) but woven with React Flow
- * `Handle`s: one target handle on the left edge (incoming FK edges land here) and one source handle
- * per column (outgoing FK edges leave from that column's row, so an edge visibly starts at the key
- * it represents). Handles are non-interactive (this is a read-only viewer, not a connection editor).
- */
 export function TableNode({ data, selected }: NodeProps<TableFlowNode>): ReactNode {
   const { table } = data;
   const capped = table.columns.length > MAX_VISIBLE_ROWS;
@@ -29,7 +20,6 @@ export function TableNode({ data, selected }: NodeProps<TableFlowNode>): ReactNo
         (isDimmed ? " opacity-45" : "")
       }
     >
-      {/* Incoming FK edges (this table is referenced) land on the node's left edge. */}
       <Handle
         type="target"
         position={Position.Left}
@@ -90,8 +80,6 @@ export function TableNode({ data, selected }: NodeProps<TableFlowNode>): ReactNo
             <span className="ml-auto shrink-0 truncate text-[9px] text-quiet-foreground">
               {column.dataType}
             </span>
-            {/* Outgoing FK edges leave from the specific column's row (see graph-model's
-                sourceHandle). Only rendered for FK columns to keep the DOM lean. */}
             {column.isForeignKey && (
               <Handle
                 id={`col-${column.name}`}

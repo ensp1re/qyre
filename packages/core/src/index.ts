@@ -1,11 +1,3 @@
-/**
- * Shared domain types and contracts for Qyre.
- *
- * This package must stay UI-, server-, and engine-agnostic. It is the single source of truth for
- * types (and their runtime validation) used by both `packages/server` and `apps/web`, so the two
- * can never silently drift apart. See ARCHITECTURE.md and docs/CODE_ORGANIZATION.md for the folder
- * rules this package follows.
- */
 export * from "./types/connection/connection.js";
 export * from "./types/query/table.js";
 export * from "./types/schema/schema.js";

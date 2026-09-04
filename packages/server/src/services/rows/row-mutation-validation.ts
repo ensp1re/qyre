@@ -9,10 +9,7 @@ function badRequest(message: string): Error {
   return Object.assign(new Error(message), { statusCode: 400 });
 }
 
-/** Before MongoDB ObjectIds were normalized at the adapter boundary, an ObjectId created by a
- * second BSON package instance could cross the wire as `{ buffer: { "0": 80, ... } }`. Accept
- * only that exact 12-byte legacy shape so a row already loaded in the browser remains committable
- * after the server is upgraded; new row responses always use hexadecimal text. */
+/** Accept the legacy 12-byte BSON buffer shape during upgrades. */
 function legacyObjectIdText(value: unknown): string | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const record = value as Record<string, unknown>;
@@ -31,13 +28,6 @@ function legacyObjectIdText(value: unknown): string | undefined {
   return Buffer.from(bytes as number[]).toString("hex");
 }
 
-/**
- * Rejects a mutation against a table that can't accept one, per docs/product-specs/row-editing.md:
- * `kind !== "table"`/`"collection"` (F124 - a view has no rows of its own to update) is a 400
- * (the target itself is invalid); missing `TablePermissions` or the specific action's flag being
- * `false` is a 403 (a real target, just not permitted) - undefined `permissions` fails closed
- * (never assumed-writable), matching the advisory-introspection principle.
- */
 export function assertMutable(
   tableMetadata: TableMetadata,
   action: "insert" | "update" | "delete"
@@ -50,8 +40,6 @@ export function assertMutable(
   }
 }
 
-/** MongoDB row keys still use the filter classifier because `_id` is sampled metadata and may
- * require ObjectId validation. SQL mutation values use the richer typed-editor contract below. */
 function coerceRowValue(
   kind: FilterColumnKind,
   value: unknown,
@@ -151,9 +139,6 @@ function mongoInsertNumber(value: unknown, columnName: string): unknown {
   return number;
 }
 
-/** Validates one sampled MongoDB grid value and converts insert-only BSON types to EJSON. Updates
- * remain in the grid's readable JSON-safe shape; the driver preserves the current field's BSON
- * type when applying them. */
 function resolveMongoGridValue(
   column: ColumnMetadata,
   value: unknown,
@@ -229,14 +214,6 @@ function resolveMongoGridValues(
   );
 }
 
-/**
- * Validates/coerces a column -> value map against the table's real introspected columns before an
- * adapter is ever called - the actual injection surface, since a column name is a raw identifier a
- * driver can't parameter-bind (same reasoning as `resolveRowSort`/filter-column validation).
- * `rejectPrimaryKey` is set for update's `changes` map only (F100): a primary-key column is always
- * suppliable on insert, but per docs/product-specs/row-editing.md is "never editable when updating
- * an existing row" - changing a row's identity mid-edit isn't a supported operation here.
- */
 function resolveColumnValues(
   tableMetadata: TableMetadata,
   body: Record<string, unknown>,
@@ -255,12 +232,6 @@ function resolveColumnValues(
   return resolved;
 }
 
-/**
- * Validates/coerces an insert request body against the table's real introspected columns.
- * MongoDB is deliberately exempt: its columns are sampled/best-effort, not an authoritative
- * catalog, and its document is EJSON-deserialized inside the adapter itself instead - Qyre doesn't
- * invent document-shape constraints it doesn't enforce, per the spec.
- */
 export function resolveInsertValues(
   tableMetadata: TableMetadata,
   body: Record<string, unknown>,
@@ -270,12 +241,6 @@ export function resolveInsertValues(
   return resolveColumnValues(tableMetadata, body, engine, false);
 }
 
-/**
- * Validates/coerces an update request's `changes` map (F100): primary-key columns are rejected
- * (never editable via update, per docs/product-specs/row-editing.md), and an empty map is rejected
- * too - there is nothing to update. MongoDB is exempt for the same reason `resolveInsertValues` is:
- * its whole-document replacement is EJSON-deserialized inside the adapter, not validated per field.
- */
 export function resolveUpdateChanges(
   tableMetadata: TableMetadata,
   body: Record<string, unknown>,
@@ -288,13 +253,6 @@ export function resolveUpdateChanges(
   return resolveColumnValues(tableMetadata, body, engine, true);
 }
 
-/**
- * Validates/coerces an update/delete request's row-identity `key`, per docs/product-specs/
- * row-editing.md: the full primary key must be supplied as a set (a composite key is matched
- * exactly, never a subset), and a table with no primary key at all is rejected outright - there is
- * no reliable way to target one specific row without one. MongoDB's key is always exactly `{_id}`,
- * matching its single-field primary key (F068).
- */
 export function resolveKey(
   tableMetadata: TableMetadata,
   key: Record<string, unknown>,
@@ -330,12 +288,6 @@ export function resolveKey(
   return resolved;
 }
 
-/**
- * Validates/coerces a delete request's `keys` list (F101) by running each entry through
- * `resolveKey` - an empty list is rejected outright, matching "keys" being the request's sole
- * required content (nothing to delete otherwise). No filter-based bulk delete: every key must be an
- * explicit, already-loaded primary-key match, per docs/product-specs/row-editing.md.
- */
 export function resolveKeys(
   tableMetadata: TableMetadata,
   keys: Array<Record<string, unknown>>,
@@ -347,8 +299,6 @@ export function resolveKeys(
   return keys.map((key) => resolveKey(tableMetadata, key, engine));
 }
 
-/** Validates/coerces one op against its table's already-fetched metadata - the synchronous half
- * `resolveBatchOps` delegates to once it has each op's `tableMetadata` in hand. */
 function resolveOneOp(
   tableMetadata: TableMetadata,
   op: MutationOp,
@@ -393,20 +343,6 @@ function batchTargetKey(op: Pick<MutationOp, "schema" | "table">): string {
   return `${op.schema} ${op.table}`;
 }
 
-/**
- * Validates/coerces every op in a `POST /api/mutations/commit` batch (F135 review finding V2) -
- * `assertMutable` plus the matching `resolve*` helper for each op, same as the per-op routes' own
- * validation, but sharing one introspection per distinct `schema.table` across the whole batch
- * instead of firing `getTable` once per op. A staged batch is almost always many ops against one
- * table (200 staged cell edits previously fired 200 concurrent, identical introspection query
- * sets before the transaction even started). Ops keep their original relative order in the
- * returned array - `result.failedIndex` and the route's own `ops[]` lookups both depend on it -
- * and a validation failure on any op still throws before `commitBatch` is ever called, per
- * docs/product-specs/row-editing.md's "validation failure on any operation aborts the whole
- * commit before any write happens." The failure actually reported is deterministic (the first
- * array-order op with a problem), a side effect of sharing one metadata-fetch phase ahead of a
- * synchronous validation pass instead of racing N independent async validations.
- */
 export async function resolveBatchOps(
   db: DatabaseAdapter,
   ops: MutationOp[]

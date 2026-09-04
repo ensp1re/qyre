@@ -3,7 +3,6 @@ import type { ServerContext } from "../../app.js";
 import { applyReadOnlyOverride } from "../../services/access/read-only-capabilities.js";
 import { requireAdapter } from "../../services/connection/require-adapter.js";
 
-/** Read-only access inspection. Remains available under `--read-only`. */
 export function registerAccessRoute(app: FastifyInstance, ctx: ServerContext): void {
   app.get("/api/access", async (_request, reply) => {
     const adapter = requireAdapter(ctx.adapter);

@@ -107,7 +107,6 @@ describe("createStreamGuidedLoginIO", () => {
     const io = createStreamGuidedLoginIO(input, output);
 
     const first = io.ask("User: ");
-    // Piped input commonly arrives as one chunk containing every answer at once.
     input.write("alice\nsecret\ndb.example.com\n");
 
     expect(await first).toBe("alice");

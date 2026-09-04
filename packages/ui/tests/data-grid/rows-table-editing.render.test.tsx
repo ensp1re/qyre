@@ -17,10 +17,7 @@ const editableColumns: ColumnMetadata[] = [
   { name: "name", dataType: "varchar", nullable: false, isPrimaryKey: false, isForeignKey: false }
 ];
 
-/** A minimal real-React-state pending-changes stand-in - mirrors `usePendingChanges` closely enough
- * (state lives in the component that renders `RowsTable`, so a stage/revert call triggers the same
- * kind of re-render the real hook's caller relies on) without importing apps/web's implementation,
- * which packages/ui can't depend on. */
+/** Minimal stateful pending-changes stand-in; packages/ui cannot import apps/web. */
 function TestHost({
   editable,
   onStageEdit,
@@ -223,8 +220,7 @@ describe("RowsTable inline cell editing (component rendering, F103)", () => {
 
   it("does not make the primary-key cell editable even when editable is true", () => {
     render(<TestHost editable />);
-    // Two "1"s render: the row-number column and the id (PK) cell's value - the PK cell is the
-    // second one in document order.
+    // The row number and primary-key value both render "1"; the PK is second in document order.
     const [, pkCell] = screen.getAllByText("1");
     fireEvent.doubleClick(pkCell as HTMLElement);
     expect(screen.queryByLabelText("id")).not.toBeInTheDocument();

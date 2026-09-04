@@ -25,8 +25,7 @@ describe("toCsv", () => {
     expect(toCsv(["v"], [{ v: "a=b" }])).toBe("v\na=b");
   });
 
-  // F154, kept in lockstep with the server's own csvLine tests: spreadsheets strip leading
-  // whitespace before evaluating, and a bare CR separates records for many parsers.
+  // Spreadsheet parsers trim leading whitespace and treat bare CR as a record separator.
   it("prefixes a formula hidden behind leading whitespace", () => {
     expect(toCsv(["v"], [{ v: "\t=cmd()" }])).toBe("v\n'\t=cmd()");
     expect(toCsv(["v"], [{ v: " =cmd()" }])).toBe("v\n' =cmd()");

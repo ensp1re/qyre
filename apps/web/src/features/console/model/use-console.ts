@@ -4,7 +4,6 @@ import { QUERY_RETRY } from "../../../shared/lib/query/retry.js";
 
 const QUERY_KEY = ["console"];
 
-/** React Query hook for the Console tab's event stream. Polls while connected. */
 export function useConsoleEvents(options: { enabled: boolean }) {
   return useQuery({
     queryKey: QUERY_KEY,
@@ -15,7 +14,6 @@ export function useConsoleEvents(options: { enabled: boolean }) {
   });
 }
 
-/** Mutation to clear the server's event log. */
 export function useClearConsole() {
   const queryClient = useQueryClient();
   return useMutation({

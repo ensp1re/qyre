@@ -8,25 +8,14 @@ export interface CommitBarProps {
   insertCount: number;
   updateCount: number;
   deleteCount: number;
-  /** One SQL-statement or MongoDB-JSON preview line per staged op, in request order. */
   previewLines: readonly string[];
   onCommit: () => void;
   onDiscard: () => void;
   committing: boolean;
-  /** Message from a failed commit attempt - shown alongside the failed op, buffer left intact so
-   * the work isn't lost (per the spec's "buffer preserved on failure"). */
   error?: string;
-  /** Index into `previewLines` of the operation that failed, when known - highlighted in the
-   * preview list. */
   failedIndex?: number;
 }
 
-/**
- * The pending-changes commit bar (F105): the final review/apply step for everything staged by
- * F103's inline editing and F104's Add-row/Duplicate-row. Renders nothing when the buffer is empty
- * - appears only once there's something to commit. Never calls the server itself; `onCommit`/
- * `onDiscard` are the caller's (packages/ui components don't fetch, per FRONTEND.md).
- */
 export function CommitBar({
   insertCount,
   updateCount,

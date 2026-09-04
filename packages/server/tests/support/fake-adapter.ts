@@ -1,7 +1,6 @@
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 import { stubReadOnlyCapabilities } from "@qyre/driver-contract";
 
-/** A minimal, fully-functional fake adapter for route tests that don't hit a real database. */
 export function makeFakeAdapter(overrides: Partial<DatabaseAdapter> = {}): DatabaseAdapter {
   return {
     engine: "postgres",

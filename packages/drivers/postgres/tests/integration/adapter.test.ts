@@ -1,10 +1,3 @@
-/**
- * Integration tests for {@link PostgresAdapter} against a real Postgres database.
- *
- * Requires QYRE_TEST_DATABASE_URL (see docs/RELIABILITY.md). We never silently skip required
- * verification: a missing env var fails these tests with an actionable message instead of passing
- * trivially.
- */
 import {
   FIXTURE,
   requireReadOnlyTestDatabaseUrl,
@@ -131,7 +124,6 @@ describe("PostgresAdapter integration", () => {
       const table = await adapter.getTable(FIXTURE.schema, "qyre_test_orders");
       const userIdColumn = table.columns.find((column) => column.name === "user_id");
       expect(userIdColumn?.isForeignKey).toBe(true);
-      // F061: also resolves what the FK actually references, not just that it is one.
       expect(userIdColumn?.references).toEqual({
         schema: FIXTURE.schema,
         table: FIXTURE.table,
@@ -143,23 +135,16 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
-  // F156: a never-analyzed table (reltuples -1, always true of a fresh one) takes the exact
-  // COUNT(*) path, so the gap between listing targets and counting them is exactly when a table is
-  // most likely to vanish. A concurrent DROP used to raise 42P01 and fail the whole call, emptying
-  // the explorer because of one unrelated table.
   it("survives a table dropped mid-introspection instead of failing the whole catalog", async () => {
     await runStatements(databaseUrl, [
       "DROP TABLE IF EXISTS qyre_test_vanishing",
       "CREATE TABLE qyre_test_vanishing (id serial PRIMARY KEY)"
     ]);
 
-    // Drop it while getAllTables is in flight: the listing sees it, the count no longer can.
     const catalog = adapter.getAllTables();
     await runStatements(databaseUrl, ["DROP TABLE IF EXISTS qyre_test_vanishing"]);
     const tables = await catalog;
 
-    // The fixture table is still reported - the point is that one vanished table doesn't take the
-    // rest of the catalog with it.
     expect(
       tables.some((table) => table.schema === FIXTURE.schema && table.name === FIXTURE.table)
     ).toBe(true);
@@ -285,10 +270,6 @@ describe("PostgresAdapter integration", () => {
       expect(afterTruncate.rows).toHaveLength(0);
 
       await adapter.ddl?.dropTable?.(FIXTURE.schema, renamed);
-      // Postgres's own introspection reads pg_class's catalog-level row estimate rather than
-      // issuing a live query against the table, so getTable on a dropped table resolves with an
-      // empty-but-present result instead of rejecting - the overview's table list is the
-      // authoritative existence check here.
       const overview = await adapter.getOverview();
       const schema = overview.schemas.find((candidate) => candidate.name === FIXTURE.schema);
       expect(schema?.tables).not.toContain(renamed);
@@ -393,9 +374,6 @@ describe("PostgresAdapter integration", () => {
         `INSERT INTO ${table} (id, note) VALUES (1, 'not-a-number')`
       ]);
 
-      // Postgres can't implicitly cast "not-a-number" to integer - this alter must fail, and
-      // since renameAndAlterColumn runs both steps in one transaction, the rename that would
-      // otherwise have already committed must be rolled back with it.
       await expect(
         adapter.ddl?.renameAndAlterColumn?.(FIXTURE.schema, table, "note", {
           newName: "remark",
@@ -754,10 +732,6 @@ describe("PostgresAdapter integration", () => {
     }
   });
 
-  // F154: the F050 row cap wrapped by leading keyword, so a writable CTE - valid Postgres, and the
-  // exact shape `classifyStatement` documents as the reason it scans past the leading keyword -
-  // became `SELECT * FROM (WITH d AS (DELETE ...) ...) AS qyre_capped_query`, a syntax error. Every
-  // `WITH`-led write failed. The write path no longer caps.
   it("runQuery executes a writable CTE (WITH ... DELETE ... RETURNING) without wrapping it", async () => {
     try {
       await runStatements(databaseUrl, [
@@ -796,21 +770,12 @@ describe("PostgresAdapter integration", () => {
   });
 
   it("CRITICAL: runQuery does NOT rewrite an unknown double-quoted token, unlike runReadOnlyQuery's coercion (F107 regression)", async () => {
-    // The exact same text that runReadOnlyQuery's coercion would silently rewrite into a string
-    // literal (see "treats a double-quoted value..." above) must be sent to Postgres verbatim on
-    // the write path - a mutation's SQL is never DWIM-coerced, only read statements get that
-    // treatment (docs/product-specs/sql-editor.md). `WHERE id = -1` matches no real row, but
-    // Postgres still validates the SET clause's column reference at plan time regardless, so this
-    // never touches fixture data even though it throws.
     await expect(
       adapter.runQuery?.(`UPDATE ${FIXTURE.table} SET name="Alan Turing" WHERE id = -1`)
     ).rejects.toThrow(/column "Alan Turing" does not exist/);
   });
 
   it("runs a read-only query whose string literal contains a semicolon (F021 regression)", async () => {
-    // Previously: assertReadOnly checked for `;` against raw SQL, so filtering by any value
-    // containing a semicolon (a URL, encoded blob, free text) was wrongly rejected as
-    // "multiple statements".
     const result = await adapter.runReadOnlyQuery(
       `SELECT * FROM ${FIXTURE.table} WHERE name = 'a;b'`
     );
@@ -818,8 +783,6 @@ describe("PostgresAdapter integration", () => {
   });
 
   it("treats a double-quoted value most people write out of habit as a string literal", async () => {
-    // Reproduces the real bug report: Postgres reserves "" for identifiers, so this used to fail
-    // with `column "Alan Turing" does not exist` instead of matching the row.
     const result = await adapter.runReadOnlyQuery(
       `SELECT * FROM ${FIXTURE.table} WHERE name="Alan Turing"`
     );
@@ -834,8 +797,6 @@ describe("PostgresAdapter integration", () => {
   });
 
   it("does not corrupt a quote character inside a string literal (F020 regression)", async () => {
-    // Previously: the regex-based coercion rewrote the "hi" inside the string literal too,
-    // producing invalid SQL that failed at the database instead of matching by name.
     await runStatements(databaseUrl, [
       `INSERT INTO ${FIXTURE.table} (name, email) VALUES ('he said "hi" loudly', 'quote-test@example.com')`
     ]);
@@ -852,8 +813,6 @@ describe("PostgresAdapter integration", () => {
   });
 
   it("resolves a schema-qualified, double-quoted table reference (F020 regression)", async () => {
-    // Previously: "public" wasn't in knownIdentifiers (only table/column names were collected),
-    // so the schema name itself got coerced into a string literal, breaking the query.
     const result = await adapter.runReadOnlyQuery(
       `SELECT * FROM "${FIXTURE.schema}"."${FIXTURE.table}"`
     );
@@ -861,8 +820,6 @@ describe("PostgresAdapter integration", () => {
   });
 
   it("resolves a double-quoted reference to a query-local column alias (F020 regression)", async () => {
-    // Previously: "total" isn't a real column anywhere, so it got coerced to a string literal,
-    // breaking a query that legitimately refers back to its own subquery alias.
     const result = await adapter.runReadOnlyQuery(
       `SELECT "total" FROM (SELECT COUNT(*) AS total FROM ${FIXTURE.table}) counts`
     );
@@ -884,10 +841,6 @@ describe("PostgresAdapter integration", () => {
   });
 
   it("blocks a write hidden inside a function call, which no string check can detect", async () => {
-    // assertReadOnly's keyword scan cannot catch this: the SQL text is a plain SELECT with a
-    // function name that doesn't contain any forbidden keyword as a whole word. Only the
-    // READ ONLY transaction (Postgres's own enforcement) can stop it - this test exists
-    // specifically to prove that backstop independently of the string-check layer.
     await runStatements(databaseUrl, [
       `CREATE OR REPLACE FUNCTION qyre_test_wipe() RETURNS void AS $$
          BEGIN
@@ -907,12 +860,7 @@ describe("PostgresAdapter integration", () => {
   });
 
   it("survives an idle pooled connection being dropped by the database", async () => {
-    // Reproduces a real crash: node-postgres's Pool emits an unhandled "error" event when an
-    // idle client's connection is severed server-side (restart, network blip, admin kill) -
-    // exactly what happens when the database becomes unreachable while Qyre is running. Without
-    // a pool.on("error", ...) listener, that event crashes the whole Node process instead of
-    // /api/health ever getting a chance to report "disconnected".
-    await adapter.ping(); // ensure a client is checked into the pool
+    await adapter.ping();
 
     const admin = new Pool({ connectionString: databaseUrl });
     try {
@@ -928,8 +876,6 @@ describe("PostgresAdapter integration", () => {
       await admin.end();
     }
 
-    // Give the pool's "error" event a tick to fire. If it's unhandled, the test process crashes
-    // here rather than this assertion ever running.
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(await adapter.ping()).toBe(true);
   });
@@ -965,8 +911,6 @@ describe("PostgresAdapter integration", () => {
   });
 
   it("aborts a runaway query once it exceeds the configured statement timeout (F032)", async () => {
-    // A dedicated adapter/pool with a tiny timeout (via QYRE_STATEMENT_TIMEOUT_MS, read at
-    // connect() time) proves the mechanism fires without waiting out the real 30s default.
     process.env.QYRE_STATEMENT_TIMEOUT_MS = "200";
     const shortTimeoutAdapter = new PostgresAdapter({ engine: "postgres", raw: databaseUrl });
     try {
@@ -989,15 +933,11 @@ describe("PostgresAdapter integration", () => {
     try {
       const operationId = "f126-cancel-test";
       const slowQuery = adapter.runReadOnlyQuery("SELECT pg_sleep(5)", operationId);
-      // Give the query time to register its cancel callback and actually start on the server -
-      // registration happens synchronously before the slow query itself runs, but this still
-      // guards against a flaky race on a loaded CI runner.
       await expect.poll(() => callbacks.has(operationId), { timeout: 2000 }).toBe(true);
 
       await callbacks.get(operationId)?.();
       await expect(slowQuery).rejects.toMatchObject({ name: "OperationCancelledError" });
 
-      // The pool itself is untouched - a fresh query on the same adapter still works.
       expect(await adapter.ping()).toBe(true);
     } finally {
       adapter.operationRegistry = undefined;
@@ -1005,11 +945,6 @@ describe("PostgresAdapter integration", () => {
   });
 
   it("does not report a plain statement-timeout expiry as a user cancellation (F126 regression, F032)", async () => {
-    // The exact same 57014 SQLSTATE Postgres uses for pg_cancel_backend() is also what
-    // statement_timeout reports on its own - only wasCancelledByUser() (set solely when this
-    // adapter's own registry callback runs) may distinguish them. Reproduces F032's timeout path
-    // with a registry attached (unlike the plain F032 test above) to prove it still throws the
-    // *timeout* error, not OperationCancelledError, when nothing actually called cancel().
     process.env.QYRE_STATEMENT_TIMEOUT_MS = "200";
     const shortTimeoutAdapter = new PostgresAdapter({ engine: "postgres", raw: databaseUrl });
     shortTimeoutAdapter.operationRegistry = { register: () => {}, unregister: () => {} };

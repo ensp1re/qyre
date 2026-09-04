@@ -25,7 +25,6 @@ function formatTime(timestamp: string): string {
   return new Date(timestamp).toLocaleTimeString("en-US", { hour12: false });
 }
 
-/** A read-only stream of recent connection/query events (DF-07), with a client-side Clear action. */
 export function ConsoleLog({ events, onClear }: ConsoleLogProps): ReactNode {
   const [level, setLevel] = useState<"all" | ConsoleEvent["level"]>("all");
   const visibleEvents = level === "all" ? events : events.filter((event) => event.level === level);

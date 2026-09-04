@@ -8,21 +8,13 @@ export interface StatusBarProps {
   engine?: DatabaseEngine;
   engineVersion?: string | null;
   schema?: string;
-  /** The current connection target (e.g. `postgres://user:***@host:5432/qyre_test`) - its final
-   * path segment is shown after `schema` as the database name. */
   target?: string | null;
   lastQueryMs?: number;
-  /** Round-trip time of the health check this status is based on, in ms (F042). */
   pingLatencyMs?: number | null;
-  /** The most recent ping failure's error message, shown as a tooltip while disconnected (F042). */
   lastError?: string | null;
-  /** Session-level write capabilities (F091) - renders the read-only/read-write access badge
-   * (F097). Omitted while disconnected/loading, same as every other connection-dependent field. */
   capabilities?: ConnectionCapabilities;
 }
 
-/** True once the session can perform at least one kind of write - the same "any supports* flag
- * true" test the product spec uses to decide whether any write affordance may render at all. */
 function isWritable(capabilities: ConnectionCapabilities): boolean {
   return (
     capabilities.supportsRowMutations ||
@@ -32,10 +24,6 @@ function isWritable(capabilities: ConnectionCapabilities): boolean {
   );
 }
 
-/** Read-only access badge (F097) - a visible, always-explained warning when the session can't
- * write, independent of the underlying connection status dot. Writable is the common case and
- * already implied elsewhere (editable cells, the Commit button), so it renders nothing there -
- * only the read-only exception is worth calling out in the footer (F146). */
 export function AccessBadge({
   capabilities
 }: {
@@ -73,15 +61,12 @@ function Separator(): ReactNode {
   return <span className="text-border">·</span>;
 }
 
-/** The final path segment of a connection target - the database name for a network connection
- * string, or the filename for a SQLite file path. */
 function databaseNameFromTarget(target: string): string | undefined {
   const trimmed = target.replace(/\/+$/, "");
   const lastSlash = trimmed.lastIndexOf("/");
   return lastSlash === -1 ? undefined : trimmed.slice(lastSlash + 1) || undefined;
 }
 
-/** Bottom chrome bar: connection status, engine + version, current schema, and database name. */
 export function StatusBar({
   status,
   engine,

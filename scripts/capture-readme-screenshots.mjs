@@ -1,15 +1,4 @@
 #!/usr/bin/env node
-/**
- * Captures real screenshots of the live app for README.md - actual product screens, not mockups.
- * Requires a real Postgres database (QYRE_TEST_DATABASE_URL) since Qyre has no fixture data of its
- * own to show. Run manually when the UI changes enough to need new screenshots; not part of any
- * CI or check gate.
- *
- * Usage (tsx, not node - @qyre/testing ships TypeScript source; build web first so
- * apps/web/dist reflects the UI being captured):
- *   pnpm --filter @qyre/web... build
- *   node scripts/with-local-env.mjs pnpm exec tsx scripts/capture-readme-screenshots.mjs
- */
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,9 +10,7 @@ import { FIXTURE, requireTestDatabaseUrl, runStatements, setupFixture } from "@q
 import { chromium } from "@playwright/test";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
-// Not docs/generated/ - that's gitignored for build-time ephemera. These screenshots are a
-// versioned marketing asset embedded directly in README.md and must be committed to render on
-// GitHub/npm.
+// These committed assets are embedded in README.md.
 const outDir = join(repoRoot, "docs/screenshots");
 mkdirSync(outDir, { recursive: true });
 
@@ -65,8 +52,6 @@ async function main() {
     await page.getByTestId("status-badge").waitFor();
     await page.waitForTimeout(300);
 
-    // SQL Editor: a real query, run, with results below the editor. The editor is CodeMirror
-    // (same locator the e2e specs use), not a plain textarea.
     await page.getByRole("tab", { name: "SQL Editor" }).click();
     await page
       .getByTestId("query-editor")
@@ -81,15 +66,11 @@ ORDER BY o.id`
     await page.getByTestId("query-result").waitFor();
     await page.screenshot({ path: join(outDir, "sql-editor.png") });
 
-    // Schema tab: the default graph view - every table as a node with its FK edges laid out.
     await page.getByRole("tab", { name: "Schema" }).click();
     await page.getByTestId("schema-graph").waitFor();
     await page.waitForTimeout(600);
     await page.screenshot({ path: join(outDir, "schema.png") });
 
-    // Tables tab: the paginated row browser for the fixture table. The sidebar renders tables as
-    // treeitems (same locator the e2e specs use); a bare button-role lookup can match the hidden
-    // query-history card containing the same table name.
     await page.getByRole("treeitem", { name: FIXTURE.table }).click();
     await page.getByTestId("rows-table").waitFor();
     await page.waitForTimeout(200);

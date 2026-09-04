@@ -122,7 +122,6 @@ describe("POST /api/databases (F115)", () => {
 
   it("rejects with 403 when the session cannot manage databases", async () => {
     const adapter = makeFakeAdapter({
-      // default stub capabilities: supportsDatabaseManagement false
       admin: { createDatabase: async () => {} }
     });
     const app = createServer({ adapter });

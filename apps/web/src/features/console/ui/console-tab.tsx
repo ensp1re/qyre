@@ -7,7 +7,6 @@ export interface ConsoleTabProps {
   onClear: () => void;
 }
 
-/** Console tab content - a stream of recent connection/query events. */
 export function ConsoleTab({ consoleEvents, onClear }: ConsoleTabProps): ReactNode {
   if (consoleEvents.isLoading) {
     return (

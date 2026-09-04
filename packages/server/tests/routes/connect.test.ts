@@ -102,7 +102,6 @@ describe("Database switching (F064)", () => {
     expect(connectResponse.statusCode).toBe(400);
     expect(connectResponse.json()).toMatchObject({ error: "connection refused" });
 
-    // The old adapter is still the one serving requests - a failed switch never left a gap.
     const healthResponse = await app.inject({
       method: "GET",
       url: "/api/health",
@@ -184,10 +183,7 @@ describe("Database switching (F064)", () => {
   });
 
   it("surfaces the real reason from an AggregateError, not an empty message (F064 live-caught bug)", async () => {
-    // A connection failure to an unreachable host commonly throws Node's AggregateError (it
-    // tries IPv6 then IPv4 and wraps both failures) - confirmed live against a real unreachable
-    // port: its own .message is "", with the actual reason only in .errors[0]. Reproduced here
-    // without a real network call so the regression is covered without depending on timing.
+    // AggregateError may have an empty top-level message; assert the nested reason is surfaced.
     const factory: AdapterFactory = {
       engine: "postgres",
       supports: () => true,

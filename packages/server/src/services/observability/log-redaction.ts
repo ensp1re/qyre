@@ -1,19 +1,8 @@
 import type { FastifyLoggerOptions, FastifyRequest } from "fastify";
 
-/**
- * Masks sensitive query-string values before a request URL reaches Fastify's request logger
- * (F067's `--verbose` mode, which logs every request). The `token` query param (F122's
- * export-download auth path, the one route the auth guard accepts a token from instead of an
- * `Authorization` header - see `plugins/auth-guard.ts`) is the live session bearer token; logging
- * it verbatim would write a still-valid credential to the terminal/any captured log output. The
- * token remains fully valid for actual auth - only its logged representation changes.
- */
 const REDACTED = "[redacted]";
 const SENSITIVE_QUERY_PARAMS = new Set(["token"]);
 
-/** Replaces any sensitive query-param value in `url` with a fixed placeholder, leaving everything
- * else (path, other params) untouched. Returns `url` unchanged when it has no sensitive param or
- * fails to parse (never throws on a malformed request URL). */
 export function redactSensitiveQueryParams(url: string): string {
   let parsed: URL;
   try {
@@ -32,8 +21,6 @@ export function redactSensitiveQueryParams(url: string): string {
   return `${parsed.pathname}${parsed.search}`;
 }
 
-/** Mirrors Fastify's default request-log shape, with `url`'s sensitive query params masked via
- * {@link redactSensitiveQueryParams}. */
 function redactedRequestSerializer(request: FastifyRequest): Record<string, unknown> {
   return {
     method: request.method,
@@ -44,8 +31,6 @@ function redactedRequestSerializer(request: FastifyRequest): Record<string, unkn
   };
 }
 
-/** What `CreateServerOptions.logger` accepts (F067's `--verbose` flag plumbing) - `stream` is
- * additionally accepted so tests can capture log output; the CLI never sets it. */
 export type ServerLoggerOption =
   | boolean
   | {
@@ -53,12 +38,6 @@ export type ServerLoggerOption =
       stream?: { write(msg: string): void };
     };
 
-/**
- * Normalizes a `CreateServerOptions.logger` value into Fastify's logger config, always attaching
- * {@link redactedRequestSerializer} - `logger: true` and a bare `{ level }` object both bypass any
- * serializer otherwise, which is exactly the `--verbose` path that leaked the session token
- * (F130 review finding S2). `false`/`undefined` disables logging entirely, unchanged.
- */
 export function buildLoggerOptions(
   logger: ServerLoggerOption | undefined
 ): FastifyLoggerOptions | boolean {

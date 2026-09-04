@@ -4,8 +4,6 @@ import {
   writeVersionedStorage
 } from "../../shared/lib/storage/versioned-storage.js";
 
-/** Reads/writes one numeric panel size (px) to localStorage under `key`, mirroring use-theme.ts's
- * persistence pattern (F071 - resizable sidebar/results panels). */
 export function usePanelSize(key: string, defaultSize: number): [number, (size: number) => void] {
   const storage = {
     key,

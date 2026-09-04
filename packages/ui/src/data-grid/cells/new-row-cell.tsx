@@ -20,15 +20,11 @@ export interface NewRowCellProps {
   engine?: DatabaseEngine;
   nullable: boolean;
   onChange: (next: unknown) => void;
-  /** Whether this cell is the table's current single active editor (F146). Optional: omitting all
-   * three falls back to self-managed local open/close state (e.g. for standalone/test usage). */
   isActive?: boolean;
   onActivate?: () => void;
   onDeactivate?: () => void;
 }
 
-/** Temporary grid-hosted insert cell. It uses the same typed editor registry as updates; DF-13
- * moves this activation into the dedicated row composer without changing the value contract. */
 export function NewRowCell({
   columnName = "value",
   value,

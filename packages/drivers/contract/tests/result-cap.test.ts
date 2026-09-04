@@ -35,9 +35,6 @@ describe("capResultRows", () => {
     expect(capResultRows("SELECT 1")).toContain("LIMIT 1000");
   });
 
-  // F154: keyword detection used to run against raw SQL, so a leading comment read as the first
-  // keyword and the cap silently did not apply - an unbounded scan, and on MySQL the skipped
-  // wrapper was also all that incidentally blocked `SELECT ... INTO OUTFILE`.
   it("still caps when a comment precedes the leading keyword", () => {
     expect(capResultRows("-- note\nSELECT * FROM users", 5)).toBe(
       "SELECT * FROM (-- note\nSELECT * FROM users) AS qyre_capped_query LIMIT 5"

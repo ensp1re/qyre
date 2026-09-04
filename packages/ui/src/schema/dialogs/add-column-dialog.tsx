@@ -16,12 +16,6 @@ export interface AddColumnDialogProps {
   onClose: () => void;
 }
 
-/**
- * Add-column flow for F114's Structure view (F111's `POST .../ddl/columns`) - a single-column subset
- * of F113's `CreateTableDialog` form (name, type, nullability, default), reusing its
- * `coerceDefaultValue` coercion so a value like "5" submits as a number the same way it would inside
- * a brand-new table's column list.
- */
 export function AddColumnDialog({
   table,
   columnTypes,

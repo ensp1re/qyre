@@ -21,8 +21,6 @@ describe("postgresAdapterFactory", () => {
     });
     const events: Array<{ level: string; message: string }> = [];
     adapter.onConnectionEvent = (level, message) => events.push({ level, message });
-    // The adapter deliberately treats missing catalog access like a read-only role. A minimal
-    // pool stub isolates that fallback without needing a real database failure.
     (adapter as unknown as { pool: { query: () => Promise<never> } }).pool = {
       query: async () => {
         throw new Error("pg_roles is unavailable");

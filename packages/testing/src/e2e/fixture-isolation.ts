@@ -46,13 +46,7 @@ export function fixtureEngineForProject(projectName: string): FixtureEngine {
   return engine;
 }
 
-/**
- * Acquire cross-process directory locks for the requested engine fixtures.
- *
- * Locks are always acquired in engine-name order so a journey that touches multiple engines cannot
- * deadlock another multi-engine journey. The returned release function verifies ownership before
- * removing a lock, and acquisition reclaims locks whose worker process is gone.
- */
+/** Acquire fixture locks in stable order and reclaim abandoned workers. */
 export async function acquireFixtureEngineLocks(
   lockRoot: string,
   engines: readonly FixtureEngine[],

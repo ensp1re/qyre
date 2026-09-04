@@ -2,31 +2,16 @@ import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { useEffect, useRef } from "react";
 
 export interface ResizeHandleProps {
-  /** "vertical" = a vertical divider line, dragged left/right (sidebar width); "horizontal" = a
-   * horizontal divider line, dragged up/down (editor/results split). */
   orientation: "vertical" | "horizontal";
   value: number;
   min: number;
   max: number;
   onChange: (value: number) => void;
-  /** Amount an arrow-key press adjusts `value` by. Pointer-drag always tracks the cursor exactly;
-   * this only affects keyboard step size. */
   step?: number;
-  /** True when the controlled panel sits on the side of the handle where the pointer axis
-   * decreases as the panel grows (e.g. a bottom panel whose handle is on its top edge - dragging
-   * the handle up, a negative Y delta, should grow it). Sidebar (handle trailing a left-anchored
-   * panel) is the default, non-inverted case. */
   invert?: boolean;
   "aria-label": string;
 }
 
-/**
- * A draggable divider between two panels (F071): pointer-drag resizes continuously, and - since a
- * plain drag handle is invisible to keyboard/screen-reader users - it's also focusable and
- * responds to arrow keys, following the WAI-ARIA "window splitter" separator pattern
- * (role="separator" + aria-orientation/valuenow/valuemin/valuemax on a focusable element, not an
- * <input type="range"> since this moves a boundary between two regions, not a standalone value).
- */
 export function ResizeHandle({
   orientation,
   value,

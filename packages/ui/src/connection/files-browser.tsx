@@ -13,16 +13,10 @@ export interface FilesBrowserProps {
   selectedPath?: string;
   onSelectFile: (path: string) => void;
   content?: string;
-  /** True when `content` is only the file's first bytes, not the whole file (F133) - a file over
-   * the server's preview size cap. Hides "Run in editor" (the file's SQL is incomplete) and shows
-   * a truncation notice instead. */
   contentTruncated?: boolean;
   isContentLoading?: boolean;
   contentError?: string;
   onRetryContent?: () => void;
-  /** Runs the currently-previewed `.sql` file's content in the SQL Editor (F062). Omitted (button
-   * hidden) when the SQL Editor isn't available for the current connection, e.g. MongoDB, or when
-   * the preview is truncated. */
   onRunInEditor?: (content: string) => void;
 }
 
@@ -107,7 +101,6 @@ function TreeRow({
   );
 }
 
-/** A read-only browser for `.sql` files (DF-06): a folder/file tree plus a line-numbered preview. */
 export function FilesBrowser({
   tree,
   selectedPath,

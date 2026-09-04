@@ -7,9 +7,6 @@ export interface SegmentedOption<Value extends string> {
   icon?: ReactNode;
 }
 
-/** A small pill-style toggle for a short, mutually-exclusive set of options (F087) - shared by the
- * Settings screen's theme picker and the connect drawer's engine picker rather than each owning a
- * one-off variant. */
 export function Segmented<Value extends string>({
   value,
   onChange,

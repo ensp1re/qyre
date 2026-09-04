@@ -20,7 +20,7 @@ const columns: ColumnMetadata[] = [
   { name: "name", dataType: "varchar", nullable: false, isPrimaryKey: false, isForeignKey: false }
 ];
 
-/** A minimal real-React-state pending-changes stand-in exercising the delete half of the buffer. */
+/** Minimal stateful pending-changes stand-in; packages/ui cannot import apps/web. */
 function TestHost({ canDelete, editable }: { canDelete: boolean; editable?: boolean }): ReactNode {
   const [deletes, setDeletes] = useState<Set<string>>(new Set());
 

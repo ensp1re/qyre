@@ -26,11 +26,7 @@ export interface TypedValueEditorProps {
   controlLabel?: string;
   onApply: (value: unknown) => void;
   onCancel: () => void;
-  /** The drawer already names the edited column, so structured editors can omit duplicate
-   * metadata and explanatory chrome. */
   presentation?: "popover" | "drawer";
-  /** Reveals a small "Expand" action opening the same value in the full right-side drawer instead
-   * of this anchored popover (F146) - an explicit, occasional escape hatch, never the default. */
   onExpand?: () => void;
 }
 
@@ -41,11 +37,6 @@ function setInitialValue(value: unknown): string[] {
   return [];
 }
 
-/**
- * The full-value editor for widgets too large for in-place editing (F146). JSON, arrays, binary,
- * XML, and PostgreSQL intervals use its streamlined drawer presentation; SET retains the anchored
- * popover and optional drawer expansion.
- */
 export function TypedValueEditor({
   column,
   engine,

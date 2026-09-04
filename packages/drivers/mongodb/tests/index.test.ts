@@ -185,12 +185,6 @@ describe("mongodbAdapterFactory", () => {
   });
 });
 
-// MongoDB has no server-enforced read-only mode to fall back on (see this spec's "Read-only
-// enforcement" section) - the guarantee is instead that a Mongo write API is only ever called from
-// mutations.ts (F099's one deliberate, gated write path) or ddl.ts (F110's equally deliberate,
-// gated schema-lifecycle write path) - see "read-only enforcement" below - never anywhere else in
-// the adapter. This is the "lint-style check" that spec explicitly calls for: fails loudly if a
-// future change adds an unplanned write call, rather than relying solely on code review to catch it.
 const WRITE_METHODS = [
   "insertOne",
   "insertMany",
@@ -218,19 +212,6 @@ describe("read-only enforcement", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const sourceDirectory = join(here, "../src");
     const source = readdirSync(sourceDirectory)
-      // permissions.ts (F095) legitimately contains MongoDB's own privilege *action-name*
-      // vocabulary as string literals (e.g. "createCollection", "createIndex", "dropDatabase" in
-      // an actions array read from connectionStatus{showPrivileges:true}) - the same words as real
-      // write methods, but never called as one; it only ever reads via client.db().command(...).
-      // mutations.ts (F099), ddl.ts (F110/F112), and admin.ts (F115) are the three deliberate,
-      // gated write paths - see the next tests. adapter.ts's own SchemaDdlApi/DatabaseAdminApi
-      // wiring imports and calls ddl.ts's `createIndex`/`dropIndex` (F112) and admin.ts's
-      // `dropDatabase` (F115) functions by their own names - the same identifiers as the real
-      // MongoDB driver methods they wrap, so the string scan can't tell "calls our own reviewed
-      // wrapper" from "calls the raw driver method" there; excluded for that reason, verified
-      // instead by grepping adapter.ts for the raw MongoDB write methods (never found - it only
-      // ever delegates to mutations.ts/ddl.ts/admin.ts). All five excluded here so this scan keeps
-      // catching an actual *accidental* write call elsewhere.
       .filter(
         (name) =>
           name.endsWith(".ts") &&
@@ -263,9 +244,6 @@ describe("read-only enforcement", () => {
     for (const method of shipped) {
       expect(source, `mutations.ts must call ${method}`).toContain(`${method}(`);
     }
-    // Every other write method stays absent until its own feature slice deliberately adds it -
-    // the same "fails loudly on an unplanned write call" guarantee the rest of the adapter gets,
-    // scoped to what hasn't shipped yet.
     for (const method of WRITE_METHODS.filter((candidate) => !shipped.includes(candidate))) {
       const callPattern = method.endsWith("(") ? method : `${method}(`;
       expect(source, `mutations.ts must not yet call ${method}`).not.toContain(callPattern);
@@ -287,8 +265,6 @@ describe("read-only enforcement", () => {
       const callPattern = method.endsWith("(") ? method : `${method}(`;
       expect(source, `ddl.ts must call ${method}`).toContain(callPattern);
     }
-    // Every other write method stays absent until its own feature slice deliberately adds it - the
-    // same "fails loudly on an unplanned write call" guarantee mutations.ts gets, scoped to ddl.ts.
     for (const method of WRITE_METHODS.filter((candidate) => !shipped.includes(candidate))) {
       const callPattern = method.endsWith("(") ? method : `${method}(`;
       expect(source, `ddl.ts must not yet call ${method}`).not.toContain(callPattern);
@@ -299,8 +275,6 @@ describe("read-only enforcement", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const source = readFileSync(join(here, "../src/admin/admin.ts"), "utf-8");
     expect(source, "admin.ts must call dropDatabase").toContain("dropDatabase(");
-    // Every other write method stays absent - notably no createCollection-style implicit
-    // database creation: MongoDB has no createDatabase member at all (see admin.ts's doc comment).
     for (const method of WRITE_METHODS.filter((candidate) => candidate !== "dropDatabase")) {
       const callPattern = method.endsWith("(") ? method : `${method}(`;
       expect(source, `admin.ts must not yet call ${method}`).not.toContain(callPattern);

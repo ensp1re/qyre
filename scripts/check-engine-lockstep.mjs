@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-/**
- * Validate that the three separately hand-maintained "which engines exist" lists stay in lockstep
- * (F053): `connection-target.ts`'s protocol detection, the CLI's adapter/factory registry, and
- * `scripts/publish.mjs`'s `PUBLISH_ORDER`. Adding a new engine driver but forgetting to wire it
- * into one of these has already happened once - `@qyre/mysql`/`@qyre/mongodb` were missing
- * from `PUBLISH_ORDER` until this check was added - so this fails loudly instead of relying on
- * someone noticing during a release.
- */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -18,8 +10,7 @@ function read(relativePath) {
   return readFileSync(resolve(root, relativePath), "utf8");
 }
 
-// connection-target.ts's protocol detection is the canonical source of "which engines exist" -
-// every `{ engine: "x", ... }` return literal it produces.
+// Derive the engine list from the canonical protocol detection source.
 let connectionTarget;
 try {
   connectionTarget = read("packages/core/src/connection-target.ts");

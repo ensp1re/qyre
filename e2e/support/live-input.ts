@@ -1,9 +1,6 @@
 import type { Locator } from "@playwright/test";
 
-/**
- * Reproduces a real input/keydown race in one browser task: the DOM already contains the user's
- * final value while React has not rendered the corresponding controlled state yet.
- */
+/** Set an input's DOM value and press Enter before React re-renders it. */
 export async function replaceInputAndPressEnterSynchronously(
   locator: Locator,
   value: string

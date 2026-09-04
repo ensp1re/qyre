@@ -4,10 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DateTimeInput } from "../../src/primitives/date-time-input.js";
 
-/** A controlled wrapper so a click/keystroke's onChange feeds back in as the next `value` prop,
- * matching how FilterBar actually drives this component (draft.value round-tripping through
- * React state), rather than asserting on a single isolated onChange call in the datetime-local
- * case where the date and time halves are composed across two separate interactions. */
+/** Controlled wrapper that feeds each change back as the next value prop. */
 function Controlled({
   kind,
   initial
@@ -57,7 +54,6 @@ describe("DateTimeInput (time)", () => {
 
     fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "14" } });
     expect(screen.getByLabelText("Minute")).toHaveFocus();
-    // Still incomplete (minute empty) - reports "" rather than a half-composed time string.
     expect(onChange).toHaveBeenLastCalledWith("");
 
     fireEvent.change(screen.getByLabelText("Minute"), { target: { value: "30" } });
@@ -68,7 +64,6 @@ describe("DateTimeInput (time)", () => {
     const onChange = vi.fn();
     render(<DateTimeInput kind="time" value="" onChange={onChange} />);
 
-    // "9a9" -> digits only, capped at 2 chars -> "99" -> clamped to the max valid hour, 23.
     fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "9a9" } });
     fireEvent.change(screen.getByLabelText("Minute"), { target: { value: "75" } });
 
@@ -100,7 +95,6 @@ describe("DateTimeInput (datetime-local)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Choose date" }));
     fireEvent.click(screen.getAllByRole("button", { name: "20" })[0] as HTMLElement);
-    // Picking a day alone yields midnight - the time segments are still empty at this point.
     expect(screen.getByRole("button", { name: "Choose date" })).toHaveTextContent(/\d{4}-\d{2}-20/);
 
     fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "08" } });

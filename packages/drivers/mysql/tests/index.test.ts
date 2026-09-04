@@ -21,11 +21,6 @@ describe("mysqlAdapterFactory", () => {
 });
 
 describe("MysqlAdapter pool error routing (F028)", () => {
-  // mysql2's createPool() is lazy - it never attempts a real connection until the first query, so
-  // connect() succeeds against a bogus target and this stays a fast, DB-free unit test. Whether
-  // mysql2 actually emits this event for a given real-world failure is out of scope here (already
-  // exercised live by the "survives an idle pooled connection" integration test); this only proves
-  // the routing logic itself - the point of F028 - is wired correctly.
   async function createConnectedAdapter(): Promise<MysqlAdapter> {
     const adapter = new MysqlAdapter({ engine: "mysql", raw: "mysql://localhost:1/db" });
     await adapter.connect();

@@ -1,21 +1,4 @@
 #!/usr/bin/env node
-/**
- * Bump every publishable workspace package's version in lockstep and publish them to npm.
- *
- * All publishable packages share one version (the version users see via `npx qyre@x.y.z`) so
- * their `workspace:*` cross-references stay trivially in sync - pnpm resolves `workspace:*` to the
- * real version range from each package's local package.json at publish time, so bumping everything
- * together before publishing is enough; no manual dependency-range rewriting is needed.
- *
- * Usage: node scripts/publish.mjs [patch|minor|major] [--dry-run]
- *
- * To retry publishing a single package that failed last time (e.g. a registry hiccup, or a
- * name-policy block that's since been cleared) without re-bumping or re-checking everything:
- *   node scripts/publish.mjs --only <package-name> [--dry-run]
- * This publishes that one package at its current (already-committed) version - no version bump,
- * no `pnpm check`, no git commit/tag. Only use it to finish a release that already ran the full
- * flow above and got everything else published; it does not start a new release on its own.
- */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -25,10 +8,7 @@ const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-// `--ci` is how .github/workflows/release.yml publishes: the tag already exists and its commit
-// already passed CI on main, so the branch check, the local `pnpm check`, and the tag creation
-// below are all redundant there - and the branch check would fail outright, since a tag build is
-// a detached HEAD. It also adds --provenance, which only works with the workflow's OIDC token.
+// CI publishes an existing tag from a detached HEAD with provenance.
 const ci = args.includes("--ci");
 const onlyFlagIndex = args.indexOf("--only");
 const onlyPackage = onlyFlagIndex !== -1 ? args[onlyFlagIndex + 1] : null;
@@ -44,12 +24,7 @@ if (!onlyPackage && !["patch", "minor", "major", "publish"].includes(bumpType)) 
   process.exit(1);
 }
 
-/**
- * Explicit publish order (dependency-first), so a package is never published before a workspace
- * dependency it needs is already resolvable. Kept explicit rather than topologically computed: the
- * package count is small and a new engine package (e.g. @qyre/sqlite, F008) forces a conscious
- * update here, which doubles as a reminder to wire it into the release.
- */
+/** Keep workspace dependencies publishable before their dependents. */
 const PUBLISH_ORDER = [
   "@qyre/core",
   "@qyre/driver-contract",
@@ -60,16 +35,10 @@ const PUBLISH_ORDER = [
   "@qyre/server",
   "@qyre/ui",
   "@qyre/qyre",
-  // Bare-named alias package (packages/qyre) - depends on @qyre/qyre, so it must publish last.
+  // The unscoped alias depends on @qyre/qyre.
   "qyre"
 ];
 
-/**
- * Runs a command with its own stdout/stderr streamed straight through (so e.g. npm's own error
- * output is still visible in real time). On failure, prints one clean summary line and exits with
- * the child's real status code, instead of letting the raw execFileSync exception crash the whole
- * process with a Node-internals stack trace that has nothing to do with the actual failure.
- */
 function run(command, commandArgs, options = {}) {
   try {
     execFileSync(command, commandArgs, { stdio: "inherit", cwd: repoRoot, ...options });
@@ -87,15 +56,12 @@ function readPackageJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
-// 1. Require a clean working tree so a publish always corresponds to a committed, pushed state.
 const gitStatus = runCapture("git", ["status", "--porcelain"]);
 if (gitStatus) {
   console.error("Working tree is not clean. Commit or stash changes before publishing.");
   process.exit(1);
 }
 
-// 2. Discover publishable packages (private !== true) via pnpm's own workspace listing, rather
-// than re-implementing workspace-glob resolution.
 const workspacePackages = JSON.parse(runCapture("pnpm", ["-r", "list", "--json", "--depth", "-1"]));
 const publishable = workspacePackages.filter((pkg) => pkg.private !== true);
 
@@ -112,8 +78,6 @@ if (missingFromOrder.length > 0) {
 const packagesByName = new Map(publishable.map((pkg) => [pkg.name, pkg]));
 const orderedPackages = PUBLISH_ORDER.map((name) => packagesByName.get(name)).filter(Boolean);
 
-// --only: publish a single already-versioned package and stop, skipping the bump/check/commit
-// steps below entirely (see the usage note at the top of this file).
 if (onlyPackage) {
   const pkg = packagesByName.get(onlyPackage);
   if (!pkg) {
@@ -131,8 +95,6 @@ if (onlyPackage) {
   process.exit(0);
 }
 
-// 3. Lockstep version: bump off the CLI package's current version, since that's the version users
-// actually see.
 const cliPkg = packagesByName.get("@qyre/qyre");
 if (!cliPkg) {
   console.error('Could not find the "@qyre/qyre" package among publishable packages.');
@@ -140,7 +102,6 @@ if (!cliPkg) {
 }
 const currentVersion = readPackageJson(join(cliPkg.path, "package.json")).version;
 
-// Handle the direct publish of current version (on main after PR is merged)
 if (bumpType === "publish") {
   if (!ci) {
     const currentBranch = runCapture("git", ["branch", "--show-current"]);
@@ -159,15 +120,11 @@ if (bumpType === "publish") {
   }
 
   if (!ci) {
-    // Verify main is clean & passes check
     run("pnpm", ["check"]);
 
-    // Create release tag locally
     run("git", ["tag", `v${currentVersion}`]);
   }
 
-  // Publish in dependency order
-  // --no-git-checks: a tag build is a detached HEAD, which pnpm otherwise refuses to publish from.
   const publishArgs = ["publish", "--access", "public"];
   if (ci) publishArgs.push("--provenance", "--no-git-checks");
   for (const pkg of orderedPackages) {
@@ -184,7 +141,6 @@ if (bumpType === "publish") {
   process.exit(0);
 }
 
-// BUMP & PR WORKFLOW
 const [major, minor, patch] = currentVersion.split(".").map(Number);
 const nextVersion =
   bumpType === "major"
@@ -206,7 +162,6 @@ if (dryRun) {
   process.exit(0);
 }
 
-// 4. Write the bumped version into every publishable package.json.
 for (const pkg of orderedPackages) {
   const pkgJsonPath = join(pkg.path, "package.json");
   const pkgJson = readPackageJson(pkgJsonPath);
@@ -214,19 +169,15 @@ for (const pkg of orderedPackages) {
   writeFileSync(pkgJsonPath, `${JSON.stringify(pkgJson, null, 2)}\n`);
 }
 
-// 5. Run the full verification gate against the bumped versions
 run("pnpm", ["check"]);
 
-// 6. Create release branch and commit version bump
 const branchName = `chore/release-v${nextVersion}`;
 run("git", ["checkout", "-b", branchName]);
 run("git", ["add", "-A"]);
 run("git", ["commit", "-m", `chore: release v${nextVersion}`]);
 
-// 7. Push the branch to origin
 run("git", ["push", "-u", "origin", branchName]);
 
-// 8. Create GitHub Pull Request
 try {
   run("gh", [
     "pr",

@@ -28,8 +28,6 @@ import { QueryPlanPanel } from "./query-plan-panel.js";
 import type { CompletionTable } from "./sql-completion.js";
 import { createSqlCompletionSource } from "./sql-completion.js";
 
-/** Exported so the caller owning persistence (F071's `usePanelSize`) can seed/clamp against the
- * same numbers this component uses, instead of duplicating them. */
 export const RESULTS_DEFAULT_HEIGHT = 256;
 const RESULTS_MIN_HEIGHT = 120;
 const RESULTS_MAX_HEIGHT = 600;
@@ -55,36 +53,18 @@ export interface QueryRunnerProps {
   sql: string;
   onSqlChange: (sql: string) => void;
   onRun: () => void;
-  /** Cancels the currently running query (F126) - the Cancel button is only rendered while
-   * `isRunning`. */
   onCancel: () => void;
   isRunning: boolean;
-  /** A read query's `RowPage`, or a write-capable session's `QueryExecutionResult` (F108) - the
-   * latter is distinguished by its `rowsAffected` field and rendered as an affected-row count
-   * instead of a row table when it has no rows of its own (an INSERT/UPDATE/DELETE/DDL statement,
-   * as opposed to a writable CTE that also returns rows via RETURNING). */
   result?: RowPage | QueryExecutionResult;
   error?: string;
-  /** Exports the rows already returned by the current query. The result action bar is omitted for
-   * empty/affected-row-only responses, so callers never receive an empty export request. */
   onExportResults?: (format: QueryResultExportFormat) => void;
   onExplain: () => void;
   isExplaining: boolean;
   explainResult?: QueryPlanResult;
   explainError?: string;
-  /** Opens the query history drawer (F012) - rendered by the caller, not this component. */
   onOpenHistory: () => void;
-  /**
-   * Tables (with columns) for schema-aware autocomplete after FROM/JOIN and column completion
-   * after `alias.`/`table.` (F013, F127), sourced by the caller from already-fetched schema data -
-   * this package must not fetch data itself (FRONTEND.md).
-   */
   tables?: readonly CompletionTable[];
-  /** The connected engine, used to quote a suggested identifier in the right dialect (F127) when
-   * it needs it. Defaults to `"postgres"`'s quoting rules if omitted. */
   engine?: DatabaseEngine;
-  /** Results panel height in px (F071). Omitted keeps the previous fixed 256px (`max-h-64`) - both
-   * this and `onResultsHeightChange` must be supplied together for the resize handle to appear. */
   resultsHeight?: number;
   onResultsHeightChange?: (height: number) => void;
 }
@@ -142,7 +122,6 @@ const editorTheme = EditorView.theme({
   }
 });
 
-/** A capability-gated SQL editor and docked output workspace; execution policy is server-enforced. */
 export function QueryRunner({
   sql,
   onSqlChange,
@@ -183,8 +162,6 @@ export function QueryRunner({
   const editorParentRef = useRef<HTMLDivElement>(null);
   const resultScrollRef = useRef<HTMLDivElement>(null);
   const resultRowCount = result?.rows.length ?? 0;
-  // F051: only the visible rows (plus overscan) mount as DOM nodes - a wide result set at the
-  // 1000-row query cap (F050) would otherwise mount thousands of cells.
   const resultRowVirtualizer = useVirtualizer({
     count: resultRowCount,
     getScrollElement: () => resultScrollRef.current,
@@ -237,9 +214,7 @@ export function QueryRunner({
             )
           ]
         }),
-        // Prec.highest so this beats basicSetup's own defaultKeymap binding for the same chord
-        // (Mod-Enter is bound there to insertBlankLine) - otherwise that fires first and this
-        // handler never runs.
+        // Override basicSetup's default Mod-Enter binding.
         Prec.highest(
           keymap.of([
             {
@@ -253,8 +228,7 @@ export function QueryRunner({
         ),
         EditorView.lineWrapping,
         editorTheme,
-        // CodeMirror's content div is role="textbox" with no accessible name by default - an axe
-        // scan (F056) flagged it as an unlabeled input.
+        // CodeMirror's content element needs an accessible name.
         EditorView.contentAttributes.of({ "aria-label": "SQL query editor" }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onSqlChangeRef.current(update.state.doc.toString());
@@ -267,8 +241,6 @@ export function QueryRunner({
       view.destroy();
       viewRef.current = null;
     };
-    // Mounted once; the `sql` prop's own changes are synced by the effect below instead of
-    // recreating the whole editor (which would lose undo history/selection on every keystroke).
   }, []);
 
   useEffect(() => {

@@ -9,13 +9,10 @@ import type mysql from "mysql2/promise";
 import { classifyMysqlPermissionDenied } from "../access/permission-errors.js";
 import { quoteIdent } from "../query/sql.js";
 
-/** Either the pool (single-op routes) or a transaction-scoped connection (F102's batch commit) -
- * both expose the same `.query()` signature mysql2 needs here. */
+/** Queryable pool or transaction connection. */
 type Queryable = mysql.Pool | mysql.PoolConnection;
 
-/** The auto-increment column, if any - live-verified: MySQL exposes it via
- * `information_schema.COLUMNS.EXTRA`, and re-fetching by it is the only generic way to recover the
- * inserted row without a `RETURNING`-equivalent clause. */
+/** Find the auto-increment column used to re-fetch an inserted row. */
 async function fetchAutoIncrementColumn(
   pool: Queryable,
   schema: string,
@@ -30,16 +27,6 @@ async function fetchAutoIncrementColumn(
   return (rows[0] as { COLUMN_NAME: string } | undefined)?.COLUMN_NAME;
 }
 
-/**
- * `values` is already validated/coerced against the table's real columns by the caller
- * (packages/server/src/services/rows/row-mutation-validation.ts) - this only builds the parameterized
- * statement. MySQL has no `RETURNING` clause, so the inserted row is only recoverable by
- * re-fetching via `insertId` (live-verified: `INSERT INTO t () VALUES ()` is valid MySQL syntax for
- * an all-default insert, unlike Postgres's dedicated `DEFAULT VALUES` keyword) - a table with no
- * auto-increment column (a manually-supplied or composite primary key) has no generic way to
- * correlate the new row back, per docs/product-specs/row-editing.md's "absent only if the engine
- * truly cannot" allowance.
- */
 export async function insertRow(
   pool: Queryable,
   schema: string,
@@ -70,14 +57,6 @@ export async function insertRow(
   return { row: rows[0] as Record<string, unknown> | undefined };
 }
 
-/**
- * `key`/`changes` are already validated/coerced (full primary-key match enforced, PK columns
- * excluded from `changes`) by the caller - see row-mutation-validation.ts. `matched` comes from
- * `affectedRows` - live-verified that mysql2's pool defaults to the `CLIENT_FOUND_ROWS` capability
- * flag (unlike the raw `mysql` CLI client, which reports "rows changed" unless asked otherwise), so
- * `affectedRows` already reports "rows matched by WHERE", not "rows whose values actually changed" -
- * setting a column to its current value still reports `matched: 1`, not a false stale/conflict.
- */
 export async function updateRowByKey(
   pool: Queryable,
   schema: string,
@@ -99,12 +78,6 @@ export async function updateRowByKey(
   return { matched: result.affectedRows };
 }
 
-/**
- * Each key is already validated/coerced (full primary-key match enforced) by the caller - see
- * row-mutation-validation.ts. One parameterized DELETE per key, summed into `deleted` - same
- * reasoning as Postgres's version: simpler and just as correct as a compound-WHERE statement for
- * the small, explicit key lists this spec covers.
- */
 export async function deleteRowsByKey(
   pool: Queryable,
   schema: string,
@@ -125,12 +98,7 @@ export async function deleteRowsByKey(
   return { deleted };
 }
 
-/**
- * Runs every staged op in one native transaction (F102), all-or-nothing, on a single checked-out
- * connection (a real transaction needs one session, unlike the pool's per-call connection reuse).
- * A stale update (`matched: 0`) or delete (`deleted < keys.length`) rolls back and reports that
- * op's index, same treatment a native constraint-violation error gets in the `catch` below.
- */
+/** Run staged operations atomically on one checked-out connection. */
 export async function commitBatch(
   pool: mysql.Pool,
   ops: MutationOp[]

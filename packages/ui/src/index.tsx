@@ -1,9 +1,3 @@
-/**
- * Reusable, presentation-only UI components for Qyre.
- *
- * Components are grouped by cohesive ownership under `src/<family>/`, shadcn-style: one component
- * per file. See FRONTEND.md and docs/CODE_ORGANIZATION.md.
- */
 export * from "./connection/connect-drawer.js";
 export * from "./connection/database-panel.js";
 export * from "./connection/files-browser.js";

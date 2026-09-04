@@ -46,14 +46,10 @@ export interface TablesTabProps {
   onFiltersChange: (filters: RowFilter[] | undefined) => void;
   search: string | undefined;
   onSearchChange: (search: string | undefined) => void;
-  /** F114: keeps the workspace's selected table in sync after a rename/drop in the Structure view -
-   * `TablesTab` has no reach into `App.tsx`'s selection state on its own. */
   onTableRenamed?: (newName: string) => void;
   onTableDropped?: () => void;
 }
 
-/** Triggers a real browser download of the streamed export - not a fetch+Blob, so the download
- * streams straight to disk instead of buffering the whole table in JS memory (F066). */
 function downloadExport(url: string): void {
   const link = document.createElement("a");
   link.href = url;
@@ -69,15 +65,6 @@ function downloadCsv(filename: string, csv: string): void {
   URL.revokeObjectURL(url);
 }
 
-/**
- * Tables tab content - either the selected table's paginated row browser, editable inline on SQL
- * engines when session/table permissions allow (F103), or F114's Structure view (column/index
- * management, table-lifecycle actions), toggled and persisted via `useTableView`. `usePendingChanges`
- * is called unconditionally (React hooks rules) even before `selected` is known - the caller keys
- * this whole component by the selected table (see App.tsx) so switching tables remounts it,
- * discarding any staged edits along with every other piece of this component's state, per
- * docs/product-specs/row-editing.md's "switching tables doesn't carry the buffer over" scoping.
- */
 export function TablesTab({
   selected,
   table,
@@ -104,8 +91,6 @@ export function TablesTab({
     { message: string; failedIndex?: number } | undefined
   >(undefined);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
-  // Always calls the latest handleCommit (defined below, after this component's early loading/
-  // error returns - a ref sidesteps the rules-of-hooks issue of registering the listener there).
   const commitRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -124,10 +109,6 @@ export function TablesTab({
       <p className="p-4 text-[13px] text-muted-foreground">Select a table from the sidebar.</p>
     );
   }
-  // A plain `const`, not the `selected` prop itself: TypeScript only retains narrowing across a
-  // nested function's closure boundary for locals it can prove are never reassigned, not for
-  // function parameters/props - the handlers below (defined as nested `function` declarations)
-  // need this to use `.schema`/`.table` without a redundant `selected &&` check each time.
   const selectedTable = selected;
 
   const viewToggle = (

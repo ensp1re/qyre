@@ -15,8 +15,6 @@ const STORAGE = {
     raw === "graph" || raw === "grid" ? raw : undefined
 };
 
-/** Remembers whether the Schema tab shows the interactive graph (F074) or the card grid, persisted
- * to localStorage like the theme. Graph is the default. */
 export function useSchemaView(): { view: SchemaView; setView: (view: SchemaView) => void } {
   const [view, setViewState] = useState<SchemaView>(() =>
     readVersionedStorage(localStorage, STORAGE, "graph")

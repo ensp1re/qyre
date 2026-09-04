@@ -2,7 +2,6 @@ import type { ConnectionTarget } from "@qyre/core";
 import type { AdapterFactory, DatabaseAdapter } from "../types/contract.js";
 import { UnsupportedEngineError } from "../safety/errors.js";
 
-/** Resolve the first factory that supports the target, or throw. */
 export function resolveAdapter(
   factories: readonly AdapterFactory[],
   target: ConnectionTarget

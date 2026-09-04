@@ -65,7 +65,6 @@ describe("connectionWarnings - risky parameters", () => {
   });
 
   it("flags an explicit sslmode=disable, and does not also claim TLS was requested", () => {
-    // sslmode appears in both tables; disable must read as risky, never as "TLS is on".
     expect(kinds("postgres://u:p@db.example.com/app?sslmode=disable")).toEqual([
       "insecure-transport",
       "risky-parameter"

@@ -12,9 +12,7 @@ describe("GET /api/overview", () => {
       headers: authHeaders(app)
     });
     expect(response.statusCode).toBe(503);
-    // F017: the global error handler must surface the real message under `error`, not Fastify's
-    // default { statusCode, error: "Service Unavailable", message: "..." } shape (which the
-    // frontend would misread as the reason phrase, not the actual detail).
+    // The error field carries the actionable connection message.
     expect(response.json()).toMatchObject({ error: "No database connection is configured." });
     await app.close();
   });

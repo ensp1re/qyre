@@ -1,16 +1,4 @@
-/**
- * See docs/references/design-system.md for the token reference this config wires up (source: a
- * private Figma Make export). Colors/radius reference CSS custom properties defined in
- * src/index.css (:root for light, .dark for dark) rather than hard-coded hex, so both themes stay
- * in sync with one definition.
- *
- * Colors use the rgb(var(--x) / <alpha-value>) form (not a bare var()) so Tailwind's opacity
- * modifiers (bg-primary/10, text-foreground/70, ...) actually generate CSS. `border` and
- * `sidebar-border` are the exception: they are rgba() strings with a fixed hairline alpha baked in
- * on purpose, not meant to be re-modified per callsite - use `border-subtle` for the one softer
- * variant components need.
- * @type {import('tailwindcss').Config}
- */
+/** @type {import('tailwindcss').Config} */
 export default {
   darkMode: "class",
   content: ["./index.html", "./src/**/*.{ts,tsx}", "../../packages/ui/src/**/*.{ts,tsx}"],

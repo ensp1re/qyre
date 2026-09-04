@@ -8,13 +8,8 @@ export type DateTimeInputKind = "date" | "time" | "datetime-local";
 export interface DateTimeInputProps {
   id?: string;
   kind: DateTimeInputKind;
-  /** Matches the exact string shape the native input this replaces used to produce, so no
-   * downstream (filter query) code needed to change: "YYYY-MM-DD", "HH:MM", or
-   * "YYYY-MM-DDTHH:MM". Empty string means no value. */
   value: string;
   onChange: (value: string) => void;
-  /** Fires on Enter from the time segments - FilterBar wires this to its own Apply action, since a
-   * calendar day click already commits the date half by itself. */
   onEnter?: () => void;
   autoFocus?: boolean;
   "aria-describedby"?: string;
@@ -159,8 +154,6 @@ function CalendarGrid({
   );
 }
 
-/** The calendar panel shared by filter values and grid timestamp editing. Consumers that already
- * own a popover can render this directly instead of nesting DatePicker's trigger/popover pair. */
 export function CalendarPicker({
   value,
   onChange
@@ -267,7 +260,6 @@ export function TimeSegments({
   const hourRef = useRef<HTMLInputElement>(null);
   const minuteRef = useRef<HTMLInputElement>(null);
 
-  // Re-sync from outside changes (e.g. the drawer/popover reopening with a different draft).
   useEffect(() => {
     const parts = parseTimePart(value);
     setHour(parts ? pad(parts.hour) : "");
@@ -338,13 +330,6 @@ export function TimeSegments({
   );
 }
 
-/**
- * A themed date/time/datetime-local picker replacing the browser's native `<input
- * type="date"|"time"|"datetime-local">` in FilterBar's value step - the native control's own OS
- * chrome (light-mode-only on some platforms, cramped placeholder text) didn't match this app's
- * dark, dense IDE styling. Produces the exact same value shape the native input did
- * ("YYYY-MM-DD" / "HH:MM" / "YYYY-MM-DDTHH:MM"), so no downstream filter-query code changed.
- */
 export function DateTimeInput({
   id,
   kind,

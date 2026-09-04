@@ -7,9 +7,6 @@ import { subscribePermissionDenied } from "../shared/api/permission-denied.js";
 
 const queryClient = new QueryClient();
 
-/** Capability and per-table permission caches are advisory. A real engine denial invalidates all
- * three owners so active views refetch immediately and hidden/disabled affordances converge with
- * grants that changed after connection. */
 export async function refreshPermissionQueries(
   client: Pick<QueryClient, "invalidateQueries">
 ): Promise<void> {

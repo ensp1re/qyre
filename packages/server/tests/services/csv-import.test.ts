@@ -163,9 +163,7 @@ describe("processCsvImport", () => {
       failedRows: 250
     });
     if (result.mode === "inspect") throw new Error("Expected an import result.");
-    // failedRows (asserted above) stays the true total even though the stored/returned error
-    // list itself is capped at CSV_IMPORT_MAX_ERRORS (F136) - all 250 rolled-back rows are real
-    // failures, but only the first 100 are retained in the response.
+    // failedRows remains the full total while the returned error list is capped.
     expect(result.errors).toHaveLength(CSV_IMPORT_MAX_ERRORS);
     expect(result.errors[4]?.message).toMatch(/database rejected/i);
     expect(result.errors[0]?.message).toMatch(/line 6 failed/i);

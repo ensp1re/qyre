@@ -1,4 +1,4 @@
-/** Operations whose authoritative database denial is normalized by the server (F120). */
+/** Operations whose authoritative database denial is normalized by the server. */
 export type PermissionDeniedOperation =
   | "insert"
   | "update"

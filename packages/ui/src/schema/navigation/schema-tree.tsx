@@ -13,12 +13,8 @@ export interface SchemaTreeProps {
   schemas: SchemaMetadata[];
   selected?: SelectedTable;
   onSelect: (schema: string, table: string) => void;
-  /** Whether schema create/drop controls render at all (F116, Postgres only - MySQL's "schema" IS
-   * its database, SQLite/MongoDB have no schema concept below the database). */
   canManageSchemas?: boolean;
-  /** Opens the caller's create-schema flow - a "+ New schema" row above the search box. */
   onRequestCreateSchema?: () => void;
-  /** Opens the caller's drop-schema flow for one schema - a trash icon on that schema's row. */
   onRequestDropSchema?: (schema: string) => void;
 }
 
@@ -94,8 +90,6 @@ function TreeRow({
   onRequestDropSchema?: (schema: string) => void;
   initialTabStop?: boolean;
 }): ReactNode {
-  // Only the schema level (depth 0) has children, so it's the only row whose default-open state
-  // matters - tables are leaves and always render once their parent schema is expanded.
   const [manualOpen, setManualOpen] = useState(depth === 0);
   const forceOpen = query.length > 0 && matchIds.has(node.id);
   const open = query.length > 0 ? forceOpen : manualOpen;
@@ -249,13 +243,6 @@ function TreeRow({
   );
 }
 
-/**
- * A searchable, collapsible navigation tree: schema -> table, mirroring
- * docs/references/design-system.md's TreeNode pattern. Purely presentational: selection is owned
- * by the caller. Matching a search term force-opens its ancestor path and highlights the match.
- *
- * Connection context belongs to Sidebar's footer; the tree stays focused on database objects.
- */
 export function SchemaTree({
   schemas,
   selected,
@@ -318,9 +305,7 @@ export function SchemaTree({
           trimmedQuery.length !== 1 &&
           !(trimmedQuery.length > 1 && matchIds.size === 0);
 
-        // `role="tree"` requires at least one `treeitem`/`group` descendant (axe's
-        // aria-required-children) - only apply it when rows actually render, otherwise these are
-        // plain status messages, not an empty tree widget.
+        // Status messages are not tree content, so omit the tree role when rows are absent.
         return (
           <nav
             role={hasRows ? "tree" : undefined}

@@ -131,9 +131,7 @@ describe("ConnectDrawer", () => {
   };
 
   it("clears a stale draft when reopened after being closed without connecting", () => {
-    // The drawer never unmounts (it's translated off-canvas, not removed), so without an
-    // open-triggered reset a value typed before canceling would still be sitting there the next
-    // time a user opens it to switch databases again.
+    // The drawer stays mounted off-canvas, so reopening must reset its draft.
     const { rerender } = render(<ConnectDrawer {...baseProps} onConnect={vi.fn()} />);
     fireEvent.click(screen.getByText("Use fields instead"));
     fireEvent.change(screen.getByLabelText("Host"), { target: { value: "typed-host" } });
@@ -213,8 +211,7 @@ describe("ConnectDrawer", () => {
     const hostInput = screen.getByLabelText("Host");
     paste(hostInput, "db.internal");
 
-    // No auto-fill happened - the paste event wasn't prevented, so this only asserts the other
-    // fields stayed untouched (jsdom's fireEvent.paste doesn't itself insert text into the input).
+    // jsdom's paste event does not insert text when auto-fill is not triggered.
     expect(screen.getByLabelText("User")).toHaveValue("");
     expect(screen.getByLabelText("Database")).toHaveValue("");
   });

@@ -14,8 +14,6 @@ function status(
 
 describe("capabilitiesFromConnectionStatus (F095)", () => {
   it("reports full access for an unauthenticated connection (mongod's own default with no auth)", () => {
-    // Real shape, live-verified against an unauthenticated mongod: authenticatedUsers is empty and
-    // authenticatedUserPrivileges is an empty array (not omitted).
     expect(capabilitiesFromConnectionStatus(status([], []))).toEqual({
       supportsSql: false,
       rowExportFormats: ["csv", "json"],
@@ -82,7 +80,6 @@ describe("capabilitiesFromConnectionStatus (F095)", () => {
       supportsDatabaseManagement: true,
       readOnlyReason: null
     });
-    // The readWrite-role shape (no dropDatabase) stays false.
     const readWriteStatus = status(
       [{ user: "writer", db: "qyre_test" }],
       [{ resource: { db: "qyre_test", collection: "" }, actions: ["find", "insert"] }]
@@ -159,7 +156,6 @@ describe("tablePermissionsFromConnectionStatus (F095)", () => {
       update: false,
       delete: false
     });
-    // A different collection in the same db gets nothing from a collection-specific grant.
     expect(tablePermissionsFromConnectionStatus(scopedStatus, "qyre_test", "users")).toEqual({
       select: false,
       insert: false,

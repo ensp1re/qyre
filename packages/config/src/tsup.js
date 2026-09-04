@@ -1,8 +1,4 @@
-/**
- * Shared tsup options for Qyre library packages.
- * @param {import("tsup").Options} [overrides]
- * @returns {import("tsup").Options}
- */
+/** @param {import("tsup").Options} [overrides] @returns {import("tsup").Options} */
 export function libConfig(overrides = {}) {
   return {
     entry: ["src/index.ts"],

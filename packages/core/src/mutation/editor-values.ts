@@ -9,8 +9,7 @@ const EXACT_NUMBER = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const LOCAL_TIME = /^(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?$/;
-// PostgreSQL emits whole-hour time-zone offsets as `+02`, while ISO inputs commonly use `+02:00`
-// or `+0200`. Preserve every accepted shape verbatim instead of normalizing through Date.
+// Accept PostgreSQL's whole-hour offsets without normalizing through Date.
 const OFFSET = /(?:Z|[+-](?:[01]\d|2[0-3])(?::?[0-5]\d)?)$/i;
 const MYSQL_TIME = /^-?(?:(?:\d{1,2}|[0-7]\d{2}|8[0-2]\d|83[0-8])):[0-5]\d:[0-5]\d(?:\.\d{1,6})?$/;
 const BIT_STRING = /^[01]+$/;

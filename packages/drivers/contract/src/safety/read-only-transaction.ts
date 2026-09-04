@@ -1,17 +1,10 @@
 import type { RowPage } from "@qyre/core";
 
-/** The result shape a single engine's query call is reduced to for {@link runInReadOnlyTransaction}. */
 export interface ReadOnlyQueryResult {
   readonly columns: string[];
   readonly rows: Array<Record<string, unknown>>;
 }
 
-/**
- * The engine-specific operations {@link runInReadOnlyTransaction} needs, so the transaction
- * ceremony itself (begin, run, commit, rollback-and-rethrow-on-failure, always release) can be
- * shared while each engine still owns its own SQL dialect (`BEGIN TRANSACTION READ ONLY` vs.
- * `START TRANSACTION READ ONLY`) and client API shape (F049).
- */
 export interface ReadOnlyTransactionClient {
   begin(): Promise<void>;
   query(sql: string): Promise<ReadOnlyQueryResult>;
@@ -20,14 +13,7 @@ export interface ReadOnlyTransactionClient {
   release(): void;
 }
 
-/**
- * Runs `sql` inside a read-only transaction and always releases the client - `assertReadOnly` is
- * only a heuristic string check and can be bypassed (e.g. a writable CTE like
- * `WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x`); the database's own read-only
- * transaction mode is the authoritative guarantee, refusing any data-modifying statement
- * regardless of what the string check missed. Postgres and MySQL both duplicated this exact
- * begin/query/commit/catch-rollback/finally-release shape before this was extracted.
- */
+/** Run a query in an engine-enforced read-only transaction. */
 export async function runInReadOnlyTransaction(
   client: ReadOnlyTransactionClient,
   sql: string

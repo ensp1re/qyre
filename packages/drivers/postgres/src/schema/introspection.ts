@@ -357,13 +357,7 @@ async function fetchAllRowCountEstimates(
   const unanalyzed = countable.filter(
     ({ schema, table }) => (estimateByTable.get(tableKey(schema, table)) ?? 0) < 0
   );
-  // A table only reaches this exact-count path when it has never been analyzed (`reltuples` is -1),
-  // which is always true of a freshly created one - so the window between listing the targets above
-  // and counting them here is exactly when a table is most likely to still be appearing and
-  // disappearing. A concurrent DROP made the count raise `undefined_table` and took the whole
-  // `getAllTables` call down with it, so one dropped table anywhere in the database emptied the
-  // entire explorer. Treat a relation that vanished mid-introspection as simply having no count
-  // (F156); any other error still propagates.
+  // A concurrent DROP can invalidate an exact-count query; treat that relation as having no count.
   const exactCounts = await Promise.all(
     unanalyzed.map(({ schema, table }) =>
       pool

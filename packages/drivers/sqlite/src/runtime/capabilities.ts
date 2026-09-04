@@ -25,19 +25,7 @@ const READ_ONLY_CAPABILITIES: ConnectionCapabilities = {
   readOnlyReason: "connection"
 };
 
-/**
- * SQLite has no users/grants - writability is one session-wide fact, gated on the signals
- * docs/product-specs/permissions-and-capabilities.md names for this engine: the database file AND
- * its containing directory must both be OS-writable (WAL/rollback-journal sidecar files need
- * directory write even when the file itself is writable - a writable file in a read-only directory
- * still refuses every write, verified live against a real chmod'd fixture), `PRAGMA query_only`
- * must be off, and the connection itself must not have been opened read-only (`adapter.ts`'s
- * `connect()` falls back to an explicit read-only open when a normal open fails outright - `db
- * .readonly` reflects that live). `db.readonly` alone would miss a read-only *directory* with a
- * writable file (confirmed live: SQLite only discovers that on the first write, not at open time),
- * which is why the explicit fs checks below stay even though they overlap with what `db.readonly`
- * already covers for a read-only *file*.
- */
+/** Derive SQLite write capability from connection and filesystem writability. */
 export function computeCapabilities(
   resolvedPath: string,
   db: Database.Database
@@ -60,14 +48,14 @@ export function computeCapabilities(
     supportsIndexManagement: true,
     // SQLite has no separate database-creation concept in Qyre's model - the file itself is "the
     // database", and the UI never exposes ATTACH DATABASE. Always false, and the adapter has no
-    // F115 admin namespace at all: an engine-level absence, not a grant check.
+    // There is no admin namespace: this is an engine-level absence, not a grant check.
     supportsDatabaseManagement: false,
     supportsTransactions: true,
     readOnlyReason: null
   };
 }
 
-/** SQLite has no per-table grants - every table shares the session's own writability (F094). */
+/** SQLite has no per-table grants; every table shares the session's own writability. */
 export function tablePermissionsFromCapabilities(
   capabilities: ConnectionCapabilities
 ): TablePermissions {

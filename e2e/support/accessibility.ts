@@ -15,8 +15,7 @@ export async function expectNoAccessibilityViolations(page: Page, surface: strin
         (dark) => document.documentElement.classList.toggle("dark", dark),
         theme === "dark"
       );
-      // Color utilities transition for 150ms; scan the settled theme rather than an in-between
-      // frame where a light surface can briefly retain its dark foreground (or vice versa).
+      // Wait for the theme transition before scanning.
       await page.waitForTimeout(250);
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
       expect(

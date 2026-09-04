@@ -2,22 +2,12 @@ import { Binary, Braces, Brackets } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { formatCellDisplay, isClickableDateType } from "../../primitives/format-cell.js";
 
-/** A non-null object or array cell value - the shape CellValue/CellValueDrawer render as a tree. */
 export type StructuredValue = Record<string, unknown> | unknown[];
 
 export function isStructuredValue(value: unknown): value is StructuredValue {
   return typeof value === "object" && value !== null;
 }
 
-/**
- * Postgres `bytea`/MySQL `blob`/SQLite `BLOB` columns all arrive over the wire as a plain object
- * shaped like `{ type: "Buffer", data: [...] }` - Node's `Buffer.prototype.toJSON()` runs
- * automatically wherever a driver hands back a real Buffer and the server JSON-encodes the
- * response, so by the time this reaches the browser it's never an actual Buffer instance, just an
- * object with this shape. Rendered distinctly from a generic object/array (a hex viewer, not a
- * `{ 2 keys }` chip that "expands" into `type`/`data` fields, confirmed live to be genuinely
- * confusing) - checked before the generic isStructuredValue branch.
- */
 export interface BinaryValue {
   type: "Buffer";
   data: number[];
@@ -32,18 +22,10 @@ export function isBinaryValue(value: unknown): value is BinaryValue {
   );
 }
 
-/** Anything CellValue can render as an inspectable chip - a structured value, binary, or a long string. */
 export type InspectableValue = StructuredValue | BinaryValue | string;
 
-/** Above this length, plain string display hard-truncates via `truncateForDisplay` (F069). Text/
- * multiline columns still edit inline regardless of length (F146) - only JSON/array/set route to
- * the anchored popover editor. */
 export const LONG_STRING_THRESHOLD = 100;
 
-/** Hard-caps display text to `max` characters plus a literal "...", independent of CSS layout
- * (F146) - a JS substring always shortens the visible text, unlike `overflow`/`text-overflow`
- * truncation, which only works when the surrounding flex/grid chain constrains width exactly
- * right and silently fails to truncate otherwise. */
 export function truncateForDisplay(text: string, max = LONG_STRING_THRESHOLD): string {
   return text.length > max ? `${text.slice(0, max)}...` : text;
 }
@@ -66,7 +48,7 @@ const IMAGE_URL_EXTENSIONS = new Set([
   "webp"
 ]);
 
-/** Strict http(s) URL detection for table cells; other URL-like schemes are data, not safe links. */
+/** Only HTTP(S) values become links. */
 export function classifyUrlValue(value: unknown): UrlPreview | null {
   if (typeof value !== "string" || value.trim() !== value) return null;
 
@@ -90,19 +72,16 @@ export function toHex(bytes: readonly number[]): string {
   return bytes.map((byte) => byte.toString(16).padStart(2, "0")).join(" ");
 }
 
-/** e.g. `binary · 5 bytes` - exported for unit testing, not meant for reuse elsewhere. */
 export function summarizeBinaryValue(value: BinaryValue): string {
   const count = value.data.length;
   return `binary · ${count} byte${count === 1 ? "" : "s"}`;
 }
 
-/** Truncated hex preview shown next to the chip's summary. Exported for unit testing. */
 export function previewBinaryValue(value: BinaryValue, maxBytes = 12): string {
   const hex = toHex(value.data.slice(0, maxBytes));
   return value.data.length > maxBytes ? `${hex}…` : hex;
 }
 
-/** e.g. `{ 3 keys }` / `[ 1 item ]` - exported for unit testing, not meant for reuse elsewhere. */
 export function summarizeStructuredValue(value: StructuredValue): string {
   if (Array.isArray(value)) {
     return `[ ${value.length} item${value.length === 1 ? "" : "s"} ]`;
@@ -111,10 +90,6 @@ export function summarizeStructuredValue(value: StructuredValue): string {
   return `{ ${count} key${count === 1 ? "" : "s"} }`;
 }
 
-/**
- * One-line truncated JSON preview shown next to the chip's count, so rows with different content
- * are distinguishable at a glance without opening the drawer. Exported for unit testing.
- */
 export function previewStructuredValue(value: StructuredValue, maxChars = 80): string {
   const json = JSON.stringify(value);
   return json.length <= maxChars ? json : `${json.slice(0, maxChars - 1)}…`;
@@ -146,18 +121,6 @@ function InspectChip({
   );
 }
 
-/**
- * Renders one table cell value: a plain string/number/boolean renders as flat text, hard-truncated
- * past LONG_STRING_THRESHOLD (F069) - long text is never a special chip, it looks exactly like
- * short text (F146); a binary value (see BinaryValue) or a plain object/array renders as a compact
- * single-line chip that never grows the row; a value in a date/timestamp column (see `dataType`)
- * renders as a clickable underlined date instead (F070). All click-to-inspect
- * cases report the value via `onInspect`/`onInspectDate`; the caller opens a CellValueDrawer or
- * DateDetailPopover to show it in full (see docs/product-specs/structured-cell-values.md). An
- * earlier version expanded structured values inline inside the cell, which blew up row heights and
- * broke the table layout - the chip/truncated-text/date-link + drawer/popover split is the
- * deliberate replacement.
- */
 export function CellValue({
   value,
   dataType,
@@ -165,13 +128,8 @@ export function CellValue({
   onInspectDate
 }: {
   value: unknown;
-  /** The column's `ColumnMetadata.dataType`, if known - drives the date click affordance (F070).
-   * Omitted (e.g. QueryRunner's untyped SQL result columns) simply disables it. */
   dataType?: string;
   onInspect: (value: InspectableValue) => void;
-  /** Reports a date/timestamp cell click, with the clicked element's `getBoundingClientRect()` so
-   * the caller can anchor a DateDetailPopover at the click site (F070). Omitted disables the date
-   * affordance even for a date-typed column, falling back to plain text. */
   onInspectDate?: (value: unknown, anchorRect: DOMRect) => void;
 }): ReactNode {
   if (isBinaryValue(value)) {

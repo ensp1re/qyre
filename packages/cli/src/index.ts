@@ -1,6 +1,3 @@
-/**
- * The `qyre` CLI: parse a database target, start the local server, and open the browser.
- */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,33 +22,13 @@ import open from "open";
 import { createTerminalGuidedLoginIO } from "./guided-login-io.js";
 import { fillMissingCredentials, needsCredentialPrompt, runGuidedLogin } from "./guided-login.js";
 
-/**
- * Blue → purple gradient matching docs/references/design-system.md's dark-theme primary/accent
- * colors (`--primary`/`--c-blue` #4a9eff, `--c-purple` #c47eff) - the terminal banner, `--help`,
- * and the guided-login prompts all read as the same product instead of an arbitrary color choice.
- */
 const qyreGradient = gradient(["#4a9eff", "#c47eff"]);
 
-/** The gradient "QYRE" figlet wordmark, shared by the startup banner, `--help`, and the guided
- * login flows. Colors auto-disable when stdout isn't a TTY (chalk/gradient-string's own
- * detection), so piped/non-interactive output stays plain. */
 function renderQyreTitle(): string {
   return qyreGradient.multiline(figlet.textSync("QYRE"));
 }
 
-/**
- * Where the built `apps/web` static assets live, relative to this file's own directory (`here` -
- * `dist` when built, `src` in dev/test). Two candidates, tried in order:
- *
- * 1. `<here>/web`, bundled alongside this file by `tsup.config.ts`'s `onSuccess` hook and shipped
- *    inside the published `qyre` npm package (see `files` in `package.json`) - this is what
- *    resolves once installed standalone outside this monorepo (F010).
- * 2. `<here>/../../../apps/web/dist`, monorepo-relative - what resolves in local dev/test, where
- *    the bundled copy was never created.
- *
- * `startServer` no-ops static serving if neither path contains a build, so this is safe even
- * before `apps/web` is built at all.
- */
+/** Resolve bundled or monorepo web assets. */
 export function defaultWebRoot(here: string): string {
   const bundled = resolve(here, "web");
   if (existsSync(join(bundled, "index.html"))) {
@@ -77,15 +54,11 @@ function parsePortFlag(value: string): number {
   return port;
 }
 
-/** Parse CLI arguments. Throws (via commander) on malformed flags. */
 export function parseArgs(argv: string[]): CliArgs {
   const program = new Command();
   program
     .name("qyre")
     .description("Launch a local-first database management UI from your terminal.")
-    // Same `package.json` read the startup banner already uses, so `--version` can never disagree
-    // with the version the banner prints. Commander accepts one short and one long flag here, so
-    // this deliberately replaces its default `-V` with the lowercase `-v` people actually type.
     .version(resolveVersion(dirname(fileURLToPath(import.meta.url))), "-v, --version")
     .argument(
       "[target]",
@@ -136,7 +109,6 @@ export function parseArgs(argv: string[]): CliArgs {
   };
 }
 
-/** Resolve the port to listen on: `--port` flag, then `QYRE_PORT` env var, then the server default. */
 export function resolvePort(
   flagPort: number | undefined,
   env: NodeJS.ProcessEnv
@@ -152,40 +124,19 @@ export function resolvePort(
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
-/** Resolves the `--files-dir` flag to an absolute path. Undefined means file browsing is disabled. */
 export function resolveFilesRoot(filesDir: string | undefined, cwd: string): string | undefined {
   return filesDir ? resolve(cwd, filesDir) : undefined;
 }
 
-/**
- * Reads this package's own version out of its `package.json`, relative to `here` (the directory
- * this file - or its built `dist/index.js` - lives in). `package.json` sits one level up from both
- * `src/` (dev) and `dist/` (built) and, unlike `dist/`, is never excluded from the published
- * package (npm always includes it regardless of the `files` allowlist), so this resolves
- * identically in the monorepo and once installed standalone.
- */
 export function resolveVersion(here: string): string {
   const raw = readFileSync(join(here, "../package.json"), "utf8");
   return (JSON.parse(raw) as { version: string }).version;
 }
 
-/**
- * Builds the banner printed on startup (F067; reworked into a big figlet wordmark in the same PR
- * as F073): a gradient "QYRE" title, then version/connection-status/URL/issue-and-contributing
- * links - the "proper open-source CLI" look most popular CLIs (nx, turbo, create-t3-app) use,
- * instead of a bare log line. Colors auto-disable when stdout isn't a TTY (chalk's own detection),
- * so piped/non-interactive output and test assertions on the plain text both stay unaffected.
- * `target: null` (F073 - no database given on the command line) prints an explicit "no database
- * connected yet" line instead of an empty/undefined one, so the no-target flow reads as intentional
- * rather than broken.
- */
 export function formatBanner(info: {
   version: string;
   target: string | null;
   url: string;
-  /** Transport-safety advisories for the connected string (plaintext to a remote host,
-   * posture-weakening query parameters). Shown under the status line because the terminal is the
-   * other place a connection string is supplied, and it was previously as silent as the drawer. */
   warnings?: readonly ConnectionWarning[];
 }): string {
   const title = renderQyreTitle();
@@ -218,13 +169,7 @@ export interface ShutdownDeps {
   timeoutMs?: number;
 }
 
-/**
- * Builds a `SIGINT`/`SIGTERM` handler (F043). Three things a bare `process.on("SIGINT", shutdown)`
- * didn't have: a timeout, so a wedged DB connection can't block Ctrl-C forever; a re-entrancy guard,
- * so a second signal while teardown is already in flight doesn't start a second concurrent teardown;
- * and a non-zero exit code on teardown failure, so a failed shutdown doesn't look identical to a
- * clean one to whatever's watching the process's exit code (a shell script, a process manager).
- */
+/** Create a signal handler with bounded, serialized shutdown. */
 export function createShutdownHandler(deps: ShutdownDeps): () => Promise<void> {
   const timeoutMs = deps.timeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS;
   let isShuttingDown = false;
@@ -260,14 +205,7 @@ export function createShutdownHandler(deps: ShutdownDeps): () => Promise<void> {
   };
 }
 
-/** Parses `raw`, resolves its adapter, connects, and pings it. Reused by the direct-target path
- * and both guided-login flows so all three share the same connect-failure message.
- *
- * The ping matters: Postgres/MySQL's `connect()` only builds a connection pool (no real network
- * round trip), so it resolves even against an unreachable host or port - only a later query would
- * have failed. Mirrors `/api/connect`'s own connect()-then-ping() check (F085) so a bad target is
- * caught here instead of surfacing later as a broken schema load in the browser, and so F088's
- * retry-on-failure prompt actually has something to retry. */
+/** Connect and ping a target before returning its adapter. */
 async function connectToRaw(
   raw: string,
   adapterFactories: AdapterFactory[]
@@ -280,21 +218,15 @@ async function connectToRaw(
       throw new Error("Connected, but the target did not respond to a ping.");
     }
   } catch (error) {
-    // Reuses the same AggregateError-unwrapping describeError() already applied to the
-    // /api/health and /api/connect paths (F064) - this initial connect() had the same
-    // empty-message bug for an unreachable host, just never routed through it before.
     throw new Error(`Could not connect to ${displayTarget(target)}: ${describeError(error)}`);
   }
   return { target, adapter };
 }
 
-/** Prints the gradient "QYRE" title before either guided-login flow starts, so the prompt reads
- * as part of the same product as the startup banner instead of a bare Q&A. */
 function printGuidedLoginIntro(): void {
   process.stdout.write(`${renderQyreTitle()}\n${chalk.dim("Guided setup")}\n\n`);
 }
 
-/** Run the CLI. Returns the running server's URL. */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgs(argv);
 
@@ -308,9 +240,6 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   let adapter: DatabaseAdapter | undefined;
 
   if (args.login) {
-    // F088: `--login` skips the connection-string argument entirely and builds one from prompted
-    // fields (engine, user, password, host, port, database), retrying on a failed connect instead
-    // of exiting.
     printGuidedLoginIntro();
     const io = createTerminalGuidedLoginIO();
     await runGuidedLogin(io, async (raw) => {
@@ -318,9 +247,6 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     });
   } else if (args.target) {
     const parsedTarget = parseConnectionTarget(args.target);
-    // F088: a URL-shaped target with no username (e.g. `postgres://host:5432/db`) is prompted for
-    // credentials interactively rather than attempted anonymously - but only when there's a
-    // terminal to prompt on, so a piped/non-interactive invocation behaves exactly as before.
     if (needsCredentialPrompt(parsedTarget) && process.stdin.isTTY) {
       printGuidedLoginIntro();
       const io = createTerminalGuidedLoginIO();
@@ -331,11 +257,6 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       ({ target, adapter } = await connectToRaw(args.target, adapterFactories));
     }
   }
-  // F073: a target is no longer required at startup - omitting it (and --login) starts the server
-  // unconnected (adapter/target both undefined, same "unconfigured" shape POST /api/connect already
-  // produces for a fresh connection - see @qyre/server's health handler) and the browser opens
-  // straight into the connect UI instead of the CLI failing with "no target provided".
-
   const filesRoot = resolveFilesRoot(args.filesDir, process.cwd());
   if (filesRoot && (!existsSync(filesRoot) || !statSync(filesRoot).isDirectory())) {
     throw new Error(`--files-dir "${filesRoot}" does not exist or is not a directory.`);
@@ -349,17 +270,10 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       adapter,
       target,
       port,
-      // F067: quiet by default (only warnings/errors) - `true` (every request, Fastify's default
-      // level) is opt-in via --verbose, since per-request JSON logs drown out the startup banner.
       logger: args.verbose ? true : { level: "warn" },
       webRoot: defaultWebRoot(here),
       filesRoot,
-      // F064: lets the running instance switch to a different database via POST /api/connect
-      // instead of requiring a process restart.
       adapterFactories,
-      // F096: a hard, Qyre-level ceiling that always wins over whatever the connected database
-      // role would otherwise allow - persists across POST /api/connect since it's independent of
-      // which adapter is currently attached.
       readOnly: args.readOnly
     });
   } catch (error) {
@@ -370,9 +284,6 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     }
     throw error;
   }
-  // Wired after startServer (not before adapter.connect() above) so the CLI doesn't need to
-  // construct its own EventLog - the pool "error" listener checks onConnectionEvent at fire time,
-  // not at connect()-time, so this order is fine (F028).
   if (adapter) {
     adapter.onConnectionEvent = (level, message) => server.eventLog.log(level, message);
   }

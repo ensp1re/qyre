@@ -591,9 +591,6 @@ describe("EditableCell (component rendering, F103/F146)", () => {
   });
 
   it("keeps the UTC/local/relative date detail affordance on an editable timestamp column (F146)", () => {
-    // Regression guard: EditableCell's non-editing display used to bypass CellValue entirely for
-    // non-structured values, so an editable date/timestamp column silently lost the "Click for
-    // UTC, local time, and more" popover that read-only columns still had (DateDetailPopover).
     const onInspectDate = vi.fn();
     render(
       <EditableCell
@@ -674,8 +671,6 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(screen.getByLabelText("first")).toBeInTheDocument();
 
     fireEvent.doubleClick(screen.getByText("Grace"));
-    // "Ada"'s cell reverts to its plain display (still visible as text) - only "Grace" is editing,
-    // so exactly one editor surface exists, not two stacked on top of each other.
     expect(screen.getByText("Ada")).toBeInTheDocument();
     expect(screen.queryByLabelText("first")).not.toBeInTheDocument();
     expect(screen.getByLabelText("second")).toBeInTheDocument();

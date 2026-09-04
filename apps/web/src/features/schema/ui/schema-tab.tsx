@@ -13,8 +13,6 @@ import { ViewButton } from "../../../shared/ui/view-button.js";
 
 export interface SchemaTabProps {
   allTables: ReturnType<typeof useAllTables>;
-  /** Stable per-database key (the redacted connection target) so the graph's saved layout is
-   * namespaced per database. Null before a connection exists - the tab shows loading/empty then. */
   databaseKey: string | null;
   schemas: SchemaMetadata[];
   selectedSchema?: string;
@@ -22,8 +20,6 @@ export interface SchemaTabProps {
   capabilities: ConnectionCapabilities | undefined;
 }
 
-/** Schema tab content - an interactive ERD (F074) or the full-database card grid, toggleable, plus
- * the F113 "New table" entry point when the session's `supportsDdl` capability allows it. */
 export function SchemaTab({
   allTables,
   databaseKey,

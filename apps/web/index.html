@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Qyre</title>
     <script>
-      // Dark is the default theme (docs/references/design-system.md) - applied before paint,
-      // ahead of React mounting, to avoid a flash of the wrong theme.
+      // Apply the theme before React mounts to avoid a flash.
       (function () {
         var stored = localStorage.getItem("qyre-theme");
         if (stored !== "light") {
@@ -15,9 +14,7 @@
       })();
     </script>
     <style>
-      /* Shown only until React mounts and replaces #root's content - self-contained (doesn't
-         depend on the app's CSS bundle having loaded yet) so there's no unstyled flash while
-         serving over a real network instead of localhost. */
+      /* Keep the boot state styled before the app CSS loads. */
       .qyre-boot {
         position: fixed;
         inset: 0;

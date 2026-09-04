@@ -11,7 +11,7 @@ export interface AccessFact {
   readonly value: string;
 }
 
-/** Read-only, secret-safe access summary for the current connection (F119). */
+/** Read-only, secret-safe access summary for the current connection. */
 export interface AccessOverview {
   readonly identity: string;
   readonly roles: readonly AccessRole[];

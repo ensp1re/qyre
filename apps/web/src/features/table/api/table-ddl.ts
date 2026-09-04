@@ -1,7 +1,6 @@
 import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyre/core";
 import { fetchJson } from "../../../shared/api/fetch-json.js";
 
-/** Renames a table/collection (F110/F114, `POST .../ddl/rename`). Non-destructive. */
 export function renameTable(
   schema: string,
   table: string,
@@ -17,8 +16,6 @@ export function renameTable(
   );
 }
 
-/** Deletes every row from a table/collection, keeping the table itself (F110/F114,
- * `POST .../ddl/truncate`). Destructive - `confirmedName` must match `table` exactly. */
 export function truncateTable(
   schema: string,
   table: string,
@@ -34,8 +31,6 @@ export function truncateTable(
   );
 }
 
-/** Drops a table/collection entirely (F110/F114, `DELETE /api/tables/:schema/:table`).
- * Destructive - `confirmedName` must match `table` exactly. */
 export function dropTable(schema: string, table: string, confirmedName: string): Promise<null> {
   return fetchJson(`/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}`, {
     method: "DELETE",
@@ -44,7 +39,6 @@ export function dropTable(schema: string, table: string, confirmedName: string):
   });
 }
 
-/** Adds a column to a SQL table (F111/F114, `POST .../ddl/columns`). Non-destructive. */
 export function addColumn(
   schema: string,
   table: string,
@@ -60,10 +54,6 @@ export function addColumn(
   );
 }
 
-/** Renames and/or alters a column in one request (F111/F114, `PATCH .../ddl/columns/:column`) -
- * either or both together, atomically on Postgres/SQLite. `alterError` (F134) is present only on
- * MySQL, whose DDL can't be rolled back: it means the rename already committed while the
- * following alter failed - see {@link ColumnUpdateResult}'s doc comment. */
 export function updateColumn(
   schema: string,
   table: string,
@@ -80,8 +70,6 @@ export function updateColumn(
   );
 }
 
-/** Drops a column (F111/F114, `DELETE .../ddl/columns/:column`). Destructive - `confirmedName`
- * must match `column` exactly. */
 export function dropColumn(
   schema: string,
   table: string,
@@ -98,7 +86,6 @@ export function dropColumn(
   );
 }
 
-/** Creates an index (F112/F114, `POST .../ddl/indexes`). Non-destructive. */
 export function createIndex(
   schema: string,
   table: string,
@@ -114,9 +101,6 @@ export function createIndex(
   );
 }
 
-/** Drops an index (F112/F114, `DELETE .../ddl/indexes/:indexName`). A plain confirming click, not
- * typed confirmation - an index carries no user data of its own (docs/product-specs/
- * schema-editing.md). */
 export function dropIndex(schema: string, table: string, indexName: string): Promise<null> {
   return fetchJson(
     `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/ddl/indexes/${encodeURIComponent(indexName)}`,

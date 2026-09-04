@@ -57,6 +57,12 @@ shared `@qyre/testing-conformance` case. Explicitly state verified and not-appli
   contracts in `@qyre/core`. Use `import type`; never create a global catch-all `types.ts`.
 - Package `index.ts` files are public barrels only. Do not define behavior in them.
 
+### Comment style
+
+- Keep comments sparse and near the code. Do not narrate syntax, history, feature IDs, or obvious implementation.
+- Inside functions, comment only non-obvious invariants, compatibility or security boundaries, and required workarounds.
+- Above methods or APIs, use a short comment only when the signature does not explain the contract. Preserve directives, license/generated markers, and genuine external-constraint comments.
+
 ## Commands
 
 - Compact context: `pnpm context [feature-id]`

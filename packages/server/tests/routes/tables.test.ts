@@ -139,9 +139,7 @@ describe("GET /api/tables/:schema/:table/rows", () => {
   });
 
   it("returns 400 (not 500) for invalid pagination params", async () => {
-    // F022: rowsQuerySchema.parse() used to throw straight into Fastify's default handler on bad
-    // input, returning 500 with a raw stringified Zod issue dump - /api/query's safeParse pattern
-    // is the correct precedent.
+    // Invalid pagination should map to 400 instead of the default 500.
     const adapter: DatabaseAdapter = {
       engine: "postgres",
       connect: async () => {},

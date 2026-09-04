@@ -95,8 +95,6 @@ export class MongodbAdapter implements DatabaseAdapter {
       createIndex(this.getClient(), schema, table, definition),
     dropIndex: (schema, table, indexName) => dropIndex(this.getClient(), schema, table, indexName)
   };
-  /** No `createDatabase` - MongoDB databases come into existence implicitly on first write; see
-   * admin.ts's doc comment. */
   public readonly admin: DatabaseAdminApi = {
     inspectAccess: () => inspectAccess(this.getClient()),
     listDatabases: () => listDatabases(this.getClient()),
@@ -194,12 +192,7 @@ export class MongodbAdapter implements DatabaseAdapter {
     return { ...metadata, permissions };
   }
 
-  /**
-   * MongoDB field sampling is inherently per collection, so keep concurrency bounded to one.
-   * Permissions (F095) are read from one shared `connectionStatus` call, not refetched per
-   * collection - the same privilege document determines every collection's permissions, unlike
-   * the per-collection field sample each still needs its own round trip for.
-   */
+  /** Sample collections sequentially to bound MongoDB field-sampling load. */
   async getAllTables(): Promise<TableMetadata[]> {
     const overview = await this.getOverview();
     const status = await this.fetchConnectionStatusOrDegrade();

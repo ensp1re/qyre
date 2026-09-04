@@ -6,9 +6,6 @@ import { authHeaders } from "../helpers/auth.js";
 
 describe("/api/console", () => {
   it("reads console events through a shared EventLog instance passed in (F028)", async () => {
-    // Proves createServer's `eventLog` option is actually honored, not just accepted - startServer
-    // passes the same instance back to the caller (e.g. the CLI, to wire an adapter's
-    // onConnectionEvent into it) and expects GET /api/console to reflect anything logged into it.
     const eventLog = new EventLog();
     const app = createServer({ eventLog });
     eventLog.log("error", "Postgres pool error (connection dropped): test");

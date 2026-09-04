@@ -1,10 +1,3 @@
-/**
- * Integration tests for {@link SqliteAdapter} against a real SQLite file.
- *
- * Unlike @qyre/postgres's integration tests, these need no external service or env var - SQLite is
- * just a local file, created fresh per test run. This is a real, product-relevant difference worth
- * proving, not just asserting: no QYRE_TEST_DATABASE_URL, no Postgres container, no CI service.
- */
 import { chmodSync, copyFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -97,7 +90,6 @@ describe("SqliteAdapter integration", () => {
     const table = await adapter.getTable("main", "qyre_demo_orders");
     const userIdColumn = table.columns.find((column) => column.name === "user_id");
     expect(userIdColumn?.isForeignKey).toBe(true);
-    // F061: also resolves what the FK actually references, not just that it is one.
     expect(userIdColumn?.references).toEqual({ table: "qyre_demo_users", column: "id" });
     expect(table.columns.find((column) => column.name === "total")?.isForeignKey).toBe(false);
   });
@@ -110,8 +102,6 @@ describe("SqliteAdapter integration", () => {
     expect(pkIndex).toBeDefined();
     expect(pkIndex?.columns).toEqual(["a", "b"]);
 
-    // qyre_demo_users' `id INTEGER PRIMARY KEY` is a rowid alias - SQLite creates no separate
-    // index entry for it (unlike the composite case above), yet isPrimaryKey must still be true.
     const users = await adapter.getTable("main", "qyre_demo_users");
     expect(users.indexes?.some((index) => index.primary)).toBe(false);
     expect(users.columns.find((column) => column.name === "id")?.isPrimaryKey).toBe(true);
@@ -292,11 +282,6 @@ describe("SqliteAdapter integration", () => {
     seed.close();
 
     try {
-      // The rebuild's INSERT...SELECT copies the existing NULL into a column newly declared NOT
-      // NULL - a genuine SQLite constraint violation. Since renameAndAlterColumn nests the rename
-      // and the rebuild inside one outer transaction (better-sqlite3 uses SAVEPOINTs for nested
-      // transaction functions), the rename that would otherwise have already committed must be
-      // rolled back along with the failed rebuild.
       await expect(
         adapter.ddl?.renameAndAlterColumn?.("main", table, "note", {
           newName: "remark",
@@ -339,21 +324,15 @@ describe("SqliteAdapter integration", () => {
     seed.close();
 
     try {
-      // A type change SQLite's own ADD COLUMN-family limits can't express - always the rebuild
-      // path, per docs/product-specs/schema-editing.md.
       await adapter.ddl?.alterColumn?.("main", parent, "age", { dataType: "TEXT", nullable: true });
 
-      // Data survived (age coerced by SQLite's own TEXT affinity, not dropped).
       const rows = await adapter.getRows("main", parent, 0, 10);
       expect(rows.rows.map((row) => row.name).sort()).toEqual(["Ada Lovelace", "Alan Turing"]);
       expect(rows.rows.every((row) => typeof row.age === "string")).toBe(true);
 
-      // The unique index survived the rebuild (recreated from sqlite_master's stored SQL).
       const metadata = await adapter.getTable("main", parent);
       expect(metadata.indexes?.some((index) => index.name === `idx_${parent}_email`)).toBe(true);
 
-      // The child table's foreign key to the rebuilt table still holds (no violations), and the
-      // child row itself survived untouched.
       const raw = new Database(dbPath);
       expect(raw.pragma("foreign_key_check")).toEqual([]);
       raw.close();
@@ -718,13 +697,6 @@ describe("SqliteAdapter integration", () => {
   });
 
   it("SQLite's own query_only pragma refuses a write, independent of assertReadOnly (F094)", () => {
-    // Unlike Postgres, SQLite has no writable-CTE or stored-procedure equivalent that could hide a
-    // write behind a leading SELECT/WITH keyword - assertReadOnly's strict allowlist (only SELECT,
-    // WITH, EXPLAIN, SHOW, TABLE, VALUES may lead a statement) already has no known bypass here. So
-    // this test proves the real safety property directly, bypassing assertReadOnly entirely: since
-    // F094 stopped connect() forcing every connection permanently read-only, runReadOnlyQuery's
-    // actual backstop is now toggling `PRAGMA query_only` around the query (see adapter.ts), not the
-    // connection's open mode - reproduce that toggle on a fresh, writable-opened handle directly.
     const directHandle = new Database(dbPath, { fileMustExist: true });
     try {
       directHandle.pragma("query_only = 1");

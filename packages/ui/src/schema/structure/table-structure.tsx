@@ -29,15 +29,9 @@ type DialogState =
 export interface TableStructureProps {
   table: TableMetadata;
   engine: DatabaseEngine | undefined;
-  /** The curated per-engine type catalog (F110) - empty for MongoDB, which has no column DDL. */
   columnTypes: readonly string[];
-  /** Whether add/rename/alter/drop-column controls render at all - false for MongoDB (collections
-   * have no fixed structure) or a session without `supportsDdl`. */
   canEditColumns: boolean;
-  /** Whether create/drop-index controls render - the session's `supportsIndexManagement` flag, a
-   * capability independent of `canEditColumns` (F090). */
   canManageIndexes: boolean;
-  /** Whether rename/truncate/drop-table controls render - the session's `supportsDdl` flag. */
   canEditTable: boolean;
   onAddColumn: (column: CreateTableColumnInput) => Promise<void>;
   onEditColumn: (columnName: string, update: EditColumnUpdate) => Promise<void>;
@@ -49,15 +43,6 @@ export interface TableStructureProps {
   onDropTable: () => Promise<void>;
 }
 
-/**
- * The Structure view for a single table/collection (F114) - column and index management plus
- * table-lifecycle actions, permission-gated per docs/product-specs/schema-editing.md. A view,
- * materialized view, or a table/collection with none of the three capabilities renders the existing
- * read-only `TableDetail` instead, so a read-only session (F096/F097) shows zero write affordances,
- * not disabled ones. Never calls the server itself - every `on*` prop is the caller's mutation
- * (packages/ui components don't fetch, per FRONTEND.md); this component owns only which dialog is
- * open and that dialog's own busy/error state, awaiting the caller's promise to know when to close.
- */
 export function TableStructure({
   table,
   engine,
@@ -158,8 +143,7 @@ export function TableStructure({
     try {
       await onDropIndex(indexName);
     } catch {
-      // The index list re-renders from the caller's refreshed data either way; a failed drop just
-      // leaves the index in place, no separate error surface for this low-risk, immediate action.
+      // A failed drop leaves the refreshed index list unchanged.
     } finally {
       setDroppingIndex(undefined);
     }

@@ -1,29 +1,3 @@
-/**
- * Starts the real Qyre server for Playwright, serving both the API and the built web app on one
- * port - the same shape as a real `npx qyre <url>` launch, not a separate vite-preview process with
- * no backend behind it.
- *
- * Instances of this run side by side (see playwright.config.ts's `webServer` array), one per
- * engine with Playwright e2e coverage, so the same `connect-and-inspect.spec.ts` can exercise all
- * of them without being duplicated. `QYRE_E2E_ENGINE` ("postgres" | "sqlite" | "mysql" | "mongodb",
- * default "postgres") tells each instance which one it is - this can't be inferred from
- * "whichever test-DB env var happens to be set" the way an earlier version of this file did:
- * Playwright's config process sets QYRE_TEST_SQLITE_PATH globally and spawns every webServer
- * command from that same process, so QYRE_TEST_SQLITE_PATH/QYRE_TEST_DATABASE_URL/
- * QYRE_TEST_MYSQL_URL are all simultaneously present in every instance's env once a developer sets
- * more than one for a `pnpm test:e2e:full` run - found live while adding the "mysql"
- * project/instance (F014), which was silently connecting to SQLite instead of MySQL under the old
- * "first truthy var wins" logic.
- * - "postgres": connects to QYRE_TEST_DATABASE_URL.
- * - "sqlite": connects to QYRE_TEST_SQLITE_PATH (self-contained, no external service).
- * - "mysql": connects to QYRE_TEST_MYSQL_URL.
- * - "mongodb": connects to QYRE_TEST_MONGO_URL. Browse journeys run against it; SQL-only journeys
- *   skip it explicitly.
- * - No target env var set for the selected engine: `@smoke` specs need no database, the server
- *   just reports "unconfigured".
- * QYRE_E2E_PORT picks which port this instance listens on (default 4173). Never opens a browser -
- * this is for Playwright's `webServer`, not interactive use.
- */
 import { chmodSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,6 +21,7 @@ import {
 
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/web/dist");
 
+/** Start the API and built web app for one Playwright project. */
 async function main(): Promise<void> {
   const engine = process.env.QYRE_E2E_ENGINE ?? "postgres";
   const port = Number(process.env.QYRE_E2E_PORT ?? 4173);
@@ -59,9 +34,7 @@ async function main(): Promise<void> {
       restricted ? process.env.QYRE_E2E_READONLY_SQLITE_PATH : process.env.QYRE_TEST_SQLITE_PATH
     )?.trim();
     if (sqlitePath) {
-      // parseConnectionTarget requires the file to already exist (it fails fast otherwise,
-      // matching real CLI behavior) - ensureSqliteFile creates an empty valid file first since
-      // this is a fresh e2e fixture, not a user-provided one.
+      // Create the file before parsing; the CLI rejects missing SQLite paths.
       if (restricted) {
         const fixtureDir = dirname(sqlitePath);
         if (existsSync(fixtureDir)) chmodSync(fixtureDir, 0o755);
@@ -110,19 +83,12 @@ async function main(): Promise<void> {
     host: "127.0.0.1",
     webRoot,
     logger: false,
-    // F064: mirrors the real CLI's main() - lets @full specs and manual Preview verification
-    // exercise POST /api/connect against any supported engine, not just the one this instance
-    // started with.
     adapterFactories: [
       postgresAdapterFactory,
       sqliteAdapterFactory,
       mysqlAdapterFactory,
       mongodbAdapterFactory
     ],
-    // F096/F097: QYRE_E2E_READ_ONLY drives a dedicated instance (see playwright.config.ts's
-    // "readonly" project) that connects to an otherwise-fully-writable fixture with --read-only
-    // forced, so the regression guard proves the flag overrides real grants rather than merely
-    // reflecting an already-restricted fixture user.
     readOnly: process.env.QYRE_E2E_READ_ONLY === "1"
   });
   process.stdout.write(`Qyre E2E server listening at ${server.url}\n`);

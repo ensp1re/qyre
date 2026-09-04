@@ -5,11 +5,6 @@ export interface ErrorStateProps {
   onRetry: () => void;
 }
 
-/**
- * A centered error message + Retry action, occupying the same visual footprint the loaded view of
- * that same component would (not a floating sentence above empty space) - replaces the ad hoc
- * inline error text that used to be scattered across every data-driven view (F017).
- */
 export function ErrorState({ message, onRetry }: ErrorStateProps): ReactNode {
   return (
     <div

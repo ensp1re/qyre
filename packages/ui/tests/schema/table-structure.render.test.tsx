@@ -85,7 +85,6 @@ describe("TableStructure (component rendering, F114)", () => {
     );
     expect(screen.queryByText("Add column")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Edit column email")).not.toBeInTheDocument();
-    // Index and table-lifecycle controls remain, since those gates are independent.
     expect(screen.getByText("Create index")).toBeInTheDocument();
     expect(screen.getByText("Drop table")).toBeInTheDocument();
   });

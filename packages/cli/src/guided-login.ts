@@ -1,14 +1,6 @@
-/**
- * Interactive terminal guided login (F088): lets a user build a connection string field-by-field
- * instead of typing a full URL - either from scratch (`--login`) or to fill in credentials missing
- * from a target already given on the command line. Mirrors `packages/ui`'s connect-drawer field
- * mode (same engines, same default ports) without depending on `@qyre/ui` from a Node CLI package.
- */
 import type { ConnectionTarget } from "@qyre/core";
 import chalk from "chalk";
 
-/** Engines the guided flow supports - matches connect-drawer's field-entry mode. SQLite's
- * file-path shape doesn't fit a user/password/host/port form, so it's URL/path-only there too. */
 export type GuidedEngine = "postgres" | "mysql" | "mongodb";
 
 export const GUIDED_ENGINE_DEFAULT_PORT: Record<GuidedEngine, string> = {
@@ -34,17 +26,13 @@ export interface GuidedLoginFields {
   database: string;
 }
 
-/** Prompting primitives the guided flow runs against - implemented for real stdin/stdout by
- * `createTerminalGuidedLoginIO` (see `guided-login-io.ts`), and stubbed in tests. */
 export interface GuidedLoginPrompts {
   writeLine: (text: string) => void;
-  /** Asks a plain-text question; resolves with the trimmed answer. */
   ask: (question: string) => Promise<string>;
-  /** Asks for a password; input is masked (echoed as `*`) as it's typed. */
+  /** Prompts with masked input when the terminal supports it. */
   askMasked: (question: string) => Promise<string>;
 }
 
-/** Mirrors `packages/ui`'s `composeConnectionString` for the CLI's own runtime. */
 export function composeGuidedConnectionString(fields: GuidedLoginFields): string {
   const host = fields.host.trim() || "localhost";
   const port = fields.port.trim() || GUIDED_ENGINE_DEFAULT_PORT[fields.engine];
@@ -59,9 +47,6 @@ export function composeGuidedConnectionString(fields: GuidedLoginFields): string
   return `${fields.engine}://${auth}${host}:${port}${path}`;
 }
 
-/** True when `target` is a URL-shaped engine with no username in its connection string - the
- * signal that a user handed us `postgres://host:5432/db` and needs to be asked for credentials
- * rather than silently attempting an anonymous connection. */
 export function needsCredentialPrompt(target: ConnectionTarget): boolean {
   if (target.engine === "sqlite") return false;
   try {
@@ -71,8 +56,6 @@ export function needsCredentialPrompt(target: ConnectionTarget): boolean {
   }
 }
 
-/** Fills in a missing user/password on `target` from prompted input, leaving both blank (and the
- * target otherwise unchanged) if the user just presses enter. */
 async function promptForMissingCredentials(
   io: GuidedLoginPrompts,
   target: ConnectionTarget
@@ -126,9 +109,6 @@ async function promptRetry(io: GuidedLoginPrompts): Promise<boolean> {
   }
 }
 
-/** Builds a connection string via `buildRaw`, attempts `connect`, and on failure shows the real
- * error and offers retry (Y, re-runs `buildRaw`) or quit (N, rethrows). Resolves with the
- * connection string once `connect` succeeds. */
 async function attemptWithRetry(
   io: GuidedLoginPrompts,
   buildRaw: () => Promise<string>,
@@ -150,8 +130,6 @@ async function attemptWithRetry(
   }
 }
 
-/** Runs the full guided login: pick an engine once, then enter fields and attempt to connect,
- * retrying the field entry on failure until it succeeds or the user quits. */
 export async function runGuidedLogin(
   io: GuidedLoginPrompts,
   connect: (raw: string) => Promise<void>
@@ -164,8 +142,6 @@ export async function runGuidedLogin(
   );
 }
 
-/** Runs the guided flow for a target that's missing credentials: prompts for user/password,
- * attempts to connect, and retries the prompt on failure until it succeeds or the user quits. */
 export async function fillMissingCredentials(
   io: GuidedLoginPrompts,
   target: ConnectionTarget,

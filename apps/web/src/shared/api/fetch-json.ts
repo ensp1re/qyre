@@ -1,19 +1,6 @@
 import { getAuthToken } from "./auth-token.js";
 import { apiResponseError } from "./permission-denied.js";
 
-/**
- * Shared fetch wrapper for every `api/*.ts` fetcher (F017). Attaches the session bearer token
- * every `/api/*` route now requires (F122).
- *
- * Distinguishes the two ways a request can fail:
- * - The request never reached a server at all (`fetch()` itself rejects - server not running,
- *   network down, CORS, ...) - browsers surface this as a generic message ("Failed to fetch") with
- *   no indication of what actually happened, so this replaces it with something a developer can act
- *   on.
- * - The server responded with an error - reads the real message from the JSON body's `error` field
- *   (the shape `packages/server`'s global error handler guarantees), falling back to a generic
- *   status-code message only if the body is missing or malformed.
- */
 export async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const token = getAuthToken();
   const headers = new Headers(init?.headers);
@@ -31,8 +18,6 @@ export async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Prom
     throw apiResponseError(body, response.status);
   }
 
-  // A 204 has no body to parse (F110's dropTable/dropColumn/dropIndex routes reply this way) -
-  // calling response.json() on it throws "Unexpected end of JSON input".
   if (response.status === 204) return null as T;
 
   return (await response.json()) as T;

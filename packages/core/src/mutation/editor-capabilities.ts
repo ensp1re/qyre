@@ -68,11 +68,7 @@ function unavailable(
   return { kind, editable: false, widget: null, unavailableReason };
 }
 
-/**
- * Classifies a database column for mutation authoring. This intentionally does not reuse the
- * filter classifier: accepting a coarse search value is different from safely replacing stored
- * data. Unsupported kinds fail closed and carry a user-facing reason.
- */
+/** Classify a column for editing; unsupported kinds fail closed. */
 export function mutationEditorCapability(
   dataType: string,
   engine?: DatabaseEngine,

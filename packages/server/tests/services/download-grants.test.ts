@@ -13,7 +13,7 @@ describe("download grants (PLAN.md P3)", () => {
     const grant = issueDownloadGrant();
 
     expect(consumeDownloadGrant(grant)).toBe(true);
-    // The whole point: a URL sitting in browser history cannot be replayed.
+    // A consumed grant cannot be replayed from browser history.
     expect(consumeDownloadGrant(grant)).toBe(false);
   });
 

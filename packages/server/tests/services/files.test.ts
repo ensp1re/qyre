@@ -85,8 +85,7 @@ describe("resolveSqlFilePath", () => {
   });
 
   it("rejects a symlink inside the root that points outside it (F023 regression)", () => {
-    // Previously: the lexical check only saw "evil.sql" (a path inside root), never that it
-    // actually pointed at a file outside the root, so the content endpoint would read it.
+    // Resolve the symlink target, not just its lexical path.
     const root = makeRoot();
     const outside = makeRoot();
     writeFileSync(join(outside, "secret.sql"), "SELECT 'secret';");
@@ -116,7 +115,6 @@ describe("readFilePreview (F133)", () => {
     writeFileSync(path, "SELECT 1;");
 
     expect(readFilePreview(path, 1024)).toEqual({ content: "SELECT 1;", truncated: false });
-    // Exactly at the limit still counts as "in full".
     expect(readFilePreview(path, "SELECT 1;".length)).toEqual({
       content: "SELECT 1;",
       truncated: false

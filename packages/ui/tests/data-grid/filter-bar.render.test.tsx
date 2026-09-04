@@ -78,7 +78,6 @@ describe("FilterBar (F072)", () => {
     expect(within(listbox).getByText("name")).toBeInTheDocument();
 
     fireEvent.keyDown(search, { key: "Enter" });
-    // Column picked -> now on the operator step.
     expect(screen.getByRole("listbox", { name: "Operators" })).toBeInTheDocument();
   });
 
@@ -200,7 +199,6 @@ describe("FilterBar (F072)", () => {
     fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("name"));
     expect(screen.getByRole("listbox", { name: "Operators" })).toBeInTheDocument();
 
-    // Esc from the operator step returns to the column step, not straight to closed.
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(screen.getByRole("listbox", { name: "Columns" })).toBeInTheDocument();
     expect(screen.getByLabelText("Search columns")).toHaveFocus();

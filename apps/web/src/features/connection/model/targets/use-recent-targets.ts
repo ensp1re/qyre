@@ -19,14 +19,6 @@ function readEntries(): RecentTarget[] {
   return entries;
 }
 
-/**
- * Tracks the last five successfully-connected targets, most recent first. Credential-bearing URLs
- * remain available for the current browser session but are never persisted; safe URLs and file
- * paths use versioned local storage. `display` is the already-redacted string the server's
- * POST /api/connect response returns, not re-derived here - this package must not duplicate
- * @qyre/core's redaction logic (a real value import from that barrel previously broke Vite's
- * browser build, see F047's history).
- */
 export function useRecentTargets(): {
   entries: RecentTarget[];
   record: (raw: string, display: string) => void;

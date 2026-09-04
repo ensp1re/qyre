@@ -8,20 +8,12 @@ const POSTGRES_PROTOCOLS = new Set(["postgres:", "postgresql:"]);
 const MYSQL_PROTOCOLS = new Set(["mysql:"]);
 const MONGODB_PROTOCOLS = new Set(["mongodb:", "mongodb+srv:"]);
 
-/** Default local port Qyre's server listens on. */
 export const DEFAULT_PORT = 7717;
 
-// Postgres (`pg`) and MySQL (`mysql2`) both accept a credential in the query string (e.g.
-// `?password=...`) as an alternative to the `user:pass@host` form, and MongoDB accepts a client
-// certificate passphrase the same way - none of that is covered by masking `url.password` alone.
-// Matched case-insensitively against the whole key so close variants (`pwd`, `sslpassword`,
-// `tlsCertificateKeyFilePassword`) are covered without hard-coding every engine's exact spelling.
+// Mask credential-like query parameters across all supported URL forms.
 const CREDENTIAL_QUERY_PARAM_PATTERN = /password|pwd|secret|token/i;
 
-/**
- * Redact credentials from a connection string so it is safe to log.
- * Returns a best-effort redacted form; on parse failure returns a generic mask.
- */
+/** Redact credentials before logging. */
 export function redactConnectionString(raw: string): string {
   try {
     const url = new URL(raw);
@@ -39,12 +31,6 @@ export function redactConnectionString(raw: string): string {
   }
 }
 
-/**
- * Resolve a candidate SQLite file path (bare path or `file:` URL) into a {@link ConnectionTarget}.
- * Existence is checked here, at the parse boundary, so the CLI fails fast with the exact resolved
- * path it looked for, matching Postgres's fail-fast-on-invalid-input behavior - see
- * `docs/product-specs/connect-and-inspect-sqlite.md`.
- */
 function resolveSqliteTarget(raw: string, path: string): ConnectionTarget {
   const resolvedPath = resolve(path);
   if (!existsSync(resolvedPath)) {
@@ -56,10 +42,6 @@ function resolveSqliteTarget(raw: string, path: string): ConnectionTarget {
   return { engine: "sqlite", raw };
 }
 
-/**
- * Parse and validate a user-provided database target at the boundary.
- * Throws {@link InvalidConnectionTargetError} with actionable guidance on failure.
- */
 export function parseConnectionTarget(input: string | undefined): ConnectionTarget {
   const trimmed = input?.trim();
   if (!trimmed) {
@@ -98,18 +80,10 @@ export function parseConnectionTarget(input: string | undefined): ConnectionTarg
     );
   }
 
-  // Not URL-shaped at all (e.g. `./app.db`, `data.sqlite`) - treat as a candidate SQLite file path.
   return resolveSqliteTarget(trimmed, trimmed);
 }
 
-/**
- * Swaps the database segment of a raw connection string (F116's "switch in place" within the
- * connection/database switcher) - `raw` must already be a URL-shaped target (Postgres/MySQL/
- * MongoDB; SQLite has no database segment to swap and never reaches this, per
- * docs/product-specs/schema-editing.md's "Database and schema lifecycle" section). Used
- * server-side only, against the currently connected target's own `raw` string - the client never
- * sees or supplies credentials for this, it only names the sibling database to switch to.
- */
+/** Replace a URL's database path while preserving credentials and options. */
 export function withDatabase(raw: string, database: string): string {
   const url = new URL(raw);
   url.pathname = `/${encodeURIComponent(database)}`;

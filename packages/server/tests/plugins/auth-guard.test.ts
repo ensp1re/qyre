@@ -48,8 +48,7 @@ describe("auth guard (F122)", () => {
   it("does not guard non-/api routes, so the browser can load the page and get its token", async () => {
     const app = createServer();
     const response = await app.inject({ method: "GET", url: "/" });
-    // 404 (no webRoot configured in this test) - proves the auth guard never ran, since a guarded
-    // route would 401 instead.
+    // 404 confirms the unconfigured web route bypassed the API guard.
     expect(response.statusCode).toBe(404);
     await app.close();
   });
@@ -63,10 +62,7 @@ describe("auth guard (F122)", () => {
     await second.close();
   });
 
-  // PLAN.md P3: the guard used to key on the raw URL string, which is only equivalent to the
-  // matched route because Fastify's router normalisation defaults are all off. Nothing pinned
-  // that. These are the shapes that would reach a handler unauthenticated if any of
-  // ignoreDuplicateSlashes / ignoreTrailingSlash / caseSensitive were ever flipped on.
+  // Exercise path variants so router normalization changes cannot bypass the guard.
   it.each([
     ["duplicate leading slash", "//api/health"],
     ["trailing slash", "/api/health/"],
@@ -77,8 +73,7 @@ describe("auth guard (F122)", () => {
     const app = createServer();
     const response = await app.inject({ method: "GET", url });
 
-    // Either the guard rejected it (401) or the router never matched it (404). What must never
-    // happen is a 200 - that would mean a handler ran with no credential.
+    // Either status is safe; an unauthenticated handler must never return 200.
     expect([401, 404]).toContain(response.statusCode);
     expect(response.statusCode).not.toBe(200);
     await app.close();
@@ -95,8 +90,7 @@ describe("auth guard (F122)", () => {
     await app.close();
   });
 
-  // PLAN.md P3: an export navigation cannot set a header, so it spends a one-shot grant instead of
-  // putting the session token in a URL that browser history keeps.
+  // Browser navigation uses a one-shot grant instead of a session token in the URL.
   it("accepts a minted download grant once, then never again", async () => {
     const app = createServer();
     const minted = await app.inject({

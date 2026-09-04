@@ -22,8 +22,6 @@ export interface StructuredTextEditorProps {
   error?: string;
   autoFocus?: boolean;
   minHeightClassName?: string;
-  /** Removes explanatory chrome and secondary utilities when the surrounding drawer already
-   * provides enough context. Validation remains visible and Format remains available. */
   variant?: "full" | "minimal";
 }
 

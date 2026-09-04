@@ -102,7 +102,7 @@ function capabilitiesFromPrivileges(privileges: Privilege[]): ConnectionCapabili
   const supportsIndexManagement = anyNonSystemResourceGrants(privileges, INDEX_ACTIONS);
   // MongoDB has no explicit "create database" privilege at all (databases come into existence
   // implicitly on first write), so "dropDatabase" is the only action database management can be
-  // introspected from - F115's admin namespace models exactly that pair (listDatabases +
+  // introspected from; the admin namespace models exactly that pair (listDatabases +
   // dropDatabase, no createDatabase).
   const supportsDatabaseManagement = anyNonSystemResourceGrants(
     privileges,

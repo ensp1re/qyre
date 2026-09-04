@@ -86,10 +86,6 @@ export function App(): ReactNode {
   const switchDatabase = useSwitchDatabase();
   const databaseAdmin = useDatabaseAdminMutations();
 
-  // F073: `npx qyre` with no target starts the server unconnected - jump straight into the connect
-  // UI instead of leaving the developer looking at a passive "no database connected" message with
-  // no obvious next step. Only auto-opens once per load (hasAutoOpenedConnect), so closing it to
-  // look around doesn't get overridden by this effect re-running on the next health poll.
   useEffect(() => {
     if (!healthLoading && status === "unconfigured" && !hasAutoOpenedConnect) {
       dispatch({ type: "connectAutoOpened" });
@@ -97,16 +93,7 @@ export function App(): ReactNode {
   }, [healthLoading, status, hasAutoOpenedConnect]);
 
   const overview = useOverview({ enabled: status === "connected" });
-  // F097: shares the same ["overview"] query cache as `overview` above (no extra request) - the
-  // canonical entry point every write-affordance gates on, per
-  // docs/product-specs/permissions-and-capabilities.md.
   const capabilities = useCapabilities({ enabled: status === "connected" });
-  // F116: the connection switcher's "Databases on this server" list - SQLite has no database-list
-  // concept at all (GET /api/databases 400s there per F115's "one file is one database" rule), and
-  // MongoDB's sidebar explorer already lists every database (switching is a tree click, and a
-  // URL-scoped role would 403 the server-wide list), so this only fires for Postgres/MySQL. The
-  // engine must be *known* before enabling - `undefined` while the overview loads must not fire
-  // the query, or its cached result would keep the section visible on excluded engines.
   const serverDatabasesSupported =
     status === "connected" &&
     overview.data !== undefined &&
@@ -114,16 +101,7 @@ export function App(): ReactNode {
     overview.data.engine !== "mongodb";
   const databases = useDatabases(serverDatabasesSupported);
   const canManageDatabases = sessionAllows(capabilities.data, "supportsDatabaseManagement");
-  // Postgres only - MySQL's "schema" IS its database, SQLite/MongoDB have no schema concept below
-  // the database (F116).
   const canManageSchemas = overview.data?.engine === "postgres" && canManageDatabases;
-  // F063: some engines (MongoDB today) have no read-only SQL query runner - no SQL dialect for a
-  // read-only backstop to run inside (see docs/product-specs/connect-and-inspect-mongodb.md's "Why
-  // this engine is scoped differently"). Read from the adapter's declared capabilities instead of
-  // an `engine === "mongodb"` string check, so a future non-SQL engine doesn't need its own
-  // conditional here (docs/product-specs/adapter-capabilities.md). Unsupported tabs are hidden from
-  // the shell instead of shown as disabled dead ends; the effect below moves the active tab away
-  // from SQL once capabilities load for a non-SQL engine.
   const supportsSql = overview.data?.capabilities.supportsSql ?? true;
   useEffect(() => {
     if (status === "connected" && !supportsSql) {
@@ -133,8 +111,6 @@ export function App(): ReactNode {
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page, sort, filters, tableSearch);
   const allTables = useAllTables({ enabled: status === "connected" });
-  // F127: reuses the already-fetched /api/tables metadata (no new server surface) for the SQL
-  // Editor's column-level autocomplete - the same data the Schema tab renders.
   const completionTables = allTables.tables.map((table) => ({
     name: table.name,
     columns: table.columns.map((column) => column.name)
@@ -144,13 +120,9 @@ export function App(): ReactNode {
   const consoleEvents = useConsoleEvents({ enabled: status === "connected" });
   const clearConsole = useClearConsole();
   const runQuery = useRunQuery();
-  // F108: set when the last run was rejected as destructive pending confirmation (F107) - renders
-  // ConfirmDestructiveStatementDialog instead of a raw error.
   const [pendingConfirmation, setPendingConfirmation] = useState<
     { sql: string; classification: StatementClassification } | undefined
   >(undefined);
-  // F126: the currently in-flight run's operationId, so cancelRun() knows what to cancel - a ref
-  // (not state) since it's only ever read by an event handler, never rendered.
   const runOperationIdRef = useRef<string | undefined>(undefined);
 
   function selectTable(schema: string, tableName: string, initialFilters?: RowFilter[]): void {
@@ -194,17 +166,11 @@ export function App(): ReactNode {
     );
   }
 
-  // F126: cancels the currently running query via its operationId - a no-op once the run has
-  // already settled (runOperationIdRef is cleared in onSettled above).
   function cancelRun(): void {
     const operationId = runOperationIdRef.current;
     if (operationId) void cancelOperation(operationId);
   }
 
-  // F108: resubmits the pending statement with confirmed: true (F107's server-enforced round-trip)
-  // once the developer explicitly confirms in ConfirmDestructiveStatementDialog. Closes the dialog
-  // once the resubmission settles either way - a second genuine failure (e.g. a real SQL error) is
-  // shown via QueryRunner's normal error state instead of leaving the dialog open.
   function confirmDestructiveRun(): void {
     if (!pendingConfirmation) return;
     const start = performance.now();
@@ -234,21 +200,12 @@ export function App(): ReactNode {
     dispatch({ type: "historySelected", sql });
   }
 
-  // F064: switches the running server to a different database. useConnect's onSuccess already
-  // invalidates every React Query cache; the reset here covers local component state React Query
-  // doesn't own (the currently selected table/page - the new database likely doesn't have the
-  // same tables, matching selectTable's existing reset-on-switch behavior). The SQL Editor's
-  // current draft (querySql) is deliberately left untouched - see the product spec's rationale.
   async function connectToNewTarget(raw: string): Promise<void> {
     const result = await connect.mutateAsync(raw);
     recentTargets.record(raw, result.target);
     dispatch({ type: "connectionChanged" });
   }
 
-  // F116: switches to a sibling database on the same server - the same local-navigation reset
-  // connectToNewTarget applies, since the new database likely doesn't have the same tables either.
-  // Unlike connectToNewTarget, there's no raw connection string to record as a recent target - the
-  // client never learns one for an in-place switch.
   async function switchToDatabase(database: string): Promise<void> {
     await switchDatabase.mutateAsync(database);
     dispatch({ type: "connectionChanged" });
@@ -358,9 +315,6 @@ export function App(): ReactNode {
                   />
                 ) : tab === "tables" ? (
                   <TablesTab
-                    // Remounts (discarding any staged edits, F103) on table switch - see
-                    // TablesTab's own doc comment for why this is the intended reset mechanism
-                    // rather than an explicit clear-on-selected-change effect.
                     key={selected ? `${selected.schema}.${selected.table}` : "none"}
                     selected={selected}
                     table={table}

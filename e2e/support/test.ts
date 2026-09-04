@@ -14,11 +14,7 @@ interface FixtureIsolationOptions {
   readonly fixtureIsolation: void;
 }
 
-/**
- * Every E2E test holds the lock for its underlying mutable engine fixture for its complete lifetime.
- * Projects backed by the same database (for example postgres/readonly/postgres-restricted) share a
- * lock, while unrelated engines retain Playwright's normal parallelism.
- */
+/** Serialize tests sharing a mutable engine fixture. */
 export const test = base.extend<FixtureIsolationOptions>({
   fixtureEngines: [undefined, { option: true }],
   fixtureIsolation: [

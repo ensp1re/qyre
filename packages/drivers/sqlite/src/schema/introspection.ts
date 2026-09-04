@@ -41,14 +41,14 @@ export interface ForeignKeyListRow {
 
 /** Raw `PRAGMA table_info` rows (cid/type/notnull/dflt_value/pk) - unlike `ColumnMetadata`, this
  * carries a column's default value text and 1-based PK sequence number, both needed to faithfully
- * reconstruct a table's full definition for `alterColumn`'s 12-step rebuild (F111). */
+ * reconstruct a table's full definition for `alterColumn`'s 12-step rebuild. */
 export function fetchTableInfo(db: Database.Database, table: string): TableInfoRow[] {
   return db.pragma(`table_info(${quoteIdent(table)})`) as TableInfoRow[];
 }
 
 /** Raw `PRAGMA foreign_key_list` rows, incl. `on_update`/`on_delete` actions - `ColumnMetadata.
  * references` only carries the target table/column, not enough to faithfully reconstruct a
- * `FOREIGN KEY` clause during `alterColumn`'s rebuild (F111). */
+ * `FOREIGN KEY` clause during `alterColumn`'s rebuild. */
 export function fetchForeignKeyList(db: Database.Database, table: string): ForeignKeyListRow[] {
   return db.pragma(`foreign_key_list(${quoteIdent(table)})`) as ForeignKeyListRow[];
 }

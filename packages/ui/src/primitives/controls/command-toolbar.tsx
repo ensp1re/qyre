@@ -7,7 +7,6 @@ export interface CommandToolbarProps {
   className?: string;
 }
 
-/** Compact, keyboard-navigable command strip used by IDE workspace surfaces. */
 export function CommandToolbar({ label, children, className }: CommandToolbarProps): ReactNode {
   function moveFocus(event: KeyboardEvent<HTMLDivElement>): void {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;

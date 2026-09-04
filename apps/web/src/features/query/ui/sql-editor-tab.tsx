@@ -33,31 +33,23 @@ function downloadQueryResults(
 }
 
 export interface SqlEditorTabProps {
-  /** True when the connected adapter's capabilities.supportsSql is false (F063) - e.g. MongoDB,
-   * which has no read-only SQL query runner. */
   sqlDisabled: boolean;
   sql: string;
   onSqlChange: (sql: string) => void;
   onRun: () => void;
-  /** Cancels the currently running query (F126) - shown as a Cancel control while `runQuery.isPending`. */
   onCancel: () => void;
   runQuery: ReturnType<typeof useRunQuery>;
-  /** Session-level capabilities (F108) - used only to look up a friendly `readOnlyReason` message
-   * when a read-only session's write attempt is rejected. */
   capabilities?: ConnectionCapabilities;
   onOpenHistory: () => void;
   tables: CompletionTable[];
   engine?: DatabaseEngine;
   resultsHeight: number;
   onResultsHeightChange: (height: number) => void;
-  /** Set when the last run was rejected as destructive pending confirmation (F107/F108) - renders
-   * the confirmation dialog instead of a raw error. */
   pendingConfirmation?: { sql: string; classification: StatementClassification };
   onConfirmDestructive: () => void;
   onCancelDestructive: () => void;
 }
 
-/** SQL Editor tab content - not available for engines with no SQL dialect (MongoDB today). */
 export function SqlEditorTab({
   sqlDisabled,
   sql,
@@ -93,10 +85,6 @@ export function SqlEditorTab({
 
   const rawError = runQuery.error;
   const explainError = explainQuery.error instanceof Error ? explainQuery.error.message : undefined;
-  // A destructive-confirmation rejection isn't shown as a raw error - the confirmation dialog
-  // below handles it. A read-only session's rejected write attempt shows the session's own
-  // friendly readOnlyReason (F108) instead of the raw "Only read-only statements..." text, mirroring
-  // StatusBar's badge copy exactly (@qyre/ui's shared READ_ONLY_REASON_LABEL).
   const error =
     rawError instanceof DestructiveConfirmationRequiredError
       ? undefined

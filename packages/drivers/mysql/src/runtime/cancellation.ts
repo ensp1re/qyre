@@ -1,12 +1,7 @@
 import type { CancellationRegistry } from "@qyre/driver-contract";
 import type mysql from "mysql2/promise";
 
-/** True when `error` is MySQL's own `ER_QUERY_INTERRUPTED` (errno 1317) - the error a `KILL
- * QUERY <threadId>` command produces on the connection whose statement it interrupted (F126).
- * Unlike Postgres's `57014` (shared with `statement_timeout`), this code is specific to `KILL
- * QUERY` - mysql2's own client-side `timeout` option closes the connection instead of producing
- * this error (see docs/product-specs/sql-editor.md's "Statement timeout" section), so no
- * additional disambiguation is needed here. */
+/** Recognize MySQL query cancellations issued by `KILL QUERY`. */
 export function isMysqlCancelError(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -16,13 +11,7 @@ export function isMysqlCancelError(error: unknown): boolean {
   );
 }
 
-/**
- * Checks out a connection and, only when `operationId` is supplied, reads its `threadId` (no
- * extra round trip needed - mysql2 exposes it synchronously on the checked-out connection) and
- * registers a cancel callback that issues `KILL QUERY <threadId>` from the pool - cancellable
- * from another connection while the checked-out one's own query is still blocked waiting on the
- * server (F126). Always releases the connection and unregisters the callback once `fn` settles.
- */
+/** Run with a MySQL connection that can be cancelled by operation ID. */
 export async function withCancellableConnection<T>(
   pool: mysql.Pool,
   registry: CancellationRegistry | undefined,

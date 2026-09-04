@@ -13,7 +13,7 @@ import { isSystemCollection, SYSTEM_DATABASES } from "./catalog.js";
 const FIELD_SAMPLE_SIZE = 100;
 
 /** MongoDB's own default index on `_id`, present on every collection - reported the same way a
- * SQL engine's primary-key index is (F112). A view has no indexes of its own. */
+ * SQL engine's primary-key index is. A view has no indexes of its own. */
 async function fetchIndexes(collection: Collection): Promise<IndexMetadata[]> {
   const indexes = await collection.indexes();
   return indexes.map((index) => ({

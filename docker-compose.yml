@@ -1,6 +1,4 @@
-# Local Postgres+MySQL+Mongo test stack (F057) - mirrors .github/workflows/ci.yml's service
-# containers exactly (same images, ports, credentials) so `docker compose up -d` plus the env vars
-# in .env.example reproduces what CI runs against, without reading CI YAML to find out.
+# Local database test stack for Postgres, MySQL, and MongoDB.
 services:
   postgres:
     image: postgres:16

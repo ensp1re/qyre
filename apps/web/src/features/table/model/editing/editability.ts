@@ -7,29 +7,11 @@ import {
 
 export interface TableEditability {
   readonly editable: boolean;
-  /** Why editing is disabled, for UI copy - undefined when `editable` is true. */
   readonly reason?: string;
-  /** Columns eligible for inline cell editing when `editable` is true - primary-key columns and
-   * mutation kinds without a safe editor are never included, per
-   * docs/product-specs/row-editing.md ("a primary-key column is... never editable when updating an
-   * existing row"). Empty when `editable` is false. */
   readonly editableColumns: ReadonlySet<string>;
-  /** Whether Add-row/Duplicate-row (F104) should render at all - hidden entirely (not merely
-   * disabled) when false, per the spec. Gated independently of `editable`/`update`: a session can
-   * have insert without update permission, or vice versa. */
   readonly canInsert: boolean;
-  /** Why insert is unavailable - present only when `canInsert` is false and there's something worth
-   * explaining (unused today since Add-row/Duplicate-row are hidden, not disabled-with-a-badge, but
-   * kept symmetric with `reason` in case a future slice wants it). */
   readonly insertReason?: string;
-  /** Columns an insert draft can set - unlike `editableColumns`, primary-key columns ARE included
-   * (a new row's key must be supplied unless the engine auto-generates it, per the spec's insert
-   * section); structured/binary/unknown/null kinds are still excluded. Empty when `canInsert` is
-   * false. */
   readonly insertableColumns: ReadonlySet<string>;
-  /** Whether selected rows can be staged for deletion (F105) - hidden entirely (not merely
-   * disabled) when false. Gated independently of `editable`/`canInsert`: a session can have delete
-   * without update or insert permission, or vice versa. */
   readonly canDelete: boolean;
 }
 
@@ -56,12 +38,6 @@ function readOnlySessionReason(capabilities: ConnectionCapabilities | undefined)
   }
 }
 
-/**
- * Derives whether the Rows grid can be edited, and which columns, entirely from data the app
- * already has - no new "why can't I edit this" field, per docs/product-specs/row-editing.md. Every
- * gate below is independent and fails closed: the first one that blocks editing determines the
- * surfaced reason.
- */
 export function computeTableEditability(
   table: TableMetadata | undefined,
   capabilities: ConnectionCapabilities | undefined,
@@ -140,8 +116,6 @@ export function computeTableEditability(
       )
     : new Set<string>();
 
-  // Unlike `editableColumns`, the primary key IS included here - a new row's key must be supplied
-  // on insert unless the engine auto-generates it (docs/product-specs/row-editing.md).
   const insertableColumns = canInsert
     ? new Set(mutationEditableColumns.map((column) => column.name))
     : new Set<string>();

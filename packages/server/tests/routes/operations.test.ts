@@ -45,9 +45,7 @@ describe("POST /api/operations/:id/cancel", () => {
       }),
       getTable: async () => ({ schema: "public", name: "x", columns: [] }),
       getRows: async () => ({ columns: [], rows: [], page: 0, pageSize: 0 }),
-      // createServer assigns ctx.operationRegistry onto this adapter at construction time (the same
-      // "server assigns a hook after connect()" pattern onConnectionEvent already uses), so
-      // this.operationRegistry is already live by the time a request comes in.
+      // createServer attaches the operation registry before requests arrive.
       runReadOnlyQuery: (_sql, operationId) =>
         new Promise((_resolve, reject) => {
           adapter.operationRegistry?.register(operationId ?? "", async () => {

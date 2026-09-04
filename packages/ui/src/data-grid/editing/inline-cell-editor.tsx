@@ -10,9 +10,6 @@ import { EditorPopover } from "./editor-popover.js";
 
 export type CommitDirection = "enter" | "tab" | "shiftTab";
 
-/** Compact, borderless input styling shared by every free-text inline widget - the cell's own
- * border (drawn by the caller around the whole editing cell) is the "you're editing this" signal,
- * not a separate box around the text (F146). */
 const PLAIN_INPUT_CLASS =
   "min-w-0 flex-1 border-0 bg-transparent px-0 font-mono text-[10px] text-foreground outline-none";
 
@@ -25,22 +22,9 @@ export interface InlineCellEditorProps {
   originalValue: unknown;
   onApply: (value: unknown) => void;
   onCancel: () => void;
-  /** Fired right after a successful `onApply` triggered by Enter/Tab/Shift+Tab, so the caller can
-   * move the grid's selection - spreadsheet-style "commit and advance" instead of a dead end after
-   * every edit (F146's answer to "difficult to quickly edit several rows"). */
   onCommitKey?: (direction: CommitDirection) => void;
 }
 
-/**
- * A cell editor that replaces the cell's own display in place - no popover chrome, no header, no
- * separate Apply/Cancel row, no NULL button (F146). Covers every widget simple enough to edit
- * directly at the cell's own width: text, decimal, boolean, enum, date, and timestamp/time (the
- * latter two as a plain precise text field with an optional compact picker, never a mandatory
- * large form). Clearing a nullable field's text and leaving it auto-stages NULL - there is no
- * separate toggle to find; a nullable cell can also be cleared without entering edit mode at all
- * via Delete/Backspace on the grid's selection. `TypedValueEditor`/`EditorPopover` remain for JSON/
- * array/set and long text, where an anchored popover is still the right shape.
- */
 export function InlineCellEditor({
   column,
   engine,
@@ -62,18 +46,11 @@ export function InlineCellEditor({
     if (direction) onCommitKey?.(direction);
   }
 
-  /** Closes without staging anything, but still advances the grid's selection on Enter/Tab so
-   * tabbing through unchanged cells keeps moving instead of getting stuck. */
   function cancelKeepingNavigation(direction?: CommitDirection): void {
     onCancel();
     if (direction) onCommitKey?.(direction);
   }
 
-  /** Invalid input keeps the draft and stays open with a compact message (never silently
-   * discarded). An unchanged draft (e.g. blurring to open the date picker, tabbing through without
-   * editing, or clicking away without typing) cancels instead of staging a no-op edit that would
-   * mark the cell dirty for nothing. Clearing a nullable field's text stages NULL directly - no
-   * separate button to hunt for. */
   function commitDraft(rawDraft: string, direction?: CommitDirection): void {
     if (rawDraft === mutationValueText(originalValue, capability)) {
       cancelKeepingNavigation(direction);
@@ -167,9 +144,7 @@ export function InlineCellEditor({
           }}
           onKeyDown={handleTextKeyDown}
           onBlur={(event) => {
-            // Read the input's live value on blur. A pointer click can move focus before React has
-            // rendered the final onChange state, and committing the closed-over draft would then
-            // silently discard the last edit unless the user pressed Enter first.
+            // Blur can precede React's final onChange render; use the live input value.
             if (!pickerOpen) commitDraft(event.currentTarget.value);
           }}
           onFocus={(event) => event.currentTarget.select()}
@@ -183,9 +158,7 @@ export function InlineCellEditor({
             tabIndex={-1}
             aria-label={capability.widget === "date" ? "Open date picker" : "Open date/time picker"}
             title={capability.widget === "date" ? "Open date picker" : "Open date/time picker"}
-            // Keeps focus on the text input instead of blurring it - a plain onClick would blur
-            // (and thus commit) the input before this button's own click updates `pickerOpen`,
-            // staging a spurious no-op edit just from opening the picker.
+            // Keep opening the picker from blurring and committing the draft.
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => setPickerOpen((open) => !open)}
             className="shrink-0 text-muted-foreground hover:text-foreground"

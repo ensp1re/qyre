@@ -30,13 +30,9 @@ const NODE_TYPES: NodeTypes = { table: TableNode };
 
 export interface SchemaGraphProps {
   tables: TableMetadata[];
-  /** Stable per-database key (the connection target) so saved layouts don't leak between
-   * databases. */
   databaseKey: string;
 }
 
-/** Applies saved positions where present, otherwise dagre auto-layout - so an existing arrangement
- * is restored and only genuinely-new tables get auto-placed. */
 function positionedNodes(
   tables: TableMetadata[],
   saved: Record<string, { x: number; y: number }>
@@ -83,11 +79,6 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
           animated: isHighlighted,
           style: {
             ...edge.style,
-            // `--border` is a hairline-alpha rgba() token (see docs/references/design-system.md) -
-            // wrapping it in rgb() as the previous code did produced invalid CSS
-            // (`rgb(rgba(...))`), so the browser silently dropped the stroke declaration and edges
-            // rendered with whatever default color React Flow falls back to. Use muted-foreground
-            // at a visible-but-subdued alpha instead, consistent with the dimmed state below.
             stroke: isHighlighted
               ? "var(--c-blue)"
               : isDimmed
@@ -100,9 +91,6 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
     [flowEdges, highlight]
   );
 
-  // Rebuild nodes/edges whenever the table set changes (new database, refresh). Positions come from
-  // localStorage when known, dagre otherwise. Keyed on databaseKey + table identity so switching
-  // databases re-lays-out rather than stranding the previous database's arrangement.
   const signature = useMemo(
     () => tables.map((table) => `${table.schema}.${table.name}:${table.columns.length}`).join("|"),
     [tables]
@@ -117,9 +105,6 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
     setEdges(edges);
   }, [databaseKey, signature, tables, positions, edges, setNodes, setEdges]);
 
-  // Persist a node's position only when a *user* drag ends. Using onNodeDragStop (rather than
-  // sniffing onNodesChange for dragging===false) keeps programmatic updates - setNodes on a reset
-  // or database switch - from re-saving positions we just cleared or recomputed.
   const handleNodeDragStop = useCallback(
     (_event: unknown, node: TableFlowNode) => {
       savePositions({ [node.id]: node.position });
@@ -133,7 +118,6 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
     const { nodes, edges: builtEdges } = buildGraph(tables);
     setNodes(layoutGraph(nodes, builtEdges));
     setEdges(builtEdges);
-    // Fit after the re-laid-out nodes commit.
     window.setTimeout(() => void fitView({ duration: 300, padding: 0.15 }), 0);
   }, [clearPositions, tables, setNodes, setEdges, fitView]);
 
@@ -183,12 +167,6 @@ function SchemaGraphInner({ tables, databaseKey }: SchemaGraphProps): ReactNode 
   );
 }
 
-/**
- * The Schema tab's interactive ERD (F074): every table a draggable pan/zoom node, every resolvable
- * foreign key an edge, with the layout persisted per database and a Reset-layout control. Wrapped
- * in `ReactFlowProvider` so `useReactFlow` (for `fitView`) works. See
- * docs/product-specs/schema-graph.md.
- */
 export function SchemaGraph(props: SchemaGraphProps): ReactNode {
   return (
     <ReactFlowProvider>

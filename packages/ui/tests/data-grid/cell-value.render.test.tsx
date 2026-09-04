@@ -82,8 +82,7 @@ describe("CellValue (component rendering, F055)", () => {
   });
 
   it("renders a TIME-column value as plain text, never routed through the date parser (F081)", () => {
-    // A bare TIME value like "08:27:20" has no date component and can't be parsed by `new
-    // Date(...)`, so unlike DATE/TIMESTAMP it must never get the click-to-inspect date affordance.
+    // TIME values have no date component, so they stay out of date-detail inspection.
     render(
       <CellValue
         value="08:27:20"

@@ -4,19 +4,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/**
- * Design tokens - see docs/references/design-system.md for the full reference (source: a private
- * Figma Make export). Semantic tokens only; component code should reference these via Tailwind
- * classes (bg-background, text-muted-foreground, ...) or var(--c-*) for the accent set below, never
- * raw hex.
- *
- * Color tokens are "R G B" triplets (not hex/rgba) so Tailwind's opacity modifiers work
- * (bg-primary/10, text-foreground/70, ...) - Tailwind can only substitute <alpha-value> into a
- * space-separated rgb() triplet, not into a var() holding a full color string. A var() containing
- * a complete color made every alpha-modified themed class compile to nothing. `--border` and
- * `--sidebar-border` are the one exception - they carry a fixed hairline alpha baked in on purpose
- * (see --border-subtle below for the one softer variant actually needed).
- */
 :root {
   color-scheme: light;
   --font-size: 13px;
@@ -47,7 +34,6 @@
   --sidebar-accent: 221 227 234;
   --sidebar-accent-foreground: 36 42 51;
   --sidebar-border: rgba(27, 39, 53, 0.08);
-  /* semantic accent colors (data-type icons, status dots, badges, SQL syntax highlighting) */
   --c-green: #1f6f43;
   --c-amber: #8e5b1d;
   --c-purple: #7354a3;
@@ -55,7 +41,6 @@
   --c-red: #a93b46;
 }
 
-/* Dark is the primary/default theme for this product - see docs/references/design-system.md. */
 .dark {
   color-scheme: dark;
   --background: 34 38 50;
@@ -163,16 +148,11 @@ body {
   outline-offset: 1px;
 }
 
-/* Composite search controls own the visible focus surface. Avoid drawing a second outline around
-   the embedded text field, which makes the compact command bar look like nested form controls. */
 [data-focus-surface] :where(input, textarea):focus-visible {
   outline: none;
   outline-offset: 0;
 }
 
-/* Thin, theme-colored scrollbars everywhere (tree, grid, editor, ...) instead of the OS default -
-   an IDE-density UI needs quiet scrollbars. Firefox via scrollbar-width/-color, WebKit/Blink via
-   the ::-webkit-scrollbar pseudo-elements. */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgb(var(--muted-foreground) / 0.32) transparent;

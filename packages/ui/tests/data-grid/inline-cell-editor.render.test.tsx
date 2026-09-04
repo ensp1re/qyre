@@ -239,7 +239,6 @@ describe("InlineCellEditor (F146)", () => {
     const input = screen.getByLabelText("name");
     fireEvent.keyDown(input, { key: "Tab" });
     expect(onApply).not.toHaveBeenCalled();
-    // Selection still advances even though nothing was staged.
     expect(onCommitKey).toHaveBeenCalledWith("tab");
   });
 

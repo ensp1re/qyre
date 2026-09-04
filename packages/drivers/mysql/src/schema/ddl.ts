@@ -2,15 +2,7 @@ import type { ColumnDefinition, ColumnUpdateResult, IndexDefinition } from "@qyr
 import type mysql from "mysql2/promise";
 import { quoteIdent } from "../query/sql.js";
 
-/**
- * `column.dataType`/`column.name` are already validated by the caller (identifier shape for new
- * names, `dataType` against MySQL's curated type catalog) - see
- * packages/server/src/services/schema/schema-ddl-validation.ts. `pool.escape()` formats the default
- * literal (a value position DDL can't parameter-bind) using mysql2's own escaping rules, which
- * correctly handle the backslash-escape MySQL applies inside string literals by default (unlike a
- * hand-rolled "double the quote" escape, which alone isn't safe here the way it is for Postgres/
- * SQLite string literals).
- */
+/** Format a MySQL DDL default with mysql2's engine-specific escaping. */
 function columnDefinitionSql(pool: mysql.Pool, column: ColumnDefinition): string {
   const parts = [quoteIdent(column.name), column.dataType];
   if (!column.nullable) parts.push("NOT NULL");
@@ -62,8 +54,7 @@ export async function addColumn(
   await pool.query(`ALTER TABLE ${target} ADD COLUMN ${columnDefinitionSql(pool, column)}`);
 }
 
-/** MySQL 8.0+'s native `RENAME COLUMN` (this repo's Docker/CI stack is MySQL 8) - no 5.7
- * `CHANGE COLUMN` fallback, since that version isn't part of this codebase's tested matrix. */
+/** Rename a column using MySQL 8+'s native operation. */
 export async function renameColumn(
   pool: mysql.Pool,
   schema: string,
@@ -80,12 +71,7 @@ export async function renameColumn(
 interface CurrentColumnDefinition {
   columnType: string;
   nullable: boolean;
-  /** The raw stored default value's text (e.g. `hello`, `5`), or an expression's text (e.g.
-   * `CURRENT_TIMESTAMP`) - `information_schema.COLUMNS.COLUMN_DEFAULT` doesn't distinguish the two,
-   * so a preserved (not explicitly changed) expression default is re-quoted as a literal string by
-   * `alterColumn` below. Expression defaults are out of scope for what `ColumnDefinition.default`
-   * itself can express (docs/product-specs/schema-editing.md) - this is the one place that
-   * limitation can surface as a behavior change on an *unrelated* alter, not just a rejected input. */
+  /** Raw stored default text. */
   default: string | null;
 }
 
@@ -111,15 +97,7 @@ async function fetchCurrentColumnDefinition(
   };
 }
 
-/**
- * MySQL's `MODIFY COLUMN` requires the full resulting column definition, not just the changed
- * field - there is no separate "just change the type"/"just change nullability" clause the way
- * Postgres has. Reads the column's current definition first (via `information_schema.columns`,
- * not the shared `ColumnMetadata` introspection - `COLUMN_TYPE` carries length/precision
- * `DATA_TYPE` alone doesn't, and `ColumnMetadata` doesn't expose a column's default at all) and
- * merges `changes` onto it, so the caller-facing contract stays "changes covers only what's
- * different" even though MySQL's own SQL doesn't work that way under the hood.
- */
+/** Build MySQL's full MODIFY COLUMN definition from current metadata and requested changes. */
 export async function alterColumn(
   pool: mysql.Pool,
   schema: string,
@@ -141,19 +119,7 @@ export async function alterColumn(
   await pool.query(`ALTER TABLE ${target} MODIFY COLUMN ${parts.join(" ")}`);
 }
 
-/**
- * Runs a rename and/or alter sequentially (F134) - unlike Postgres/SQLite, MySQL's DDL is not
- * transactional (`ALTER TABLE` auto-commits immediately regardless of any enclosing `BEGIN`/
- * `COMMIT`), so a rename that succeeds can never be rolled back if the following alter then fails.
- * Rather than throw and leave the caller believing nothing happened (the original bug: the rename
- * is already committed, and a naive retry then hits "Unknown column"), a post-rename alter failure
- * is caught and reported as a partial {@link ColumnUpdateResult} instead - `renamed: true, altered:
- * false, alterError`. A failure with nothing yet committed (the alter-only case, or the rename
- * itself failing) still throws normally, matching every other DDL route. Note this bypasses the
- * route's permission-denied classification for the alter step specifically - an acceptable
- * tradeoff for the rare case of "rename allowed, alter forbidden"; the alter's raw message still
- * reaches `alterError`, just not through that structured 403 path.
- */
+/** Apply MySQL rename and alter sequentially; DDL auto-commits between statements. */
 export async function renameAndAlterColumn(
   pool: mysql.Pool,
   schema: string,

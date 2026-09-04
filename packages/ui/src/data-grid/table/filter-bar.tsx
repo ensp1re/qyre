@@ -13,14 +13,9 @@ import { useFocusTrap } from "../../primitives/use-focus-trap.js";
 import { StructuredTextEditor, structuredTextError } from "../editing/structured-text-editor.js";
 
 export interface FilterBarProps {
-  /** The table's real columns - drives the popover's column picker and each chip's type icon. */
   columns: ColumnMetadata[];
-  /** Connected engine, used to interpret engine-reported column type names accurately. */
   engine?: DatabaseEngine;
-  /** The filters currently applied server-side (F072), or undefined when none. */
   filters: RowFilter[] | undefined;
-  /** Reports the full next filter set; undefined means "no filters" (matching RowsTable's
-   * `onFiltersChange` contract - the caller re-fetches accordingly). */
   onFiltersChange: (filters: RowFilter[] | undefined) => void;
 }
 import { EMPTY_DRAFT, HintFooter, NO_VALUE_OPS, OP_META, type Draft } from "./filter-editor.js";
@@ -31,18 +26,6 @@ function columnsMatching(columns: readonly ColumnMetadata[], queryValue: string)
   return columns.filter((column) => column.name.toLowerCase().includes(query));
 }
 
-/**
- * The Tables toolbar's server-side filter control (F072): a Filter button opening an anchored
- * popover with a progressive three-step flow (searchable column list -> operator list -> value),
- * plus the applied filters as segmented chips - click a chip to edit it in the same popover,
- * click its x to remove it, "Clear" to drop them all. Filters always combine with AND (the spec
- * scopes OR out), stated by the small "and" separators between chips.
- *
- * Keyboard: arrows + Enter drive both lists (the column list keeps focus in its search input via
- * aria-activedescendant; the operator list uses roving focus), Enter applies the value, and
- * Escape walks one step back until it closes. Focus is trapped while open and restored to the
- * trigger on close (useFocusTrap).
- */
 export function FilterBar({
   columns,
   engine,
@@ -51,7 +34,6 @@ export function FilterBar({
 }: FilterBarProps): ReactNode {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
-  /** Index into `filters` being edited, or null when composing a new one. */
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
@@ -85,9 +67,6 @@ export function FilterBar({
   const valueInputKind = draftCapability?.valueInput ?? "text";
   const isStructuredJson = valueInputKind === "json";
   const structuredValueError = isStructuredJson ? structuredTextError(draft.value) : undefined;
-  // Native date/time/datetime-local pickers render their own wide placeholder text
-  // ("dd.mm.yyyy, --:--") that collides with an inline Apply button at this popover's width -
-  // stack them instead of the side-by-side layout that works fine for text/number/ObjectId.
   const isDateValueInput =
     valueInputKind === "date" || valueInputKind === "time" || valueInputKind === "datetime-local";
 
@@ -96,17 +75,13 @@ export function FilterBar({
     setHighlighted(next);
   }
 
-  // Keep the highlighted column option visible while arrowing through a long list.
   useEffect(() => {
     if (step !== "column") return;
-    // Optional-chain the method itself - jsdom (test env) has no scrollIntoView implementation.
     document.getElementById(`filter-column-option-${highlighted}`)?.scrollIntoView?.({
       block: "nearest"
     });
   }, [highlighted, step]);
 
-  // The operator list uses roving focus (it has no search input to hold focus the way the column
-  // step does) - focus its first option when the step is reached.
   useEffect(() => {
     if (step === "op") opListRef.current?.querySelector("button")?.focus();
   }, [step]);
@@ -137,7 +112,6 @@ export function FilterBar({
 
   function pickOperator(op: FilterOp): void {
     if (NO_VALUE_OPS.has(op)) {
-      // Null checks need no value - applying immediately keeps the common flow at two picks.
       apply({ column: (draft.column as ColumnMetadata).name, op });
       return;
     }
@@ -151,7 +125,6 @@ export function FilterBar({
     apply({ column: draft.column.name, op: draft.op, value });
   }
 
-  /** Escape walks one step back; from the first step it closes. */
   function stepBack(): void {
     if (step === "value") setDraft((current) => ({ ...current, op: undefined }));
     else if (step === "op") setDraft((current) => ({ ...current, column: undefined }));
@@ -168,8 +141,6 @@ export function FilterBar({
       isPrimaryKey: false,
       isForeignKey: false
     };
-    // A null-check filter has no value step - reopen at the operator step so there's something to
-    // change; a value filter reopens at the value step with the current value ready to retype.
     setDraft({
       column,
       op: NO_VALUE_OPS.has(filter.op) ? undefined : filter.op,

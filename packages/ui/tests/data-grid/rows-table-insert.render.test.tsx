@@ -17,9 +17,7 @@ const columns: ColumnMetadata[] = [
   { name: "name", dataType: "varchar", nullable: false, isPrimaryKey: false, isForeignKey: false }
 ];
 
-/** A minimal real-React-state pending-changes stand-in exercising just the insert half of the
- * buffer - mirrors `usePendingChanges` closely enough (state lives in the component that renders
- * `RowsTable`) without importing apps/web's implementation, which packages/ui can't depend on. */
+/** Minimal stateful pending-changes stand-in; packages/ui cannot import apps/web. */
 function TestHost({
   canInsert,
   insertableColumns = new Set(["id", "name"]),

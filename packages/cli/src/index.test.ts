@@ -78,10 +78,6 @@ describe("parseArgs", () => {
     expect(parseArgs(["postgres://localhost/db", "--read-only"]).readOnly).toBe(true);
   });
 
-  // F155: `--version` and `-v` report the package's own version and terminate with commander's
-  // zero exit code, which `bin.ts` translates into a successful process exit. Asserting the code
-  // is 0 is the part that matters - `--help` used to throw the same way and got reported as
-  // "Qyre failed to start".
   it.each(["--version", "-v"])("reports the version and exits cleanly for %s", (flag) => {
     let thrown: unknown;
     try {
@@ -270,9 +266,6 @@ describe("formatBanner", () => {
       url: "http://127.0.0.1:4000"
     });
 
-    // The "QYRE" wordmark renders as figlet block-letter ASCII art (several lines of underscores/
-    // pipes/etc.), not the literal substring "QYRE" - only the info lines below it are asserted
-    // on verbatim.
     expect(banner.split("\n").length).toBeGreaterThan(5);
     expect(banner).toContain("v1.2.3");
     expect(banner).toContain("Connected to");

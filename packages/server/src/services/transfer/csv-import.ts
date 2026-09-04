@@ -156,11 +156,6 @@ function rawPreview(headers: string[], record: string[], line: number): CsvImpor
   };
 }
 
-/**
- * Tracks per-row import errors with a hard cap on how many are actually retained (F136 review
- * finding V3) - `count` is the true total regardless of the cap, so `failedRows` in the
- * final result is never wrong; `entries` is what the response actually returns.
- */
 function createErrorSink(maxEntries: number): {
   push(error: CsvImportRowError): void;
   readonly entries: CsvImportRowError[];
@@ -198,10 +193,6 @@ async function commitSqlBatch(
   return 0;
 }
 
-/**
- * Streams, validates, and optionally imports one CSV upload. It retains only the preview, bounded
- * error list, and current insert batch; the file itself is never buffered or written to disk.
- */
 export async function processCsvImport(
   db: DatabaseAdapter,
   schema: string,
@@ -300,9 +291,6 @@ export async function processCsvImport(
           await db.mutations.insertRow(schema, tableName, values);
           insertedRows += 1;
         } catch (error) {
-          // Authoritative permission denials abort the import so the route's global F120 mapping
-          // can return one structured 403 and refresh browser permissions. Ordinary row-level
-          // validation/constraint failures remain bounded per-row import errors.
           if (db.classifyPermissionDenied(error)) throw error;
           errors.push({ line, message: "The database rejected this row." });
         }
@@ -331,8 +319,6 @@ export async function processCsvImport(
     rowCount,
     validRows,
     insertedRows,
-    // The true total, not errors.entries.length - failedRows must stay accurate even once the
-    // stored error list itself is capped (F136).
     failedRows: mode === "validate" ? errors.count : rowCount - insertedRows,
     preview,
     errors: errors.entries

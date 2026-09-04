@@ -19,8 +19,6 @@ export function registerHealthRoute(app: FastifyInstance, ctx: ServerContext): v
       pingLatencyMs = Math.round(performance.now() - pingStartedAt);
     }
 
-    // Log only actual transitions, not every poll - and never the very first observation (that's
-    // the baseline, not a notable event).
     if (ctx.lastKnownStatus !== undefined && ctx.lastKnownStatus !== database) {
       ctx.eventLog.log(
         database === "connected" ? "info" : "warn",

@@ -11,9 +11,7 @@ export interface TitleBarProps {
   onRefresh: () => void;
   isRefreshing?: boolean;
   onToggleSidebar: () => void;
-  /** Opens the connection-switch drawer (F064). */
   onOpenConnection: () => void;
-  /** Opens the full-screen Settings view (F087). */
   onOpenSettings: () => void;
 }
 
@@ -29,7 +27,6 @@ function splitTarget(target: string): { prefix?: string; name: string } {
   return { prefix: target.slice(0, lastSlash), name: target.slice(lastSlash + 1) };
 }
 
-/** Top chrome bar: wordmark, connection breadcrumb, and window-level actions. */
 export function TitleBar({
   status,
   target,

@@ -6,33 +6,17 @@ import { ConfirmTypedNameDialog } from "../primitives/confirm-typed-name-dialog.
 import { CreateNamedDialog } from "../primitives/create-named-dialog.js";
 
 export interface DatabasePanelProps {
-  /** Sibling databases on the connection's current server (F115/F116) - undefined while loading or
-   * before a connection exists; the caller omits the whole panel when the engine has no
-   * database-list concept at all (SQLite - one file is one database). */
   databases: string[] | undefined;
   loading: boolean;
   loadError?: string;
   currentDatabase: string | undefined;
-  /** Whether create/drop render at all - false hides both (not merely disables them), per the
-   * spec's "read-only or ungranted sessions see the list only" rule; switching still works. */
   canManage: boolean;
-  /** Why `canManage` is false, e.g. "Qyre was started with --read-only." - shown as a hint next to
-   * the section header so the reason stays available even with the affordances hidden. */
   hiddenReason?: string;
   onSwitch: (database: string) => Promise<void>;
   onCreate: (database: string) => Promise<void>;
   onDrop: (database: string) => Promise<void>;
 }
 
-/**
- * The "Databases on this server" section of the connection switcher (F116) - lists sibling
- * databases with switch-in-place, and (permission-gated) create/drop. Embedded inside
- * `ConnectDrawer` rather than exported top-level, since it only ever makes sense alongside that
- * drawer's own "Current"/"New connection" sections. Never calls the server itself - every `on*`
- * prop is the caller's mutation (packages/ui components don't fetch, per FRONTEND.md); this
- * component owns only its own dialog-open/busy/error state, awaiting the caller's promise to know
- * when to close/clear it.
- */
 export function DatabasePanel({
   databases,
   loading,

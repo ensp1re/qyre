@@ -9,12 +9,6 @@ import {
 } from "@qyre/testing";
 import { expect, test } from "./support/test.js";
 
-/**
- * F013: the SQL Editor (CodeMirror 6) offers read-only SQL keyword completion and real table-name
- * completion after FROM/JOIN, and still runs via Ctrl/Cmd+Enter after the textarea -> CodeMirror
- * migration. F127 extends this with column completion after `table.` - the fixture's `email`
- * column, in this case. Engine-agnostic - runs on every project like query-history.spec.ts.
- */
 test("@full SQL Editor autocompletes keywords, table names, and columns, and still runs via Ctrl/Cmd+Enter", async ({
   page
 }, testInfo) => {
@@ -27,9 +21,7 @@ test("@full SQL Editor autocompletes keywords, table names, and columns, and sti
     await setupFixture(requireTestDatabaseUrl());
   }
 
-  // Completion metadata comes from the independent, batched `/api/tables` request. Wait for that
-  // response explicitly before typing: the shell can render from `/api/overview` first, and under
-  // parallel MySQL fixture load an early keystroke otherwise opens a keyword-only completion list.
+  // Wait for completion metadata before typing.
   const tablesReady = page.waitForResponse(
     (response) => new URL(response.url()).pathname === "/api/tables" && response.ok()
   );
@@ -54,16 +46,12 @@ test("@full SQL Editor autocompletes keywords, table names, and columns, and sti
   await tableCompletion.click();
   await expect(editor).toHaveText(`SELECT * FROM ${FIXTURE.table}`);
 
-  // F127: right after `<table>.`, only that table's columns are offered - "email" here, matching
-  // the fixture's real column.
   await page.keyboard.type(` WHERE ${FIXTURE.table}.em`);
   const columnCompletion = page.locator(".cm-tooltip-autocomplete li", { hasText: "email" });
   await expect(columnCompletion).toBeVisible();
   await columnCompletion.click();
   await expect(editor).toHaveText(`SELECT * FROM ${FIXTURE.table} WHERE ${FIXTURE.table}.email`);
 
-  // A bare `WHERE <column>` isn't a valid boolean expression on Postgres/MySQL - finish the
-  // predicate with a real comparison before running.
   await page.keyboard.type(" = 'ada@example.com'");
   await expect(editor).toHaveText(
     `SELECT * FROM ${FIXTURE.table} WHERE ${FIXTURE.table}.email = 'ada@example.com'`

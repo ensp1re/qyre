@@ -5,8 +5,6 @@ import { applyReadOnlyOverride } from "../../services/access/read-only-capabilit
 import { requireAdapter } from "../../services/connection/require-adapter.js";
 
 export function registerOverviewRoute(app: FastifyInstance, ctx: ServerContext): void {
-  // The permissionRoute config turns an engine-side introspection denial (e.g. a MongoDB role
-  // that cannot list collections) into the shared safe 403 body instead of a raw-driver-text 500.
   app.get(
     "/api/overview",
     permissionRoute(

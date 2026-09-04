@@ -1,7 +1,4 @@
-/**
- * Preserve SQLite integers exactly while keeping JSON-safe values. Safe BigInts remain numbers;
- * larger values match the Postgres/MySQL convention and become strings.
- */
+/** Keep SQLite integer values JSON-safe without losing precision. */
 export function normalizeRow(row: Record<string, unknown>): Record<string, unknown> {
   const normalized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(row)) {

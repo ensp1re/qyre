@@ -19,7 +19,6 @@ describe("describeError redaction (F131)", () => {
     const message = describeError(error);
     expect(message).not.toContain("hunter2");
     expect(message).toContain("sslpassword=***");
-    // Unrelated params are left alone.
     expect(message).toContain("sslmode=require");
   });
 

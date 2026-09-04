@@ -17,8 +17,6 @@ declare module "fastify" {
   }
 }
 
-/** Route options shared by every database-mutating endpoint. Query execution passes false because
- * reads and writes share one route; the SQL classifier still determines whether a write runs. */
 export function permissionRoute(
   context: PermissionDeniedRouteContext,
   mutating = true
@@ -99,8 +97,6 @@ export function permissionDeniedResponse(
   error: unknown
 ): PermissionDeniedResponse | undefined {
   const context = request.routeOptions.config.permissionDenied;
-  // The method is required by the contract, but keep the runtime boundary defensive for external
-  // test doubles or third-party adapters compiled against an older Qyre version.
   if (!adapter || !context || typeof adapter.classifyPermissionDenied !== "function") {
     return undefined;
   }

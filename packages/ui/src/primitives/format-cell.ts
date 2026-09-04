@@ -1,4 +1,3 @@
-/** Format an arbitrary row cell value for display. Shared by RowsTable and QueryRunner. */
 export function formatCell(value: unknown): string {
   if (value === null || value === undefined) {
     return "";
@@ -6,12 +5,6 @@ export function formatCell(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
-/**
- * Formats a cell for grid display without changing its raw copy/export representation. SQLite
- * preserves a declared BOOLEAN type in metadata but returns stored values as numeric 0/1; relabel
- * only that boolean-typed display as false/true. MySQL TINYINT(1) remains numeric because its
- * engine-reported type is `tinyint`, not boolean.
- */
 export function formatCellDisplay(value: unknown, dataType?: string): string {
   if (dataType?.toLowerCase().startsWith("bool") && (value === 0 || value === 1)) {
     return value === 1 ? "true" : "false";
@@ -19,24 +12,11 @@ export function formatCellDisplay(value: unknown, dataType?: string): string {
   return formatCell(value);
 }
 
-/**
- * Whether an engine-reported `ColumnMetadata.dataType` is a date/timestamp/time type - shared by
- * TypeIcon (the header icon) and CellValue (F070's click-to-inspect date popover), so the two
- * agree on what counts as a date column. `dataType` is engine-reported text, not a normalized
- * enum: Postgres reports `information_schema` names ("timestamp with time zone"), SQLite reports
- * raw declared types ("TEXT", "REAL", or "any"). Prefix-matched case-insensitively.
- */
 export function isDateType(dataType: string): boolean {
   const type = dataType.toLowerCase();
   return type.startsWith("timestamp") || type.startsWith("date") || type.startsWith("time");
 }
 
-/**
- * Whether a date/timestamp/time `dataType` (per `isDateType`) has an actual date component and can
- * be safely parsed by `new Date(...)` for CellValue's click-to-inspect popover. A bare TIME value
- * (e.g. "08:27:20") has no date component - `new Date("08:27:20")` doesn't parse, so TIME must be
- * excluded here even though it's still a date-ish type for `isDateType`/`TypeIcon` purposes (F081).
- */
 export function isClickableDateType(dataType: string): boolean {
   const type = dataType.toLowerCase();
   if (type.startsWith("timestamp") || type.startsWith("datetime")) return true;
@@ -44,11 +24,6 @@ export function isClickableDateType(dataType: string): boolean {
   return type.startsWith("date");
 }
 
-/**
- * A short, human-readable label for a date-ish `ColumnMetadata.dataType`, replacing verbose engine-
- * reported strings (Postgres's "timestamp without time zone") with a clear one instead of leaking
- * the internal type string verbatim (F081). Returns `dataType` unchanged for non-date types.
- */
 export function friendlyTypeLabel(dataType: string): string {
   const type = dataType.toLowerCase();
   const hasTimeZone = type.includes("with time zone") || type.includes("tz");
@@ -61,12 +36,6 @@ export function friendlyTypeLabel(dataType: string): string {
   return dataType;
 }
 
-/**
- * Which native HTML date/time input best matches a date-ish `dataType`, or null for a non-date
- * type - drives FilterBar's value step (F082). TIME gets its own "time" picker rather than being
- * lumped in with DATE/TIMESTAMP's "date"/"datetime-local" pickers, the same TIME-has-no-date-
- * component distinction `isClickableDateType` draws for the click-to-inspect popover (F081).
- */
 export function dateInputKind(dataType: string): "date" | "time" | "datetime-local" | null {
   const type = dataType.toLowerCase();
   if (type.startsWith("timestamp") || type.startsWith("datetime")) return "datetime-local";

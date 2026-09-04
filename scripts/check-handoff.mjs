@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-/**
- * Validate docs/SESSION_HANDOFF.md so every session leaves a usable handoff.
- *
- * Ensures the required sections exist. A fresh agent should be able to resume from this file plus
- * docs/FEATURES.json. Exits non-zero if a required section is missing.
- */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";

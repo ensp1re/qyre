@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-/**
- * Validate README.md actually reflects the current product (F009) - not just that it exists.
- *
- * Checks for the specific things F009 requires: no leftover "skeleton" language, a working
- * quick-start, CI/npm/license badges, a screenshot/demo section, a "why not X" comparison, and the
- * read-only-enforced-by-the-database security story. Exits non-zero with a specific reason if any
- * are missing, so a future edit that regresses the README fails loudly instead of silently.
- */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -22,11 +14,7 @@ try {
   process.exit(1);
 }
 
-// The same canonical engine list check-engine-lockstep.mjs derives from connection-target.ts's
-// `engine: "x"` literals (F059) - reused here instead of a second hand-maintained list, so a new
-// engine landing without a README mention fails loudly instead of relying on someone noticing (this
-// already happened once: the empty-state copy and this file's own "Status" section both said
-// "Postgres or SQLite" after MySQL/MongoDB shipped).
+// Reuse the canonical engine list so README coverage stays in sync.
 const ENGINE_DISPLAY_NAMES = {
   postgres: "Postgres",
   mysql: "MySQL",

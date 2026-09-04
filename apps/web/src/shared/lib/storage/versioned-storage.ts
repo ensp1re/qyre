@@ -46,7 +46,7 @@ export function writeVersionedStorage<T>(
   try {
     storage.setItem(config.key, JSON.stringify({ version: config.version, value }));
   } catch {
-    // Persistence is optional; in-memory state remains usable when storage is unavailable.
+    // Storage persistence is best effort.
   }
 }
 
@@ -54,7 +54,7 @@ export function removeStoredValue(storage: StorageLike, key: string): void {
   try {
     storage.removeItem(key);
   } catch {
-    // Persistence is optional.
+    // Storage persistence is best effort.
   }
 }
 
@@ -62,7 +62,7 @@ export function writeRawStorage(storage: StorageLike, key: string, value: string
   try {
     storage.setItem(key, value);
   } catch {
-    // Persistence is optional.
+    // Storage persistence is best effort.
   }
 }
 

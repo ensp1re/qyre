@@ -1,11 +1,4 @@
 #!/usr/bin/env node
-/**
- * Compact view of the live docs/FEATURES.json work queue.
- *
- *   node scripts/features-summary.mjs          state counts + every non-passing feature
- *   node scripts/features-summary.mjs F068     one feature's full entry (including evidence)
- *   node scripts/features-summary.mjs --all    one line per feature, including passing
- */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";

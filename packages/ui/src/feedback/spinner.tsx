@@ -6,7 +6,6 @@ export interface SpinnerProps {
   className?: string;
 }
 
-/** A small spinning loading indicator. Size/color via className (defaults to muted, 12px). */
 export function Spinner({ className }: SpinnerProps): ReactNode {
   return (
     <Loader2

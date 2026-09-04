@@ -164,9 +164,7 @@ describe("permission-denied error mapping (F120)", () => {
   });
 });
 
-// F154: the handler's own two sinks. Export downloads carry the live session token in the query
-// string (the one route the auth guard accepts it from), and driver errors can echo a connection
-// string verbatim - docs/SECURITY.md requires both redacted in logs and errors alike.
+// Redact session tokens in export URLs and driver error messages.
 describe("uncaught-error redaction (F154)", () => {
   function throwingAdapter(message: string) {
     return makeFakeAdapter({

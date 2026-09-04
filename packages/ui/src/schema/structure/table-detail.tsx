@@ -7,18 +7,11 @@ export interface TableDetailProps {
   table: TableMetadata;
 }
 
-// "table" and "collection" are each their engine's unremarkable default (F124) - a badge only
-// flags the exceptional, read-only-in-the-future cases, matching the spec's "subtle" ask rather
-// than labeling every single card with its (usually obvious) kind.
 const KIND_BADGE_LABEL: Partial<Record<TableKind, string>> = {
   view: "VIEW",
   "materialized-view": "MATERIALIZED VIEW"
 };
 
-/**
- * Columns, primary key, indexes, and approximate row count for a single table. Also reused as
- * each card in `SchemaGrid`, the Schema tab's full-database overview.
- */
 export function TableDetail({ table }: TableDetailProps): ReactNode {
   return (
     <div

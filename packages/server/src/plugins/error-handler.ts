@@ -4,15 +4,6 @@ import { permissionDeniedResponse } from "../services/access/permission-denied.j
 import { redactErrorMessage } from "../services/connection/connection-display.js";
 import { redactSensitiveQueryParams } from "../services/observability/log-redaction.js";
 
-/**
- * Catch-all for any route error not already given its own specific response (e.g.
- * ReadOnlyViolationError and InvalidFilePathError, which reply.send() directly and so never reach
- * this). Normalizes every uncaught error into one consistent { error: string } shape carrying the
- * real underlying message - Fastify's own default handler instead returns
- * { statusCode, error: <reason phrase>, message: <real detail> }, and apps/web's fetchJson reads
- * the wrong field of that shape (F017). Respects an explicit error.statusCode when set (e.g. a
- * missing-adapter 503); anything else is a genuine unexpected failure (500).
- */
 export function registerErrorHandler(app: FastifyInstance, ctx: ServerContext): void {
   app.addHook("onRoute", (route) => {
     if (route.config?.mutating && !route.config.permissionDenied) {
@@ -42,12 +33,7 @@ export function registerErrorHandler(app: FastifyInstance, ctx: ServerContext): 
     }
 
     const statusCode = typeof error.statusCode === "number" ? error.statusCode : 500;
-    // Both the logged line and the response body go through redaction (F154). The URL carries the
-    // live session token for export downloads (`?token=...`, the one route the auth guard accepts
-    // it from), so logging it raw wrote a working credential into the Console tab, which
-    // `GET /api/console` serves and users screenshot. The message can echo a connection string
-    // verbatim - MongoDB's error family especially - which docs/SECURITY.md requires redacted in
-    // errors as much as in logs.
+    // Redact both the logged error and response because URLs and driver messages may contain secrets.
     const safeMessage = redactErrorMessage(error.message);
     if (statusCode >= 500) {
       ctx.eventLog.log(

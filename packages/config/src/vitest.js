@@ -1,8 +1,4 @@
-/**
- * Shared Vitest config for Qyre packages.
- * @param {import("vitest/config").UserConfig} [overrides]
- * @returns {import("vitest/config").UserConfig}
- */
+/** @param {import("vitest/config").UserConfig} [overrides] @returns {import("vitest/config").UserConfig} */
 export function testConfig(overrides = {}) {
   return {
     test: {

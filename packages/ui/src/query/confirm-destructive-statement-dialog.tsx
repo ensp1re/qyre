@@ -12,14 +12,6 @@ export interface ConfirmDestructiveStatementDialogProps {
   onCancel: () => void;
 }
 
-/**
- * A blocking confirmation dialog before a destructive SQL statement runs (F108,
- * docs/product-specs/sql-editor.md's "Write-capable SQL execution") - the client-side half of the
- * server-enforced round-trip `POST /api/query`'s `confirmed` flag requires (F107): confirming here
- * resubmits the exact same statement with `confirmed: true`, never a client-only bypass. Shows the
- * classification and the exact statement text, not a generic "are you sure?" - the whole point is
- * the developer sees precisely what's about to run.
- */
 export function ConfirmDestructiveStatementDialog({
   sql,
   classification,

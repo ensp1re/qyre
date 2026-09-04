@@ -87,9 +87,12 @@ them in one change.
 
 Fixed and verified:
 
-- `better-sqlite3` `^11.10.0` -> `^13.0.3`. v13 ships prebuilds for current Node, so the exact
-  reproduction below no longer occurs: on Node **26.5.0**, `npm i better-sqlite3@13` completes in
-  ~7s with a prebuilt binary and no compiler. The v11 pin, not the addon as such, was what broke.
+- `better-sqlite3` `^11.10.0` -> `^12.11.1`, whose `engines` is
+  `20.x || 22.x || 23.x || 24.x || 25.x || 26.x`. The exact reproduction below no longer occurs: on
+  Node **26.5.0** it installs a prebuilt binary in seconds with no compiler. The v11 pin, not the
+  native addon as such, was what broke. Deliberately **not** v13, which requires Node >= 22 and
+  would have silently dropped this repo's declared `>=20.11.0` floor and its own Node 20 CI - CI
+  caught that, having fallen back to node-gyp.
 - It is now an `optionalDependency` of `@qyre/sqlite`, loaded lazily inside `connect()` via a
   dynamic import rather than at module scope. A failed native build therefore cannot abort
   `npm i qyre`, and cannot stop the CLI booting - verified by making the specifier unresolvable and

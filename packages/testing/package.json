@@ -22,7 +22,7 @@
     "@qyre/core": "workspace:*",
     "better-sqlite3": "^12.11.1",
     "mongodb": "^7.4.0",
-    "mysql2": "^3.22.5",
+    "mysql2": "^3.24.4",
     "pg": "^8.13.1"
   },
   "devDependencies": {

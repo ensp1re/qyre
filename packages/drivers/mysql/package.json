@@ -25,7 +25,7 @@
   "dependencies": {
     "@qyre/core": "workspace:*",
     "@qyre/driver-contract": "workspace:*",
-    "mysql2": "^3.22.5"
+    "mysql2": "^3.24.4"
   },
   "devDependencies": {
     "@qyre/config": "workspace:*",

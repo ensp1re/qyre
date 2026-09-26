@@ -187,6 +187,15 @@ describe("RowsTable keyboard navigation and shortcuts (F146)", () => {
     expect(screen.getByText("Ada")).toBeInTheDocument();
   });
 
+  it("releases focus from the cell on Escape so it is not left focused but inert", () => {
+    render(<TestHost />);
+    const cell = screen.getByText("Ada").closest("button") as HTMLButtonElement;
+    fireEvent.focus(cell);
+    cell.focus();
+    fireEvent.keyDown(cell, { key: "Escape" });
+    expect(document.activeElement).not.toBe(cell);
+  });
+
   it("does not intercept shortcuts while a cell editor is active", () => {
     render(<TestHost />);
     fireEvent.doubleClick(screen.getByText("Ada"));

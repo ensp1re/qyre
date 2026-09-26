@@ -57,8 +57,9 @@ export function InlineCellEditor({
       return;
     }
     const result = parseMutationDraft(rawDraft, capability, engine, metadata);
-    // Blank text is a real value; only types that cannot hold one fall back to NULL.
-    if (!result.valid && column.nullable && rawDraft.trim() === "") {
+    // Blank text is a real value; every other type falls back to NULL rather than an empty string.
+    const blankIsValue = capability.kind === "text" && result.valid;
+    if (!blankIsValue && column.nullable && rawDraft.trim() === "") {
       commit(null, direction);
       return;
     }

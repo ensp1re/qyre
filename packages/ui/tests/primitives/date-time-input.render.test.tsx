@@ -135,6 +135,19 @@ describe("DateTimeInput (datetime-local)", () => {
     expect(screen.getByLabelText("Minute")).toHaveValue("20");
   });
 
+  it("splits Postgres timestamp text that uses a space separator", () => {
+    const onChange = vi.fn();
+    render(
+      <Controlled kind="datetime-local" initial="2024-01-15 10:30:00+00" onChange={onChange} />
+    );
+
+    expect(screen.getByRole("button", { name: "Choose date" })).toHaveTextContent("2024-01-15");
+    expect(screen.getByLabelText("Hour")).toHaveValue("10");
+    expect(screen.getByLabelText("Minute")).toHaveValue("30");
+    fireEvent.change(screen.getByLabelText("Minute"), { target: { value: "45" } });
+    expect(onChange).toHaveBeenLastCalledWith("2024-01-15T10:45");
+  });
+
   it("keeps the date while the time is half typed and emits once the time is complete", () => {
     const onChange = vi.fn();
     render(<Controlled kind="datetime-local" initial="2024-06-01T13:20" onChange={onChange} />);

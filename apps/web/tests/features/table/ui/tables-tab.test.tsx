@@ -124,7 +124,8 @@ describe("TablesTab", () => {
     pressSave();
 
     expect(commitMutations).toHaveBeenCalledTimes(1);
-    await act(async () => resolveCommit({ committed: true }));
+    await act(async () => resolveCommit({ committed: false, failedIndex: 0 }));
+    expect(screen.getByRole("button", { name: /Commit/ })).toHaveProperty("disabled", false);
   });
 
   it("disables Next while the previous page is shown as placeholder data", () => {

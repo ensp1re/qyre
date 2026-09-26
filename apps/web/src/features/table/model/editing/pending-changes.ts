@@ -30,6 +30,8 @@ export interface PendingChangesApi {
   unstageDelete: (rowKey: string) => void;
   /** Held while a commit is in flight; outlives the Tables tab so a remount can't commit twice. */
   commitLock: { current: boolean };
+  committing: boolean;
+  setCommitting: (committing: boolean) => void;
 }
 
 export function applyStageEdit(
@@ -136,6 +138,11 @@ export function usePendingChanges(scope?: string): PendingChangesApi {
   const [state, setState] = useState<ScopedPendingState>(() => emptyPendingState(scope));
   const nextInsertId = useRef(0);
   const commitLock = useRef(false);
+  const [committing, setCommittingState] = useState(false);
+  const setCommitting = useCallback((value: boolean) => {
+    commitLock.current = value;
+    setCommittingState(value);
+  }, []);
   const current = state.scope === scope ? state : emptyPendingState(scope);
   const { edits, inserts, deletes } = current;
 
@@ -174,8 +181,9 @@ export function usePendingChanges(scope?: string): PendingChangesApi {
     [update]
   );
 
+  // A commit that resolves after a table switch must not wipe the newer table's buffer.
   const clear = useCallback(() => {
-    setState(emptyPendingState(scope));
+    setState((previous) => (previous.scope === scope ? emptyPendingState(scope) : previous));
   }, [scope]);
 
   const size = useMemo(() => countPendingEdits(edits), [edits]);
@@ -236,7 +244,9 @@ export function usePendingChanges(scope?: string): PendingChangesApi {
     deletes,
     stageDelete,
     unstageDelete,
-    commitLock
+    commitLock,
+    committing,
+    setCommitting
   };
 }
 

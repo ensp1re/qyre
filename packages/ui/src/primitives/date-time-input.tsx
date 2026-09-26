@@ -387,8 +387,10 @@ export function DateTimeInput({
 }
 
 function splitDateTime(value: string): { date: string; time: string } {
-  const [date = "", time = ""] = value ? value.split("T") : [];
-  return { date, time };
+  // Accept both ISO `T` and the space separator Postgres uses in timestamp text.
+  const match = /^(\d{4}-\d{2}-\d{2})(?:[T ](.*))?$/.exec(value);
+  if (!match) return { date: value, time: "" };
+  return { date: match[1] ?? "", time: match[2] ?? "" };
 }
 
 function DateTimeSegments({

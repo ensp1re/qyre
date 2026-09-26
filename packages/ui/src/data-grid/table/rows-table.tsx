@@ -223,6 +223,8 @@ export function RowsTable({
       }
     } else if (event.key === "Escape") {
       setSelectedCell(null);
+      // A still-focused but unselected cell would silently ignore Enter/F2/Delete.
+      if (event.target instanceof HTMLElement && event.target.dataset.cellId) event.target.blur();
     } else if (
       (event.key === "Delete" || event.key === "Backspace") &&
       isEditableSelected &&

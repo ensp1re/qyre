@@ -153,6 +153,23 @@ describe("InlineCellEditor (F146)", () => {
     expect(onApply).toHaveBeenCalledWith(null);
   });
 
+  it("stages NULL, not an empty string, when a nullable network column is cleared", () => {
+    const onApply = vi.fn();
+    render(
+      <InlineCellEditor
+        column={{ name: "addr", dataType: "inet", nullable: true }}
+        engine="postgres"
+        originalValue="10.0.0.1"
+        onApply={onApply}
+        onCancel={vi.fn()}
+      />
+    );
+    const input = screen.getByLabelText("addr");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onApply).toHaveBeenCalledWith(null);
+  });
+
   it("does not auto-null a non-nullable field left empty - it validates normally", () => {
     const onApply = vi.fn();
     render(

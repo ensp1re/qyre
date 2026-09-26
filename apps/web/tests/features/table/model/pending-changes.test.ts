@@ -216,4 +216,19 @@ describe("usePendingChanges scope", () => {
     rerender({ scope: "db-a|public.users" });
     expect(result.current.deletes.size).toBe(0);
   });
+
+  it("does not wipe a newer table's buffer when an older table's clear lands late", () => {
+    const { result, rerender } = renderHook(({ scope }) => usePendingChanges(scope), {
+      initialProps: { scope: "db|public.a" }
+    });
+    const clearA = result.current.clear;
+    rerender({ scope: "db|public.b" });
+    act(() => {
+      result.current.stageEdit("row-1", "name", "Ada", "Grace");
+    });
+
+    act(() => clearA());
+
+    expect(result.current.getEdit("row-1", "name")).toEqual({ original: "Ada", next: "Grace" });
+  });
 });

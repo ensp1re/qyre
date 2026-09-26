@@ -89,7 +89,7 @@ export function TablesTab({
 }: TablesTabProps): ReactNode {
   const { view, setView } = useTableView();
   const ddl = useTableDdlMutations(selected?.schema ?? "", selected?.table ?? "");
-  const [committing, setCommitting] = useState(() => pendingChanges.commitLock.current);
+  const { committing, setCommitting } = pendingChanges;
   const [commitError, setCommitError] = useState<
     { message: string; failedIndex?: number } | undefined
   >(undefined);

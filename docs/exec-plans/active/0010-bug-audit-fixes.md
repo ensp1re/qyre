@@ -1,7 +1,7 @@
 # Plan 0010: Bug audit fixes
 
-Status: Proposed 2026-09-26. Not started; awaiting approval of slice order.
-Owner: unassigned
+Status: Implemented 2026-09-26 on one branch (all slices, per maintainer request); awaiting CI.
+Owner: current engagement
 Linked features: F160-F169
 Trigger: a four-way code audit (SQL drivers, MongoDB driver + core, server + CLI, UI + web app).
 
@@ -154,12 +154,25 @@ command from `docs/FEATURES.json`, ending in `pnpm verify:pr`.
   must stay readable. Needs a decision (below).
 - F167 lifting staged edits into `App` changes component ownership; keep it to state location.
 
-## Open decisions
+## Decisions
 
-1. F163: canonical EJSON everywhere, or relaxed EJSON with numeric-type preservation only?
-2. F166: all-or-nothing import (single transaction / validate-first) or explicit partial result?
-3. F161: rewrite from original `CREATE TABLE` SQL, or refuse rebuilds with unsupported constructs?
+1. F163: relaxed EJSON stays the editor format, but Int64 and whole-number Doubles are written in
+   canonical form and saves parse canonically, so untouched values keep their BSON types.
+2. F166: validate the whole file first, then insert all rows in one transaction on SQL engines.
+   MongoDB (no multi-document transactions on standalone) and MySQL non-transactional tables report
+   an explicit partial result instead of claiming a rollback.
+3. F161: rewrite the stored `CREATE TABLE` text, changing only the target column; refuse (400) only
+   unparseable definitions, generated target columns, and virtual tables.
 
 ## Progress log
 
-- 2026-09-26: Audit completed; plan proposed. No fixes started.
+- 2026-09-26: Audit completed; plan proposed.
+- 2026-09-26: All slices implemented in parallel streams, merged, then cross-reviewed per layer
+  (drivers, server/core/CLI, UI/web); review findings fixed with regression tests. Verified locally
+  against Postgres 16 and MySQL 8 (unit, integration, conformance, smoke and full E2E). MongoDB
+  could not be installed in the session environment; its changes are unit-tested and rely on CI's
+  Mongo service. Remaining environment-only failures match `main` (SQLite chmod cases under root,
+  Mongo integration, MongoDB E2E projects, MySQL E2E cases confused by extra local databases).
+- Follow-ups not done here: Postgres `ALTER COLUMN TYPE` drops an explicit `COLLATE`; MongoDB
+  CSV import stays non-atomic across documents; `set_config(...)` in a read query persists on the
+  pooled Postgres session (pre-existing).

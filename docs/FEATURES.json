@@ -2,11 +2,21 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 170,
+    "F": 171,
     "DF": 13
   },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
+    {
+      "id": "F170",
+      "behavior": "Release Qyre 0.4.5 with the merged bug-audit fixes across all ten public packages.",
+      "verification": "pnpm verify:pr; required PR CI; verify all ten npm package versions and the GitHub release tag",
+      "state": "active",
+      "commitHash": null,
+      "evidence": "Local pnpm verify:pr passed on Node 22.23.3 with Postgres, MySQL, SQLite, and MongoDB; full E2E 32 passed, 55 project-specific skips. Conformance files run sequentially to avoid concurrent Postgres GRANT catalog updates. Remote CI and publication pending.",
+      "blockedReason": null,
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md"
+    },
     {
       "id": "F160",
       "behavior": "Plan 0010 slice 1 (security, details in private advisory): SQL console statement handling and download-grant scoping are hardened; new conformance cases verified across Postgres, MySQL, and SQLite (MongoDB not applicable).",

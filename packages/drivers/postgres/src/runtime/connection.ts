@@ -26,5 +26,15 @@ export function createPostgresPool(
 ): Pool {
   const pool = new Pool({ connectionString, statement_timeout: resolveStatementTimeoutMs() });
   pool.on("error", onError);
+  // Date/time values are returned as server text, so pin its output format. A SET on connect is
+  // queued before the client's first query and, unlike startup `options`, is not overridden by an
+  // `options` parameter in the connection string.
+  pool.on("connect", (client) => {
+    client
+      .query("SET DateStyle = ISO; SET IntervalStyle = postgres")
+      .catch((error: unknown) =>
+        onError(error instanceof Error ? error : new Error(String(error)))
+      );
+  });
   return pool;
 }

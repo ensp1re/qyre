@@ -102,4 +102,35 @@ describe("Postgres value fidelity", () => {
       doc: [1, 2]
     });
   });
+
+  it("returns ISO date/time and postgres-style interval text whatever the role's DateStyle", async () => {
+    const role = `qyre_datestyle_${suffix}`;
+    await runStatements(databaseUrl, [
+      `CREATE ROLE ${role} LOGIN PASSWORD 'datestyle'`,
+      `ALTER ROLE ${role} SET DateStyle = 'SQL, DMY'`,
+      `ALTER ROLE ${role} SET IntervalStyle = 'sql_standard'`
+    ]);
+    const url = new URL(databaseUrl);
+    url.username = role;
+    url.password = "datestyle";
+    const roleAdapter = new PostgresAdapter({ engine: "postgres", raw: url.toString() });
+    try {
+      await roleAdapter.connect();
+      const page = await roleAdapter.runReadOnlyQuery(
+        `SELECT '2024-01-02 03:04:05.5+00'::timestamptz AS at, '2024-01-02'::date AS day,
+          '2024-01-02 03:04:05'::timestamp AS local, interval '1 day 2 hours' AS span,
+          current_setting('DateStyle') AS style`
+      );
+      expect(page.rows[0]).toMatchObject({
+        at: expect.stringMatching(/^2024-01-0[12] \d{2}:\d{2}:05\.5[+-]\d{2}/),
+        day: "2024-01-02",
+        local: "2024-01-02 03:04:05",
+        span: "1 day 02:00:00",
+        style: "ISO, DMY"
+      });
+    } finally {
+      await roleAdapter.disconnect();
+      await runStatements(databaseUrl, [`DROP ROLE IF EXISTS ${role}`]);
+    }
+  });
 });

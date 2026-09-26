@@ -337,6 +337,105 @@ describe("MysqlAdapter integration", () => {
     }
   });
 
+  describe("alterColumn keeps column attributes MODIFY COLUMN would otherwise drop", () => {
+    const table = "qyre_test_ddl_alter_attributes";
+    let pool: mysql.Pool;
+
+    const showCreate = async (): Promise<string> => {
+      const [rows] = await pool.query<mysql.RowDataPacket[]>(`SHOW CREATE TABLE ${table}`);
+      return String(rows[0]?.["Create Table"]);
+    };
+
+    const columnLine = async (column: string): Promise<string> =>
+      (await showCreate())
+        .split("\n")
+        .map((line) => line.trim().replace(/,$/, ""))
+        .find((line) => line.startsWith(`\`${column}\` `)) ?? "";
+
+    beforeAll(async () => {
+      pool = mysql.createPool(databaseUrl);
+      await pool.query(`DROP TABLE IF EXISTS ${table}`);
+      await pool.query(String.raw`
+        CREATE TABLE ${table} (
+          id INT NOT NULL AUTO_INCREMENT COMMENT 'row id',
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+          uid VARCHAR(36) DEFAULT (uuid()),
+          calc INT DEFAULT (1 + 1),
+          quoted VARCHAR(50) DEFAULT (concat('it''s', 'a\\b')),
+          name VARCHAR(20) CHARACTER SET latin1 COLLATE latin1_bin NOT NULL DEFAULT 'x''y' COMMENT 'it''s a name',
+          full_name VARCHAR(80) AS (concat(name, ' it''s ', uid)) VIRTUAL,
+          name_len INT AS (char_length(name)) STORED NOT NULL COMMENT 'len',
+          flags BIT(3) DEFAULT b'101',
+          secret INT INVISIBLE DEFAULT 3,
+          price DECIMAL(10,2) DEFAULT 1.50,
+          PRIMARY KEY (id)
+        )`);
+    });
+
+    afterAll(async () => {
+      await pool.query(`DROP TABLE IF EXISTS ${table}`);
+      await pool.end();
+    });
+
+    it.each([
+      ["created_at", false],
+      ["updated_at", true],
+      ["uid", true],
+      ["calc", true],
+      ["quoted", true],
+      ["name", false],
+      ["full_name", true],
+      ["name_len", false],
+      ["flags", true],
+      ["secret", true],
+      ["price", true]
+    ])("toggling nullability of %s round-trips its full definition", async (column, nullable) => {
+      const before = await showCreate();
+
+      await adapter.ddl?.alterColumn?.(databaseName, table, column, { nullable: !nullable });
+      const toggled = await columnLine(column);
+      expect(toggled).toContain(nullable ? "NOT NULL" : "");
+      await adapter.ddl?.alterColumn?.(databaseName, table, column, { nullable });
+
+      expect(await showCreate()).toBe(before);
+    });
+
+    it("keeps AUTO_INCREMENT and COMMENT when widening the key type", async () => {
+      await adapter.ddl?.alterColumn?.(databaseName, table, "id", { dataType: "BIGINT" });
+      expect(await columnLine("id")).toBe("`id` bigint NOT NULL AUTO_INCREMENT COMMENT 'row id'");
+      await adapter.ddl?.alterColumn?.(databaseName, table, "id", { dataType: "INT" });
+    });
+
+    it("keeps character set, collation, default and comment when changing a string type", async () => {
+      await adapter.ddl?.alterColumn?.(databaseName, table, "name", { dataType: "VARCHAR(255)" });
+      expect(await columnLine("name")).toBe(
+        "`name` varchar(255) CHARACTER SET latin1 COLLATE latin1_bin NOT NULL DEFAULT 'x''y' COMMENT 'it''s a name'"
+      );
+      await adapter.ddl?.alterColumn?.(databaseName, table, "name", { dataType: "VARCHAR(20)" });
+    });
+
+    it("keeps an expression default and ON UPDATE through renameAndAlterColumn", async () => {
+      const result = await adapter.ddl?.renameAndAlterColumn?.(databaseName, table, "updated_at", {
+        newName: "modified_at",
+        changes: { nullable: false }
+      });
+      expect(result).toMatchObject({ renamed: true, altered: true });
+      expect(await columnLine("modified_at")).toBe(
+        "`modified_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+      );
+      await adapter.ddl?.renameAndAlterColumn?.(databaseName, table, "modified_at", {
+        newName: "updated_at",
+        changes: { nullable: true }
+      });
+    });
+
+    it("replaces an expression default with a literal when asked", async () => {
+      await adapter.ddl?.alterColumn?.(databaseName, table, "uid", { default: "none" });
+      expect(await columnLine("uid")).toBe("`uid` varchar(36) DEFAULT 'none'");
+    });
+  });
+
   it("rejects addColumn as a SELECT-only fixture user (F111)", async () => {
     const readOnlyAdapter = new MysqlAdapter({
       engine: "mysql",

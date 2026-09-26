@@ -10,7 +10,7 @@ import { classifySqlitePermissionDenied } from "../access/permission-errors.js";
 import { normalizeRow } from "../runtime/row-values.js";
 import { quoteIdent } from "../query/sql.js";
 
-/** Insert and re-fetch the row because SQLite RETURNING is not assumed across versions. */
+/** Insert with `RETURNING *` (bundled SQLite is 3.35+), which also works for WITHOUT ROWID tables. */
 export function insertRow(
   db: Database.Database,
   table: string,
@@ -21,14 +21,12 @@ export function insertRow(
   const query = columns.length
     ? `INSERT INTO ${target} (${columns.map(quoteIdent).join(", ")}) VALUES (${columns
         .map(() => "?")
-        .join(", ")})`
-    : `INSERT INTO ${target} DEFAULT VALUES`;
-  const result = db.prepare(query).run(...columns.map((column) => values[column]));
-
+        .join(", ")}) RETURNING *`
+    : `INSERT INTO ${target} DEFAULT VALUES RETURNING *`;
   const row = db
-    .prepare(`SELECT * FROM ${target} WHERE rowid = ?`)
+    .prepare(query)
     .safeIntegers(true)
-    .get(result.lastInsertRowid) as Record<string, unknown> | undefined;
+    .get(...columns.map((column) => values[column])) as Record<string, unknown> | undefined;
   return { row: row ? normalizeRow(row) : undefined };
 }
 

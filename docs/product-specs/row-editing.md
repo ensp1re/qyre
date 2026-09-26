@@ -98,9 +98,9 @@ capabilities.md`) **and** the table's own `TablePermissions.insert`/`update`/`de
   }
 
   export interface InsertRowResult {
-    /** The inserted row, when the engine can report it (Postgres `RETURNING *`, MySQL re-fetched by
-     * `insertId`, MongoDB the inserted document). Absent only if the engine truly cannot - never
-     * guessed or partially reconstructed client-side. */
+    /** The inserted row, when the engine can report it (Postgres and SQLite `RETURNING *`, MySQL
+     * re-fetched by `insertId`, MongoDB the inserted document). Absent only if the engine truly
+     * cannot - never guessed or partially reconstructed client-side. */
     readonly row?: Record<string, unknown>;
   }
   export interface UpdateRowResult {

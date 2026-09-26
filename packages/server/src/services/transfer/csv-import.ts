@@ -17,7 +17,8 @@ import type {
   TableMetadata
 } from "@qyre/core";
 import { classifyFilterColumnKind } from "@qyre/core/filter-capabilities";
-import { isExactNumericText } from "@qyre/core/mutation-editor-values";
+import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
+import { isExactNumericText, parseTimestampInstant } from "@qyre/core/mutation-editor-values";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 import { parse } from "csv-parse";
 import type { Info } from "csv-parse";
@@ -81,6 +82,32 @@ function canonicalDecimal(text: string): string {
   return `${sign === "-" ? "-" : ""}${significant}e${scale}`;
 }
 
+/** Rejects text outside an enum's labels, or a SET member outside its labels. */
+function assertAllowedLabels(
+  rawValue: string,
+  column: TableMetadata["columns"][number],
+  engine: DatabaseAdapter["engine"],
+  line: number
+): void {
+  const labels = column.allowedValues;
+  if (!labels?.length) return;
+  const kind = mutationEditorCapability(column.dataType, engine, column).kind;
+  if (kind !== "enum" && kind !== "set") return;
+  // MySQL matches labels through the column's collation, which is case-insensitive by default.
+  const fold = (text: string) => (engine === DATABASE_ENGINES.mysql ? text.toLowerCase() : text);
+  const allowed = new Set(labels.map(fold));
+  const members = kind === "set" ? (rawValue === "" ? [] : rawValue.split(",")) : [rawValue];
+  const invalid = members.find((member) => !allowed.has(fold(member)));
+  if (invalid === undefined) return;
+  throw rowError(
+    line,
+    column.name,
+    `Column "${column.name}" does not allow "${invalid}"; expected ${
+      kind === "set" ? "a comma-separated list of" : "one of"
+    }: ${labels.join(", ")}.`
+  );
+}
+
 function coerceCsvValue(
   rawValue: string,
   column: TableMetadata["columns"][number],
@@ -94,6 +121,7 @@ function coerceCsvValue(
   switch (kind) {
     case "text":
     case "identifier":
+      assertAllowedLabels(rawValue, column, engine, line);
       return rawValue;
     case "numeric": {
       if (!isExactNumericText(trimmed)) {
@@ -113,7 +141,19 @@ function coerceCsvValue(
       throw rowError(line, column.name, `Column "${column.name}" expects true, false, 1, or 0.`);
     case "date":
     case "time":
-    case "datetime":
+    case "datetime": {
+      if (engine === DATABASE_ENGINES.mongodb) {
+        // Zone-less text is UTC, matching the grid editor; EJSON would read it in server time.
+        const instant = parseTimestampInstant(trimmed);
+        if (!instant) {
+          throw rowError(
+            line,
+            column.name,
+            `Column "${column.name}" expects an ISO-8601 date/time value.`
+          );
+        }
+        return { $date: instant.toISOString() };
+      }
       if (
         trimmed === "" ||
         (kind === "time"
@@ -126,7 +166,8 @@ function coerceCsvValue(
           `Column "${column.name}" expects an ISO-8601 date/time value.`
         );
       }
-      return engine === DATABASE_ENGINES.mongodb ? { $date: trimmed } : trimmed;
+      return trimmed;
+    }
     case "objectId":
       if (!/^[0-9a-f]{24}$/i.test(trimmed)) {
         throw rowError(
@@ -195,7 +236,10 @@ function createErrorSink(maxEntries: number): {
   };
 }
 
-/** Inserts every pending row in one transaction; a rejected row rolls back the whole file. */
+/**
+ * Inserts every pending row in one transaction; a rejected row rolls back the whole file unless
+ * the table is non-transactional, in which case earlier rows stay written and are counted.
+ */
 async function commitSqlImport(
   db: DatabaseAdapter,
   pending: PendingInsert[],
@@ -206,11 +250,15 @@ async function commitSqlImport(
   if (result.committed) return pending.length;
 
   const failed = pending[result.failedIndex] ?? pending[0]!;
+  const kept = result.appliedCount ?? 0;
   errors.pushFirst({
     line: failed.line,
-    message: "The database rejected this row; the import was rolled back and no rows were written."
+    message:
+      kept > 0
+        ? `The database rejected this row; ${kept} earlier row(s) were written to a non-transactional table and could not be rolled back.`
+        : "The database rejected this row; the import was rolled back and no rows were written."
   });
-  return 0;
+  return kept;
 }
 
 /** MongoDB standalone has no multi-document transactions, so each document commits on its own. */

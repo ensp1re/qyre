@@ -19,7 +19,7 @@ import { int64FromText } from "../runtime/bson-numbers.js";
 import { normalizeBsonValue, normalizeDocument } from "../runtime/bson-values.js";
 import { documentText, EXACT_DOCUMENT_READ, parseDocumentJson } from "./document-text.js";
 
-type DocumentKey = ObjectId | Long | string | number;
+type DocumentKey = ObjectId | Long | Decimal128 | string | number;
 
 interface StoredDocument {
   _id: DocumentKey;
@@ -44,7 +44,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-/** Resolve the server's typed key form: `{ $oid }`, `{ $numberLong }`, or a plain string/number. */
+/**
+ * Resolve the server's typed key form: `{ $oid }`, `{ $numberLong }`, `{ $numberDecimal }`, or a
+ * plain string/number.
+ */
 function documentKey(value: unknown): DocumentKey {
   if (typeof value === "string") return value;
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -55,6 +58,13 @@ function documentKey(value: unknown): DocumentKey {
     if (typeof value.$numberLong === "string") {
       const integer = int64FromText(value.$numberLong);
       if (integer !== undefined) return Long.fromBigInt(integer);
+    }
+    if (typeof value.$numberDecimal === "string") {
+      try {
+        return Decimal128.fromString(value.$numberDecimal);
+      } catch {
+        // Falls through to the unsupported-key error.
+      }
     }
   }
   throw invalidValue("Unsupported MongoDB document key.");

@@ -11,7 +11,7 @@ feature agrees on the same answer to "who actually decides."
 This spec is a data-contract and decision spec only. It defines the two-tier capability model, the
 per-engine introspection each tier reads, and where the authority boundary sits - turning the
 architecture decisions already settled in
-`docs/exec-plans/active/0006-role-aware-database-ide.md` into a reviewable product contract. It
+`docs/exec-plans/completed/0006-role-aware-database-ide.md` into a reviewable product contract. It
 does not implement introspection (F092-F095), the `--read-only` guard (F096), or any UI change
 (F097) - those build on top of the types this spec fixes.
 

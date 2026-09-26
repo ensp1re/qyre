@@ -5,6 +5,13 @@ MongoDB - deliberately scoped down to **basic, read-only browsing** (databases, 
 documents), not a full port of the SQL-shaped contract every other engine follows. Anything not
 listed here is explicitly out of scope for this pass, not an oversight.
 
+> **Writes shipped later.** This contract describes the original read-only inspection scope.
+> Row editing, write SQL, schema DDL, and CSV import now exist, gated by the connected user's
+> grants and the hard `--read-only` override; see
+> [`permissions-and-capabilities.md`](permissions-and-capabilities.md) and
+> [`row-editing.md`](row-editing.md). Read-only statements below apply to
+> the browse path, `--read-only` sessions, and users without write grants.
+
 ## Why this engine is scoped differently
 
 Every other engine Qyre supports (Postgres, SQLite, MySQL) shares one data model: fixed-schema
@@ -141,8 +148,8 @@ skip MongoDB explicitly; browse, nested-document rendering, and disabled-SQL beh
   document with a nested object/array field renders it via the structured-cell viewer (F016),
   expandable rather than flattened to raw JSON text.
 - The SQL Editor tab does not silently accept or attempt to run SQL against a Mongo connection.
-- No write operation is ever issued by Qyre's own code against the connection (see "Read-only
-  enforcement").
+- The browse path never issues a write operation (see "Read-only enforcement"); writes happen only
+  through the grant-gated editing surfaces and never in `--read-only` sessions.
 - The server starts, reports healthy, and shuts down cleanly.
 
 ## Failure states

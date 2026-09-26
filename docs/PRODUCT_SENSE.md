@@ -18,7 +18,7 @@ Durable product judgment that agents cannot infer reliably from code alone.
 - Local-first: Qyre binds to localhost and never phones home. The user's data stays on their machine.
 - Favor user-visible reliability over feature count.
 - Treat ambiguous behavior as a spec gap, not as permission to guess.
-- Read before write: inspection must be rock-solid before any mutation features are considered.
+- Read before write: inspection stays rock-solid; writes stay grant-gated and explicitly confirmed.
 - If implementation changes what users see or trust, update the matching spec.
 
 ## No-go patterns

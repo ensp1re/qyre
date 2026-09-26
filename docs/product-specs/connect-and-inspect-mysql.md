@@ -10,6 +10,13 @@ MySQL is architecturally the closest engine to Postgres Qyre has added so far: a
 schemas/tables/rows, a real SQL dialect. Most of this contract mirrors Postgres's directly; only the
 differences are called out explicitly rather than silently assumed identical.
 
+> **Writes shipped later.** This contract describes the original read-only inspection scope.
+> Row editing, write SQL, schema DDL, and CSV import now exist, gated by the connected user's
+> grants and the hard `--read-only` override; see
+> [`permissions-and-capabilities.md`](permissions-and-capabilities.md) and
+> [`row-editing.md`](row-editing.md). Read-only statements below apply to
+> `--read-only` sessions and to users without write grants.
+
 ## One-sentence promise
 
 A developer can point Qyre at a MySQL connection string, have it auto-recognized, and immediately
@@ -106,8 +113,9 @@ a duplicated spec.
   is connected.
 - The UI can list at least schemas (databases) and tables for the connected database.
 - Selecting a table shows its columns and a first page of rows.
-- No write/DDL/DML-mutating action is reachable from the UI or the query runner, enforced by a
-  read-only transaction (see "Read-only enforcement"), not only by string matching.
+- Without write grants or under `--read-only`, no write/DDL/DML-mutating action is reachable from
+  the UI or the query runner, enforced by a read-only transaction (see "Read-only enforcement"),
+  not only by string matching.
 - The server starts, reports healthy, and shuts down cleanly, releasing the connection pool.
 - If the MySQL client library uses a connection pool, an error listener is attached so a dropped
   connection degrades `/api/health` to `"disconnected"` instead of crashing the process - the exact

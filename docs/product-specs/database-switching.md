@@ -15,7 +15,7 @@ without restarting the CLI or losing their place more than switching targets inh
 
 ### Connect UI
 
-- The title bar's existing "Settings" button (`packages/ui/src/components/title-bar.tsx`) is
+- The title bar's existing "Settings" button (`packages/ui/src/shell/title-bar.tsx`) is
   currently a disabled placeholder (`aria-label="Settings"`, `disabled`) with no behavior wired to
   it. This spec enables it: clicking it opens a drawer (same pattern as `QueryHistoryDrawer`/
   `CellValueDrawer` - right-anchored slide-in, `useFocusTrap`) showing:

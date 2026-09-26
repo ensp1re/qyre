@@ -1,6 +1,6 @@
 # Product Contract: Server-Side Sort and Whole-Table Export
 
-`RowsTable` (`packages/ui/src/components/rows-table.tsx`) currently sorts and exports only the rows
+`RowsTable` (`packages/ui/src/data-grid/table/rows-table.tsx`) currently sorts and exports only the rows
 already loaded into the browser - one page (25 rows by default, `apps/web`'s `UI_PAGE_SIZE`).
 Clicking a column header sorts those loaded rows client-side (`Array.sort`); "Export this page as
 CSV" exports the same loaded page. Neither reflects the whole table, and both can silently mislead a

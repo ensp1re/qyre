@@ -5,7 +5,7 @@ backend/data contracts, this spec describes the **UI shape** that sits on top of
 agnostic, applies identically to every `packages/drivers/<engine>` Qyre supports. Source design:
 `docs/references/design-system.md` (tokens) and `github.com/ensp1re/UserDashboard` (private,
 Figma Make export). Tracked as the `DF-##` series in `docs/FEATURES.json` - see
-`docs/exec-plans/active/0003-dashboard-ui.md` for the work breakdown.
+`docs/exec-plans/completed/0003-dashboard-ui.md` for the work breakdown.
 
 ## One-sentence promise
 

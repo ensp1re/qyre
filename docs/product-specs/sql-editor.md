@@ -1,6 +1,6 @@
 # Product Contract: SQL Editor Query History & Autocomplete
 
-The SQL Editor (`QueryRunner`, `packages/ui/src/components/query-runner.tsx`) lets a developer run
+The SQL Editor (`QueryRunner`, `packages/ui/src/query/query-runner.tsx`) lets a developer run
 read-only SQL against the connected database (F006). This spec covers two engine-agnostic
 enhancements to that same editor: recalling past queries, and completion-as-you-type. Both apply
 identically regardless of which engine (Postgres, SQLite, and whatever else `@qyre/driver-contract`
@@ -80,7 +80,7 @@ SQL keyword/table completion as they type instead of relying on memory or the Sc
 ### Editor migration
 
 The SQL Editor is implemented today as a plain `<textarea>` with a hand-rolled line-number gutter
-(no code-editor library) - see `packages/ui/src/components/query-runner.tsx`. Building cursor-aware
+(no code-editor library) - see `packages/ui/src/query/query-runner.tsx`. Building cursor-aware
 popup positioning, a keyword trie, and table-name matching directly on a raw textarea is real,
 maintenance-heavy custom work with no syntax highlighting to show for it.
 
@@ -94,7 +94,7 @@ Constraints on the migration:
 
 - Preserve existing behavior exactly: `⌘/Ctrl+Enter` runs the query, the toolbar (Run
   button/spinner/line count) is unchanged, `data-testid="query-runner"` and the query text prop
-  contract (`sql`/`onSqlChange`) stay the same so `apps/web/src/App.tsx`'s usage doesn't need to
+  contract (`sql`/`onSqlChange`) stay the same so `apps/web/src/app/app.tsx`'s usage doesn't need to
   change shape.
 - Match the existing design tokens (see `docs/references/design-system.md`) - font, colors, spacing -
   rather than adopting CodeMirror's default theme as-is. Both light and dark mode must render

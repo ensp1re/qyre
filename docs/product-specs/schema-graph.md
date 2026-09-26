@@ -1,6 +1,6 @@
 # Product Contract: Interactive Schema Graph (ERD)
 
-The Schema tab (`apps/web/src/components/schema-tab.tsx` -> `@qyre/ui`'s `SchemaGrid`) today
+The Schema tab (`apps/web/src/features/schema/ui/schema-tab.tsx` -> `@qyre/ui`'s `SchemaGrid`) today
 renders every table as a static `TableDetail` card in a `repeat(auto-fill, minmax(260px, 1fr))`
 grid. It's a readable inventory but not a _map_: there's no way to see how tables relate, foreign
 keys are shown only as per-column `FK` badges with no visible connection to their target table, and

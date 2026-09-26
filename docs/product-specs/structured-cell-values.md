@@ -1,7 +1,7 @@
 # Product Contract: Structured Cell Values (Nested Objects & Arrays)
 
 `RowsTable` (Tables tab) and `QueryRunner`'s result table (SQL Editor) both render arbitrary cell
-values via `formatCell` (`packages/ui/src/format-cell.ts`), which today `JSON.stringify`s anything
+values via `formatCell` (`packages/ui/src/primitives/format-cell.ts`), which today `JSON.stringify`s anything
 that isn't a plain string or `null`/`undefined`. This is not a Mongo-only concern: Postgres/MySQL
 `json`/`jsonb` columns already produce nested objects and arrays that hit this exact flat-text path,
 they've just gone unnoticed so far. This spec covers replacing that flat text with a real, expandable

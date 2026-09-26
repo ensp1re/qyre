@@ -66,9 +66,10 @@ Out of scope (for now, Postgres engine):
 
 ## Read-only vs write behavior
 
-Qyre is strictly read-only for now. Write capability is explicitly excluded and, when later
-introduced, must follow the rules in [`../SECURITY.md`](../SECURITY.md): destructive actions require
-explicit, unambiguous user confirmation and must never be the default path.
+`--read-only` sessions and users without write grants stay read-only. Writes are grant-gated and
+follow [`permissions-and-capabilities.md`](permissions-and-capabilities.md),
+[`row-editing.md`](row-editing.md), and [`../SECURITY.md`](../SECURITY.md): destructive actions
+require explicit, unambiguous user confirmation and must never be the default path.
 
 ## Primary end-to-end journey
 
@@ -87,7 +88,8 @@ See [`../RELIABILITY.md`](../RELIABILITY.md) for how this journey is verified.
   database is connected.
 - The UI can list at least schemas and tables for the connected database.
 - Selecting a table shows its columns and a first page of rows.
-- No write/DDL/DML-mutating action is reachable from the UI.
+- No write/DDL/DML-mutating action is reachable from the UI unless the connected user's grants
+  allow it and the session is not `--read-only`.
 - The server starts, reports healthy, and shuts down cleanly.
 
 ## Failure states

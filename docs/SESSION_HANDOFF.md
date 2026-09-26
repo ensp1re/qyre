@@ -10,6 +10,8 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 - Queue: F149/F154 passing; F150-F153 queued `not_started` for plan 0008, the approved opt-in AI
   assistant tab (`docs/exec-plans/active/0008-ai-database-assistant.md`). Plan 0007 is retired;
   plan 0009 (security audit) is completed. A fresh UI audit is still pending separately.
+- 2026-09-26: code audit queued F160-F169 as proposed plan 0010
+  (`docs/exec-plans/active/0010-bug-audit-fixes.md`); F160 is a security fix tracked privately.
 
 ## Completed
 
@@ -57,6 +59,7 @@ F157 closed every item in `docs/PLAN.md` except one, and each heading there carr
 
 ## Next steps
 
+- Get plan 0010 slice order and its open decisions approved, then activate F160 first.
 - Activate F150 (plan 0008 slice 1): assistant tab gating, Settings AI category with exclusive
   provider config, and the SECURITY.md/README opt-in carve-out. Note plan 0008 predates PR #171
   splitting security docs into the public root `SECURITY.md` and the internal `docs/SECURITY.md`;

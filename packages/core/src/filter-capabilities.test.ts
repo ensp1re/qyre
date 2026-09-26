@@ -110,4 +110,17 @@ describe("filterCapabilityForColumn", () => {
       valueInput: "text"
     });
   });
+
+  it("classifies Postgres enums from catalog labels, not words in the type name", () => {
+    for (const dataType of ["status_enum", "charset", "mood", "blob_state", "priority_int"]) {
+      const metadata: ColumnMetadata = {
+        ...column(dataType, false, "postgres")[0],
+        allowedValues: ["a", "b"]
+      };
+      expect(filterCapabilityForColumn(metadata, "postgres")).toMatchObject({
+        kind: "text",
+        operators: ["contains", "eq", "neq"]
+      });
+    }
+  });
 });

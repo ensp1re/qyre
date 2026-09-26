@@ -53,7 +53,7 @@ function resolveMapping(
     if (targetName === null) continue;
     const target = columns.get(targetName);
     if (!target) throw requestError(`Unknown target column "${targetName}".`);
-    const kind = classifyFilterColumnKind(target.dataType, engine);
+    const kind = classifyFilterColumnKind(target.dataType, engine, target);
     if (["structured", "binary", "unknown", "null"].includes(kind)) {
       throw requestError(`Target column "${targetName}" (${kind}) cannot be imported from CSV.`);
     }
@@ -76,7 +76,7 @@ function coerceCsvValue(
 ): unknown {
   if (rawValue === "" && column.nullable) return null;
 
-  const kind = classifyFilterColumnKind(column.dataType, engine);
+  const kind = classifyFilterColumnKind(column.dataType, engine, column);
   const trimmed = rawValue.trim();
   switch (kind) {
     case "text":

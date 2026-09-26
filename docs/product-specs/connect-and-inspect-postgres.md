@@ -45,7 +45,11 @@ Behavior:
 In scope (Postgres engine):
 
 - Postgres, one connection at a time.
-- Read-only inspection: schemas, tables, columns, indexes, approximate/explicit row counts.
+- Read-only inspection: schemas, tables, columns, indexes, approximate/explicit row counts. A
+  relation whose exact count fails (no `SELECT` grant, an unpopulated materialized view) reports an
+  unknown row count rather than failing the catalog. Primary and foreign keys come from
+  `pg_constraint`, pairing composite key columns by position; enum columns are recognized from the
+  type catalog (`typtype = 'e'`), not from the type's name.
 - Paginated table data browsing.
 - A read-only SQL query runner (SELECT-style statements only).
 - Local server health and runtime diagnostics endpoints for verification.

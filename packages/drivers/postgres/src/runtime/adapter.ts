@@ -75,6 +75,7 @@ import {
   fetchKnownIdentifiers
 } from "../schema/quoted-identifiers.js";
 import { formatSqlInsert, streamRows } from "../query/row-export.js";
+import { buildRowOrderBy } from "../query/row-order.js";
 import { buildFilterClause, quoteIdent } from "../query/sql.js";
 
 export class PostgresAdapter implements DatabaseAdapter {
@@ -242,9 +243,6 @@ export class PostgresAdapter implements DatabaseAdapter {
     operationId?: string
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
-    const orderBy = sort
-      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
-      : "";
     const { clause: whereClause, params: filterParams } = buildFilterClause(filters, search);
     return withCancellableClient(
       this.getPool(),
@@ -252,6 +250,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       operationId,
       async (client, wasCancelledByUser) => {
         try {
+          const orderBy = await buildRowOrderBy(client, schema, table, sort);
           const [result, countResult] = await Promise.all([
             client.query(
               `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}${orderBy} LIMIT $${

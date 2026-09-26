@@ -66,6 +66,7 @@ import {
   READ_ONLY_TABLE_PERMISSIONS
 } from "../access/permissions.js";
 import { formatSqlInsert, streamRows } from "../query/row-export.js";
+import { buildRowOrderBy } from "../query/row-order.js";
 import { buildFilterClause, quoteIdent } from "../query/sql.js";
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
@@ -271,9 +272,6 @@ export class MysqlAdapter implements DatabaseAdapter {
     operationId?: string
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
-    const orderBy = sort
-      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
-      : "";
     const { clause: whereClause, params: filterParams } = buildFilterClause(filters, search);
     return withCancellableConnection(
       this.getPool(),
@@ -281,6 +279,7 @@ export class MysqlAdapter implements DatabaseAdapter {
       operationId,
       async (connection, wasCancelledByUser) => {
         try {
+          const orderBy = await buildRowOrderBy(connection, schema, table, sort);
           const [rows, fields] = await connection.query<mysql.RowDataPacket[]>(
             {
               sql: `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}${orderBy} LIMIT ? OFFSET ?`,

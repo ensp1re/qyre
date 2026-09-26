@@ -24,6 +24,15 @@ describe("PostgreSQL structured filters", () => {
     ).toEqual({ clause: " WHERE \"tags\"::text ILIKE $1 ESCAPE '\\'", params: ["%one%"] });
   });
 
+  it("matches built-in string types directly and casts every other type to text", () => {
+    expect(
+      buildFilterClause([
+        { column: "name", op: "contains", value: "a", columnDataType: "character varying" },
+        { column: "status", op: "contains", value: "b", columnDataType: "status_enum" }
+      ]).clause
+    ).toBe(" WHERE \"name\" ILIKE $1 ESCAPE '\\' AND \"status\"::text ILIKE $2 ESCAPE '\\'");
+  });
+
   it("builds one parameterized whole-table search across scalar and structured columns", () => {
     expect(
       buildFilterClause(undefined, {

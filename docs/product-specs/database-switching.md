@@ -52,6 +52,12 @@ without restarting the CLI or losing their place more than switching targets inh
   - On failure (bad credentials, unreachable host, invalid file path, ping fails): the OLD connection
     is left completely untouched - no partial disconnect - and the endpoint returns a 4xx with the
     real underlying error message (same normalized `{ error: string }` shape every other route uses).
+  - `POST /api/connect/database` with body `{ database: string }` reconnects through the same swap
+    with only the URL database path replaced (`withDatabase`). For a credentialed `mongodb://` URL
+    without `authSource` (and with the default SCRAM mechanism), the original path database - or
+    `admin` when the path is empty - is pinned as `authSource`, because MongoDB otherwise
+    authenticates against the new path database. `mongodb+srv://` URLs are left unchanged since
+    their DNS TXT record may already supply `authSource`.
   - When `adapterFactories` is omitted (every existing caller/test that doesn't opt in), `/api/connect`
     is not registered at all - `POST /api/connect` 404s, matching today's behavior everywhere this
     feature isn't wired up. `packages/cli`'s real `main()` passes its existing factory list

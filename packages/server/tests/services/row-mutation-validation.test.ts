@@ -337,14 +337,14 @@ describe("resolveKey (F100)", () => {
 
   it("resolves MongoDB's single-field _id key via the same generic column logic", () => {
     expect(resolveKey(MONGO_TABLE, { _id: "507f1f77bcf86cd799439011" }, "mongodb")).toEqual({
-      _id: "507f1f77bcf86cd799439011"
+      _id: { $oid: "507f1f77bcf86cd799439011" }
     });
   });
 
   it("normalizes MongoDB's Extended JSON ObjectId row key", () => {
     expect(
       resolveKey(MONGO_TABLE, { _id: { $oid: "507F1F77BCF86CD799439011" } }, "mongodb")
-    ).toEqual({ _id: "507f1f77bcf86cd799439011" });
+    ).toEqual({ _id: { $oid: "507f1f77bcf86cd799439011" } });
   });
 
   it("normalizes a legacy cross-package BSON ObjectId row key", () => {
@@ -371,7 +371,38 @@ describe("resolveKey (F100)", () => {
         },
         "mongodb"
       )
+    ).toEqual({ _id: { $oid: "507f1f77bcf86cd799439011" } });
+  });
+
+  it("keeps string and numeric MongoDB _id keys as their sampled type", () => {
+    const withIdType = (dataType: string): TableMetadata => ({
+      ...MONGO_TABLE,
+      columns: MONGO_TABLE.columns.map((column) =>
+        column.name === "_id" ? { ...column, dataType } : column
+      )
+    });
+    expect(
+      resolveKey(withIdType("string"), { _id: "507f1f77bcf86cd799439011" }, "mongodb")
     ).toEqual({ _id: "507f1f77bcf86cd799439011" });
+    expect(resolveKey(withIdType("string"), { _id: "user-1" }, "mongodb")).toEqual({
+      _id: "user-1"
+    });
+    expect(resolveKey(withIdType("number"), { _id: 7 }, "mongodb")).toEqual({ _id: 7 });
+    expect(resolveKey(withIdType("number"), { _id: "9223372036854775807" }, "mongodb")).toEqual({
+      _id: { $numberLong: "9223372036854775807" }
+    });
+    expect(resolveKey(withIdType("mixed"), { _id: "user-1" }, "mongodb")).toEqual({
+      _id: "user-1"
+    });
+    expect(resolveKey(withIdType("mixed"), { _id: "507F1F77BCF86CD799439011" }, "mongodb")).toEqual(
+      { _id: { $oid: "507f1f77bcf86cd799439011" } }
+    );
+    expect(() => resolveKey(withIdType("string"), { _id: 7 }, "mongodb")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
+    expect(() => resolveKey(withIdType("mixed"), { _id: { $gt: "" } }, "mongodb")).toThrow(
+      expect.objectContaining({ statusCode: 400 })
+    );
   });
 
   it("rejects a malformed MongoDB _id (not a 24-hex-char ObjectId string)", () => {
@@ -408,7 +439,10 @@ describe("resolveKeys (F101)", () => {
         [{ _id: "507f1f77bcf86cd799439011" }, { _id: "507f1f77bcf86cd799439012" }],
         "mongodb"
       )
-    ).toEqual([{ _id: "507f1f77bcf86cd799439011" }, { _id: "507f1f77bcf86cd799439012" }]);
+    ).toEqual([
+      { _id: { $oid: "507f1f77bcf86cd799439011" } },
+      { _id: { $oid: "507f1f77bcf86cd799439012" } }
+    ]);
   });
 });
 

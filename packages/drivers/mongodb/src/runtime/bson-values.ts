@@ -5,6 +5,8 @@ import {
   BSONSymbol,
   Code,
   Decimal128,
+  Double,
+  Int32,
   Long,
   MaxKey,
   MinKey,
@@ -40,6 +42,7 @@ export function normalizeBsonValue(value: unknown): unknown {
       : value.toString();
   }
   if (value instanceof Decimal128) return value.toString();
+  if (value instanceof Int32 || value instanceof Double) return value.valueOf();
   if (value instanceof Binary) return { type: "Buffer", data: Array.from(value.buffer) };
   if (value instanceof Date) return value;
   if (value instanceof Code) {
@@ -55,8 +58,14 @@ export function normalizeBsonValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalizeBsonValue);
   if (value && typeof value === "object") {
     const normalized: Record<string, unknown> = {};
+    // Stored field names such as `__proto__` must stay own properties, not prototype writes.
     for (const [key, nested] of Object.entries(value)) {
-      normalized[key] = normalizeBsonValue(nested);
+      Object.defineProperty(normalized, key, {
+        value: normalizeBsonValue(nested),
+        enumerable: true,
+        writable: true,
+        configurable: true
+      });
     }
     return normalized;
   }
@@ -96,7 +105,13 @@ export function classifyBsonValue(value: unknown): InferredBsonType | "null" {
   if (value instanceof MaxKey) return "maxKey";
   if (value instanceof BSONSymbol) return "unsupported";
   if (Array.isArray(value)) return "array";
-  if (value instanceof Long || value instanceof Decimal128 || typeof value === "number") {
+  if (
+    value instanceof Long ||
+    value instanceof Decimal128 ||
+    value instanceof Int32 ||
+    value instanceof Double ||
+    typeof value === "number"
+  ) {
     return "number";
   }
   if (typeof value === "boolean") return "boolean";

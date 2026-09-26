@@ -85,7 +85,8 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
       if (db.engine !== DATABASE_ENGINES.mongodb || !db.mutations?.getDocumentText) {
         return reply.status(400).send({ error: "This engine does not support document editing." });
       }
-      const document = await db.mutations.getDocumentText(schema, table, id);
+      const key = resolveKey(await db.getTable(schema, table), { _id: id }, db.engine);
+      const document = await db.mutations.getDocumentText(schema, table, key._id);
       if (document === undefined) {
         return reply.status(404).send({ error: "No document with that _id exists." });
       }

@@ -532,7 +532,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
         [{ column: "label", op: "eq", value: "apple" }]
       );
       const row = before.rows[0];
-      const key = engine === "mongodb" ? { _id: String(row?._id) } : { id: row?.id };
+      const key = engine === "mongodb" ? { _id: { $oid: String(row?._id) } } : { id: row?.id };
 
       const result = await adapter.mutations?.updateRowByKey?.(
         fixture.schema,
@@ -557,7 +557,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
   it.skipIf(!configured)(
     "updateRowByKey reports matched: 0 for a key that doesn't match any row (F100)",
     async () => {
-      const key = engine === "mongodb" ? { _id: "507f1f77bcf86cd799439011" } : { id: -1 };
+      const key = engine === "mongodb" ? { _id: { $oid: "507f1f77bcf86cd799439011" } } : { id: -1 };
       const result = await adapter.mutations?.updateRowByKey?.(
         fixture.schema,
         fixture.populatedTable,
@@ -580,7 +580,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
         [{ column: "label", op: "eq", value: "banana" }]
       );
       const row = before.rows[0];
-      const key = engine === "mongodb" ? { _id: String(row?._id) } : { id: row?.id };
+      const key = engine === "mongodb" ? { _id: { $oid: String(row?._id) } } : { id: row?.id };
 
       const result = await adapter.mutations?.deleteRowsByKey?.(
         fixture.schema,
@@ -604,7 +604,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
   it.skipIf(!configured)(
     "deleteRowsByKey reports a lower deleted count when a key doesn't match any row (F101)",
     async () => {
-      const key = engine === "mongodb" ? { _id: "507f1f77bcf86cd799439011" } : { id: -1 };
+      const key = engine === "mongodb" ? { _id: { $oid: "507f1f77bcf86cd799439011" } } : { id: -1 };
       const result = await adapter.mutations?.deleteRowsByKey?.(
         fixture.schema,
         fixture.populatedTable,

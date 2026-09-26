@@ -33,5 +33,6 @@ export interface RowMutationApi {
     keys: Array<Record<string, unknown>>
   ): Promise<DeleteRowsResult>;
   commitBatch?(ops: MutationOp[]): Promise<CommitMutationsResult>;
-  getDocumentText?(schema: string, table: string, id: string): Promise<string | undefined>;
+  /** `id` uses the typed MongoDB key form produced by server key resolution. */
+  getDocumentText?(schema: string, table: string, id: unknown): Promise<string | undefined>;
 }

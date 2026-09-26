@@ -1,6 +1,8 @@
 import type { MongoClient } from "mongodb";
 import { describe, expect, it } from "vitest";
-import { introspectSchemas } from "../src/schema/introspection.js";
+import { ObjectId } from "mongodb";
+import { introspectCollection, introspectSchemas } from "../src/schema/introspection.js";
+import { fakeMongoClient } from "./support/fake-client.js";
 
 /** Record collection-list options while providing the minimal MongoClient surface under test. */
 function stubClient(options: {
@@ -75,5 +77,30 @@ describe("introspectSchemas", () => {
     });
     await introspectSchemas(client);
     expect(listCollectionsOptions).toEqual([{ nameOnly: true, authorizedCollections: true }]);
+  });
+});
+
+describe("introspectCollection _id type", () => {
+  async function idColumn(sample: Record<string, unknown>[]) {
+    const { client } = fakeMongoClient({ aggregate: () => sample });
+    const metadata = await introspectCollection(client, "app", "items", 1000);
+    return metadata.columns.find((column) => column.name === "_id");
+  }
+
+  it("reports the sampled _id BSON type as the primary key", async () => {
+    expect(await idColumn([{ _id: new ObjectId() }, { _id: new ObjectId() }])).toEqual({
+      name: "_id",
+      dataType: "objectId",
+      nullable: false,
+      isPrimaryKey: true,
+      isForeignKey: false
+    });
+    expect((await idColumn([{ _id: "user-1" }, { _id: "user-2" }]))?.dataType).toBe("string");
+    expect((await idColumn([{ _id: 1 }, { _id: 2 }]))?.dataType).toBe("number");
+    expect((await idColumn([{ _id: 1 }, { _id: "user-2" }]))?.dataType).toBe("mixed");
+  });
+
+  it("defaults an empty collection's _id to ObjectId, the type MongoDB generates", async () => {
+    expect((await idColumn([]))?.dataType).toBe("objectId");
   });
 });

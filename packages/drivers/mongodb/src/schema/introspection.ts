@@ -75,15 +75,18 @@ export async function introspectCollection(
   const sample = await collection
     .aggregate([{ $sample: { size: FIELD_SAMPLE_SIZE } }], { maxTimeMS: statementTimeoutMs })
     .toArray();
+  const inferred = inferColumns(sample);
+  // An empty sample keeps ObjectId, the `_id` type MongoDB generates for new documents.
+  const idType = inferred.find((column) => column.name === "_id")?.dataType ?? "objectId";
   const columns: ColumnMetadata[] = [
     {
       name: "_id",
-      dataType: "objectId",
+      dataType: idType,
       nullable: false,
       isPrimaryKey: true,
       isForeignKey: false
     },
-    ...inferColumns(sample).filter((column) => column.name !== "_id")
+    ...inferred.filter((column) => column.name !== "_id")
   ];
   const rowCount = kind === "view" ? undefined : await collection.estimatedDocumentCount();
   const indexes = kind === "view" ? [] : await fetchIndexes(collection);

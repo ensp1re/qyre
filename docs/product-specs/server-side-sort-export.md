@@ -31,7 +31,9 @@ SQL without materializing or re-querying the result.
   - **Postgres/MySQL/SQLite**: `ORDER BY <quoted-column> ASC|DESC` appended to the existing
     `SELECT ... LIMIT ... OFFSET ...`, using each adapter's existing identifier-quoting convention
     (owned by each SQL driver's `src/sql.ts`).
-  - **MongoDB**: `.sort({ [column]: direction === "asc" ? 1 : -1 })` on the `getRows` cursor.
+  - **MongoDB**: `.sort({ [column]: direction === "asc" ? 1 : -1, _id: 1 })` on the `getRows` and
+    export cursors. `_id` ascending is always the final tiebreaker (omitted only when sorting by
+    `_id` itself) so `skip`/`limit` paging never repeats or skips documents with equal sort values.
 - `RowsTable`'s header-click handler stops sorting the loaded array locally and instead calls a new
   `onSortChange` prop (same shape as the existing `onPageChange`), which `apps/web` uses to update
   `useRows`'s query params and refetch. Clicking the same header cycles asc -> desc -> unsorted,

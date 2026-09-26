@@ -1,6 +1,6 @@
 import type { StatementClassification } from "@qyre/core";
-import { maskSql, SQL_DIALECTS } from "../query/sql-lexer.js";
-import type { SqlDialect } from "../query/sql-lexer.js";
+import { maskSql, SQL_DIALECTS, sqlLexModes } from "../query/sql-lexer.js";
+import type { SqlDialect, SqlLexMode } from "../query/sql-lexer.js";
 import { ReadOnlyViolationError } from "./errors.js";
 
 export { ReadOnlyViolationError } from "./errors.js";
@@ -85,15 +85,33 @@ function hasUnfilteredUpdateOrDelete(code: string): boolean {
   });
 }
 
+function mostRestrictive(
+  classifications: readonly StatementClassification[]
+): StatementClassification {
+  return classifications.reduce((worst, next) => (SEVERITY[next] > SEVERITY[worst] ? next : worst));
+}
+
 function classifyForDialect(sql: string, dialect: SqlDialect): StatementClassification {
   if (!maskSql(sql, dialect, ["comment"]).trim()) {
     throw new ReadOnlyViolationError("Empty query.");
   }
+  // Statement boundaries come from the default mode. A `;` seen only under another mode needs no
+  // rejection: drivers run one statement per call, so the server refuses a second one itself.
+  return mostRestrictive(
+    sqlLexModes(dialect).map((mode, index) => classifyCode(sql, dialect, mode, index === 0))
+  );
+}
 
-  const code = maskSql(sql, dialect, ["comment", "string", "identifier"])
+function classifyCode(
+  sql: string,
+  dialect: SqlDialect,
+  mode: SqlLexMode,
+  checkStatementCount: boolean
+): StatementClassification {
+  const code = maskSql(sql, dialect, ["comment", "string", "identifier"], mode)
     .trim()
     .replace(/;\s*$/, "");
-  if (code.includes(";")) {
+  if (checkStatementCount && code.includes(";")) {
     throw new ReadOnlyViolationError("Multiple statements are not allowed.");
   }
 
@@ -126,9 +144,7 @@ function classifyForDialect(sql: string, dialect: SqlDialect): StatementClassifi
  */
 export function classifyStatement(sql: string, dialect?: SqlDialect): StatementClassification {
   const dialects = dialect ? [dialect] : SQL_DIALECTS;
-  return dialects
-    .map((each) => classifyForDialect(sql, each))
-    .reduce((worst, next) => (SEVERITY[next] > SEVERITY[worst] ? next : worst));
+  return mostRestrictive(dialects.map((each) => classifyForDialect(sql, each)));
 }
 
 /** Reject SQL that is not classified as a read. */

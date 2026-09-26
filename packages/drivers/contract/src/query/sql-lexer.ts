@@ -7,6 +7,34 @@ export interface SqlSegment {
   readonly kind: SqlSegmentKind;
   readonly start: number;
   readonly end: number;
+  /** Set on the markers of a MySQL/MariaDB executable comment, whose body is SQL. */
+  readonly executable?: true;
+}
+
+/**
+ * Lexical switches a session setting can change. MySQL's NO_BACKSLASH_ESCAPES turns off backslash
+ * escapes and ANSI_QUOTES makes `"` quote identifiers instead of strings.
+ */
+export interface SqlLexMode {
+  readonly backslashEscapes: boolean;
+  readonly doubleQuotedIdentifiers: boolean;
+}
+
+export function defaultSqlLexMode(dialect: SqlDialect): SqlLexMode {
+  return dialect === "mysql"
+    ? { backslashEscapes: true, doubleQuotedIdentifiers: false }
+    : { backslashEscapes: false, doubleQuotedIdentifiers: true };
+}
+
+/**
+ * Every lexical mode a connection of this dialect may be in, default first. Safety checks must hold
+ * under all of them because Qyre does not control the session's sql_mode.
+ */
+export function sqlLexModes(dialect: SqlDialect): SqlLexMode[] {
+  if (dialect !== "mysql") return [defaultSqlLexMode(dialect)];
+  return [false, true].flatMap((doubleQuotedIdentifiers) =>
+    [true, false].map((backslashEscapes) => ({ backslashEscapes, doubleQuotedIdentifiers }))
+  );
 }
 
 export function isSqlDialect(value: string): value is SqlDialect {
@@ -16,7 +44,8 @@ export function isSqlDialect(value: string): value is SqlDialect {
 const IDENT_START = /[A-Za-z_\u0080-￿]/;
 const IDENT_CONT = /[A-Za-z0-9_$\u0080-￿]/;
 const DOLLAR_TAG = /\$(?:[A-Za-z_\u0080-￿][A-Za-z0-9_\u0080-￿]*)?\$/y;
-const MYSQL_EXECUTABLE_COMMENT = /\/\*!\d*/y;
+// MariaDB also runs the body of /*M! ... */.
+const MYSQL_EXECUTABLE_COMMENT = /\/\*M?!\d*/y;
 
 function lineCommentEnd(sql: string, start: number): number {
   const newline = sql.indexOf("\n", start);
@@ -69,15 +98,19 @@ function isMysqlDashComment(sql: string, index: number): boolean {
  * Split SQL into code, comment, and quoted segments in one left-to-right pass, following the
  * dialect's lexical rules so a marker inside one construct never starts another.
  */
-export function scanSql(sql: string, dialect: SqlDialect): SqlSegment[] {
+export function scanSql(
+  sql: string,
+  dialect: SqlDialect,
+  mode: SqlLexMode = defaultSqlLexMode(dialect)
+): SqlSegment[] {
   const segments: SqlSegment[] = [];
   let codeStart = 0;
   let index = 0;
   let inMysqlExecutableComment = false;
 
-  const emit = (kind: SqlSegmentKind, start: number, end: number): void => {
+  const emit = (kind: SqlSegmentKind, start: number, end: number, executable = false): void => {
     if (start > codeStart) segments.push({ kind: "code", start: codeStart, end: start });
-    segments.push({ kind, start, end });
+    segments.push(executable ? { kind, start, end, executable } : { kind, start, end });
     codeStart = end;
     index = end;
   };
@@ -96,21 +129,21 @@ export function scanSql(sql: string, dialect: SqlDialect): SqlSegment[] {
       if (executable) {
         // MySQL runs the body of /*! ... */ as SQL, so only the markers are comments.
         inMysqlExecutableComment = true;
-        emit("comment", index, index + executable[0].length);
+        emit("comment", index, index + executable[0].length, true);
       } else {
         emit("comment", index, blockCommentEnd(sql, index, dialect === "postgres"));
       }
     } else if (char === "*" && next === "/" && inMysqlExecutableComment) {
       inMysqlExecutableComment = false;
-      emit("comment", index, index + 2);
+      emit("comment", index, index + 2, true);
     } else if (char === "'") {
-      emit("string", index, quotedEnd(sql, index, "'", dialect === "mysql"));
+      emit("string", index, quotedEnd(sql, index, "'", mode.backslashEscapes));
     } else if (char === '"') {
-      emit(
-        dialect === "mysql" ? "string" : "identifier",
-        index,
-        quotedEnd(sql, index, '"', dialect === "mysql")
-      );
+      if (mode.doubleQuotedIdentifiers) {
+        emit("identifier", index, quotedEnd(sql, index, '"', false));
+      } else {
+        emit("string", index, quotedEnd(sql, index, '"', mode.backslashEscapes));
+      }
     } else if (char === "`" && dialect !== "postgres") {
       emit("identifier", index, quotedEnd(sql, index, "`", false));
     } else if (char === "[" && dialect === "sqlite") {
@@ -144,10 +177,11 @@ export function scanSql(sql: string, dialect: SqlDialect): SqlSegment[] {
 export function maskSql(
   sql: string,
   dialect: SqlDialect,
-  kinds: ReadonlyArray<Exclude<SqlSegmentKind, "code">>
+  kinds: ReadonlyArray<Exclude<SqlSegmentKind, "code">>,
+  mode: SqlLexMode = defaultSqlLexMode(dialect)
 ): string {
   let result = "";
-  for (const segment of scanSql(sql, dialect)) {
+  for (const segment of scanSql(sql, dialect, mode)) {
     const text = sql.slice(segment.start, segment.end);
     result +=
       segment.kind !== "code" && kinds.includes(segment.kind) ? " ".repeat(text.length) : text;

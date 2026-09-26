@@ -180,11 +180,15 @@ statement - the read-only query runner only ever executes exactly one statement 
 `;`-count check and the forbidden-keyword scan run over a single left-to-right lexer pass
 (`scanSql`) that recognizes comments, string literals, and quoted identifiers together, following
 the connected engine's lexical rules (Postgres nested block comments, `E'...'` escapes and dollar
-quotes; MySQL backslash escapes, `#` comments, and executable `/*! ... */` comments whose body is
-treated as SQL; SQLite `[...]` identifiers). A comment marker inside a literal (`SELECT '/*'; ...`)
-therefore never hides a real `;`, and a data value that contains a semicolon (a URL, an encoded
-blob, free text) is not mistaken for a second statement. Without a known engine, the statement is
-lexed under every dialect and the most restrictive classification wins. A single trailing `;` (a
+quotes; MySQL backslash escapes, `#` comments, and executable `/*! ... */` and MariaDB
+`/*M! ... */` comments whose body is treated as SQL; SQLite `[...]` identifiers). A comment marker
+inside a literal (`SELECT '/*'; ...`) therefore never hides a real `;`, and a data value that
+contains a semicolon (a URL, an encoded blob, free text) is not mistaken for a second statement.
+Without a known engine, the statement is lexed under every dialect and the most restrictive
+classification wins. Because a MySQL session's `sql_mode` can turn off backslash escapes
+(`NO_BACKSLASH_ESCAPES`) or make `"` quote identifiers (`ANSI_QUOTES`), MySQL keywords are
+classified under all four combinations and the most restrictive result wins; the statement count
+uses the default mode, since the MySQL driver refuses a second statement on its own. A single trailing `;` (a
 habit carried over from other SQL tools) is still tolerated.
 
 As defense in depth, Postgres runs read-path and EXPLAIN statements over the extended query

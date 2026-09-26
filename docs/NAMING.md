@@ -72,4 +72,5 @@ intentional open-source project. These rules are enforced by review and, where p
 
 - A package's public API is whatever it exports from `src/index.ts`.
 - Public API names must be documented in the package README or a product spec before being treated
-  as stable. Breaking changes require a changeset.
+  as stable. Breaking changes require a `minor`/`major` bump via `pnpm release`
+  (`scripts/publish.mjs`).

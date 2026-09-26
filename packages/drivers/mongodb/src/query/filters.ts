@@ -4,6 +4,10 @@ import { escapeRegExp, type ResolvedRowSearch } from "@qyre/driver-contract";
 import { Decimal128, ObjectId } from "mongodb";
 import { exactInteger, int64FromText } from "../runtime/bson-numbers.js";
 
+function isObjectIdHex(value: string): boolean {
+  return /^[0-9a-f]{24}$/i.test(value);
+}
+
 function invalidFilter(message: string): Error {
   return Object.assign(new Error(message), { statusCode: 400 });
 }
@@ -94,7 +98,13 @@ function buildMongoCondition(
       numericOperands(filter.value ?? "", filter.column)
     );
   }
-  const value = coerceFilterValue(filter.value ?? "", dataType);
+  const text = filter.value ?? "";
+  // Grid cells render ObjectIds as hex, so hex text in a mixed-type field must match either form.
+  if (dataType === "mixed" && (filter.op === "eq" || filter.op === "neq") && isObjectIdHex(text)) {
+    const operands = [new ObjectId(text), text];
+    return { [filter.column]: filter.op === "eq" ? { $in: operands } : { $nin: operands } };
+  }
+  const value = coerceFilterValue(text, dataType);
   return { [filter.column]: { [COMPARISON_OPERATORS[filter.op]]: value } };
 }
 

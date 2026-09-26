@@ -1,4 +1,4 @@
-import { Decimal128, Long } from "mongodb";
+import { Decimal128, Long, ObjectId } from "mongodb";
 import { describe, expect, it } from "vitest";
 import { buildMongoFilter } from "../../src/query/filters.js";
 
@@ -74,6 +74,19 @@ describe("MongoDB typed scalar filters", () => {
       [field("score", "string")]
     );
     expect(filter).toEqual({ $and: [{ score: { $gt: 5 } }] });
+  });
+
+  it("matches hex text in a mixed-type _id as either an ObjectId or the literal string", () => {
+    const hex = "507f1f77bcf86cd799439011";
+    expect(
+      buildMongoFilter([{ column: "_id", op: "eq", value: hex, columnDataType: "mixed" }], [])
+    ).toEqual({ $and: [{ _id: { $in: [new ObjectId(hex), hex] } }] });
+    expect(
+      buildMongoFilter([{ column: "_id", op: "neq", value: hex, columnDataType: "mixed" }], [])
+    ).toEqual({ $and: [{ _id: { $nin: [new ObjectId(hex), hex] } }] });
+    expect(
+      buildMongoFilter([{ column: "_id", op: "eq", value: "abc", columnDataType: "mixed" }], [])
+    ).toEqual({ $and: [{ _id: { $eq: "abc" } }] });
   });
 
   it("matches decimal text against both Double and Decimal128 values", () => {

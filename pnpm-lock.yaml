@@ -357,6 +357,9 @@ importers:
       '@qyre/postgres':
         specifier: workspace:*
         version: link:../drivers/postgres
+      '@qyre/server':
+        specifier: workspace:*
+        version: link:../server
       '@qyre/sqlite':
         specifier: workspace:*
         version: link:../drivers/sqlite

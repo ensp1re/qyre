@@ -16,6 +16,7 @@
     "@qyre/mongodb": "workspace:*",
     "@qyre/mysql": "workspace:*",
     "@qyre/postgres": "workspace:*",
+    "@qyre/server": "workspace:*",
     "@qyre/sqlite": "workspace:*",
     "@qyre/testing": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",

@@ -1,9 +1,9 @@
 import {
   CSV_IMPORT_MAX_COLUMNS,
   CSV_IMPORT_MAX_ERRORS,
+  CSV_IMPORT_MAX_FILE_BYTES,
   CSV_IMPORT_MAX_ROWS,
   CSV_IMPORT_PREVIEW_ROWS,
-  CSV_IMPORT_SQL_BATCH_SIZE,
   DATABASE_ENGINES
 } from "@qyre/core";
 import type {
@@ -17,11 +17,12 @@ import type {
   TableMetadata
 } from "@qyre/core";
 import { classifyFilterColumnKind } from "@qyre/core/filter-capabilities";
+import { isExactNumericText } from "@qyre/core/mutation-editor-values";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 import { parse } from "csv-parse";
 import type { Info } from "csv-parse";
 import type { Readable } from "node:stream";
-import { assertMutable } from "../rows/row-mutation-validation.js";
+import { assertMutable, mongoInsertNumber } from "../rows/row-mutation-validation.js";
 
 type ParsedRecord = { record: string[]; info: Info };
 type ResolvedMapping = Array<{ sourceIndex: number; target: TableMetadata["columns"][number] }>;
@@ -68,6 +69,18 @@ function resolveMapping(
   return resolved;
 }
 
+/** Normalizes a validated decimal literal so equal values compare equal as strings. */
+function canonicalDecimal(text: string): string {
+  const [, sign = "", whole = "", fraction = "", exponent = "0"] =
+    /^([+-]?)(\d*)(?:\.(\d*))?(?:e([+-]?\d+))?$/i.exec(text) ?? [];
+  const digits = `${whole}${fraction}`.replace(/^0+/, "");
+  if (digits === "") return "0";
+  const significant = digits.replace(/0+$/, "");
+  const scale =
+    BigInt(exponent) - BigInt(fraction.length) + BigInt(digits.length - significant.length);
+  return `${sign === "-" ? "-" : ""}${significant}e${scale}`;
+}
+
 function coerceCsvValue(
   rawValue: string,
   column: TableMetadata["columns"][number],
@@ -83,14 +96,16 @@ function coerceCsvValue(
     case "identifier":
       return rawValue;
     case "numeric": {
-      if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(trimmed)) {
+      if (!isExactNumericText(trimmed)) {
         throw rowError(line, column.name, `Column "${column.name}" expects a number.`);
       }
       const value = Number(trimmed);
       if (!Number.isFinite(value)) {
         throw rowError(line, column.name, `Column "${column.name}" expects a finite number.`);
       }
-      return value;
+      if (engine === DATABASE_ENGINES.mongodb) return mongoInsertNumber(trimmed, column.name);
+      // Integer columns reject text such as "1.0" or "1e3", so send a number whenever it is exact.
+      return canonicalDecimal(String(value)) === canonicalDecimal(trimmed) ? value : trimmed;
     }
     case "boolean":
       if (/^(true|1)$/i.test(trimmed)) return true;
@@ -159,6 +174,8 @@ function rawPreview(headers: string[], record: string[], line: number): CsvImpor
 
 function createErrorSink(maxEntries: number): {
   push(error: CsvImportRowError): void;
+  /** Keeps a whole-import failure visible even when row errors already filled the list. */
+  pushFirst(error: CsvImportRowError): void;
   readonly entries: CsvImportRowError[];
   count: number;
 } {
@@ -169,31 +186,72 @@ function createErrorSink(maxEntries: number): {
       this.count += 1;
       if (entries.length < maxEntries) entries.push(error);
     },
+    pushFirst(error) {
+      this.count += 1;
+      entries.unshift(error);
+      if (entries.length > maxEntries) entries.pop();
+    },
     entries
   };
 }
 
-async function commitSqlBatch(
+/** Inserts every pending row in one transaction; a rejected row rolls back the whole file. */
+async function commitSqlImport(
   db: DatabaseAdapter,
-  batch: PendingInsert[],
+  pending: PendingInsert[],
   errors: ReturnType<typeof createErrorSink>
 ): Promise<number> {
-  const result = await db.mutations!.commitBatch!(batch.map(({ op }) => op));
-  if (result.committed) return batch.length;
+  if (pending.length === 0) return 0;
+  const result = await db.mutations!.commitBatch!(pending.map(({ op }) => op));
+  if (result.committed) return pending.length;
 
-  const failed = batch[result.failedIndex] ?? batch[0];
-  for (const item of batch) {
-    errors.push({
-      line: item.line,
-      message:
-        item === failed
-          ? "The database rejected this row; its batch was rolled back."
-          : `This row was rolled back because line ${failed?.line ?? item.line} failed in the same batch.`
-    });
-  }
+  const failed = pending[result.failedIndex] ?? pending[0]!;
+  errors.pushFirst({
+    line: failed.line,
+    message: "The database rejected this row; the import was rolled back and no rows were written."
+  });
   return 0;
 }
 
+/** MongoDB standalone has no multi-document transactions, so each document commits on its own. */
+async function insertMongoDocuments(
+  db: DatabaseAdapter,
+  schema: string,
+  tableName: string,
+  pending: PendingInsert[],
+  errors: ReturnType<typeof createErrorSink>
+): Promise<number> {
+  let inserted = 0;
+  for (const { line, op } of pending) {
+    try {
+      await db.mutations!.insertRow!(schema, tableName, op.values);
+      inserted += 1;
+    } catch (error) {
+      if (inserted === 0 && db.classifyPermissionDenied(error)) throw error;
+      errors.push({
+        line,
+        message: "The database rejected this row; other rows were still inserted."
+      });
+    }
+  }
+  return inserted;
+}
+
+function isTruncated(input: Readable): boolean {
+  return (input as Readable & { truncated?: boolean }).truncated === true;
+}
+
+function fileTooLarge(): Error {
+  return requestError(
+    `The CSV file exceeds the ${CSV_IMPORT_MAX_FILE_BYTES / (1024 * 1024)} MiB limit.`,
+    413
+  );
+}
+
+/**
+ * Parses and validates the whole upload before writing. Malformed, truncated, or over-limit
+ * files are rejected with no rows written; SQL engines then insert all valid rows atomically.
+ */
 export async function processCsvImport(
   db: DatabaseAdapter,
   schema: string,
@@ -208,7 +266,7 @@ export async function processCsvImport(
     throw requestError("This engine does not support row inserts.");
   }
   if (db.engine !== DATABASE_ENGINES.mongodb && !db.mutations.commitBatch) {
-    throw requestError("This engine does not support transactional import batches.");
+    throw requestError("This engine does not support transactional imports.");
   }
 
   const parser = input.pipe(
@@ -225,16 +283,9 @@ export async function processCsvImport(
   let resolvedMapping: ResolvedMapping | undefined;
   let rowCount = 0;
   let validRows = 0;
-  let insertedRows = 0;
   const preview: CsvImportPreviewRow[] = [];
   const errors = createErrorSink(CSV_IMPORT_MAX_ERRORS);
-  let batch: PendingInsert[] = [];
-
-  async function flushBatch(): Promise<void> {
-    if (batch.length === 0) return;
-    insertedRows += await commitSqlBatch(db, batch, errors);
-    batch = [];
-  }
+  const pending: PendingInsert[] = [];
 
   try {
     for await (const parsed of parser as AsyncIterable<ParsedRecord>) {
@@ -285,29 +336,19 @@ export async function processCsvImport(
 
       validRows += 1;
       if (preview.length < CSV_IMPORT_PREVIEW_ROWS) preview.push({ line, values });
-      if (mode === "validate") continue;
-
-      if (db.engine === DATABASE_ENGINES.mongodb) {
-        try {
-          await db.mutations.insertRow(schema, tableName, values);
-          insertedRows += 1;
-        } catch (error) {
-          if (db.classifyPermissionDenied(error)) throw error;
-          errors.push({ line, message: "The database rejected this row." });
-        }
-        continue;
+      if (mode === "import") {
+        pending.push({ line, op: { type: "insert", schema, table: tableName, values } });
       }
-
-      batch.push({ line, op: { type: "insert", schema, table: tableName, values } });
-      if (batch.length === CSV_IMPORT_SQL_BATCH_SIZE) await flushBatch();
     }
+    // A size-truncated upload can still end in a syntactically valid partial record.
+    if (isTruncated(input)) throw fileTooLarge();
     if (!headers) throw requestError("The CSV file is empty.");
-    if (mode === "import" && db.engine !== DATABASE_ENGINES.mongodb) await flushBatch();
   } catch (error) {
     input.destroy();
     parser.destroy();
     const detail = error as Error & { code?: string; statusCode?: number };
     if (detail.statusCode) throw detail;
+    if (isTruncated(input)) throw fileTooLarge();
     if (detail.code?.startsWith("CSV_")) {
       throw requestError(`Invalid CSV: ${detail.message}`);
     }
@@ -315,6 +356,14 @@ export async function processCsvImport(
   }
 
   if (mode === "inspect") return { mode, headers, rowCount, preview };
+
+  let insertedRows = 0;
+  if (mode === "import") {
+    insertedRows =
+      db.engine === DATABASE_ENGINES.mongodb
+        ? await insertMongoDocuments(db, schema, tableName, pending, errors)
+        : await commitSqlImport(db, pending, errors);
+  }
   return {
     mode,
     rowCount,

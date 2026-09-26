@@ -124,7 +124,7 @@ function resolveEditableValue(
   return result.value;
 }
 
-function mongoInsertNumber(value: unknown, columnName: string): unknown {
+export function mongoInsertNumber(value: unknown, columnName: string): unknown {
   const text = String(value);
   if (/^[+-]?\d+$/.test(text)) {
     const integer = BigInt(text);

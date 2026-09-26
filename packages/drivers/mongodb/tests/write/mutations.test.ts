@@ -1,4 +1,4 @@
-import { Binary, Decimal128, Double, Int32, Long, ObjectId } from "mongodb";
+import { Binary, Decimal128, Double, Int32, Long, ObjectId, Timestamp } from "mongodb";
 import { describe, expect, it } from "vitest";
 import {
   deleteRowsByKey,
@@ -93,6 +93,14 @@ describe("MongoDB grid field updates keep exact numeric BSON types", () => {
     const fraction = (await setField({ n: new Int32(1) }, "n", "1.5", 1)).set.n;
     expect(fraction).toEqual(new Double(1.5));
     expect((await setField({ n: new Int32(1) }, "n", "1e3", 1)).set.n).toEqual(new Int32(1000));
+  });
+
+  it("keeps a Timestamp field a Timestamp even though BSON's Timestamp subclasses Long", async () => {
+    const current = Timestamp.fromBits(1, 100);
+    const { set } = await setField({ ts: current }, "ts", { t: 200, i: 2 }, { t: 100, i: 1 });
+    expect(set.ts).toBeInstanceOf(Timestamp);
+    expect((set.ts as Timestamp).getHighBits()).toBe(200);
+    expect((set.ts as Timestamp).getLowBits()).toBe(2);
   });
 
   it("still lets a typed field be cleared to null", async () => {

@@ -78,12 +78,12 @@ function numericText(incoming: unknown): string | undefined {
 
 function coerceNumber(current: unknown, incoming: unknown, lenient: boolean): unknown {
   // Nested Int32/Double values display as JSON numbers, so nested text stays text.
-  const displaysAsText = current instanceof Long || current instanceof Decimal128;
+  const displaysAsText = isInt64(current) || current instanceof Decimal128;
   if (lenient && typeof incoming === "string" && !displaysAsText) return MISMATCH;
   const text = numericText(incoming);
   if (text === undefined) return MISMATCH;
   const digitsInteger = int64FromText(text);
-  if (current instanceof Long) {
+  if (isInt64(current)) {
     if (typeof incoming === "number") {
       return Number.isSafeInteger(incoming) ? Long.fromNumber(incoming) : MISMATCH;
     }
@@ -110,9 +110,14 @@ function coerceNumber(current: unknown, incoming: unknown, lenient: boolean): un
   return number;
 }
 
+/** BSON's Timestamp subclasses Long, but it is not a number and must keep its own handling. */
+function isInt64(value: unknown): value is Long {
+  return value instanceof Long && !(value instanceof Timestamp);
+}
+
 function isNumericBson(value: unknown): boolean {
   return (
-    value instanceof Long ||
+    isInt64(value) ||
     value instanceof Decimal128 ||
     value instanceof Int32 ||
     value instanceof Double ||
@@ -126,7 +131,7 @@ function sharedElementTemplate(elements: unknown[]): unknown {
     if (value instanceof Date) return "date";
     if (
       value instanceof ObjectId ||
-      value instanceof Long ||
+      isInt64(value) ||
       value instanceof Decimal128 ||
       value instanceof Int32 ||
       value instanceof Double
@@ -159,12 +164,11 @@ function coerceChangedValue(current: unknown, incoming: unknown, lenient = false
     const instant = typeof incoming === "string" ? parseTimestampInstant(incoming) : undefined;
     if (instant) coerced = instant;
   } else if (isNumericBson(current)) {
-    expected =
-      current instanceof Long
-        ? "a 64-bit integer"
-        : current instanceof Decimal128
-          ? "a Decimal128 number"
-          : "a finite number";
+    expected = isInt64(current)
+      ? "a 64-bit integer"
+      : current instanceof Decimal128
+        ? "a Decimal128 number"
+        : "a finite number";
     coerced = coerceNumber(current, incoming, lenient);
   }
   if (expected) {

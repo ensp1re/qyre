@@ -1,5 +1,5 @@
 import type { ColumnMetadata, RowPage } from "@qyre/core";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps, ReactNode } from "react";
 import { useCallback, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -148,6 +148,35 @@ describe("RowsTable keyboard navigation and shortcuts (F146)", () => {
     fireEvent.keyDown(screen.getByTestId("rows-table"), { key: "ArrowDown" });
     fireEvent.keyDown(screen.getByText("Grace"), { key: "Enter" });
     expect(screen.getByLabelText("name")).toHaveValue("Grace");
+  });
+
+  it("moves focus with the arrow selection so Delete and Enter target only the new cell", async () => {
+    render(<TestHost />);
+    const ada = screen.getByText("Ada");
+    ada.focus();
+    fireEvent.click(ada);
+    fireEvent.keyDown(ada, { key: "ArrowDown" });
+    await waitFor(() => expect(document.activeElement).toHaveTextContent("Grace"));
+
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Delete" });
+    expect(screen.getByText("Ada")).toBeInTheDocument();
+    expect(screen.queryByText("Grace")).not.toBeInTheDocument();
+    expect(screen.getAllByText("null")).toHaveLength(1);
+
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Enter" });
+    expect(screen.getByLabelText("name")).toHaveValue("");
+  });
+
+  it("does not let an unselected focused cell handle Enter or Delete", () => {
+    render(<TestHost />);
+    const ada = screen.getByText("Ada");
+    ada.focus();
+    fireEvent.click(ada);
+    fireEvent.keyDown(ada, { key: "ArrowRight" });
+    fireEvent.keyDown(ada, { key: "Enter" });
+    expect(screen.queryByLabelText("name")).not.toBeInTheDocument();
+    fireEvent.keyDown(ada, { key: "Delete" });
+    expect(screen.getByText("Ada")).toBeInTheDocument();
   });
 
   it("Escape clears the selection so shortcuts no longer target the previous cell", () => {

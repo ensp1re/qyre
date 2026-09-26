@@ -79,6 +79,8 @@ export function EditableCell({
   const onActivate = onActivateProp ?? (() => setUncontrolledActive(true));
   const onDeactivate = onDeactivateProp ?? (() => setUncontrolledActive(false));
   const onSelect = onSelectProp ?? (() => setUncontrolledSelected(true));
+  // Inside a grid only the selected cell owns Enter/F2/Delete; standalone cells always do.
+  const ownsKeys = isSelectedProp ?? true;
   const [anchorRect, setAnchorRect] = useState<DOMRect>();
   const [expanded, setExpanded] = useState(false);
   const activationRef = useRef<HTMLButtonElement>(null);
@@ -109,8 +111,8 @@ export function EditableCell({
     onActivate();
   }
 
-  function closeEditing(): void {
-    restoreFocusRef.current = true;
+  function closeEditing(restoreFocus = true): void {
+    restoreFocusRef.current = restoreFocus;
     setExpanded(false);
     onDeactivate();
   }
@@ -163,9 +165,10 @@ export function EditableCell({
               onCommit(next);
               closeEditing();
             }}
-            onCancel={closeEditing}
+            onCancel={() => closeEditing()}
             onCommitKey={(direction) => {
-              closeEditing();
+              // The grid moves focus to the next cell; restoring it here would steal it back.
+              closeEditing(!onCommitKey);
               onCommitKey?.(direction);
             }}
           />
@@ -187,19 +190,19 @@ export function EditableCell({
           onCommit(next);
           closeEditing();
         }}
-        onCancel={closeEditing}
+        onCancel={() => closeEditing()}
       />
     );
     wideEditor =
       drawer || expanded ? (
-        <CellEditorDrawer title={columnName} onClose={closeEditing}>
+        <CellEditorDrawer title={columnName} onClose={() => closeEditing()}>
           {editor}
         </CellEditorDrawer>
       ) : (
         <EditorPopover
           anchorRect={anchorRect}
           testId="cell-editor-surface"
-          onDismiss={closeEditing}
+          onDismiss={() => closeEditing()}
         >
           {editor}
         </EditorPopover>
@@ -254,6 +257,9 @@ export function EditableCell({
           ref={activationRef}
           type="button"
           data-cell-id={cellId}
+          onFocus={() => {
+            if (!isSelected) onSelect();
+          }}
           onClick={(event) => {
             event.stopPropagation();
             onSelect();
@@ -263,6 +269,7 @@ export function EditableCell({
             startEditing();
           }}
           onKeyDown={(event) => {
+            if (!ownsKeys) return;
             if (event.key === "Enter" || event.key === "F2") {
               event.preventDefault();
               startEditing();

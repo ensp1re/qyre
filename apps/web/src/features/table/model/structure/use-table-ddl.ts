@@ -17,6 +17,7 @@ export function useTableDdlMutations(schema: string, table: string) {
   async function refreshTable(): Promise<void> {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["table", schema, table] }),
+      queryClient.invalidateQueries({ queryKey: ["rows", schema, table] }),
       queryClient.invalidateQueries({ queryKey: ["allTables"] }),
       queryClient.invalidateQueries({ queryKey: ["overview"] })
     ]);
@@ -58,10 +59,7 @@ export function useTableDdlMutations(schema: string, table: string) {
     },
     truncateTable: async (): Promise<void> => {
       await truncateTable(schema, table, table);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["rows", schema, table] }),
-        refreshTable()
-      ]);
+      await refreshTable();
     },
     dropTable: async (): Promise<void> => {
       await dropTable(schema, table, table);

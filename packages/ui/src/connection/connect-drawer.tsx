@@ -26,18 +26,26 @@ const FIELD_ENGINE_LABEL: Record<FieldEngine, string> = {
 export function composeConnectionString(fields: ConnectionFields): string {
   const host = fields.host.trim() || "localhost";
   const user = fields.user.trim();
-  const password = fields.password.trim();
+  // Passwords may legitimately start or end with spaces.
+  const password = fields.password;
   const database = fields.database.trim();
+  const options = (fields.options ?? "").trim().replace(/^\?/, "");
 
   const auth = user
     ? `${encodeURIComponent(user)}${password ? `:${encodeURIComponent(password)}` : ""}@`
     : "";
-  const path = database ? `/${encodeURIComponent(database)}` : "";
+  const query = options ? `?${options}` : "";
+  // MongoDB URIs require "/" between the hosts and the options.
+  const path = database
+    ? `/${encodeURIComponent(database)}`
+    : query && fields.engine === DATABASE_ENGINES.mongodb
+      ? "/"
+      : "";
   if (fields.engine === DATABASE_ENGINES.mongodb && fields.srv) {
-    return `mongodb+srv://${auth}${host}${path}`;
+    return `mongodb+srv://${auth}${host}${path}${query}`;
   }
   const port = fields.port.trim() || FIELD_ENGINE_DEFAULT_PORT[fields.engine];
-  return `${fields.engine}://${auth}${host}:${port}${path}`;
+  return `${fields.engine}://${auth}${host}:${port}${path}${query}`;
 }
 
 const FIELD_ENGINE_BY_PROTOCOL: Record<string, FieldEngine> = {
@@ -67,7 +75,8 @@ export function parsePastedConnectionString(text: string): ConnectionFields | nu
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: database ? decodeURIComponent(database) : "",
-    srv: url.protocol === "mongodb+srv:"
+    srv: url.protocol === "mongodb+srv:",
+    options: url.search.replace(/^\?/, "")
   };
 }
 
@@ -96,7 +105,8 @@ const EMPTY_FIELDS: ConnectionFields = {
   user: "",
   password: "",
   database: "",
-  srv: false
+  srv: false,
+  options: ""
 };
 
 function Field({
@@ -367,6 +377,19 @@ export function ConnectDrawer({
                   onPaste={handleFieldPaste}
                   disabled={isConnecting}
                   placeholder="optional"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field id="connect-field-options" label="Options">
+                <input
+                  id="connect-field-options"
+                  value={fields.options ?? ""}
+                  onChange={(event) => updateField("options", event.target.value)}
+                  onPaste={handleFieldPaste}
+                  disabled={isConnecting}
+                  placeholder="optional, e.g. sslmode=require"
+                  spellCheck={false}
                   className={inputClass}
                 />
               </Field>

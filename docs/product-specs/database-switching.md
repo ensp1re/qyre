@@ -36,7 +36,10 @@ without restarting the CLI or losing their place more than switching targets inh
   string client-side (`composeConnectionString` in `connect-drawer.tsx`) before submitting through
   the exact same `onConnect` path as the URL form. Blank host/port fall back to `localhost`/each
   engine's documented default port; user/password/database are percent-encoded so a special
-  character doesn't corrupt the resulting URL.
+  character doesn't corrupt the resulting URL. The password is used exactly as typed (never
+  trimmed). An Options input carries URL query options (`sslmode`, `authSource`, ...); pasting a
+  full URL into any field fills every field including its query options, and the composed string
+  keeps them.
 
 ### Server-side switching
 

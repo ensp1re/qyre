@@ -25,7 +25,7 @@ import { buildMutationOps, buildPreviewLine } from "../model/editing/commit-prev
 import { computeCsvImportability } from "../model/transfer/csv-importability.js";
 import { computeTableEditability } from "../model/editing/editability.js";
 import { computeTableStructureEditability } from "../model/structure/structure-editability.js";
-import { usePendingChanges } from "../model/editing/pending-changes.js";
+import type { PendingChangesApi } from "../model/editing/pending-changes.js";
 import { useTableDdlMutations } from "../model/structure/use-table-ddl.js";
 import { useTableView } from "../model/data/use-table-view.js";
 import type { useRows } from "../model/data/use-rows.js";
@@ -39,6 +39,7 @@ export interface TablesTabProps {
   engine?: DatabaseEngine;
   capabilities?: ConnectionCapabilities;
   rows: ReturnType<typeof useRows>;
+  pendingChanges: PendingChangesApi;
   page: number;
   onPageChange: (updater: (current: number) => number) => void;
   onNavigateToForeignKey?: (reference: ForeignKeyReference, value: unknown) => void;
@@ -73,6 +74,7 @@ export function TablesTab({
   engine,
   capabilities,
   rows,
+  pendingChanges,
   page,
   onPageChange,
   onNavigateToForeignKey,
@@ -85,7 +87,6 @@ export function TablesTab({
   onTableRenamed,
   onTableDropped
 }: TablesTabProps): ReactNode {
-  const pendingChanges = usePendingChanges();
   const { view, setView } = useTableView();
   const ddl = useTableDdlMutations(selected?.schema ?? "", selected?.table ?? "");
   const [committing, setCommitting] = useState(false);
@@ -94,6 +95,7 @@ export function TablesTab({
   >(undefined);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const commitRef = useRef<() => void>(() => {});
+  const committingRef = useRef(false);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
@@ -105,6 +107,59 @@ export function TablesTab({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  const ops = buildMutationOps(
+    selected?.schema ?? "",
+    selected?.table ?? "",
+    pendingChanges.edits,
+    pendingChanges.inserts,
+    pendingChanges.deletes
+  );
+  const previewLines = ops.map((op) =>
+    buildPreviewLine(op, engine === DATABASE_ENGINES.mongodb ? DATABASE_ENGINES.mongodb : undefined)
+  );
+
+  async function handleCommit(): Promise<void> {
+    if (committingRef.current || ops.length === 0) return;
+    committingRef.current = true;
+    setCommitting(true);
+    setCommitError(undefined);
+    try {
+      const result = await commitMutations(ops);
+      if (result.committed) {
+        pendingChanges.clear();
+        rows.refetch();
+      } else {
+        const applied = result.appliedCount ?? 0;
+        setCommitError({
+          message:
+            engine === DATABASE_ENGINES.mongodb && applied > 0
+              ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; ${applied} earlier operation(s) were applied. Rows were refreshed.`
+              : engine === DATABASE_ENGINES.mongodb
+                ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; no changes were applied.`
+                : `Commit failed and was rolled back at operation ${result.failedIndex + 1}.`,
+          failedIndex: result.failedIndex
+        });
+        if (engine === DATABASE_ENGINES.mongodb && applied > 0) {
+          pendingChanges.clear();
+          rows.refetch();
+        }
+      }
+    } catch (err) {
+      setCommitError({ message: err instanceof Error ? err.message : "Commit failed." });
+    } finally {
+      committingRef.current = false;
+      setCommitting(false);
+    }
+  }
+
+  function handleDiscard(): void {
+    pendingChanges.clear();
+    setCommitError(undefined);
+  }
+
+  // Assigned before any early return so the shortcut never commits a stale buffer.
+  commitRef.current = () => void handleCommit();
 
   if (!selected) {
     return (
@@ -234,57 +289,6 @@ export function TablesTab({
     .filter((column) => column.isPrimaryKey)
     .map((column) => column.name);
 
-  const ops = buildMutationOps(
-    selected.schema,
-    selected.table,
-    pendingChanges.edits,
-    pendingChanges.inserts,
-    pendingChanges.deletes
-  );
-  const previewLines = ops.map((op) =>
-    buildPreviewLine(op, engine === DATABASE_ENGINES.mongodb ? DATABASE_ENGINES.mongodb : undefined)
-  );
-
-  async function handleCommit(): Promise<void> {
-    setCommitting(true);
-    setCommitError(undefined);
-    try {
-      const result = await commitMutations(ops);
-      if (result.committed) {
-        pendingChanges.clear();
-        rows.refetch();
-      } else {
-        const applied = result.appliedCount ?? 0;
-        setCommitError({
-          message:
-            engine === DATABASE_ENGINES.mongodb && applied > 0
-              ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; ${applied} earlier operation(s) were applied. Rows were refreshed.`
-              : engine === DATABASE_ENGINES.mongodb
-                ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; no changes were applied.`
-                : `Commit failed and was rolled back at operation ${result.failedIndex + 1}.`,
-          failedIndex: result.failedIndex
-        });
-        if (engine === DATABASE_ENGINES.mongodb && applied > 0) {
-          pendingChanges.clear();
-          rows.refetch();
-        }
-      }
-    } catch (err) {
-      setCommitError({ message: err instanceof Error ? err.message : "Commit failed." });
-    } finally {
-      setCommitting(false);
-    }
-  }
-
-  function handleDiscard(): void {
-    pendingChanges.clear();
-    setCommitError(undefined);
-  }
-
-  commitRef.current = () => {
-    if (ops.length > 0 && !committing) void handleCommit();
-  };
-
   return (
     <div className="flex h-full flex-col">
       {viewToggle}
@@ -299,7 +303,7 @@ export function TablesTab({
           matchingRowCount={rows.data.rowPage.total}
           page={page}
           canGoPrevious={page > 0}
-          canGoNext={rows.data.hasMore}
+          canGoNext={rows.data.hasMore && !rows.isPlaceholderData}
           onPrevious={() => onPageChange((current) => Math.max(0, current - 1))}
           onNext={() => onPageChange((current) => current + 1)}
           onRefresh={() => rows.refetch()}

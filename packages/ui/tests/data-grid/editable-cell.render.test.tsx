@@ -452,7 +452,7 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     expect(onCommit).toHaveBeenCalledWith("short now");
   });
 
-  it("auto-stages NULL for a nullable text column left empty, instead of an explicit toggle (F146)", () => {
+  it("commits an empty string, not NULL, for a nullable text column left empty", () => {
     const onCommit = vi.fn();
     render(
       <EditableCell
@@ -469,7 +469,7 @@ describe("EditableCell (component rendering, F103/F146)", () => {
     const input = screen.getByLabelText("value");
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(onCommit).toHaveBeenCalledWith(null);
+    expect(onCommit).toHaveBeenCalledWith("");
   });
 
   it("commits an empty string as-is for a non-nullable text column (there is no NULL to fall back to)", () => {

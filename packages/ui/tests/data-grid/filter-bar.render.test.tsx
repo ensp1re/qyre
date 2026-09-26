@@ -174,6 +174,42 @@ describe("FilterBar (F072)", () => {
     expect(onFiltersChange).toHaveBeenCalledWith([{ column: "name", op: "eq", value: "new" }]);
   });
 
+  it("resets the operator and value when an edited filter's column changes", () => {
+    const onFiltersChange = vi.fn();
+    render(
+      <FilterBar
+        columns={columns}
+        filters={[{ column: "name", op: "contains", value: "bob" }]}
+        onFiltersChange={onFiltersChange}
+      />
+    );
+
+    fireEvent.click(screen.getByTitle("Edit filter"));
+    fireEvent.click(screen.getByTitle("Change column"));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("id"));
+
+    expect(screen.queryByLabelText("Filter value")).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /contains/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: /^equals/ }));
+    expect(screen.getByLabelText("Filter value")).toHaveValue(null);
+  });
+
+  it("keeps the operator and value when the same column is picked again", () => {
+    render(
+      <FilterBar
+        columns={columns}
+        filters={[{ column: "name", op: "contains", value: "bob" }]}
+        onFiltersChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTitle("Edit filter"));
+    fireEvent.click(screen.getByTitle("Change column"));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Columns" })).getByText("name"));
+
+    expect(screen.getByLabelText("Filter value")).toHaveValue("bob");
+  });
+
   it("shows an AND separator and a Clear action once two filters are active", () => {
     const onFiltersChange = vi.fn();
     render(

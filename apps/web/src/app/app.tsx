@@ -37,6 +37,7 @@ import { SqlEditorTab } from "../features/query/ui/sql-editor-tab.js";
 import { useAllTables } from "../features/schema/model/use-all-tables.js";
 import { useOverview } from "../features/schema/model/use-overview.js";
 import { SchemaTab } from "../features/schema/ui/schema-tab.js";
+import { usePendingChanges } from "../features/table/model/editing/pending-changes.js";
 import { useRows } from "../features/table/model/data/use-rows.js";
 import { useTable } from "../features/table/model/data/use-table.js";
 import { TablesTab } from "../features/table/ui/tables-tab.js";
@@ -113,6 +114,10 @@ export function App(): ReactNode {
   }, [status, supportsSql]);
   const table = useTable(selected?.schema, selected?.table);
   const rows = useRows(selected?.schema, selected?.table, page, sort, filters, tableSearch);
+  // Staged edits outlive the Tables tab so switching workspace tabs never discards them.
+  const pendingChanges = usePendingChanges(
+    selected ? JSON.stringify([health?.target ?? null, selected.schema, selected.table]) : undefined
+  );
   const allTables = useAllTables({ enabled: status === "connected" });
   const completionTables = allTables.tables.map((table) => ({
     name: table.name,
@@ -206,11 +211,13 @@ export function App(): ReactNode {
   async function connectToNewTarget(raw: string): Promise<void> {
     const result = await connect.mutateAsync(raw);
     recentTargets.record(raw, result.target);
+    pendingChanges.clear();
     dispatch({ type: "connectionChanged" });
   }
 
   async function switchToDatabase(database: string): Promise<void> {
     await switchDatabase.mutateAsync(database);
+    pendingChanges.clear();
     dispatch({ type: "connectionChanged" });
   }
 
@@ -324,6 +331,7 @@ export function App(): ReactNode {
                     engine={overview.data?.engine}
                     capabilities={capabilities.data}
                     rows={rows}
+                    pendingChanges={pendingChanges}
                     page={page}
                     onPageChange={(update) => dispatch({ type: "pageChanged", page: update(page) })}
                     onNavigateToForeignKey={(reference, value) =>

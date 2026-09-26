@@ -170,7 +170,11 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
     in table layout while the input overlays it, so editing a long value never collapses or expands
     the column.
   - `text`: JSON string. Long-text families use a multiline editor; fixed/varying character
-    families use a single-line editor. An empty string remains distinct from `NULL`.
+    families use a single-line editor. An empty string remains distinct from `NULL`: clearing a
+    text cell or typing only spaces stages that exact string. `NULL` is staged for a nullable text
+    column only through the explicit Delete/Backspace action on the selected cell. A nullable
+    non-text inline editor (numeric, date, time, identifier, ...) whose empty draft is not a valid
+    value stages `NULL` when cleared.
   - `identifier`: JSON string. UUID columns additionally require the canonical hyphenated UUID
     shape before staging.
   - `numeric`: the UI sends an exact decimal string, not a JavaScript `number`, so integers beyond
@@ -273,7 +277,10 @@ re-introspects and validates the same contract before any adapter call.
 - Postgres/MySQL/SQLite share one editing model (exec plan decision 5, the "TablePlus model"):
   edits, inserts, and deletes made in the grid (F103-F105) stage into a **client-side pending-
   changes buffer scoped to the currently-selected table** - not a server round trip per keystroke or
-  per cell. The buffer lives in `features/table` model state (F103).
+  per cell. The buffer lives in `features/table` model state (F103), held by the app shell and
+  scoped to the connection target plus table, so switching workspace tabs (SQL, Schema, Settings)
+  and back keeps staged changes. Selecting another table, switching connection or database, and a
+  successful commit clear it.
   - Scoped per-table, not a cross-table global buffer, matching how TablePlus itself actually works
     (its "unsaved changes" indicator and commit action are per open tab, not a single app-wide
     buffer) - switching tables while a buffer is dirty is out of scope for this spec (see below),
@@ -316,8 +323,9 @@ matching insertRow/updateRowByKey/deleteRowsByKey's own shape }`. A single endpo
 - Multi-table pending buffers / multiple simultaneous open table tabs. The API (single commit
   endpoint) doesn't block this later, but the UI (F103-F105) and this spec's UX only cover one
   table's buffer at a time.
-- Warning or auto-saving a dirty buffer when switching tables/tabs/navigating away. Revisit with
-  real usage data; today the buffer is simply per-table state that isn't carried anywhere.
+- Warning or auto-saving a dirty buffer when switching tables/navigating away. Revisit with
+  real usage data; today the buffer is per-table state that survives workspace-tab switches but is
+  not carried to another table.
 - Undo/redo within the buffer beyond a per-cell "revert" (F103 already covers reverting a single
   staged cell edit before commit).
 

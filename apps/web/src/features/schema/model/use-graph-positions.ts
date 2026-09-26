@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   readVersionedStorage,
   removeStoredValue,
@@ -17,21 +17,29 @@ export function useGraphPositions(databaseKey: string): {
   savePositions: (updates: SavedPositions) => void;
   clearPositions: () => void;
 } {
-  const [positions, setPositions] = useState<SavedPositions>(() => read(databaseKey));
+  const [state, setState] = useState(() => ({ databaseKey, positions: read(databaseKey) }));
+  const positions = state.databaseKey === databaseKey ? state.positions : read(databaseKey);
+
+  useEffect(() => {
+    setState((current) =>
+      current.databaseKey === databaseKey ? current : { databaseKey, positions: read(databaseKey) }
+    );
+  }, [databaseKey]);
 
   const savePositions = useCallback(
     (updates: SavedPositions) => {
-      setPositions((current) => {
-        const next = { ...current, ...updates };
+      setState((current) => {
+        const base = current.databaseKey === databaseKey ? current.positions : read(databaseKey);
+        const next = { ...base, ...updates };
         writeVersionedStorage(localStorage, storageConfig(databaseKey), next);
-        return next;
+        return { databaseKey, positions: next };
       });
     },
     [databaseKey]
   );
 
   const clearPositions = useCallback(() => {
-    setPositions({});
+    setState({ databaseKey, positions: {} });
     removeStoredValue(localStorage, storageKey(databaseKey));
   }, [databaseKey]);
 

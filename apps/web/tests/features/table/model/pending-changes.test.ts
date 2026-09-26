@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   applyAddInsert,
@@ -11,7 +13,8 @@ import {
   computeRowKey,
   countPendingEdits,
   type PendingEdits,
-  type PendingInserts
+  type PendingInserts,
+  usePendingChanges
 } from "../../../../src/features/table/model/editing/pending-changes.js";
 
 describe("applyStageEdit / applyRevertEdit (F103)", () => {
@@ -179,5 +182,38 @@ describe("applyRemoveRowEdits (F105)", () => {
   it("is a no-op for a row with no staged edits, returning the same reference", () => {
     const edits: PendingEdits = new Map();
     expect(applyRemoveRowEdits(edits, "row-1")).toBe(edits);
+  });
+});
+
+describe("usePendingChanges scope", () => {
+  it("keeps staged changes across re-renders of the same table scope", () => {
+    const { result, rerender } = renderHook(({ scope }) => usePendingChanges(scope), {
+      initialProps: { scope: "db|public.users" }
+    });
+    act(() => {
+      result.current.stageEdit("row-1", "name", "Ada", "Grace");
+      result.current.addInsert({ name: "Linus" });
+    });
+    rerender({ scope: "db|public.users" });
+
+    expect(result.current.getEdit("row-1", "name")).toEqual({ original: "Ada", next: "Grace" });
+    expect(result.current.inserts).toHaveLength(1);
+  });
+
+  it("drops the buffer when the connection or table scope changes", () => {
+    const { result, rerender } = renderHook(
+      ({ scope }: { scope: string | undefined }) => usePendingChanges(scope),
+      { initialProps: { scope: "db-a|public.users" as string | undefined } }
+    );
+    act(() => {
+      result.current.stageDelete("row-1");
+    });
+
+    rerender({ scope: "db-b|public.users" });
+    expect(result.current.deletes.size).toBe(0);
+
+    rerender({ scope: undefined });
+    rerender({ scope: "db-a|public.users" });
+    expect(result.current.deletes.size).toBe(0);
   });
 });

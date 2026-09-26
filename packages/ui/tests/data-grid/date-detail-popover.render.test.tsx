@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DateDetailPopover,
   formatRelativeTime
@@ -56,5 +56,40 @@ describe("DateDetailPopover", () => {
     );
     fireEvent.click(screen.getByLabelText("Copy UTC"));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith("2024-01-15T10:30:00.000Z");
+  });
+});
+
+describe("DateDetailPopover for zone-less values", () => {
+  const originalTz = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "America/Los_Angeles";
+  });
+  afterAll(() => {
+    process.env.TZ = originalTz;
+  });
+
+  it("shows a DATE as written instead of shifting it through UTC midnight", () => {
+    render(<DateDetailPopover value="2024-05-01" anchorRect={ANCHOR} onClose={vi.fn()} />);
+    expect(screen.getByText("2024-05-01")).toBeInTheDocument();
+    expect(screen.getByText(/no time zone/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Apr 30/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Copy UTC")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Copy Unix epoch")).not.toBeInTheDocument();
+  });
+
+  it("does not claim a UTC instant or epoch for a timestamp without a zone", () => {
+    render(
+      <DateDetailPopover value="2024-05-01 23:30:00.123" anchorRect={ANCHOR} onClose={vi.fn()} />
+    );
+    expect(screen.getByText("2024-05-01 23:30:00.123")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Copy UTC")).not.toBeInTheDocument();
+    expect(screen.queryByText(/2024-05-02T/)).not.toBeInTheDocument();
+  });
+
+  it("still converts a timestamp that carries an explicit offset", () => {
+    render(
+      <DateDetailPopover value="2024-05-01T23:30:00-07:00" anchorRect={ANCHOR} onClose={vi.fn()} />
+    );
+    expect(screen.getByText("2024-05-02T06:30:00.000Z")).toBeInTheDocument();
   });
 });

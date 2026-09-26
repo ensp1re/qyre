@@ -15,4 +15,6 @@ export interface ConnectionFields {
   password: string;
   database: string;
   srv: boolean;
+  /** URL query options without the leading `?`, e.g. `sslmode=require`. */
+  options?: string;
 }

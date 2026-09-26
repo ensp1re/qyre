@@ -260,19 +260,24 @@ export function TimeSegments({
   });
   const hourRef = useRef<HTMLInputElement>(null);
   const minuteRef = useRef<HTMLInputElement>(null);
+  const emittedRef = useRef(value);
 
+  // Only an external value change resyncs the segments; echoes of our own "" keep partial input.
   useEffect(() => {
+    if (value === emittedRef.current) return;
+    emittedRef.current = value;
     const parts = parseTimePart(value);
     setHour(parts ? pad(parts.hour) : "");
     setMinute(parts ? pad(parts.minute) : "");
   }, [value]);
 
   function commit(nextHour: string, nextMinute: string): void {
-    if (nextHour.length === 2 && nextMinute.length === 2) {
-      onChange(`${pad(Math.min(23, Number(nextHour)))}:${pad(Math.min(59, Number(nextMinute)))}`);
-    } else {
-      onChange("");
-    }
+    const next =
+      nextHour.length === 2 && nextMinute.length === 2
+        ? `${pad(Math.min(23, Number(nextHour)))}:${pad(Math.min(59, Number(nextMinute)))}`
+        : "";
+    emittedRef.current = next;
+    onChange(next);
   }
 
   function handleHour(raw: string): void {
@@ -368,7 +373,59 @@ export function DateTimeInput({
     );
   }
 
-  const [datePart = "", timePart = ""] = value ? value.split("T") : [];
+  return (
+    <DateTimeSegments
+      id={id}
+      value={value}
+      onChange={onChange}
+      onEnter={onEnter}
+      autoFocus={autoFocus}
+      ariaDescribedBy={ariaDescribedBy}
+      ariaInvalid={ariaInvalid}
+    />
+  );
+}
+
+function splitDateTime(value: string): { date: string; time: string } {
+  const [date = "", time = ""] = value ? value.split("T") : [];
+  return { date, time };
+}
+
+function DateTimeSegments({
+  id,
+  value,
+  onChange,
+  onEnter,
+  autoFocus,
+  ariaDescribedBy,
+  ariaInvalid
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  onEnter?: () => void;
+  autoFocus?: boolean;
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
+}): ReactNode {
+  const [parts, setParts] = useState(() => splitDateTime(value));
+  const [timeIncomplete, setTimeIncomplete] = useState(false);
+  const emittedRef = useRef(value);
+
+  // The emitted value is "" until both halves are complete, so the halves themselves stay local.
+  useEffect(() => {
+    if (value === emittedRef.current) return;
+    emittedRef.current = value;
+    setParts(splitDateTime(value));
+    setTimeIncomplete(false);
+  }, [value]);
+
+  function emit(date: string, time: string): void {
+    setParts({ date, time });
+    const next = date && time ? `${date}T${time}` : "";
+    emittedRef.current = next;
+    onChange(next);
+  }
 
   return (
     <div
@@ -380,20 +437,19 @@ export function DateTimeInput({
       className="flex flex-col gap-1.5"
     >
       <DatePicker
-        value={datePart}
+        value={parts.date}
         autoFocus={autoFocus}
-        onChange={(nextDate) => {
-          if (!nextDate) {
-            onChange("");
-            return;
-          }
-          onChange(`${nextDate}T${timePart || "00:00"}`);
-        }}
+        onChange={(nextDate) =>
+          emit(nextDate, parts.time || (nextDate && !timeIncomplete ? "00:00" : ""))
+        }
       />
       <TimeSegments
-        value={timePart}
+        value={parts.time}
         onEnter={onEnter}
-        onChange={(nextTime) => onChange(datePart && nextTime ? `${datePart}T${nextTime}` : "")}
+        onChange={(nextTime) => {
+          setTimeIncomplete(!nextTime);
+          emit(parts.date, nextTime);
+        }}
       />
     </div>
   );

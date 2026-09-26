@@ -33,6 +33,17 @@ describe("DateDetailPopover", () => {
     expect(screen.getByText(/1705314600s/)).toBeInTheDocument();
   });
 
+  it("converts Postgres timestamptz text with microseconds and a compact offset", () => {
+    render(
+      <DateDetailPopover
+        value="2024-01-15 10:30:00.123456+0530"
+        anchorRect={ANCHOR}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByText("2024-01-15T05:00:00.123Z")).toBeInTheDocument();
+  });
+
   it("shows a graceful fallback for a value that isn't a parseable date", () => {
     render(<DateDetailPopover value="not-a-date" anchorRect={ANCHOR} onClose={vi.fn()} />);
     expect(screen.getByText(/Could not parse/)).toBeInTheDocument();

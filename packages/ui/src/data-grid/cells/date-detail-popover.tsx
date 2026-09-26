@@ -1,6 +1,7 @@
 import { Check, Copy, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { parseTimestampInstant } from "@qyre/core/mutation-editor-values";
 
 export interface DateDetailPopoverProps {
   value: unknown;
@@ -91,7 +92,11 @@ export function DateDetailPopover({
 }: DateDetailPopoverProps): ReactNode {
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
   const zoneless = isZonelessValue(value);
-  const date = value instanceof Date ? value : new Date(String(value));
+  // Postgres text such as `2024-01-01 10:00:00+00` is not an ISO form every browser parses.
+  const date =
+    value instanceof Date
+      ? value
+      : (parseTimestampInstant(String(value)) ?? new Date(String(value)));
   const valid = !zoneless && !Number.isNaN(date.getTime());
 
   useEffect(() => {

@@ -1,6 +1,5 @@
 import { DATABASE_ENGINES } from "@qyre/core";
 import type { ColumnMetadata, MutationOp, TableMetadata, TableReference } from "@qyre/core";
-import { classifyFilterColumnKind, type FilterColumnKind } from "@qyre/core/filter-capabilities";
 import { mutationEditorCapability } from "@qyre/core/mutation-editor-capabilities";
 import { isExactNumericText, validateMutationValue } from "@qyre/core/mutation-editor-values";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
@@ -41,59 +40,6 @@ export function assertMutable(
   }
 }
 
-function coerceRowValue(
-  kind: FilterColumnKind,
-  value: unknown,
-  nullable: boolean,
-  columnName: string
-): unknown {
-  if (value === null) {
-    if (!nullable) throw badRequest(`Column "${columnName}" is not nullable.`);
-    return null;
-  }
-  switch (kind) {
-    case "text":
-    case "identifier":
-      if (typeof value !== "string") throw badRequest(`Column "${columnName}" expects a string.`);
-      return value;
-    case "numeric":
-      if (typeof value !== "number" && !(typeof value === "string" && isExactNumericText(value))) {
-        throw badRequest(`Column "${columnName}" expects an exact number.`);
-      }
-      return value;
-    case "boolean":
-      if (typeof value !== "boolean") throw badRequest(`Column "${columnName}" expects a boolean.`);
-      return value;
-    case "date":
-    case "time":
-    case "datetime":
-      if (typeof value !== "string" || Number.isNaN(new Date(value).getTime())) {
-        throw badRequest(`Column "${columnName}" expects an ISO-8601 date/time string.`);
-      }
-      return value;
-    case "objectId": {
-      const objectId =
-        typeof value === "string"
-          ? value
-          : value &&
-              typeof value === "object" &&
-              "$oid" in value &&
-              typeof (value as { $oid?: unknown }).$oid === "string"
-            ? (value as { $oid: string }).$oid
-            : legacyObjectIdText(value);
-      if (!objectId || !/^[0-9a-f]{24}$/i.test(objectId)) {
-        throw badRequest(`Column "${columnName}" expects a 24-character hex ObjectId string.`);
-      }
-      return objectId.toLowerCase();
-    }
-    case "null":
-    case "structured":
-    case "binary":
-    case "unknown":
-      throw badRequest(`Column "${columnName}" (${kind}) is not editable.`);
-  }
-}
-
 function resolveEditableValue(
   column: ColumnMetadata,
   value: unknown,
@@ -124,7 +70,58 @@ function resolveEditableValue(
   return result.value;
 }
 
-function mongoInsertNumber(value: unknown, columnName: string): unknown {
+function objectIdKeyText(value: unknown): string | undefined {
+  const text =
+    value &&
+    typeof value === "object" &&
+    "$oid" in value &&
+    typeof (value as { $oid?: unknown }).$oid === "string"
+      ? (value as { $oid: string }).$oid
+      : legacyObjectIdText(value);
+  return text && /^[0-9a-f]{24}$/i.test(text) ? text.toLowerCase() : undefined;
+}
+
+/**
+ * Resolve a MongoDB `_id` to the adapter's typed key form: `{ $oid }` targets an ObjectId, a plain
+ * string or number targets that exact value, `{ $numberLong }` targets a 64-bit integer, and
+ * `{ $numberDecimal }` targets a Decimal128.
+ */
+function resolveMongoDocumentKey(column: ColumnMetadata, value: unknown): unknown {
+  const type = column.dataType.trim().toLowerCase();
+  const objectId =
+    typeof value === "string" && /^[0-9a-f]{24}$/i.test(value)
+      ? value.toLowerCase()
+      : objectIdKeyText(value);
+  if (type === "objectid") {
+    if (!objectId) {
+      throw badRequest(`Column "${column.name}" expects a 24-character hex ObjectId string.`);
+    }
+    return { $oid: objectId };
+  }
+  if (type === "string") {
+    if (typeof value !== "string") throw badRequest(`Column "${column.name}" expects a string.`);
+    return value;
+  }
+  if (type === "number") {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value !== "string" || !isExactNumericText(value)) {
+      throw badRequest(`Column "${column.name}" expects an exact number.`);
+    }
+    const text = value.trim();
+    // Int32/Double keys display as JSON numbers; only Long and Decimal128 keys display as text,
+    // and a Decimal128 does not equal its nearest Double.
+    return /^[+-]?\d+$/.test(text)
+      ? mongoInsertNumber(text, column.name)
+      : { $numberDecimal: text };
+  }
+  // Grid rows show ObjectIds as hex text, so hex text in a mixed-type `_id` targets an ObjectId.
+  if (objectId) return { $oid: objectId };
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  throw badRequest(`Column "${column.name}" expects an ObjectId, string, or number document key.`);
+}
+
+export function mongoInsertNumber(value: unknown, columnName: string): unknown {
   const text = String(value);
   if (/^[+-]?\d+$/.test(text)) {
     const integer = BigInt(text);
@@ -280,8 +277,7 @@ export function resolveKey(
       throw badRequest("Rows with a NULL primary key cannot be targeted.");
     }
     if (engine === DATABASE_ENGINES.mongodb) {
-      const kind = classifyFilterColumnKind(column.dataType, engine);
-      resolved[column.name] = coerceRowValue(kind, key[column.name], column.nullable, column.name);
+      resolved[column.name] = resolveMongoDocumentKey(column, key[column.name]);
     } else {
       resolved[column.name] = resolveEditableValue(column, key[column.name], engine);
     }

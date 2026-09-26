@@ -20,7 +20,7 @@ Two distinct problems, both real:
    `ReadOnlyViolationError` (returns `{ error: message }` with a 400). Any other failure - a bad
    table name, a syntax error, a genuine Postgres error - is re-thrown raw and falls through to
    Fastify's _default_ error handler, which returns `{ statusCode, error: "Internal Server Error",
-message: "<actual detail>" }`. `apps/web/src/api/query.ts` reads `body.error` (the reason phrase,
+message: "<actual detail>" }`. `apps/web/src/features/query/api/query.ts` reads `body.error` (the reason phrase,
    literally the string `"Internal Server Error"`) instead of `body.message` (where the real,
    useful Postgres error text - `relation "orders_items" does not exist` - actually is). So even
    when the server responds cleanly, the developer sees a useless generic message instead of the
@@ -59,7 +59,7 @@ In scope:
 - **UI**: a new shared `ErrorState` component (`packages/ui`) - occupies the same visual footprint a
   loaded/empty view of that same component would (not a floating sentence above empty space),
   message centered, with a Retry action. Replaces the current bespoke inline error blocks in
-  `apps/web/src/App.tsx` for: `QueryRunner`'s result area, `RowsTable` (Tables tab), `SchemaGrid`
+  `apps/web/src/app/app.tsx` for: `QueryRunner`'s result area, `RowsTable` (Tables tab), `SchemaGrid`
   (Schema tab), `FilesBrowser` (Files tab, both the tree-load failure and a single file's content-load
   failure), and `ConsoleLog` (Console tab).
 - **UI**: distinguish "the server responded with an error" (show the real message) from "the request

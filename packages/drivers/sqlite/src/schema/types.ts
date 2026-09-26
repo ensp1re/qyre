@@ -7,6 +7,10 @@ export interface TableInfoRow {
   pk: number;
 }
 
+export interface TableXInfoRow extends TableInfoRow {
+  hidden: number;
+}
+
 export interface ForeignKeyListRow {
   id: number;
   seq: number;

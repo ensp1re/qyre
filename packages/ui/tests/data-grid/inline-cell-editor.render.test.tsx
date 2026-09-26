@@ -104,7 +104,7 @@ describe("InlineCellEditor (F146)", () => {
     expect(onApply).toHaveBeenCalledWith(true);
   });
 
-  it("auto-stages NULL when a nullable field's text is cleared and left (no separate NULL button)", () => {
+  it("keeps an empty or blank string distinct from NULL for a nullable text column", () => {
     const onApply = vi.fn();
     render(
       <InlineCellEditor
@@ -116,6 +116,55 @@ describe("InlineCellEditor (F146)", () => {
     );
     expect(screen.queryByRole("button", { name: "NULL" })).not.toBeInTheDocument();
     const input = screen.getByLabelText("nickname");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onApply).toHaveBeenLastCalledWith("");
+  });
+
+  it("stages whitespace-only text unchanged for a nullable text column", () => {
+    const onApply = vi.fn();
+    render(
+      <InlineCellEditor
+        column={{ name: "nickname", dataType: "text", nullable: true }}
+        originalValue="Ada"
+        onApply={onApply}
+        onCancel={vi.fn()}
+      />
+    );
+    const input = screen.getByLabelText("nickname");
+    fireEvent.change(input, { target: { value: "  " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onApply).toHaveBeenCalledWith("  ");
+  });
+
+  it("stages NULL when a nullable typed field is cleared, since empty is not a valid value", () => {
+    const onApply = vi.fn();
+    render(
+      <InlineCellEditor
+        column={{ name: "day", dataType: "date", nullable: true }}
+        originalValue="2024-05-01"
+        onApply={onApply}
+        onCancel={vi.fn()}
+      />
+    );
+    const input = screen.getByLabelText("day");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onApply).toHaveBeenCalledWith(null);
+  });
+
+  it("stages NULL, not an empty string, when a nullable network column is cleared", () => {
+    const onApply = vi.fn();
+    render(
+      <InlineCellEditor
+        column={{ name: "addr", dataType: "inet", nullable: true }}
+        engine="postgres"
+        originalValue="10.0.0.1"
+        onApply={onApply}
+        onCancel={vi.fn()}
+      />
+    );
+    const input = screen.getByLabelText("addr");
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onApply).toHaveBeenCalledWith(null);

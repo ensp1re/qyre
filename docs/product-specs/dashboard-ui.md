@@ -5,7 +5,7 @@ backend/data contracts, this spec describes the **UI shape** that sits on top of
 agnostic, applies identically to every `packages/drivers/<engine>` Qyre supports. Source design:
 `docs/references/design-system.md` (tokens) and `github.com/ensp1re/UserDashboard` (private,
 Figma Make export). Tracked as the `DF-##` series in `docs/FEATURES.json` - see
-`docs/exec-plans/active/0003-dashboard-ui.md` for the work breakdown.
+`docs/exec-plans/completed/0003-dashboard-ui.md` for the work breakdown.
 
 ## One-sentence promise
 
@@ -42,7 +42,9 @@ A single-page app shell:
 - **Tables**: paginated row browser (ports `RowsTable`) with client-side search/sort over the
   fetched page. Next is only enabled when a next page actually has rows - `useRows` probes the next
   page's offset alongside the current page's fetch, instead of guessing `hasMore` from
-  `rows.length === pageSize` (wrong exactly on an exact-page-size boundary, F036). Row rendering is
+  `rows.length === pageSize` (wrong exactly on an exact-page-size boundary, F036). While the next
+  page loads and the previous page is still shown as placeholder data, Next stays disabled so a
+  fast repeat click cannot overshoot past the last page. Row rendering is
   virtualized (`@tanstack/react-virtual`, F051) - only visible rows (plus overscan) mount as DOM
   nodes, so a wide table doesn't mount thousands of cells. No write affordances (see "Out of
   scope").

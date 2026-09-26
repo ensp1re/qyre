@@ -18,6 +18,8 @@ import {
   assertReadOnly,
   capResultRows,
   classifyExplainTarget,
+  keyRowsByColumn,
+  MAX_QUERY_RESULT_ROWS,
   ReadOnlyViolationError,
   resolvePageRequest
 } from "@qyre/driver-contract";
@@ -51,6 +53,7 @@ import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "../writ
 import { classifySqlitePermissionDenied } from "../access/permission-errors.js";
 import { normalizeRow } from "./row-values.js";
 import { formatSqlInsert, streamRows } from "../query/row-export.js";
+import { buildRowOrderBy } from "../query/row-order.js";
 import { buildFilterClause, quoteIdent } from "../query/sql.js";
 
 /** Load the optional native SQLite binding only when SQLite is used. */
@@ -126,10 +129,14 @@ export class SqliteAdapter implements DatabaseAdapter {
   formatSqlInsert(
     _schema: string,
     table: string,
-    columns: readonly string[],
+    columns: readonly ColumnMetadata[],
     row: Record<string, unknown>
   ): string {
-    return formatSqlInsert(table, columns, row);
+    return formatSqlInsert(
+      table,
+      columns.map((column) => column.name),
+      row
+    );
   }
 
   async connect(): Promise<void> {
@@ -207,9 +214,7 @@ export class SqliteAdapter implements DatabaseAdapter {
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     // sort.column is already validated by the caller against the table's real columns.
-    const orderBy = sort
-      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
-      : "";
+    const orderBy = buildRowOrderBy(this.getDb(), table, sort);
     const { clause: whereClause, params: filterParams } = buildFilterClause(filters, search);
 
     const stmt = this.getDb()
@@ -239,17 +244,26 @@ export class SqliteAdapter implements DatabaseAdapter {
   }
 
   async runReadOnlyQuery(sql: string): Promise<RowPage> {
-    assertReadOnly(sql);
+    assertReadOnly(sql, "sqlite");
 
     // Enforce SQLite's authoritative read-only guard for this query.
     const db = this.getDb();
     db.pragma("query_only = 1");
     try {
-      const stmt = db.prepare(capResultRows(sql)).safeIntegers(true);
-      const rows = (stmt.all() as Array<Record<string, unknown>>).map(normalizeRow);
+      // The cap wrapper renames repeated columns (`id:1`), so name them from the original query.
+      const names = db
+        .prepare(sql)
+        .columns()
+        .map((column) => column.name);
+      const stmt = db
+        .prepare(capResultRows(sql, MAX_QUERY_RESULT_ROWS, "sqlite"))
+        .safeIntegers(true)
+        .raw(true);
+      const result = keyRowsByColumn(names, stmt.all() as unknown[][]);
+      const rows = result.rows.map(normalizeRow);
 
       return {
-        columns: stmt.columns().map((column) => column.name),
+        columns: result.columns,
         rows,
         page: 0,
         pageSize: rows.length
@@ -264,12 +278,12 @@ export class SqliteAdapter implements DatabaseAdapter {
     // Leave writes uncapped; the read row-cap wrapper cannot wrap them safely.
     const stmt = this.getDb().prepare(sql).safeIntegers(true);
     if (stmt.reader) {
-      const rows = (stmt.all() as Array<Record<string, unknown>>).map(normalizeRow);
-      return {
-        columns: stmt.columns().map((column) => column.name),
-        rows,
-        rowsAffected: rows.length
-      };
+      const result = keyRowsByColumn(
+        stmt.columns().map((column) => column.name),
+        stmt.raw(true).all() as unknown[][]
+      );
+      const rows = result.rows.map(normalizeRow);
+      return { columns: result.columns, rows, rowsAffected: rows.length };
     }
     const info = stmt.run();
     return { columns: [], rows: [], rowsAffected: info.changes };
@@ -279,7 +293,7 @@ export class SqliteAdapter implements DatabaseAdapter {
     if (analyze) {
       throw new ReadOnlyViolationError("EXPLAIN ANALYZE is only supported for PostgreSQL.");
     }
-    const classification = classifyExplainTarget(sql, false);
+    const classification = classifyExplainTarget(sql, false, "sqlite");
     const db = this.getDb();
     db.pragma("query_only = 1");
     try {

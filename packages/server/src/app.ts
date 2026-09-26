@@ -2,6 +2,7 @@ import { DEFAULT_PORT } from "@qyre/core";
 import multipart from "@fastify/multipart";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
+import type { AddressInfo } from "node:net";
 import type {
   CreateServerOptions,
   RunningServer,
@@ -50,6 +51,10 @@ export type {
 } from "./types/server.js";
 
 export function createServer(options: CreateServerOptions = {}): FastifyInstance {
+  return buildServer(options).app;
+}
+
+function buildServer(options: CreateServerOptions): { app: FastifyInstance; ctx: ServerContext } {
   const app = Fastify({ logger: buildLoggerOptions(options.logger) });
   const authToken = options.authToken ?? generateAuthToken();
   app.decorate("authToken", authToken);
@@ -91,20 +96,22 @@ export function createServer(options: CreateServerOptions = {}): FastifyInstance
 
   registerStaticWeb(app, options.webRoot, authToken);
 
-  return app;
+  return { app, ctx };
 }
 
 export async function startServer(options: StartServerOptions = {}): Promise<RunningServer> {
   const eventLog = options.eventLog ?? new EventLog();
-  const app = createServer({ ...options, eventLog });
-  const port = options.port ?? DEFAULT_PORT;
+  const { app, ctx } = buildServer({ ...options, eventLog });
   const host = options.host ?? "127.0.0.1";
-  await app.listen({ port, host });
+  await app.listen({ port: options.port ?? DEFAULT_PORT, host });
+  // Port 0 asks the OS for a free port, so the URL must use the bound one.
+  const { port } = app.server.address() as AddressInfo;
   return {
     app,
     url: `http://${host}:${port}`,
     eventLog,
     authToken: app.authToken,
+    currentAdapter: () => ctx.adapter,
     close: () => app.close()
   };
 }

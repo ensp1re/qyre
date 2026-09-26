@@ -28,7 +28,7 @@ export function createStreamGuidedLoginIO(
       function finish(value: string): void {
         if (masked && rawModeCapable) input.setRawMode?.(false);
         output.write("\n");
-        resolve(value.trim());
+        resolve(masked ? value : value.trim());
       }
 
       function consume(text: string): boolean {

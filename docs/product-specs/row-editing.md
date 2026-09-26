@@ -98,9 +98,9 @@ capabilities.md`) **and** the table's own `TablePermissions.insert`/`update`/`de
   }
 
   export interface InsertRowResult {
-    /** The inserted row, when the engine can report it (Postgres `RETURNING *`, MySQL re-fetched by
-     * `insertId`, MongoDB the inserted document). Absent only if the engine truly cannot - never
-     * guessed or partially reconstructed client-side. */
+    /** The inserted row, when the engine can report it (Postgres and SQLite `RETURNING *`, MySQL
+     * re-fetched by `insertId`, MongoDB the inserted document). Absent only if the engine truly
+     * cannot - never guessed or partially reconstructed client-side. */
     readonly row?: Record<string, unknown>;
   }
   export interface UpdateRowResult {
@@ -170,7 +170,11 @@ Record<string, unknown> }` (SQL) or `{ key: { _id: string }; document: <EJSON> }
     in table layout while the input overlays it, so editing a long value never collapses or expands
     the column.
   - `text`: JSON string. Long-text families use a multiline editor; fixed/varying character
-    families use a single-line editor. An empty string remains distinct from `NULL`.
+    families use a single-line editor. An empty string remains distinct from `NULL`: clearing a
+    text cell or typing only spaces stages that exact string. `NULL` is staged for a nullable text
+    column only through the explicit Delete/Backspace action on the selected cell. A nullable
+    non-text inline editor (numeric, date, time, identifier, ...) whose empty draft is not a valid
+    value stages `NULL` when cleared.
   - `identifier`: JSON string. UUID columns additionally require the canonical hyphenated UUID
     shape before staging.
   - `numeric`: the UI sends an exact decimal string, not a JavaScript `number`, so integers beyond
@@ -273,7 +277,10 @@ re-introspects and validates the same contract before any adapter call.
 - Postgres/MySQL/SQLite share one editing model (exec plan decision 5, the "TablePlus model"):
   edits, inserts, and deletes made in the grid (F103-F105) stage into a **client-side pending-
   changes buffer scoped to the currently-selected table** - not a server round trip per keystroke or
-  per cell. The buffer lives in `features/table` model state (F103).
+  per cell. The buffer lives in `features/table` model state (F103), held by the app shell and
+  scoped to the connection target plus table, so switching workspace tabs (SQL, Schema, Settings)
+  and back keeps staged changes. Selecting another table, switching connection or database, and a
+  successful commit clear it.
   - Scoped per-table, not a cross-table global buffer, matching how TablePlus itself actually works
     (its "unsaved changes" indicator and commit action are per open tab, not a single app-wide
     buffer) - switching tables while a buffer is dirty is out of scope for this spec (see below),
@@ -316,8 +323,9 @@ matching insertRow/updateRowByKey/deleteRowsByKey's own shape }`. A single endpo
 - Multi-table pending buffers / multiple simultaneous open table tabs. The API (single commit
   endpoint) doesn't block this later, but the UI (F103-F105) and this spec's UX only cover one
   table's buffer at a time.
-- Warning or auto-saving a dirty buffer when switching tables/tabs/navigating away. Revisit with
-  real usage data; today the buffer is simply per-table state that isn't carried anywhere.
+- Warning or auto-saving a dirty buffer when switching tables/navigating away. Revisit with
+  real usage data; today the buffer is per-table state that survives workspace-tab switches but is
+  not carried to another table.
 - Undo/redo within the buffer beyond a per-cell "revert" (F103 already covers reverting a single
   staged cell edit before commit).
 
@@ -327,10 +335,15 @@ matching insertRow/updateRowByKey/deleteRowsByKey's own shape }`. A single endpo
 
 - MongoDB collections use the same selection, double-click/Enter/F2 activation, typed editors, Add
   row, Duplicate row, staged delete, Commit bar, and discard/revert interactions as SQL tables.
-  `_id` is the row key: ObjectIds cross the adapter boundary as stable lowercase hexadecimal text,
-  and the server also normalizes the safe Extended JSON `{ "$oid": "..." }` wire form plus the
-  exact legacy 12-byte buffer shape emitted by an already-open pre-fix browser session. `_id` may
-  be supplied on insert but is immutable afterward.
+  `_id` is the row key, typed from the sampled `_id` BSON type (an empty sample means ObjectId).
+  The browser sends ObjectIds as lowercase hexadecimal text (the server also accepts the Extended
+  JSON `{ "$oid": "..." }` form and the exact legacy 12-byte buffer shape emitted by an
+  already-open pre-fix browser session); the server resolves every key to a typed adapter key:
+  `{ "$oid": "..." }` for an ObjectId, `{ "$numberLong": "..." }` for a 64-bit integer beyond
+  2^53, and a plain string or number otherwise, so a 24-hex string `_id` is never targeted as an
+  ObjectId. In a mixed-type `_id` collection, 24-hex text is resolved as an ObjectId because the
+  grid cannot distinguish the two. Malformed keys are `400`, never a driver error. `_id` may be
+  supplied on insert but is immutable afterward.
 - Sampled field metadata selects the editor. Plain objects and arrays use the shared structured
   drawer; strings, numbers, booleans, dates, ObjectIds, and binary values reuse the corresponding
   scalar or full-value editor. BSON regex, timestamp, code, MinKey, and MaxKey values use validated
@@ -341,11 +354,25 @@ matching insertRow/updateRowByKey/deleteRowsByKey's own shape }`. A single endpo
   Inserts are converted to relaxed EJSON/BSON server-side. Updates send `key`, `changes`, each
   changed field's `originalValues`, and `missingOriginalFields` for fields absent in the loaded
   document.
-- Updates use `$set` for changed top-level fields only. The adapter reads the current document,
-  checks every edited field against the value originally displayed, preserves that field's current
-  BSON type recursively where possible, and includes the current BSON values in the update filter.
-  A same-field concurrent change therefore returns `matched: 0`; unrelated concurrent fields are
-  neither overwritten nor treated as conflicts.
+- Updates use `$set` for changed top-level fields only. The adapter reads the current document
+  without promoting numeric wrappers, checks every edited field against the value originally
+  displayed, preserves that field's current BSON type recursively where possible, and includes the
+  current BSON values in the update filter. A same-field concurrent change therefore returns
+  `matched: 0`; unrelated concurrent fields are neither overwritten nor treated as conflicts.
+- Top-level numeric and date edits keep their exact type or fail with `400`: Int64 accepts only
+  base-10 integer text within the signed 64-bit range; Int32 stays Int32 when the value fits and
+  otherwise widens to Int64 or Double; Double stays Double; Decimal128 must be exactly
+  representable; dates must be exact instants (numeric offsets such as `+05` are normalized
+  before parsing). Nested values inside structured fields keep their current type when the new
+  value fits and are otherwise stored as written. A value appended to an array takes the BSON
+  type all existing elements share (ObjectId, Date, or one numeric type) when it fits that type.
+- Whole-document replacement (the adapter compatibility path) reads documents as readable relaxed
+  Extended JSON that is still lossless: every Int64 and every integral Double is written in
+  canonical form (`{"$numberLong": "5"}`, `{"$numberDouble": "1.0"}`) and saved text is read with
+  canonical number semantics, so untouched values keep their BSON types. The replace itself is
+  guarded by the loaded document (`$expr` equality with `$$ROOT`), so a write between the check and
+  the replace reports `matched: 0`. Documents with integer-like field names, whose stored order a
+  JavaScript object cannot reproduce, keep only the read-then-compare check.
 - MongoDB is schemaless, but the grid can only author sampled columns it can display. An untouched
   field is omitted on insert. `_id` may be omitted so MongoDB generates it. New unsampled field
   authoring and field removal require a future schema-free composer rather than overloading SQL's

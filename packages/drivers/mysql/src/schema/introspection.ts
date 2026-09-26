@@ -231,24 +231,39 @@ async function fetchAllIndexes(pool: mysql.Pool): Promise<Map<string, IndexMetad
   return indexesByTable;
 }
 
+/** Exact count, or undefined when the table cannot be scanned (for example an INSERT-only grant or
+ * a concurrent DROP). One such table must not fail the whole catalog. */
+function countRowsOrUnknown(
+  pool: mysql.Pool,
+  schema: string,
+  table: string
+): Promise<number | undefined> {
+  return pool
+    .query<mysql.RowDataPacket[]>(
+      `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
+    )
+    .then(
+      ([rows]) => Number((rows[0] as { count: number | string }).count),
+      () => undefined
+    );
+}
+
+const ROW_COUNT_CONCURRENCY = 4;
+
 async function fetchAllRowCounts(
   pool: mysql.Pool,
   allTargets: TableTarget[]
-): Promise<Map<string, number>> {
-  const rowCountByTable = new Map<string, number>();
+): Promise<Map<string, number | undefined>> {
+  const rowCountByTable = new Map<string, number | undefined>();
   const targets = allTargets.filter((target) => target.kind !== "view");
-  if (targets.length === 0) return rowCountByTable;
-  const unionSql = targets
-    .map(
-      ({ schema, table }) =>
-        `SELECT ? AS table_schema, ? AS table_name, COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
-    )
-    .join(" UNION ALL ");
-  const params = targets.flatMap(({ schema, table }) => [schema, table]);
-  const [rows] = await pool.query<mysql.RowDataPacket[]>(unionSql, params);
-  for (const row of rows as Array<{ table_schema: string; table_name: string; count: number }>) {
-    rowCountByTable.set(tableKey(row.table_schema, row.table_name), row.count);
-  }
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    for (let target = targets[next++]; target; target = targets[next++]) {
+      const { schema, table } = target;
+      rowCountByTable.set(tableKey(schema, table), await countRowsOrUnknown(pool, schema, table));
+    }
+  };
+  await Promise.all(Array.from({ length: ROW_COUNT_CONCURRENCY }, worker));
   return rowCountByTable;
 }
 
@@ -333,18 +348,15 @@ export async function introspectTable(
       WHERE table_schema = ? AND table_name = ?`,
     [schema, table]
   );
-  const kind = mapTableTypeToTableKind(
-    (tableTypeResult[0] as { table_type: string } | undefined)?.table_type ?? "BASE TABLE"
-  );
+  const tableType = (tableTypeResult[0] as { table_type: string } | undefined)?.table_type;
+  // A missing table keeps failing with the engine's own "doesn't exist" error.
+  if (tableType === undefined) {
+    await pool.query(`SELECT 1 FROM ${quoteIdent(schema)}.${quoteIdent(table)} LIMIT 0`);
+  }
+  const kind = mapTableTypeToTableKind(tableType ?? "BASE TABLE");
   const [indexes, rowCount] = await Promise.all([
     fetchIndexes(pool, schema, table),
-    kind === "view"
-      ? Promise.resolve(undefined)
-      : pool
-          .query<mysql.RowDataPacket[]>(
-            `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
-          )
-          .then(([rows]) => (rows[0] as { count: number }).count)
+    kind === "view" ? Promise.resolve(undefined) : countRowsOrUnknown(pool, schema, table)
   ]);
   return { schema, name: table, kind, columns, indexes, rowCount };
 }

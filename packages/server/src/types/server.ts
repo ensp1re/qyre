@@ -39,5 +39,7 @@ export interface RunningServer {
   url: string;
   eventLog: EventLog;
   authToken: string;
+  /** The live adapter, which changes when the browser switches connection or database. */
+  currentAdapter: () => DatabaseAdapter | undefined;
   close: () => Promise<void>;
 }

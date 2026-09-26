@@ -16,11 +16,16 @@ function withNullability(ops: readonly FilterOp[], column: ColumnMetadata): read
   return column.nullable ? [...ops, ...NULL_OPS] : ops;
 }
 
+/** Postgres reports a user-defined type by its own name, so enums are recognized from their
+ * catalog labels (`allowedValues`), never from words in the type name. */
 export function classifyFilterColumnKind(
   dataType: string,
-  engine?: DatabaseEngine
+  engine?: DatabaseEngine,
+  metadata?: Pick<ColumnMetadata, "allowedValues">
 ): FilterColumnKind {
   const type = dataType.trim().toLowerCase();
+
+  if (engine === DATABASE_ENGINES.postgres && metadata?.allowedValues) return "text";
 
   if (engine === DATABASE_ENGINES.mongodb) {
     if (type === "objectid") return "objectId";
@@ -79,7 +84,7 @@ export function filterCapabilityForColumn(
   column: ColumnMetadata,
   engine?: DatabaseEngine
 ): FilterCapability {
-  const kind = classifyFilterColumnKind(column.dataType, engine);
+  const kind = classifyFilterColumnKind(column.dataType, engine, column);
 
   switch (kind) {
     case "text":

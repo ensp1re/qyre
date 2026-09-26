@@ -18,6 +18,25 @@ describe("CommitBar (component rendering, F105)", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("keeps a commit error visible with a Dismiss action after the buffer was cleared", () => {
+    const onDiscard = vi.fn();
+    render(
+      <CommitBar
+        insertCount={0}
+        updateCount={0}
+        deleteCount={0}
+        previewLines={[]}
+        onCommit={vi.fn()}
+        onDiscard={onDiscard}
+        committing={false}
+        error="Commit failed at operation 2; 1 earlier operation(s) could not be rolled back."
+      />
+    );
+    expect(screen.getByText(/could not be rolled back/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Dismiss/ }));
+    expect(onDiscard).toHaveBeenCalledTimes(1);
+  });
+
   it("summarizes staged counts by kind", () => {
     render(
       <CommitBar

@@ -1,3 +1,4 @@
+import { CSV_IMPORT_MAX_FILE_BYTES } from "@qyre/core";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/index.js";
 import { authHeaders } from "../helpers/auth.js";
@@ -83,6 +84,41 @@ describe("POST /api/tables/:schema/:table/import.csv", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ insertedRows: 2, failedRows: 0 });
+    await app.close();
+  });
+
+  it("rejects an upload over the size cap without writing its leading rows", async () => {
+    let writes = 0;
+    const app = createServer({
+      adapter: makeFakeAdapter({
+        getTable: writableAdapter().getTable,
+        mutations: {
+          insertRow: async (_schema, _table, values) => ({ row: values }),
+          commitBatch: async (ops) => {
+            writes += ops.length;
+            return { committed: true, results: ops.map(() => ({ row: {} })) };
+          }
+        }
+      })
+    });
+    const row = `${"x".repeat(2000)}\n`;
+    const upload = multipart(
+      [
+        ["mode", "import"],
+        ["mapping", JSON.stringify({ Name: "name" })]
+      ],
+      `Name\n${row.repeat(Math.ceil(CSV_IMPORT_MAX_FILE_BYTES / row.length) + 10)}`
+    );
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tables/public/users/import.csv",
+      headers: { ...authHeaders(app), "content-type": upload.contentType },
+      payload: upload.body
+    });
+
+    expect(response.statusCode).toBe(413);
+    expect(writes).toBe(0);
     await app.close();
   });
 

@@ -7,4 +7,7 @@ export * from "./query/pagination.js";
 export * from "./safety/read-only.js";
 export * from "./safety/read-only-transaction.js";
 export * from "./query/result-cap.js";
+export * from "./query/result-columns.js";
+export * from "./query/sql-lexer.js";
 export * from "./query/filter-escape.js";
+export * from "./query/row-order.js";

@@ -1,6 +1,7 @@
 import { Check, Copy, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { parseTimestampInstant } from "@qyre/core/mutation-editor-values";
 
 export interface DateDetailPopoverProps {
   value: unknown;
@@ -19,6 +20,17 @@ function formatUtcOffset(date: Date): string {
   const sign = offsetMinutes >= 0 ? "+" : "-";
   const abs = Math.abs(offsetMinutes);
   return `UTC${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
+}
+
+const ZONED_VALUE = /\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:Z|[+-]\d{2}(?::?\d{2})?)$/i;
+const ZONELESS_VALUE =
+  /^(?:\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?|\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)$/;
+
+/** A DATE or zone-less TIME/TIMESTAMP names no instant, so it has no UTC, local, or epoch form. */
+function isZonelessValue(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const text = value.trim();
+  return ZONELESS_VALUE.test(text) && !ZONED_VALUE.test(text);
 }
 
 export function formatRelativeTime(date: Date, now: Date = new Date()): string {
@@ -79,8 +91,13 @@ export function DateDetailPopover({
   onClose
 }: DateDetailPopoverProps): ReactNode {
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
-  const date = value instanceof Date ? value : new Date(String(value));
-  const valid = !Number.isNaN(date.getTime());
+  const zoneless = isZonelessValue(value);
+  // Postgres text such as `2024-01-01 10:00:00+00` is not an ISO form every browser parses.
+  const date =
+    value instanceof Date
+      ? value
+      : (parseTimestampInstant(String(value)) ?? new Date(String(value)));
+  const valid = !zoneless && !Number.isNaN(date.getTime());
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -130,7 +147,15 @@ export function DateDetailPopover({
             <X className="h-3 w-3" />
           </button>
         </div>
-        {valid ? (
+        {zoneless ? (
+          <div>
+            <DetailRow label="Raw" text={String(value)} copiedLabel={copiedLabel} onCopy={copy} />
+            <p className="pt-1 text-quiet-foreground">
+              No time zone is stored with this value, so it is shown as written without UTC, local,
+              or epoch conversions.
+            </p>
+          </div>
+        ) : valid ? (
           <div>
             <DetailRow label="Raw" text={String(value)} copiedLabel={copiedLabel} onCopy={copy} />
             <DetailRow

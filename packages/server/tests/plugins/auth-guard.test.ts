@@ -91,26 +91,70 @@ describe("auth guard (F122)", () => {
   });
 
   // Browser navigation uses a one-shot grant instead of a session token in the URL.
-  it("accepts a minted download grant once, then never again", async () => {
-    const app = createServer();
+  async function mintGrant(
+    app: ReturnType<typeof createServer>,
+    target: { schema: string; table: string; format: string }
+  ): Promise<string> {
     const minted = await app.inject({
+      method: "POST",
+      url: "/api/exports/grant",
+      headers: authHeaders(app),
+      payload: target
+    });
+    expect(minted.statusCode).toBe(200);
+    return (minted.json() as { grant: string }).grant;
+  }
+
+  const EXPORT_TARGET = { schema: "public data", table: "order/items", format: "csv" };
+  const EXPORT_URL = "/api/tables/public%20data/order%2Fitems/export.csv";
+
+  it("accepts a minted download grant once on its own export, then never again", async () => {
+    const app = createServer();
+    const grant = await mintGrant(app, EXPORT_TARGET);
+
+    // No adapter is configured, so a passing guard surfaces the route's 503.
+    const first = await app.inject({ method: "GET", url: `${EXPORT_URL}?grant=${grant}` });
+    expect(first.statusCode).toBe(503);
+
+    const replay = await app.inject({ method: "GET", url: `${EXPORT_URL}?grant=${grant}` });
+    expect(replay.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("does not let a download grant authorize any other route, table, format, or method", async () => {
+    const app = createServer();
+    const attempts: Array<{ method: "GET" | "POST"; url: string }> = [
+      { method: "GET", url: "/api/health" },
+      { method: "POST", url: "/api/query" },
+      { method: "GET", url: "/api/tables/public%20data/other/export.csv" },
+      { method: "GET", url: "/api/tables/public%20data/order%2Fitems/export.sql" }
+    ];
+    for (const attempt of attempts) {
+      const grant = await mintGrant(app, EXPORT_TARGET);
+      const response = await app.inject({
+        method: attempt.method,
+        url: `${attempt.url}?grant=${grant}`,
+        ...(attempt.method === "POST" ? { payload: { sql: "SELECT 1" } } : {})
+      });
+      expect(response.statusCode, `${attempt.method} ${attempt.url}`).toBe(401);
+    }
+    await app.close();
+  });
+
+  it("refuses to mint a grant without a concrete export target", async () => {
+    const app = createServer();
+    const response = await app.inject({
       method: "POST",
       url: "/api/exports/grant",
       headers: authHeaders(app)
     });
-    const { grant } = minted.json() as { grant: string };
-
-    const first = await app.inject({ method: "GET", url: `/api/health?grant=${grant}` });
-    expect(first.statusCode).toBe(200);
-
-    const replay = await app.inject({ method: "GET", url: `/api/health?grant=${grant}` });
-    expect(replay.statusCode).toBe(401);
+    expect(response.statusCode).toBe(400);
     await app.close();
   });
 
   it("rejects a forged grant", async () => {
     const app = createServer();
-    const response = await app.inject({ method: "GET", url: "/api/health?grant=made-up" });
+    const response = await app.inject({ method: "GET", url: `${EXPORT_URL}?grant=made-up` });
     expect(response.statusCode).toBe(401);
     await app.close();
   });

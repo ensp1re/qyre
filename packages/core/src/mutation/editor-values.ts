@@ -77,6 +77,32 @@ export function isExactTimestampText(
   return kind === "timestamp-time-zone" ? hasOffset : !hasOffset;
 }
 
+/**
+ * Parse exact date or timestamp text as an instant. Zone-less text is UTC, matching how
+ * instant-only engines display stored values; returns undefined when no exact instant exists.
+ */
+export function parseTimestampInstant(value: string): Date | undefined {
+  const text = value.trim();
+  if (isExactDateText(text)) return new Date(`${text}T00:00:00.000Z`);
+  const separator = text.includes("T") ? "T" : " ";
+  const [date, time, ...rest] = text.split(separator);
+  if (!date || !time || rest.length > 0 || !isExactDateText(date)) return undefined;
+  const offset = OFFSET.exec(time)?.[0];
+  const localTime = offset ? time.slice(0, -offset.length) : time;
+  const match = LOCAL_TIME.exec(localTime);
+  if (!match || !isLocalTime(localTime)) return undefined;
+  const [, hour, minute, second = "00", fraction = ""] = match;
+  // Date only parses the strict ISO subset exactly: millisecond fractions and ±HH:MM offsets.
+  const milliseconds = (fraction.slice(1) + "000").slice(0, 3);
+  let zone = "Z";
+  if (offset && offset.toUpperCase() !== "Z") {
+    const digits = offset.slice(1).replace(":", "");
+    zone = `${offset[0]}${digits.slice(0, 2)}:${digits.slice(2) || "00"}`;
+  }
+  const parsed = new Date(`${date}T${hour}:${minute}:${second}.${milliseconds}${zone}`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
 export function jsonErrorWithLocation(error: unknown, source: string): string {
   const message = error instanceof Error ? error.message : "Invalid JSON.";
   const reportedPosition = /position (\d+)/i.exec(message)?.[1];
@@ -245,14 +271,19 @@ export function validateMutationValue(
               : "Use HH:MM[:SS[.fraction]][Z|±HH|±HHMM|±HH:MM]."
           );
     case "timestamp-local":
-    case "timestamp-time-zone":
-      return typeof value === "string" && isExactTimestampText(value, capability.kind)
-        ? { valid: true, value }
-        : invalid(
-            capability.kind === "timestamp-time-zone"
-              ? "Use YYYY-MM-DD HH:MM[:SS[.fraction]] with Z or a numeric offset."
-              : "Use YYYY-MM-DD HH:MM[:SS[.fraction]] without a timezone offset."
-          );
+    case "timestamp-time-zone": {
+      if (typeof value === "string" && isExactTimestampText(value, capability.kind)) {
+        if (engine !== DATABASE_ENGINES.mongodb) return { valid: true, value };
+        // BSON dates are instants built with Date, which cannot parse every exact offset form.
+        const instant = parseTimestampInstant(value);
+        if (instant) return { valid: true, value: instant.toISOString() };
+      }
+      return invalid(
+        capability.kind === "timestamp-time-zone"
+          ? "Use YYYY-MM-DD HH:MM[:SS[.fraction]] with Z or a numeric offset."
+          : "Use YYYY-MM-DD HH:MM[:SS[.fraction]] without a timezone offset."
+      );
+    }
     case "enum":
       return typeof value === "string" && metadata.allowedValues?.includes(value)
         ? { valid: true, value }

@@ -15,7 +15,7 @@ without restarting the CLI or losing their place more than switching targets inh
 
 ### Connect UI
 
-- The title bar's existing "Settings" button (`packages/ui/src/components/title-bar.tsx`) is
+- The title bar's existing "Settings" button (`packages/ui/src/shell/title-bar.tsx`) is
   currently a disabled placeholder (`aria-label="Settings"`, `disabled`) with no behavior wired to
   it. This spec enables it: clicking it opens a drawer (same pattern as `QueryHistoryDrawer`/
   `CellValueDrawer` - right-anchored slide-in, `useFocusTrap`) showing:
@@ -36,7 +36,10 @@ without restarting the CLI or losing their place more than switching targets inh
   string client-side (`composeConnectionString` in `connect-drawer.tsx`) before submitting through
   the exact same `onConnect` path as the URL form. Blank host/port fall back to `localhost`/each
   engine's documented default port; user/password/database are percent-encoded so a special
-  character doesn't corrupt the resulting URL.
+  character doesn't corrupt the resulting URL. The password is used exactly as typed (never
+  trimmed). An Options input carries URL query options (`sslmode`, `authSource`, ...); pasting a
+  full URL into any field fills every field including its query options, and the composed string
+  keeps them.
 
 ### Server-side switching
 
@@ -52,6 +55,12 @@ without restarting the CLI or losing their place more than switching targets inh
   - On failure (bad credentials, unreachable host, invalid file path, ping fails): the OLD connection
     is left completely untouched - no partial disconnect - and the endpoint returns a 4xx with the
     real underlying error message (same normalized `{ error: string }` shape every other route uses).
+  - `POST /api/connect/database` with body `{ database: string }` reconnects through the same swap
+    with only the URL database path replaced (`withDatabase`). For a credentialed `mongodb://` URL
+    without `authSource` (and with the default SCRAM mechanism), the original path database - or
+    `admin` when the path is empty - is pinned as `authSource`, because MongoDB otherwise
+    authenticates against the new path database. `mongodb+srv://` URLs are left unchanged since
+    their DNS TXT record may already supply `authSource`.
   - When `adapterFactories` is omitted (every existing caller/test that doesn't opt in), `/api/connect`
     is not registered at all - `POST /api/connect` 404s, matching today's behavior everywhere this
     feature isn't wired up. `packages/cli`'s real `main()` passes its existing factory list

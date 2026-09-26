@@ -28,8 +28,15 @@ rendering of a real column type" problem F016 already exists to solve.
    value by the server's offset (confirmed live on a UTC+2 host: a stored `2024-01-15` came back as
    `"2024-01-14T22:00:00.000Z"` - the wrong calendar date entirely). Fixed with
    `types.setTypeParser` for OIDs 1082 (`DATE`) and 1114 (`TIMESTAMP`) to return the raw wire
-   string unchanged. `timestamptz` (1184) is untouched - it's a genuine absolute instant and
-   converts to UTC correctly.
+   string unchanged. `timestamptz` (1184) also returns its wire text (for example
+   `2024-03-01 10:00:00.123456+00`): a JS `Date` keeps only milliseconds, so a microsecond
+   `timestamptz` primary key read back as a `Date` never matched its row again and every
+   update/delete of that row reported stale. Arrays of `date`, `timestamp`, and `timestamptz`
+   (OIDs 1182, 1115, 1185) likewise return arrays of wire strings. `timestamptz` is therefore shown
+   as ISO-style Postgres text (`YYYY-MM-DD HH:MM:SS[.ffffff]+HH`, offset in the session TimeZone),
+   not a JS ISO string. Qyre pins `DateStyle = ISO` and `IntervalStyle = postgres` on every pooled
+   connection so a role or database default such as `DateStyle = 'SQL, DMY'` cannot change this
+   text; `interval` values are the Postgres-style wire text (`1 day 02:00:00`).
 2. **MySQL: the same date/timestamp shift**, for the same underlying reason (mysql2's default also
    builds a local-time `Date`). Fixed with `dateStrings: true` on the pool - MySQL's own server-side
    session-timezone conversion for `TIMESTAMP` columns already happened before the string reaches
@@ -56,7 +63,7 @@ rendering of a real column type" problem F016 already exists to solve.
    real `Buffer` and the server JSON-encodes the response, producing `{ "type": "Buffer", "data":
 [...] }` on the wire - which F016's generic structured-value chip then rendered as `{ 2 keys }`,
    expandable into meaningless `type`/`data` tree nodes. Now detected as its own `BinaryValue` shape
-   (`packages/ui/src/components/cell-value.tsx`'s `isBinaryValue`) and rendered as a `binary · N
+   (`packages/ui/src/data-grid/cells/cell-value.tsx`'s `isBinaryValue`) and rendered as a `binary · N
 bytes` chip with a hex preview; its `CellValueDrawer` view shows a UTF-8 decode attempt (when the
    bytes are valid, printable UTF-8) above a proper offset/hex/ASCII hex dump (capped at 1024 bytes
    shown, matching the rest of this product's "never freeze the UI on a huge value" rule), and its

@@ -9,7 +9,8 @@ and expanding to many engines. It must be legible to AI agents and friendly to o
 
 ## Decision
 
-- Monorepo with pnpm workspaces + Turborepo + Changesets.
+- Monorepo with pnpm workspaces + Turborepo. Releases: `pnpm release` (`scripts/publish.mjs`) bumps
+  versions; a `v*` tag runs `.github/workflows/release.yml`, which publishes with npm provenance.
 - Local server: Fastify (typed, fast, good plugin boundaries, simple static serving).
 - Frontend: React + Vite + TanStack Query + Tailwind + a shadcn-style `@qyre/ui` kit. Add a router
   only when the product has URL-addressable screens.

@@ -6,6 +6,7 @@ import {
   requireTestMysqlUrl
 } from "@qyre/testing";
 import { setupMysqlFixture } from "@qyre/testing/mysql";
+import { ReadOnlyViolationError } from "@qyre/driver-contract";
 import mysql from "mysql2/promise";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MysqlAdapter } from "../../src/index.js";
@@ -335,6 +336,105 @@ describe("MysqlAdapter integration", () => {
       await pool.query(`DROP TABLE IF EXISTS ${table}`);
       await pool.end();
     }
+  });
+
+  describe("alterColumn keeps column attributes MODIFY COLUMN would otherwise drop", () => {
+    const table = "qyre_test_ddl_alter_attributes";
+    let pool: mysql.Pool;
+
+    const showCreate = async (): Promise<string> => {
+      const [rows] = await pool.query<mysql.RowDataPacket[]>(`SHOW CREATE TABLE ${table}`);
+      return String(rows[0]?.["Create Table"]);
+    };
+
+    const columnLine = async (column: string): Promise<string> =>
+      (await showCreate())
+        .split("\n")
+        .map((line) => line.trim().replace(/,$/, ""))
+        .find((line) => line.startsWith(`\`${column}\` `)) ?? "";
+
+    beforeAll(async () => {
+      pool = mysql.createPool(databaseUrl);
+      await pool.query(`DROP TABLE IF EXISTS ${table}`);
+      await pool.query(String.raw`
+        CREATE TABLE ${table} (
+          id INT NOT NULL AUTO_INCREMENT COMMENT 'row id',
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+          uid VARCHAR(36) DEFAULT (uuid()),
+          calc INT DEFAULT (1 + 1),
+          quoted VARCHAR(50) DEFAULT (concat('it''s', 'a\\b')),
+          name VARCHAR(20) CHARACTER SET latin1 COLLATE latin1_bin NOT NULL DEFAULT 'x''y' COMMENT 'it''s a name',
+          full_name VARCHAR(80) AS (concat(name, ' it''s ', uid)) VIRTUAL,
+          name_len INT AS (char_length(name)) STORED NOT NULL COMMENT 'len',
+          flags BIT(3) DEFAULT b'101',
+          secret INT INVISIBLE DEFAULT 3,
+          price DECIMAL(10,2) DEFAULT 1.50,
+          PRIMARY KEY (id)
+        )`);
+    });
+
+    afterAll(async () => {
+      await pool.query(`DROP TABLE IF EXISTS ${table}`);
+      await pool.end();
+    });
+
+    it.each([
+      ["created_at", false],
+      ["updated_at", true],
+      ["uid", true],
+      ["calc", true],
+      ["quoted", true],
+      ["name", false],
+      ["full_name", true],
+      ["name_len", false],
+      ["flags", true],
+      ["secret", true],
+      ["price", true]
+    ])("toggling nullability of %s round-trips its full definition", async (column, nullable) => {
+      const before = await showCreate();
+
+      await adapter.ddl?.alterColumn?.(databaseName, table, column, { nullable: !nullable });
+      const toggled = await columnLine(column);
+      expect(toggled).toContain(nullable ? "NOT NULL" : "");
+      await adapter.ddl?.alterColumn?.(databaseName, table, column, { nullable });
+
+      expect(await showCreate()).toBe(before);
+    });
+
+    it("keeps AUTO_INCREMENT and COMMENT when widening the key type", async () => {
+      await adapter.ddl?.alterColumn?.(databaseName, table, "id", { dataType: "BIGINT" });
+      expect(await columnLine("id")).toBe("`id` bigint NOT NULL AUTO_INCREMENT COMMENT 'row id'");
+      await adapter.ddl?.alterColumn?.(databaseName, table, "id", { dataType: "INT" });
+    });
+
+    it("keeps character set, collation, default and comment when changing a string type", async () => {
+      await adapter.ddl?.alterColumn?.(databaseName, table, "name", { dataType: "VARCHAR(255)" });
+      expect(await columnLine("name")).toBe(
+        "`name` varchar(255) CHARACTER SET latin1 COLLATE latin1_bin NOT NULL DEFAULT 'x''y' COMMENT 'it''s a name'"
+      );
+      await adapter.ddl?.alterColumn?.(databaseName, table, "name", { dataType: "VARCHAR(20)" });
+    });
+
+    it("keeps an expression default and ON UPDATE through renameAndAlterColumn", async () => {
+      const result = await adapter.ddl?.renameAndAlterColumn?.(databaseName, table, "updated_at", {
+        newName: "modified_at",
+        changes: { nullable: false }
+      });
+      expect(result).toMatchObject({ renamed: true, altered: true });
+      expect(await columnLine("modified_at")).toBe(
+        "`modified_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
+      );
+      await adapter.ddl?.renameAndAlterColumn?.(databaseName, table, "modified_at", {
+        newName: "updated_at",
+        changes: { nullable: true }
+      });
+    });
+
+    it("replaces an expression default with a literal when asked", async () => {
+      await adapter.ddl?.alterColumn?.(databaseName, table, "uid", { default: "none" });
+      expect(await columnLine("uid")).toBe("`uid` varchar(36) DEFAULT 'none'");
+    });
   });
 
   it("rejects addColumn as a SELECT-only fixture user (F111)", async () => {
@@ -722,6 +822,56 @@ describe("MysqlAdapter integration", () => {
         `-- innocuous\nSELECT * FROM ${FIXTURE.table} INTO OUTFILE '/var/lib/mysql-files/qyre-f154b.txt'`
       )
     ).rejects.toThrow();
+  });
+
+  it("keeps a trailing executable comment's body inside the row cap's wrapper", async () => {
+    const executable = await adapter.runReadOnlyQuery("SELECT 1 AS a /*!50000 , 2 AS b */");
+    expect(executable.columns).toEqual(["a", "b"]);
+    // MySQL ignores MariaDB-only /*M! ... */ bodies.
+    const mariadbOnly = await adapter.runReadOnlyQuery("SELECT 1 AS a /*M!100000 , 2 AS b */");
+    expect(mariadbOnly.columns).toEqual(["a"]);
+  });
+
+  describe("under session sql_mode NO_BACKSLASH_ESCAPES or ANSI_QUOTES", () => {
+    let sessionAdapter: MysqlAdapter;
+
+    beforeAll(async () => {
+      // One pooled connection, so the session mode set below applies to every later query.
+      const url = new URL(databaseUrl);
+      url.searchParams.set("connectionLimit", "1");
+      sessionAdapter = new MysqlAdapter({ engine: "mysql", raw: url.toString() });
+      await sessionAdapter.connect();
+    });
+
+    afterAll(async () => {
+      await sessionAdapter?.disconnect();
+    });
+
+    // Each payload is one string literal by default; under the mode it closes the row cap's
+    // wrapper and writes a file.
+    it.each([
+      [
+        "NO_BACKSLASH_ESCAPES",
+        "SELECT 'x\\' AS a) AS q UNION SELECT 1 INTO OUTFILE '/var/lib/mysql-files/qyre-mode-a.txt' #'"
+      ],
+      [
+        "ANSI_QUOTES",
+        `SELECT "x\\" AS a) AS q UNION SELECT 1 INTO OUTFILE '/var/lib/mysql-files/qyre-mode-b.txt' #"`
+      ]
+    ])("rejects INTO OUTFILE hidden by %s quoting", async (mode, sql) => {
+      await sessionAdapter.runQuery?.(`SET SESSION sql_mode = CONCAT(@@sql_mode, ',${mode}')`);
+      try {
+        const modes = await sessionAdapter.runReadOnlyQuery("SELECT @@SESSION.sql_mode AS m");
+        expect(String(modes.rows[0]?.m)).toContain(mode);
+        await expect(sessionAdapter.runReadOnlyQuery(sql)).rejects.toThrow(ReadOnlyViolationError);
+        const row = await sessionAdapter.runReadOnlyQuery("SELECT 'a' AS v -- note");
+        expect(row.rows).toHaveLength(1);
+      } finally {
+        await sessionAdapter.runQuery?.(
+          `SET SESSION sql_mode = REPLACE(@@sql_mode, '${mode}', '')`
+        );
+      }
+    });
   });
 
   it("runQuery executes an INSERT and reports rowsAffected (F107)", async () => {

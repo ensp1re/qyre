@@ -3,8 +3,8 @@
 User-facing behavior specs. Each spec describes observable behavior and acceptance criteria so a
 fresh agent can discover product scope quickly.
 
-Qyre's product is a universal database inspector: one CLI command auto-detects the target's engine
-and opens a web UI for it. Each engine gets its own spec once supported; specs below describe a
+Qyre's product is a universal, role-aware database UI: one CLI command auto-detects the target's
+engine and opens a web UI for it. Each engine gets its own spec once supported; specs below describe a
 single engine's behavior, not the whole product.
 
 ## Active Specs
@@ -27,20 +27,19 @@ single engine's behavior, not the whole product.
   to Postgres's of any engine so far (network server, real SQL, transaction-level read-only
   backstop) - only the differences (identifier quoting, schema/database terminology, row-count
   strategy) are called out. Tracked as F014.
-- [`connect-and-inspect-mongodb.md`](connect-and-inspect-mongodb.md) - MongoDB, deliberately scoped
-  to basic read-only browsing (databases/collections/documents) rather than a full port of the
-  SQL-shaped contract - no query runner, and a weaker (code-level, not driver-level) read-only
-  guarantee, both explicitly called out rather than glossed over. Tracked as F015; depends on F016.
-  Both `passing`.
+- [`connect-and-inspect-mongodb.md`](connect-and-inspect-mongodb.md) - MongoDB browsing
+  (databases/collections/documents) without a SQL runner, and its code-level (not driver-level)
+  read-only guarantee. Writes arrived later via the grant-gated specs below. Tracked as F015;
+  depends on F016. Both `passing`.
 - [`structured-cell-values.md`](structured-cell-values.md) - an expandable tree viewer for any
-  object/array cell value in `RowsTable`/`QueryRunner`'s result table, replacing today's flat
+  object/array cell value in `RowsTable`/`QueryRunner`'s result table, replacing the earlier flat
   `JSON.stringify`-to-text handling. Engine-agnostic by design (benefits Postgres/MySQL `json`/`jsonb`
   columns today), and a hard prerequisite for MongoDB's documents (F015) to render usably. Tracked as
   F016.
 - [`error-handling.md`](error-handling.md) - a single Fastify `setErrorHandler` normalizing every
   route's error responses (found a real bug while testing F012: `/api/query` was leaking Fastify's
   default `{error: "Internal Server Error"}` shape instead of the real Postgres error message), plus
-  a shared `ErrorState` UI component replacing today's inconsistent inline error text across
+  a shared `ErrorState` UI component replacing the earlier inconsistent inline error text across
   `QueryRunner`/`RowsTable`/`SchemaGrid`/`FilesBrowser`/`ConsoleLog`. Tracked as F017.
 - [`column-type-fidelity.md`](column-type-fidelity.md) - three defect categories found by
   systematically testing every column type each engine supports rather than just JSON: Postgres/
@@ -54,9 +53,9 @@ single engine's behavior, not the whole product.
 - [`database-switching.md`](database-switching.md) - lets a developer switch the running Qyre
   instance to a different database connection from the title bar's Settings button, without
   restarting the CLI. Tracked as F064, `passing`.
-- [`server-side-sort-export.md`](server-side-sort-export.md) - `RowsTable`'s column sort and CSV
-  export currently only cover the loaded page; this moves sort server-side and adds a whole-table
-  streamed CSV export. Tracked as F065 (sort) and F066 (export), both `passing`.
+- [`server-side-sort-export.md`](server-side-sort-export.md) - server-side column sort and a
+  whole-table streamed CSV export for `RowsTable`, replacing page-only sort/export. Tracked as F065
+  (sort) and F066 (export), both `passing`.
 - [`rows-table-filtering.md`](rows-table-filtering.md) - adds server-side filtering (column/op/
   value, AND-only, all 4 engines including MongoDB) to `RowsTable`'s rows and CSV export routes,
   plus click-to-filter on primary-/foreign-key cell values. Tracked as F072.
@@ -82,6 +81,9 @@ single engine's behavior, not the whole product.
 - [`csv-import.md`](csv-import.md) - permission-gated CSV import into an existing table/collection:
   capped streaming multipart parsing, explicit mapping and dry-run coercion, bounded atomic
   batches, source-line errors, and Postgres/MySQL/SQLite/MongoDB parity. Tracked as F117.
+- [`roles-and-grants-viewer.md`](roles-and-grants-viewer.md) - a read-only viewer of the current
+  session's identity, roles, effective grants, and connection facts that explain which actions are
+  available, without exposing credentials or offering role management.
 
 ## Rules
 

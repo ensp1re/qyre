@@ -7,13 +7,24 @@ import { DateTimeInput } from "../../src/primitives/date-time-input.js";
 /** Controlled wrapper that feeds each change back as the next value prop. */
 function Controlled({
   kind,
-  initial
+  initial,
+  onChange
 }: {
   kind: "date" | "time" | "datetime-local";
   initial: string;
+  onChange?: (value: string) => void;
 }): ReactNode {
   const [value, setValue] = useState(initial);
-  return <DateTimeInput kind={kind} value={value} onChange={setValue} />;
+  return (
+    <DateTimeInput
+      kind={kind}
+      value={value}
+      onChange={(next) => {
+        setValue(next);
+        onChange?.(next);
+      }}
+    />
+  );
 }
 
 describe("DateTimeInput (date)", () => {
@@ -80,6 +91,19 @@ describe("DateTimeInput (time)", () => {
     expect(screen.getByLabelText("Hour")).toHaveFocus();
   });
 
+  it("keeps a half-typed hour and the other segment while the value is incomplete", () => {
+    const onChange = vi.fn();
+    render(<Controlled kind="time" initial="09:15" onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "1" } });
+    expect(onChange).toHaveBeenLastCalledWith("");
+    expect(screen.getByLabelText("Hour")).toHaveValue("1");
+    expect(screen.getByLabelText("Minute")).toHaveValue("15");
+
+    fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "11" } });
+    expect(onChange).toHaveBeenLastCalledWith("11:15");
+  });
+
   it("calls onEnter from either segment", () => {
     const onEnter = vi.fn();
     render(<DateTimeInput kind="time" value="09:15" onChange={vi.fn()} onEnter={onEnter} />);
@@ -109,5 +133,49 @@ describe("DateTimeInput (datetime-local)", () => {
     expect(screen.getByRole("button", { name: "Choose date" })).toHaveTextContent("2024-06-01");
     expect(screen.getByLabelText("Hour")).toHaveValue("13");
     expect(screen.getByLabelText("Minute")).toHaveValue("20");
+  });
+
+  it("splits Postgres timestamp text that uses a space separator", () => {
+    const onChange = vi.fn();
+    render(
+      <Controlled kind="datetime-local" initial="2024-01-15 10:30:00+00" onChange={onChange} />
+    );
+
+    expect(screen.getByRole("button", { name: "Choose date" })).toHaveTextContent("2024-01-15");
+    expect(screen.getByLabelText("Hour")).toHaveValue("10");
+    expect(screen.getByLabelText("Minute")).toHaveValue("30");
+    fireEvent.change(screen.getByLabelText("Minute"), { target: { value: "45" } });
+    expect(onChange).toHaveBeenLastCalledWith("2024-01-15T10:45");
+  });
+
+  it("keeps the date while the time is half typed and emits once the time is complete", () => {
+    const onChange = vi.fn();
+    render(<Controlled kind="datetime-local" initial="2024-06-01T13:20" onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "1" } });
+    expect(onChange).toHaveBeenLastCalledWith("");
+    expect(screen.getByRole("button", { name: "Choose date" })).toHaveTextContent("2024-06-01");
+    expect(screen.getByLabelText("Hour")).toHaveValue("1");
+    expect(screen.getByLabelText("Minute")).toHaveValue("20");
+
+    fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "14" } });
+    expect(onChange).toHaveBeenLastCalledWith("2024-06-01T14:20");
+  });
+
+  it("does not force 00:00 when a date is picked while the time is half typed", () => {
+    const onChange = vi.fn();
+    render(<Controlled kind="datetime-local" initial="2024-06-01T13:20" onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Choose date" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "20" })[0] as HTMLElement);
+
+    expect(screen.getByRole("button", { name: "Choose date" })).toHaveTextContent("2024-06-20");
+    expect(screen.getByLabelText("Hour")).toHaveValue("1");
+    expect(screen.getByLabelText("Minute")).toHaveValue("20");
+    expect(onChange).toHaveBeenLastCalledWith("");
+
+    fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "15" } });
+    expect(onChange).toHaveBeenLastCalledWith("2024-06-20T15:20");
   });
 });

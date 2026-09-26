@@ -9,9 +9,39 @@ import type { Pool } from "pg";
 import { SYSTEM_SCHEMAS, tableKey } from "./catalog.js";
 import { quoteIdent } from "../query/sql.js";
 
-/** Postgres SQLSTATE for "relation does not exist" - raised when a table is dropped out from under
- * an in-flight introspection query. */
-const UNDEFINED_TABLE = "42P01";
+interface KeyColumnRow {
+  table_schema: string;
+  table_name: string;
+  constraint_type: "p" | "f";
+  column_name: string;
+  referenced_schema: string | null;
+  referenced_table: string | null;
+  referenced_column: string | null;
+}
+
+/** Primary/foreign-key columns from pg_constraint. Composite keys pair local and referenced columns
+ * by ordinal. A foreign key onto a partitioned table also clones itself onto each referenced
+ * partition under the same conrelid; those clones are skipped. Callers append a condition on n/c. */
+const KEY_COLUMNS_SQL = `
+  SELECT n.nspname AS table_schema, c.relname AS table_name, con.contype AS constraint_type,
+         a.attname AS column_name,
+         rn.nspname AS referenced_schema,
+         rc.relname AS referenced_table,
+         ra.attname AS referenced_column
+    FROM pg_constraint con
+    JOIN pg_class c ON c.oid = con.conrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    CROSS JOIN LATERAL unnest(con.conkey, con.confkey) WITH ORDINALITY AS k(attnum, refattnum, ord)
+    JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum
+    LEFT JOIN pg_class rc ON rc.oid = con.confrelid
+    LEFT JOIN pg_namespace rn ON rn.oid = rc.relnamespace
+    LEFT JOIN pg_attribute ra ON ra.attrelid = con.confrelid AND ra.attnum = k.refattnum
+   WHERE con.contype IN ('p', 'f')
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_constraint parent
+        WHERE parent.oid = con.conparentid AND parent.conrelid = con.conrelid
+     )
+     AND`;
 
 interface TableTarget {
   schema: string;
@@ -88,10 +118,24 @@ async function fetchRowCountAndKind(
   if (estimate == null) return { rowCount: undefined, kind };
   const parsed = Number(estimate);
   if (parsed >= 0) return { rowCount: parsed, kind };
-  const exact = await pool.query<{ count: string }>(
-    `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
-  );
-  return { rowCount: Number(exact.rows[0]?.count ?? 0), kind };
+  return { rowCount: await countRowsOrUnknown(pool, schema, table), kind };
+}
+
+/** Exact count, or undefined when the relation cannot be scanned: no SELECT grant, an unpopulated
+ * materialized view, or a concurrent DROP. One such relation must not fail the whole catalog. */
+function countRowsOrUnknown(
+  pool: Pool,
+  schema: string,
+  table: string
+): Promise<number | undefined> {
+  return pool
+    .query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
+    )
+    .then(
+      (result) => Number(result.rows[0]?.count ?? 0),
+      () => undefined
+    );
 }
 
 export async function introspectSchemas(pool: Pool): Promise<SchemaMetadata[]> {
@@ -128,49 +172,32 @@ export async function introspectTable(
            ON column_type.typname = c.udt_name AND column_type.typnamespace = type_namespace.oid
          LEFT JOIN pg_type element_type ON element_type.oid = column_type.typelem
          LEFT JOIN LATERAL (
-           SELECT json_agg(enum_value.enumlabel ORDER BY enum_value.enumsortorder) AS allowed_values
+           SELECT COALESCE(
+                    json_agg(enum_value.enumlabel ORDER BY enum_value.enumsortorder),
+                    '[]'::json
+                  ) AS allowed_values
              FROM pg_enum enum_value
             WHERE enum_value.enumtypid = column_type.oid
-         ) enum_values ON true
+         ) enum_values ON column_type.typtype = 'e'
         WHERE c.table_schema = $1 AND c.table_name = $2
         ORDER BY c.ordinal_position`,
       [schema, table]
     ),
-    pool.query<{
-      constraint_type: "PRIMARY KEY" | "FOREIGN KEY";
-      column_name: string;
-      referenced_schema: string | null;
-      referenced_table: string | null;
-      referenced_column: string | null;
-    }>(
-      `SELECT tc.constraint_type, kcu.column_name,
-              ccu.table_schema AS referenced_schema,
-              ccu.table_name AS referenced_table,
-              ccu.column_name AS referenced_column
-         FROM information_schema.table_constraints tc
-         JOIN information_schema.key_column_usage kcu
-           ON tc.constraint_name = kcu.constraint_name
-          AND tc.table_schema = kcu.table_schema
-         LEFT JOIN information_schema.constraint_column_usage ccu
-           ON tc.constraint_name = ccu.constraint_name
-          AND tc.constraint_type = 'FOREIGN KEY'
-        WHERE tc.constraint_type IN ('PRIMARY KEY', 'FOREIGN KEY')
-          AND tc.table_schema = $1 AND tc.table_name = $2`,
-      [schema, table]
-    ),
+    pool.query<KeyColumnRow>(`${KEY_COLUMNS_SQL} n.nspname = $1 AND c.relname = $2`, [
+      schema,
+      table
+    ]),
     fetchIndexes(pool, schema, table),
     fetchRowCountAndKind(pool, schema, table)
   ]);
   const primaryKeys = new Set(
-    keysResult.rows
-      .filter((row) => row.constraint_type === "PRIMARY KEY")
-      .map((row) => row.column_name)
+    keysResult.rows.filter((row) => row.constraint_type === "p").map((row) => row.column_name)
   );
   const foreignKeyReferences = new Map(
     keysResult.rows
       .filter(
         (row): row is typeof row & { referenced_table: string; referenced_column: string } =>
-          row.constraint_type === "FOREIGN KEY" &&
+          row.constraint_type === "f" &&
           row.referenced_table !== null &&
           row.referenced_column !== null
       )
@@ -224,38 +251,18 @@ async function fetchAllColumns(pool: Pool): Promise<Map<string, ColumnMetadata[]
            ON column_type.typname = c.udt_name AND column_type.typnamespace = type_namespace.oid
          LEFT JOIN pg_type element_type ON element_type.oid = column_type.typelem
          LEFT JOIN LATERAL (
-           SELECT json_agg(enum_value.enumlabel ORDER BY enum_value.enumsortorder) AS allowed_values
+           SELECT COALESCE(
+                    json_agg(enum_value.enumlabel ORDER BY enum_value.enumsortorder),
+                    '[]'::json
+                  ) AS allowed_values
              FROM pg_enum enum_value
             WHERE enum_value.enumtypid = column_type.oid
-         ) enum_values ON true
+         ) enum_values ON column_type.typtype = 'e'
         WHERE c.table_schema <> ALL($1::text[])
         ORDER BY c.table_schema, c.table_name, c.ordinal_position`,
       [SYSTEM_SCHEMAS]
     ),
-    pool.query<{
-      table_schema: string;
-      table_name: string;
-      constraint_type: "PRIMARY KEY" | "FOREIGN KEY";
-      column_name: string;
-      referenced_schema: string | null;
-      referenced_table: string | null;
-      referenced_column: string | null;
-    }>(
-      `SELECT tc.table_schema, tc.table_name, tc.constraint_type, kcu.column_name,
-              ccu.table_schema AS referenced_schema,
-              ccu.table_name AS referenced_table,
-              ccu.column_name AS referenced_column
-         FROM information_schema.table_constraints tc
-         JOIN information_schema.key_column_usage kcu
-           ON tc.constraint_name = kcu.constraint_name
-          AND tc.table_schema = kcu.table_schema
-         LEFT JOIN information_schema.constraint_column_usage ccu
-           ON tc.constraint_name = ccu.constraint_name
-          AND tc.constraint_type = 'FOREIGN KEY'
-        WHERE tc.constraint_type IN ('PRIMARY KEY', 'FOREIGN KEY')
-          AND tc.table_schema <> ALL($1::text[])`,
-      [SYSTEM_SCHEMAS]
-    )
+    pool.query<KeyColumnRow>(`${KEY_COLUMNS_SQL} n.nspname <> ALL($1::text[])`, [SYSTEM_SCHEMAS])
   ]);
   const primaryKeysByTable = new Map<string, Set<string>>();
   const foreignKeysByTable = new Map<
@@ -264,7 +271,7 @@ async function fetchAllColumns(pool: Pool): Promise<Map<string, ColumnMetadata[]
   >();
   for (const row of keysResult.rows) {
     const key = tableKey(row.table_schema, row.table_name);
-    if (row.constraint_type === "PRIMARY KEY") {
+    if (row.constraint_type === "p") {
       const primaryKeys = primaryKeysByTable.get(key) ?? new Set<string>();
       primaryKeys.add(row.column_name);
       primaryKeysByTable.set(key, primaryKeys);
@@ -357,19 +364,8 @@ async function fetchAllRowCountEstimates(
   const unanalyzed = countable.filter(
     ({ schema, table }) => (estimateByTable.get(tableKey(schema, table)) ?? 0) < 0
   );
-  // A concurrent DROP can invalidate an exact-count query; treat that relation as having no count.
   const exactCounts = await Promise.all(
-    unanalyzed.map(({ schema, table }) =>
-      pool
-        .query<{ count: string }>(
-          `SELECT COUNT(*) AS count FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
-        )
-        .then((countResult) => Number(countResult.rows[0]?.count ?? 0))
-        .catch((error: unknown) => {
-          if ((error as { code?: string })?.code === UNDEFINED_TABLE) return undefined;
-          throw error;
-        })
-    )
+    unanalyzed.map(({ schema, table }) => countRowsOrUnknown(pool, schema, table))
   );
   const exactByTable = new Map(
     unanalyzed.map(({ schema, table }, index) => [tableKey(schema, table), exactCounts[index]])

@@ -11,13 +11,14 @@ src/routes/<domain>/<resource>.ts
 src/services/<domain>/<concern>.ts
                               HTTP-independent behavior grouped under access, connection, observability, rows, schema, or transfer
 src/plugins/<concern>.ts      Fastify cross-cutting infrastructure (host-guard, error-handler, static-web)
+src/types/<concern>.ts        server-shared types (ServerContext in server.ts, route types in routes.ts)
 tests/routes/<resource>.test.ts
 tests/plugins/<concern>.test.ts
 tests/services/<concern>.test.ts
 tests/support/                shared test fixtures (e.g. fake-adapter.ts)
 ```
 
-Every route/plugin registrar takes the shared, mutable `ServerContext` (defined in `app.ts`) by
+Every route/plugin registrar takes the shared, mutable `ServerContext` (defined in `src/types/server.ts`) by
 reference rather than closing over local variables directly - this is how `POST /api/connect`
 (F064) swaps in a new adapter/target that every other route sees on its very next request, without
 restarting the server. `requireAdapter` and the `resolveRowSort`/`resolveRowFilters`/

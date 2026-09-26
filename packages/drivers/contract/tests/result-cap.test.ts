@@ -49,4 +49,51 @@ describe("capResultRows", () => {
     expect(capResultRows("-- note\nEXPLAIN SELECT 1", 5)).toBe("-- note\nEXPLAIN SELECT 1");
     expect(capResultRows("/* note */ SHOW TABLES", 5)).toBe("/* note */ SHOW TABLES");
   });
+
+  it("drops a trailing comment so it cannot swallow the wrapper's closing paren", () => {
+    expect(capResultRows("SELECT * FROM t -- recent", 5)).toBe(
+      "SELECT * FROM (SELECT * FROM t) AS qyre_capped_query LIMIT 5"
+    );
+    expect(capResultRows("SELECT 1;\n-- x", 5)).toBe(
+      "SELECT * FROM (SELECT 1) AS qyre_capped_query LIMIT 5"
+    );
+    expect(capResultRows("SELECT 1 /* a */ ; /* b */", 5)).toBe(
+      "SELECT * FROM (SELECT 1) AS qyre_capped_query LIMIT 5"
+    );
+    expect(capResultRows("SELECT 1 # note", 5, "mysql")).toBe(
+      "SELECT * FROM (SELECT 1) AS qyre_capped_query LIMIT 5"
+    );
+  });
+
+  it("keeps a trailing MySQL or MariaDB executable comment whole", () => {
+    expect(capResultRows("SELECT 1 AS a /*!50000 , 2 AS b */", 5, "mysql")).toBe(
+      "SELECT * FROM (SELECT 1 AS a /*!50000 , 2 AS b */) AS qyre_capped_query LIMIT 5"
+    );
+    expect(capResultRows("SELECT 1 AS a /*M!100000 , 2 AS b */ -- x", 5, "mysql")).toBe(
+      "SELECT * FROM (SELECT 1 AS a /*M!100000 , 2 AS b */) AS qyre_capped_query LIMIT 5"
+    );
+  });
+
+  it("does not trim an unterminated block comment", () => {
+    expect(capResultRows("SELECT 1 /* open", 5)).toBe(
+      "SELECT * FROM (SELECT 1 /* open) AS qyre_capped_query LIMIT 5"
+    );
+  });
+
+  it("cuts MySQL trailing text only where the default lexical mode sees a comment", () => {
+    // Under NO_BACKSLASH_ESCAPES this tail is a comment; by default it is part of a string.
+    expect(capResultRows("SELECT 'x\\' AS a -- ' , 2 AS b", 5, "mysql")).toBe(
+      "SELECT * FROM (SELECT 'x\\' AS a -- ' , 2 AS b) AS qyre_capped_query LIMIT 5"
+    );
+    expect(capResultRows("SELECT 'a\\'b', \"c\" AS x -- note", 5, "mysql")).toBe(
+      "SELECT * FROM (SELECT 'a\\'b', \"c\" AS x) AS qyre_capped_query LIMIT 5"
+    );
+    expect(capResultRows("/* ' \" */ SHOW TABLES", 5, "mysql")).toBe("/* ' \" */ SHOW TABLES");
+  });
+
+  it("keeps comment markers that live inside string literals", () => {
+    expect(capResultRows("SELECT '-- not a comment' AS x", 5)).toBe(
+      "SELECT * FROM (SELECT '-- not a comment' AS x) AS qyre_capped_query LIMIT 5"
+    );
+  });
 });

@@ -3,7 +3,6 @@ export const CSV_IMPORT_MAX_ROWS = 10_000;
 export const CSV_IMPORT_MAX_COLUMNS = 256;
 export const CSV_IMPORT_MAX_FIELD_BYTES = 64 * 1024;
 export const CSV_IMPORT_PREVIEW_ROWS = 20;
-export const CSV_IMPORT_SQL_BATCH_SIZE = 250;
 /** Maximum number of per-row errors returned in one response. */
 export const CSV_IMPORT_MAX_ERRORS = 100;
 

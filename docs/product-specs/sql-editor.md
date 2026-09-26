@@ -1,6 +1,6 @@
 # Product Contract: SQL Editor Query History & Autocomplete
 
-The SQL Editor (`QueryRunner`, `packages/ui/src/components/query-runner.tsx`) lets a developer run
+The SQL Editor (`QueryRunner`, `packages/ui/src/query/query-runner.tsx`) lets a developer run
 read-only SQL against the connected database (F006). This spec covers two engine-agnostic
 enhancements to that same editor: recalling past queries, and completion-as-you-type. Both apply
 identically regardless of which engine (Postgres, SQLite, and whatever else `@qyre/driver-contract`
@@ -80,7 +80,7 @@ SQL keyword/table completion as they type instead of relying on memory or the Sc
 ### Editor migration
 
 The SQL Editor is implemented today as a plain `<textarea>` with a hand-rolled line-number gutter
-(no code-editor library) - see `packages/ui/src/components/query-runner.tsx`. Building cursor-aware
+(no code-editor library) - see `packages/ui/src/query/query-runner.tsx`. Building cursor-aware
 popup positioning, a keyword trie, and table-name matching directly on a raw textarea is real,
 maintenance-heavy custom work with no syntax highlighting to show for it.
 
@@ -94,7 +94,7 @@ Constraints on the migration:
 
 - Preserve existing behavior exactly: `⌘/Ctrl+Enter` runs the query, the toolbar (Run
   button/spinner/line count) is unchanged, `data-testid="query-runner"` and the query text prop
-  contract (`sql`/`onSqlChange`) stay the same so `apps/web/src/App.tsx`'s usage doesn't need to
+  contract (`sql`/`onSqlChange`) stay the same so `apps/web/src/app/app.tsx`'s usage doesn't need to
   change shape.
 - Match the existing design tokens (see `docs/references/design-system.md`) - font, colors, spacing -
   rather than adopting CodeMirror's default theme as-is. Both light and dark mode must render
@@ -135,17 +135,21 @@ string whenever it doesn't match a real identifier - a documented quirk, see
 [sqlite.org/quirks.html](https://sqlite.org/quirks.html)). Since most people reach for `""` out of
 habit, Qyre smooths this over for Postgres specifically:
 
-- Before executing a query against Postgres, any double-quoted token in the SQL text that does not
-  match a real schema, table, or column name in the connected database - nor an identifier the
-  query defines itself (a column/table alias or CTE name) - is rewritten to an equivalent
-  single-quoted string literal.
+- Before executing a query against Postgres, a double-quoted token in a **value position** - right
+  after a comparison operator (`=`, `<>`, `!=`, `<`, `>`, `<=`, `>=`), after `LIKE`/`ILIKE`, or as
+  an element of an `IN (...)` list - that does not match a real schema, relation (table, view,
+  materialized view, foreign table), or column name in the connected database - nor an identifier
+  the query defines itself (a column/table alias or CTE name) - is rewritten to an equivalent
+  single-quoted string literal. Every other double-quoted token (a select-list alias such as
+  `AS "Full Name"`, a bare table alias such as `FROM users "u"`, a qualified name such as
+  `pg_catalog."pg_class"`, or a table/view reference) is always sent verbatim.
 - A double-quoted token that **does** match a real schema/table/column name (including a
   legitimately quoted case-sensitive identifier), or that refers back to an alias/CTE the query
   itself defined, is left untouched - this never changes the meaning of a query that already runs
   successfully today.
 - The rewrite tokenizes the SQL rather than regex-replacing raw text: a `"` character that lives
-  inside a `'...'` string literal or a `$$...$$`/`$tag$...$tag$` dollar-quoted block is never
-  mistaken for identifier quoting, so it's never rewritten.
+  inside a `'...'`/`E'...'` string literal, a `$$...$$`/`$tag$...$tag$` dollar-quoted block, or a
+  comment is never mistaken for identifier quoting, so it's never rewritten.
 - Alias/CTE detection is a best-effort regex heuristic (not a full SQL parser) - it recognizes the
   common `AS alias`/`AS "alias"` and `name AS (...)` shapes, not every possible aliasing form.
 - This is Postgres-only: SQLite already tolerates it natively; MySQL (F014) already treats `"..."`
@@ -164,6 +168,8 @@ habit, Qyre smooths this over for Postgres specifically:
 - `SELECT * FROM "public"."users"` runs unmodified - schema-qualified names resolve correctly.
 - `SELECT "a" FROM (SELECT 1 AS a) sub` runs unmodified - a double-quoted reference to a
   query-local column alias is not coerced into a string literal.
+- `SELECT name AS "Full Name" FROM users "u"`, `SELECT * FROM "some_materialized_view"`, and
+  `SELECT relname FROM pg_catalog."pg_class"` run unmodified.
 
 ## Multi-statement / semicolon detection (all engines)
 
@@ -171,10 +177,23 @@ habit, Qyre smooths this over for Postgres specifically:
 
 `@qyre/driver-contract`'s `assertReadOnly` rejects a query containing more than one SQL
 statement - the read-only query runner only ever executes exactly one statement per request. The
-`;`-count check runs against the same literal-and-comment-stripped text the forbidden-keyword scan
-already uses, not raw SQL, so a data value that happens to contain a semicolon (a URL, an encoded
-blob, free text) is not mistaken for a second statement. A single trailing `;` (a habit carried over
-from other SQL tools) is still tolerated.
+`;`-count check and the forbidden-keyword scan run over a single left-to-right lexer pass
+(`scanSql`) that recognizes comments, string literals, and quoted identifiers together, following
+the connected engine's lexical rules (Postgres nested block comments, `E'...'` escapes and dollar
+quotes; MySQL backslash escapes, `#` comments, and executable `/*! ... */` and MariaDB
+`/*M! ... */` comments whose body is treated as SQL; SQLite `[...]` identifiers). A comment marker
+inside a literal (`SELECT '/*'; ...`) therefore never hides a real `;`, and a data value that
+contains a semicolon (a URL, an encoded blob, free text) is not mistaken for a second statement.
+Without a known engine, the statement is lexed under every dialect and the most restrictive
+classification wins. Because a MySQL session's `sql_mode` can turn off backslash escapes
+(`NO_BACKSLASH_ESCAPES`) or make `"` quote identifiers (`ANSI_QUOTES`), MySQL keywords are
+classified under all four combinations and the most restrictive result wins; the statement count
+uses the default mode, since the MySQL driver refuses a second statement on its own. A single trailing `;` (a
+habit carried over from other SQL tools) is still tolerated.
+
+As defense in depth, Postgres runs read-path and EXPLAIN statements over the extended query
+protocol, which itself refuses a multi-statement string, so a `COMMIT` can never escape the
+`READ ONLY` transaction even if classification were wrong.
 
 ### Acceptance criteria
 
@@ -183,6 +202,8 @@ from other SQL tools) is still tolerated.
 - `SELECT 'a;b' AS x; DROP TABLE users` is still rejected - a real second statement outside any
   literal is still a real second statement.
 - `SELECT 'a;b' AS x;` (single statement, trailing semicolon) is still accepted.
+- `SELECT '/*'; COMMIT; DROP TABLE t; SELECT '*/'` and `SELECT '--'; DELETE FROM t; SELECT 1` are
+  rejected on both the run and EXPLAIN paths on every SQL engine, and the table is untouched.
 
 ## Statement timeout (all engines)
 
@@ -219,7 +240,8 @@ every row, with nothing bounding server memory or the browser tab (F050). Every 
 `VALUES`/`TABLE` statement (already validated read-only by `assertReadOnly`) is now wrapped as
 `SELECT * FROM (<query>) AS qyre_capped_query LIMIT 1000` before running, so the database itself
 stops producing rows past the cap instead of the adapter buffering an unbounded result set and only
-truncating client-side. `EXPLAIN`/`SHOW` are left unwrapped - they aren't valid subquery sources and
+truncating client-side. Trailing comments and semicolons are cut before wrapping so a
+`SELECT ... -- note` cannot comment out the wrapper's closing parenthesis. `EXPLAIN`/`SHOW` are left unwrapped - they aren't valid subquery sources and
 aren't the unbounded-rows risk this guards against (a query plan or a small config listing, not
 arbitrary table data). Shared across Postgres/MySQL/SQLite via `@qyre/driver-contract`'s
 `capResultRows`; MongoDB has no SQL query runner to cap (see this spec's own note on that). The
@@ -231,6 +253,17 @@ set only mounts the visible rows as DOM nodes, not all 1,000.
 - `SELECT * FROM <a table with more than 1,000 rows>` returns at most 1,000 rows.
 - `EXPLAIN`/`SHOW` queries are unaffected.
 - A query that already fits comfortably under the cap returns unchanged.
+- A query ending in a line or block comment, with or without a trailing `;`, still runs.
+
+## Repeated result column names (Postgres/MySQL/SQLite)
+
+Result rows are fetched positionally (pg `rowMode: "array"`, mysql2 `rowsAsArray`, better-sqlite3
+`raw()`) and keyed by de-duplicated column names: the first occurrence keeps its name and later
+repeats become `name_2`, `name_3`, ... (skipping any suffix a real column already uses). So
+`SELECT a.id, b.id FROM a JOIN b ...` returns `columns: ["id", "id_2"]` with both values instead of
+the last value twice. SQLite names come from the unwrapped statement because its cap wrapper would
+otherwise rename repeats to `id:1`; MySQL keeps its uncapped retry when the wrapper hits
+`ER_DUP_FIELDNAME`.
 
 ## Write-capable SQL execution (Postgres/MySQL/SQLite)
 
@@ -288,7 +321,11 @@ rejected unconfirmed-destructive attempt also logs (without executing).
 - A successful `CREATE TABLE` becomes visible in the sidebar without a page reload; all successful
   non-read classifications invalidate catalog and row caches, while reads leave them untouched.
 - A write-capable session's `DROP TABLE`/unqualified `UPDATE`/`DELETE` (no `WHERE`) is rejected with
-  `409` until resubmitted with `confirmed: true`, at which point it runs.
+  `409` until resubmitted with `confirmed: true`, at which point it runs. The `WHERE` must belong to
+  the `UPDATE`/`DELETE` itself (same parenthesis depth): `UPDATE t SET a = (SELECT b FROM u WHERE
+...)` and `WITH x AS (SELECT 1 WHERE true) DELETE FROM t` are destructive. Clause keywords
+  (`FOR UPDATE`, `ON DELETE`, `ON CONFLICT DO UPDATE`, `ON DUPLICATE KEY UPDATE`) are not treated as
+  unfiltered statements.
 - `--read-only` (F096) still wins over a write-capable adapter - every statement, regardless of
   classification, is rejected the same way a read-only session always rejects a non-`SELECT`.
 - Postgres: a mutation containing a double-quoted token that doesn't match any real column is sent

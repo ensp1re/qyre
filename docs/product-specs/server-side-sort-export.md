@@ -1,6 +1,6 @@
 # Product Contract: Server-Side Sort and Whole-Table Export
 
-`RowsTable` (`packages/ui/src/components/rows-table.tsx`) currently sorts and exports only the rows
+`RowsTable` (`packages/ui/src/data-grid/table/rows-table.tsx`) currently sorts and exports only the rows
 already loaded into the browser - one page (25 rows by default, `apps/web`'s `UI_PAGE_SIZE`).
 Clicking a column header sorts those loaded rows client-side (`Array.sort`); "Export this page as
 CSV" exports the same loaded page. Neither reflects the whole table, and both can silently mislead a
@@ -31,7 +31,15 @@ SQL without materializing or re-querying the result.
   - **Postgres/MySQL/SQLite**: `ORDER BY <quoted-column> ASC|DESC` appended to the existing
     `SELECT ... LIMIT ... OFFSET ...`, using each adapter's existing identifier-quoting convention
     (owned by each SQL driver's `src/sql.ts`).
-  - **MongoDB**: `.sort({ [column]: direction === "asc" ? 1 : -1 })` on the `getRows` cursor.
+  - **MongoDB**: `.sort({ [column]: direction === "asc" ? 1 : -1, _id: 1 })` on the `getRows` and
+    export cursors. `_id` ascending is always the final tiebreaker (omitted only when sorting by
+    `_id` itself) so `skip`/`limit` paging never repeats or skips documents with equal sort values.
+- Paging and export order is total whenever the table has a row key: SQL engines append the primary
+  key columns (ascending, skipping any already sorted on) after the user's sort, and order by the
+  primary key when there is no user sort, so ties never repeat or skip rows across offset pages and
+  an edited row keeps its page. A keyless SQLite rowid table uses its rowid. Keyless Postgres/MySQL
+  tables and views keep only the user's sort (Postgres never falls back to `ctid`, which changes on
+  every update). MongoDB uses `_id` as its row key.
 - `RowsTable`'s header-click handler stops sorting the loaded array locally and instead calls a new
   `onSortChange` prop (same shape as the existing `onPageChange`), which `apps/web` uses to update
   `useRows`'s query params and refetch. Clicking the same header cycles asc -> desc -> unsorted,
@@ -76,8 +84,17 @@ SQL without materializing or re-querying the result.
 - SQL export is a sequence of complete `INSERT INTO ... VALUES (...);` statements. It is available
   only when the adapter reports it. Each SQL adapter owns its identifier and literal formatting:
   Postgres and SQLite use their double-quote identifier rules, MySQL uses backticks and mysql2's
-  value escaping, and binary/structured values use an engine-valid literal form. MongoDB never
-  advertises SQL export, so the UI hides it and a direct `.sql` request receives `400`.
+  value escaping, and binary/structured values use an engine-valid literal form. The formatter
+  receives the table's column metadata, so Postgres writes native array columns in array input
+  syntax (`'{"1",NULL,"3"}'`, nested for multi-dimensional arrays) while a `json`/`jsonb` value that
+  happens to be a JSON array stays JSON (`'[1,2]'`); the exported statements round-trip into the same
+  table. MongoDB never advertises SQL export, so the UI hides it and a direct `.sql` request
+  receives `400`.
+- Browser downloads authenticate with a one-shot grant instead of the session token.
+  `POST /api/exports/grant` requires `{ schema, table, format }` and returns a grant that expires
+  after 60 seconds and authorizes exactly one `GET` of that table's export in that format. Presenting
+  it anywhere else (another route, table, format, or method) is rejected with `401`, and the
+  request log redacts `grant` alongside `token`.
 
 ### Capability contract
 

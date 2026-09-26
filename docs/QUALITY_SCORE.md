@@ -5,27 +5,22 @@ checks, the live queue, specs, and Git—not a manually copied table.
 
 Scale: `A` verified/stable, `B` working with bounded debt, `C` material risk, `D` broken.
 
-| Area                   | Grade | Current evidence                               | Main gap                                                    |
-| ---------------------- | ----- | ---------------------------------------------- | ----------------------------------------------------------- |
-| Core contracts         | A     | Shared types/validation and package tests      | Validation coverage grows with new boundaries               |
-| Driver contract/parity | A     | Four engines plus conformance suite            | Keep all adapter changes in conformance where applicable    |
-| Drivers                | B     | Integration tests for all engines              | Large engine `index.ts` files need concern-based splits     |
-| Server                 | B     | Route/integration tests and live DB CI         | `src/index.ts` and its test are oversized and mix resources |
-| Web app                | A     | Enforced layers, 15 unit tests, Playwright E2E | Keep app composition below its current size boundary        |
-| UI                     | B     | Render/unit tests and accessibility E2E        | 35-component flat directory needs responsibility grouping   |
-| Agent harness          | A     | PR #76 CI, tracked skills, full PR gate        | Monitor context and verification cost                       |
+| Area                   | Grade | Current evidence                               | Main gap                                                   |
+| ---------------------- | ----- | ---------------------------------------------- | ---------------------------------------------------------- |
+| Core contracts         | A     | Shared types/validation and package tests      | Five tests still live in `src/` instead of `tests/`        |
+| Driver contract/parity | A     | Four engines plus conformance suite            | Conformance tests still live in `src/`                     |
+| Drivers                | B     | Integration tests for all engines              | SQLite still depends on a native addon (tech-debt row)     |
+| Server                 | B     | Route/integration tests and live DB CI         | Keep new routes/services in their domain folders           |
+| Web app                | A     | Enforced layers, 22 unit tests, Playwright E2E | Keep app composition below its current size boundary       |
+| UI                     | B     | Render/unit tests and accessibility E2E        | Keep new components in the existing responsibility folders |
+| Agent harness          | A     | `pnpm check:state`, tracked skills, PR gate    | Monitor context and verification cost                      |
 
 ## Current structural pressure
 
-- UI code is moving from its crowded flat directory into cohesive areas selected from actual
-  ownership and dependencies; example names are not mandated.
-- Server code is moving toward Fastify plugin/resource ownership; the exact folder split follows
-  the current handlers.
-- Package tests are moving to mirrored `tests/` trees; browser journeys to `tests/e2e/`.
-- Driver entrypoints are moving to concern-based modules without weakening cross-engine parity.
-
-Completed Plan 0005 defines the contract. Each behavior-preserving migration gets its own verified
-slice before structural checks make that area mandatory; F076 now enforces the web boundary.
+- Driver `index.ts` files and the server `src/index.ts` are small public barrels; UI components are
+  grouped into responsibility folders; web is layered into `app/`, `features/`, and `shared/`.
+- The remaining placement gap is tests under `src/` in `packages/cli` (3), `packages/core` (5), and
+  `packages/testing-conformance` (3); see the [tech-debt tracker](exec-plans/tech-debt-tracker.md).
 
 ## Harness metrics to retain
 

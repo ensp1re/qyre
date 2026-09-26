@@ -39,6 +39,7 @@ import {
   truncateTable
 } from "../schema/ddl.js";
 import { buildMongoFilter } from "../query/filters.js";
+import { documentSort } from "../query/sort.js";
 import { introspectCollection, introspectSchemas } from "../schema/introspection.js";
 import {
   deleteRowsByKey,
@@ -235,9 +236,10 @@ export class MongodbAdapter implements DatabaseAdapter {
     operationId?: string
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
+    // A fresh random sample could type a sparse field differently from the server's resolution.
+    const needsSampledTypes = filters?.some((filter) => filter.columnDataType === undefined);
     const columns =
-      search?.columns ??
-      (filters && filters.length > 0 ? (await this.getTable(schema, table)).columns : []);
+      search?.columns ?? (needsSampledTypes ? (await this.getTable(schema, table)).columns : []);
     const filterDocument = buildMongoFilter(filters, columns, search);
     registerMongoCancellation(this.getClient(), this.operationRegistry, operationId, schema);
     try {
@@ -248,7 +250,7 @@ export class MongodbAdapter implements DatabaseAdapter {
           maxTimeMS: this.statementTimeoutMs,
           ...(operationId ? { comment: operationId } : {})
         })
-        .sort(sort ? { [sort.column]: sort.direction === "asc" ? 1 : -1 } : { _id: 1 })
+        .sort(documentSort(sort))
         .skip(offset)
         .limit(safePageSize)
         .toArray();

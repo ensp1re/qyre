@@ -17,6 +17,7 @@ import {
   assertReadOnly,
   capResultRows,
   classifyExplainTarget,
+  keyRowsByColumn,
   MAX_QUERY_RESULT_ROWS,
   OperationCancelledError,
   ReadOnlyViolationError,
@@ -66,6 +67,7 @@ import {
   READ_ONLY_TABLE_PERMISSIONS
 } from "../access/permissions.js";
 import { formatSqlInsert, streamRows } from "../query/row-export.js";
+import { buildRowOrderBy } from "../query/row-order.js";
 import { buildFilterClause, quoteIdent } from "../query/sql.js";
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
@@ -151,10 +153,16 @@ export class MysqlAdapter implements DatabaseAdapter {
   formatSqlInsert(
     schema: string,
     table: string,
-    columns: readonly string[],
+    columns: readonly ColumnMetadata[],
     row: Record<string, unknown>
   ): string {
-    return formatSqlInsert(this.getPool(), schema, table, columns, row);
+    return formatSqlInsert(
+      this.getPool(),
+      schema,
+      table,
+      columns.map((column) => column.name),
+      row
+    );
   }
 
   async connect(): Promise<void> {
@@ -271,9 +279,6 @@ export class MysqlAdapter implements DatabaseAdapter {
     operationId?: string
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
-    const orderBy = sort
-      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
-      : "";
     const { clause: whereClause, params: filterParams } = buildFilterClause(filters, search);
     return withCancellableConnection(
       this.getPool(),
@@ -281,6 +286,7 @@ export class MysqlAdapter implements DatabaseAdapter {
       operationId,
       async (connection, wasCancelledByUser) => {
         try {
+          const orderBy = await buildRowOrderBy(connection, schema, table, sort);
           const [rows, fields] = await connection.query<mysql.RowDataPacket[]>(
             {
               sql: `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${whereClause}${orderBy} LIMIT ? OFFSET ?`,
@@ -314,7 +320,7 @@ export class MysqlAdapter implements DatabaseAdapter {
   }
 
   async runReadOnlyQuery(sql: string, operationId?: string): Promise<RowPage> {
-    assertReadOnly(sql);
+    assertReadOnly(sql, "mysql");
     return withCancellableConnection(
       this.getPool(),
       this.operationRegistry,
@@ -325,15 +331,15 @@ export class MysqlAdapter implements DatabaseAdapter {
             await connection.query("START TRANSACTION READ ONLY");
           },
           query: async (querySql: string) => {
-            const [rows, fields] = await connection.query<mysql.RowDataPacket[]>({
+            const [rows, fields] = await connection.query<mysql.RowDataPacket[][]>({
               sql: querySql,
+              rowsAsArray: true,
               timeout: this.statementTimeoutMs
             });
-            const allRows = rows as Array<Record<string, unknown>>;
-            return {
-              columns: fields.map((field) => field.name),
-              rows: truncateTo === undefined ? allRows : allRows.slice(0, truncateTo)
-            };
+            return keyRowsByColumn(
+              fields.map((field) => field.name),
+              truncateTo === undefined ? rows : rows.slice(0, truncateTo)
+            );
           },
           commit: async () => {
             await connection.query("COMMIT");
@@ -345,7 +351,10 @@ export class MysqlAdapter implements DatabaseAdapter {
         });
 
         try {
-          return await runInReadOnlyTransaction(transactionClient(), capResultRows(sql));
+          return await runInReadOnlyTransaction(
+            transactionClient(),
+            capResultRows(sql, MAX_QUERY_RESULT_ROWS, "mysql")
+          );
         } catch (error) {
           if (isMysqlCancelError(error) && wasCancelledByUser())
             throw new OperationCancelledError();
@@ -371,15 +380,18 @@ export class MysqlAdapter implements DatabaseAdapter {
       async (connection, wasCancelledByUser) => {
         try {
           const [result, fields] = await connection.query<
-            mysql.RowDataPacket[] | mysql.ResultSetHeader
+            mysql.RowDataPacket[][] | mysql.ResultSetHeader
           >({
             sql,
+            rowsAsArray: true,
             timeout: this.statementTimeoutMs
           });
           if (Array.isArray(result)) {
             return {
-              columns: (fields ?? []).map((field) => field.name),
-              rows: result as Array<Record<string, unknown>>,
+              ...keyRowsByColumn(
+                (fields ?? []).map((field) => field.name),
+                result
+              ),
               rowsAffected: result.length
             };
           }
@@ -397,7 +409,7 @@ export class MysqlAdapter implements DatabaseAdapter {
     if (analyze) {
       throw new ReadOnlyViolationError("EXPLAIN ANALYZE is only supported for PostgreSQL.");
     }
-    const classification = classifyExplainTarget(sql, false);
+    const classification = classifyExplainTarget(sql, false, "mysql");
     if (classification !== "read") {
       throw new ReadOnlyViolationError(
         "MySQL EXPLAIN is limited to read-classified SQL in Qyre because MySQL rejects DML planning inside a READ ONLY transaction."

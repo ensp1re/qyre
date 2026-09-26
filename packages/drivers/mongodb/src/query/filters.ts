@@ -1,14 +1,20 @@
 import type { ColumnMetadata, RowFilter } from "@qyre/core";
+import { isExactNumericText, parseTimestampInstant } from "@qyre/core/mutation-editor-values";
 import { escapeRegExp, type ResolvedRowSearch } from "@qyre/driver-contract";
-import { ObjectId } from "mongodb";
+import { Decimal128, ObjectId } from "mongodb";
+import { exactInteger, int64FromText } from "../runtime/bson-numbers.js";
 
-/** Coerce a string filter value to the BSON type observed for its column. */
+function isObjectIdHex(value: string): boolean {
+  return /^[0-9a-f]{24}$/i.test(value);
+}
+
+function invalidFilter(message: string): Error {
+  return Object.assign(new Error(message), { statusCode: 400 });
+}
+
+/** Coerce a string filter value to the non-numeric BSON type observed for its column. */
 export function coerceFilterValue(value: string, dataType: string): unknown {
   switch (dataType) {
-    case "number": {
-      const parsed = Number(value);
-      return Number.isNaN(parsed) ? value : parsed;
-    }
     case "boolean":
       if (value === "true") return true;
       if (value === "false") return false;
@@ -16,12 +22,60 @@ export function coerceFilterValue(value: string, dataType: string): unknown {
     case "objectId":
       return ObjectId.isValid(value) ? new ObjectId(value) : value;
     case "date": {
-      const parsed = new Date(value);
-      return Number.isNaN(parsed.getTime()) ? value : parsed;
+      const instant = parseTimestampInstant(value);
+      if (!instant) throw invalidFilter(`"${value}" is not a valid date/time filter value.`);
+      return instant;
     }
     default:
       return value;
   }
+}
+
+/**
+ * Exact operands for numeric filter text. Decimal text equals both its nearest Double and its
+ * exact Decimal128, which MongoDB compares as different numbers.
+ */
+function numericOperands(value: string, column: string): unknown[] {
+  const text = value.trim();
+  if (!isExactNumericText(text)) {
+    throw invalidFilter(`Filter value for number field "${column}" must be an exact number.`);
+  }
+  const integer = int64FromText(text);
+  if (integer !== undefined) return [exactInteger(integer)];
+  const operands: unknown[] = [];
+  const double = Number(text);
+  if (Number.isFinite(double)) operands.push(double);
+  try {
+    operands.push(Decimal128.fromString(text));
+  } catch {
+    // Text beyond Decimal128 precision still compares through its Double.
+  }
+  if (operands.length === 0) {
+    throw invalidFilter(`Filter value for number field "${column}" is out of range.`);
+  }
+  return operands;
+}
+
+const COMPARISON_OPERATORS = {
+  eq: "$eq",
+  neq: "$ne",
+  lt: "$lt",
+  lte: "$lte",
+  gt: "$gt",
+  gte: "$gte"
+} as const;
+
+function buildNumericCondition(
+  column: string,
+  op: keyof typeof COMPARISON_OPERATORS,
+  operands: unknown[]
+): Record<string, unknown> {
+  if (operands.length === 1) return { [column]: { [COMPARISON_OPERATORS[op]]: operands[0] } };
+  if (op === "eq") return { [column]: { $in: operands } };
+  if (op === "neq") return { [column]: { $nin: operands } };
+  const each = operands.map((operand) => ({ [column]: { [COMPARISON_OPERATORS[op]]: operand } }));
+  // Strict bounds must exclude every representation; inclusive bounds admit any of them.
+  return op === "lt" || op === "gt" ? { $and: each } : { $or: each };
 }
 
 function buildMongoCondition(
@@ -36,14 +90,22 @@ function buildMongoCondition(
     }
     return { [filter.column]: { $regex: escapeRegExp(filter.value ?? ""), $options: "i" } };
   }
-  const value = coerceFilterValue(
-    filter.value ?? "",
-    dataTypeByColumn.get(filter.column) ?? "string"
-  );
-  const mongoOp = { eq: "$eq", neq: "$ne", lt: "$lt", lte: "$lte", gt: "$gt", gte: "$gte" }[
-    filter.op
-  ];
-  return { [filter.column]: { [mongoOp]: value } };
+  const dataType = filter.columnDataType ?? dataTypeByColumn.get(filter.column) ?? "string";
+  if (dataType === "number") {
+    return buildNumericCondition(
+      filter.column,
+      filter.op,
+      numericOperands(filter.value ?? "", filter.column)
+    );
+  }
+  const text = filter.value ?? "";
+  // Grid cells render ObjectIds as hex, so hex text in a mixed-type field must match either form.
+  if (dataType === "mixed" && (filter.op === "eq" || filter.op === "neq") && isObjectIdHex(text)) {
+    const operands = [new ObjectId(text), text];
+    return { [filter.column]: filter.op === "eq" ? { $in: operands } : { $nin: operands } };
+  }
+  const value = coerceFilterValue(text, dataType);
+  return { [filter.column]: { [COMPARISON_OPERATORS[filter.op]]: value } };
 }
 
 function regexMatch(input: unknown, value: string): Record<string, unknown> {

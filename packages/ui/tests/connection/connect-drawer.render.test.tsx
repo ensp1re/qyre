@@ -67,6 +67,50 @@ describe("composeConnectionString", () => {
     ).toBe("mongodb+srv://admin:s3cret@cluster0.example.mongodb.net/data");
   });
 
+  it("keeps leading and trailing spaces in the password", () => {
+    expect(
+      composeConnectionString({
+        engine: "postgres",
+        host: "localhost",
+        port: "5432",
+        user: "alice",
+        password: " pass ",
+        database: "",
+        srv: false
+      })
+    ).toBe("postgres://alice:%20pass%20@localhost:5432");
+  });
+
+  it("appends query options, tolerating a leading question mark", () => {
+    expect(
+      composeConnectionString({
+        engine: "mysql",
+        host: "db",
+        port: "",
+        user: "",
+        password: "",
+        database: "app",
+        srv: false,
+        options: "?ssl-mode=REQUIRED"
+      })
+    ).toBe("mysql://db:3306/app?ssl-mode=REQUIRED");
+  });
+
+  it("separates MongoDB options from the hosts with a slash when no database is given", () => {
+    expect(
+      composeConnectionString({
+        engine: "mongodb",
+        host: "localhost",
+        port: "",
+        user: "",
+        password: "",
+        database: "",
+        srv: false,
+        options: "authSource=admin"
+      })
+    ).toBe("mongodb://localhost:27017/?authSource=admin");
+  });
+
   it("percent-encodes special characters in user/password/database", () => {
     expect(
       composeConnectionString({
@@ -92,9 +136,28 @@ describe("parsePastedConnectionString", () => {
         user: "alice",
         password: "s3cret",
         database: "mydb",
-        srv: false
+        srv: false,
+        options: ""
       }
     );
+  });
+
+  it("keeps the URL's query options", () => {
+    const parsed = parsePastedConnectionString(
+      "postgres://alice:s3cret@db.example.com:5433/mydb?sslmode=require&application_name=qyre"
+    );
+    expect(parsed?.options).toBe("sslmode=require&application_name=qyre");
+    expect(composeConnectionString(parsed!)).toBe(
+      "postgres://alice:s3cret@db.example.com:5433/mydb?sslmode=require&application_name=qyre"
+    );
+  });
+
+  it("round-trips a MongoDB SRV URL with authSource and a password with spaces", () => {
+    const raw =
+      "mongodb+srv://admin:%20s3cret%20@cluster0.example.mongodb.net/data?authSource=admin";
+    const parsed = parsePastedConnectionString(raw);
+    expect(parsed?.password).toBe(" s3cret ");
+    expect(composeConnectionString(parsed!)).toBe(raw);
   });
 
   it("maps mongodb+srv to the mongodb engine with the srv flag set", () => {
@@ -185,6 +248,24 @@ describe("ConnectDrawer", () => {
     expect(screen.getByLabelText("User")).toHaveValue("root");
     expect(screen.getByLabelText("Password")).toHaveValue("hunter2");
     expect(screen.getByLabelText("Database")).toHaveValue("app");
+  });
+
+  it("submits a pasted URL's query options and exact password", async () => {
+    const onConnect = vi.fn().mockResolvedValue(undefined);
+    render(<ConnectDrawer {...baseProps} onConnect={onConnect} />);
+    fireEvent.click(screen.getByText("Use fields instead"));
+
+    paste(
+      screen.getByLabelText("Host"),
+      "postgres://root:hunter2@db.internal:5432/app?sslmode=require"
+    );
+    expect(screen.getByLabelText("Options")).toHaveValue("sslmode=require");
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: " hunter2 " } });
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+
+    expect(onConnect).toHaveBeenCalledWith(
+      "postgres://root:%20hunter2%20@db.internal:5432/app?sslmode=require"
+    );
   });
 
   it("clears the other fields when switching engine tabs", () => {

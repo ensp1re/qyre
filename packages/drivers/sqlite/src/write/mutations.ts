@@ -10,7 +10,23 @@ import { classifySqlitePermissionDenied } from "../access/permission-errors.js";
 import { normalizeRow } from "../runtime/row-values.js";
 import { quoteIdent } from "../query/sql.js";
 
-/** Insert and re-fetch the row because SQLite RETURNING is not assumed across versions. */
+/** The primary-key columns of a WITHOUT ROWID table, or `undefined` for a rowid table. */
+function withoutRowidKey(db: Database.Database, table: string): string[] | undefined {
+  const withoutRowid = db
+    .prepare("SELECT wr FROM pragma_table_list(?) WHERE type = 'table'")
+    .pluck()
+    .get(table);
+  if (!withoutRowid) return undefined;
+  return db
+    .prepare("SELECT name FROM pragma_table_info(?) WHERE pk > 0 ORDER BY pk")
+    .pluck()
+    .all(table) as string[];
+}
+
+/**
+ * Insert, then re-read the row by its key: `RETURNING *` yields the row before AFTER INSERT
+ * triggers run, and the re-read shows what they changed.
+ */
 export function insertRow(
   db: Database.Database,
   table: string,
@@ -18,17 +34,27 @@ export function insertRow(
 ): InsertRowResult {
   const columns = Object.keys(values);
   const target = quoteIdent(table);
+  const keyColumns = withoutRowidKey(db, table);
+  const returning = keyColumns ? keyColumns.map(quoteIdent).join(", ") : "rowid";
   const query = columns.length
     ? `INSERT INTO ${target} (${columns.map(quoteIdent).join(", ")}) VALUES (${columns
         .map(() => "?")
-        .join(", ")})`
-    : `INSERT INTO ${target} DEFAULT VALUES`;
-  const result = db.prepare(query).run(...columns.map((column) => values[column]));
-
-  const row = db
-    .prepare(`SELECT * FROM ${target} WHERE rowid = ?`)
+        .join(", ")}) RETURNING ${returning}`
+    : `INSERT INTO ${target} DEFAULT VALUES RETURNING ${returning}`;
+  const key = db
+    .prepare(query)
+    .raw(true)
     .safeIntegers(true)
-    .get(result.lastInsertRowid) as Record<string, unknown> | undefined;
+    .get(...columns.map((column) => values[column])) as unknown[] | undefined;
+  if (!key) return { row: undefined };
+
+  const where = keyColumns
+    ? keyColumns.map((column) => `${quoteIdent(column)} = ?`).join(" AND ")
+    : "rowid = ?";
+  const row = db
+    .prepare(`SELECT * FROM ${target} WHERE ${where}`)
+    .safeIntegers(true)
+    .get(...key) as Record<string, unknown> | undefined;
   return { row: row ? normalizeRow(row) : undefined };
 }
 

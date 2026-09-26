@@ -8,8 +8,9 @@ disk, request-body, or transaction.
 ## One-sentence promise
 
 A user with insert permission can map a CSV file onto an existing table or collection, preview the
-server's real type coercion before writing, and import valid rows in bounded atomic batches with an
-exact source-line report for every rejected row.
+server's real type coercion before writing, and import valid rows atomically, never leaving a
+partially imported file behind on transactional SQL tables, with an exact failed-row count and a
+source-line report for the first rejected rows.
 
 ## Eligibility and affordance gating
 
@@ -34,9 +35,10 @@ exact source-line report for every rejected row.
 2. **Map and validate:** each CSV header can map to one target column or be ignored. Exact
    case-sensitive name matches are selected initially. `validate` mode re-uploads the file, applies
    the mapping and the server's real coercion rules, and returns a dry-run preview plus line errors.
-3. **Import:** after a successful dry run, `import` mode re-uploads the same file and mapping. Valid
-   rows are inserted in bounded batches; invalid rows are skipped and reported. The result states
-   total, valid, inserted, and failed row counts and keeps the line errors visible.
+3. **Import:** after a successful dry run, `import` mode re-uploads the same file and mapping. The
+   server parses and validates the whole file before writing anything; invalid rows are skipped
+   and reported, and valid rows are inserted. The result states total, valid, inserted, and failed
+   row counts and keeps the line errors visible.
 
 Changing the file or any mapping invalidates the previous dry run. The final Import action is not
 enabled until the current file/mapping combination has completed a dry run.
@@ -60,9 +62,11 @@ Responses use shared `@qyre/core` contracts:
 - validation/import: `{ mode, rowCount, validRows, insertedRows, failedRows, preview, errors }`;
 - each preview item is `{ line, values }`; each error is `{ line, column?, message }`.
 
-Malformed CSV, invalid multipart shape/mapping, or a limit breach rejects the request (`400` or
-`413`) before a result is presented as successful. Row-level validation/database failures are a
-normal `200` result so a partially successful multi-batch import retains its full report.
+Malformed CSV, invalid multipart shape/mapping, or a limit breach (including a file truncated by the
+size cap) rejects the request (`400` or `413`) before any row is written, so retrying the corrected
+file never duplicates rows. Row-level validation/database failures are a normal `200` result that
+carries the inserted count and line errors: `insertedRows: 0` on SQL engines after a rollback, and
+the exact partial count on MongoDB or on a MySQL table that cannot roll back.
 
 ## CSV dialect and mapping
 
@@ -81,11 +85,20 @@ normal `200` result so a partially successful multi-batch import retains its ful
 
 Coercion reuses the same `FilterColumnKind` classification as row editing:
 
-- text/identifier: the CSV text unchanged;
-- numeric: a finite JSON number; whitespace-only and non-numeric text are errors;
+- text/identifier: the CSV text unchanged. A Postgres or MySQL enum must match one of its catalog
+  labels, and a MySQL SET value must be a comma-separated list of its labels (an empty string is
+  the empty set); MySQL labels match case-insensitively, as its default collations do. Other values
+  are row errors in both dry run and import;
+- numeric: a finite decimal/exponent literal; whitespace-only and non-numeric text are errors. SQL
+  engines receive a JSON number only when it represents the literal exactly (so `1.0` and `1e3`
+  still fit integer columns) and otherwise the exact trimmed text, so `bigint` and high-precision
+  `numeric`/`decimal` values are never rounded through a JavaScript number. MongoDB receives the same values as grid inserts: a
+  number for safe integers, `$numberLong` for larger 64-bit integers, and otherwise a double;
 - boolean: case-insensitive `true`/`false` and `1`/`0`;
-- date/time/datetime: a parseable ISO-8601-shaped string, passed through for SQL drivers and
-  converted to MongoDB Extended JSON `$date` for a sampled Date field;
+- date/time/datetime: a parseable ISO-8601-shaped string, passed through for SQL drivers. For a
+  sampled MongoDB Date field it must be `YYYY-MM-DD` or `YYYY-MM-DD[T ]HH:MM[:SS[.fraction]]` with
+  an optional `Z`/numeric offset, is read as UTC when zone-less (as in the grid editor), and is
+  sent as an Extended JSON `$date` instant;
 - objectId: a 24-character hexadecimal string, converted to MongoDB Extended JSON `$oid` before
   insertion;
 - structured/binary/unknown/null-only: not importable.
@@ -99,32 +112,39 @@ defaults; the connected database remains authoritative.
 
 - One file, at most 10 MiB; at most 10,000 data rows and 256 columns.
 - At most two scalar multipart fields plus the file, with each scalar field capped at 64 KiB.
-- The parser consumes the upload as a stream. It never writes a temporary file and never collects
-  the whole CSV in memory. Only the 20-row preview, the current batch, and the bounded error report
-  are retained.
-- SQL engines use batches of 250 insert operations through `mutations.commitBatch`; each batch is
-  one native transaction. A rejected operation rolls back that batch. The failed line receives the
-  database-rejection error and every other line in that batch receives a rollback error naming the
-  failed line; later batches continue.
-- MongoDB uses `mutations.insertRow` with a batch size of one. A document is MongoDB's native atomic
+- The parser consumes the upload as a stream and never writes a temporary file. Import mode retains
+  the coerced valid rows (bounded by the 10 MiB and 10,000-row caps) until the whole file has
+  parsed, so no write starts before malformed, truncated, or over-limit input is rejected.
+- SQL engines insert every valid row in one `mutations.commitBatch` call, which is one native
+  transaction. A rejected operation rolls back the whole import: the result reports
+  `insertedRows: 0` and the failed line receives an error stating that no rows were written.
+- A MySQL table on a non-transactional storage engine (for example MyISAM) cannot roll back. MySQL
+  reports this on `ROLLBACK`, so the result instead reports the rows written before the rejected
+  one as `insertedRows`, and the failed line's error says they could not be rolled back.
+- MongoDB uses `mutations.insertRow` one document at a time. A document is MongoDB's native atomic
   unit, and Qyre's supported standalone MongoDB topology cannot provide multi-document
-  transactions. Calling each document a one-row batch preserves the contract honestly: every batch
-  is atomic and a rejected document cannot roll back or block another document.
-- Error details are bounded by the 10,000-row request cap, so every rejected input row can be
-  returned without a second unbounded response surface.
+  transactions, so a rejected document does not roll back or block the others. The result is an
+  explicit partial result: `insertedRows` is the exact number written and each rejected line says
+  that other rows were still inserted.
+- `failedRows` always counts every rejected row, but `errors` holds at most 100 entries
+  (`CSV_IMPORT_MAX_ERRORS`): the first rejected rows in source order. When the database rejects
+  the SQL commit, its error is placed first so it stays visible, displacing the last row error
+  if the list is already full.
 
 ## Audit behavior
 
 One structured event is emitted per import request, not per row. It records operation `csv-import`,
-target schema/table, mode, row/insert/failure counts, duration, and outcome. It never logs uploaded
+target schema/table, mode, row/insert/failure counts, duration, and outcome (`success`, `partial`,
+or `rejected` when an import wrote no rows). It never logs uploaded
 field values, the file body, credentials, or raw database errors.
 
 ## Engine parity
 
-- Postgres, MySQL, and SQLite: identical mapping/coercion/result behavior; 250-row transactional
-  batches through each engine's existing `commitBatch` implementation.
-- MongoDB: identical mapping/coercion/result behavior for sampled top-level scalar fields; atomic
-  one-document batches through `insertRow`.
+- Postgres, MySQL, and SQLite: identical mapping/coercion/result behavior; one whole-import
+  transaction through each engine's existing `commitBatch` implementation. Non-transactional MySQL
+  tables report their unrecoverable partial write as described above.
+- MongoDB: identical mapping/coercion behavior for sampled top-level scalar fields; atomic
+  one-document inserts through `insertRow` with an explicit partial result.
 - Views/materialized views are not applicable targets on any engine. Collections are applicable
   only on MongoDB; SQL tables are applicable only on their SQL engines.
 
@@ -133,8 +153,8 @@ field values, the file body, credentials, or raw database errors.
 - Creating a table/collection from CSV, schema inference, adding columns, or mapping nested MongoDB
   paths.
 - Delimiters/encodings other than UTF-8 comma-separated CSV, saved mapping presets, upsert/update,
-  all-or-nothing transactions across the whole file, background jobs, resumable uploads, and an
-  undo operation.
+  background jobs, resumable uploads, and an undo operation. Whole-file atomicity on MongoDB is out
+  of scope while its supported topology has no multi-document transactions.
 - Client-side-only parsing. The browser may display server-returned raw preview rows, but the server
   is the only authority for parsing, limits, coercion, and writes.
 
@@ -145,7 +165,10 @@ field values, the file body, credentials, or raw database errors.
 - Read-only, ungranted, view, and materialized-view targets expose no import action and the route
   rejects direct calls.
 - Invalid mappings and type conversions name the CSV source line without inserting that row.
-- A SQL constraint failure rolls back only its bounded batch, reports every affected source line,
-  and permits later valid batches to continue; a MongoDB document failure affects only that row.
+- A SQL constraint failure anywhere in the file rolls back the whole import (or, on a
+  non-transactional MySQL table, reports the rows already written) and names the failed source
+  line; a MongoDB document failure affects only that row and the result states how many
+  rows were inserted.
+- Malformed, over-cap, or size-truncated files write no rows on any engine.
 - Files, rows, columns, fields, or parts beyond the fixed limits fail without unbounded buffering or
   temporary disk use.

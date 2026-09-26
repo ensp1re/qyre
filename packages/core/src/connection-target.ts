@@ -84,9 +84,30 @@ export function parseConnectionTarget(input: string | undefined): ConnectionTarg
   return resolveSqliteTarget(trimmed, trimmed);
 }
 
+const PATH_DEFAULT_AUTH_MECHANISMS = new Set(["DEFAULT", "SCRAM-SHA-1", "SCRAM-SHA-256"]);
+
+/**
+ * MongoDB authenticates against the URI path database unless `authSource` is set, so switching
+ * the path must keep the original auth database. SRV URIs are left alone because their TXT
+ * record may supply `authSource`, which an explicit parameter would override.
+ */
+function pinMongoAuthSource(url: URL): void {
+  if (url.protocol !== "mongodb:" || !url.username) return;
+  const params = [...url.searchParams.keys()].map((key) => key.toLowerCase());
+  if (params.includes("authsource")) return;
+  const mechanismKey = [...url.searchParams.keys()].find(
+    (key) => key.toLowerCase() === "authmechanism"
+  );
+  const mechanism = mechanismKey ? url.searchParams.get(mechanismKey)?.toUpperCase() : undefined;
+  if (mechanism && !PATH_DEFAULT_AUTH_MECHANISMS.has(mechanism)) return;
+  const originalDatabase = decodeURIComponent(url.pathname.replace(/^\//, ""));
+  url.searchParams.set("authSource", originalDatabase || "admin");
+}
+
 /** Replace a URL's database path while preserving credentials and options. */
 export function withDatabase(raw: string, database: string): string {
   const url = new URL(raw);
+  pinMongoAuthSource(url);
   url.pathname = `/${encodeURIComponent(database)}`;
   return url.toString();
 }

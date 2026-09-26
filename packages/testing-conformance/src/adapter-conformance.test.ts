@@ -1,4 +1,5 @@
 import type { ConformanceFixture, PermissionDenialFixture } from "./fixtures/engine-cases.js";
+import type { RowSort } from "@qyre/core";
 import { cases, emptyTable, suffix } from "./fixtures/engine-cases.js";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -325,6 +326,84 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     }
   );
 
+  // MongoDB uses `_id` as its row key.
+  it.skipIf(!configured)(
+    "pages and exports ties in row-key order so offset pages neither repeat nor skip rows",
+    async () => {
+      const table = `qyre_paging_${suffix}`;
+      const keyColumn = engine === "mongodb" ? "_id" : "id";
+      const insertedIds = Array.from({ length: 30 }, (_, index) => (index * 7) % 30);
+      if (engine === "mongodb") {
+        await adapter.ddl?.createTable?.(fixture.schema, table, []);
+        for (const id of insertedIds) {
+          await adapter.mutations?.insertRow?.(fixture.schema, table, { n: id % 3 });
+        }
+      } else {
+        await adapter.runQuery?.(`CREATE TABLE ${table} (id INTEGER PRIMARY KEY, n INTEGER)`);
+        await adapter.runQuery?.(
+          `INSERT INTO ${table} (id, n) VALUES ${insertedIds.map((id) => `(${id}, ${id % 3})`).join(", ")}`
+        );
+      }
+      const keyOf = (row: Record<string, unknown>) =>
+        engine === "mongodb" ? String(row[keyColumn]) : Number(row[keyColumn]);
+      const byKey = (left: string | number, right: string | number) =>
+        left < right ? -1 : left > right ? 1 : 0;
+      const pageThrough = async (sort?: RowSort) => {
+        const keys: Array<string | number> = [];
+        for (let page = 0; page < 5; page += 1) {
+          const result = await adapter.getRows(fixture.schema, table, page, 7, sort);
+          keys.push(...result.rows.map(keyOf));
+        }
+        return keys;
+      };
+      try {
+        const rows = (await adapter.getRows(fixture.schema, table, 0, 200)).rows.map((row) => ({
+          key: keyOf(row),
+          n: Number(row.n)
+        }));
+        const keysOrderedBy = (direction: "asc" | "desc") =>
+          [...rows]
+            .sort(
+              (left, right) =>
+                (direction === "asc" ? left.n - right.n : right.n - left.n) ||
+                byKey(left.key, right.key)
+            )
+            .map((row) => row.key);
+        const keyOrder = rows.map((row) => row.key).sort(byKey);
+
+        expect(await pageThrough()).toEqual(keyOrder);
+        expect(await pageThrough({ column: "n", direction: "asc" })).toEqual(keysOrderedBy("asc"));
+        expect(await pageThrough({ column: "n", direction: "desc" })).toEqual(
+          keysOrderedBy("desc")
+        );
+        expect(await pageThrough({ column: keyColumn, direction: "desc" })).toEqual(
+          [...keyOrder].reverse()
+        );
+
+        const firstKey = keyOrder[0]!;
+        await adapter.mutations?.updateRowByKey?.(
+          fixture.schema,
+          table,
+          { [keyColumn]: engine === "mongodb" ? { $oid: String(firstKey) } : firstKey },
+          { n: 0 }
+        );
+        expect(await pageThrough()).toEqual(keyOrder);
+
+        const { columns } = await adapter.getTable(fixture.schema, table);
+        const exported: Array<string | number> = [];
+        for await (const row of adapter.streamRows(fixture.schema, table, columns, {
+          column: "n",
+          direction: "asc"
+        })) {
+          exported.push(keyOf(row));
+        }
+        expect(exported).toEqual(keysOrderedBy("asc"));
+      } finally {
+        await adapter.ddl?.dropTable?.(fixture.schema, table);
+      }
+    }
+  );
+
   it.skipIf(!configured)("filters rows with eq/neq identically (F072)", async () => {
     const eq = await adapter.getRows(fixture.schema, fixture.populatedTable, 0, 10, undefined, [
       { column: "n", op: "eq", value: "2" }
@@ -532,7 +611,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
         [{ column: "label", op: "eq", value: "apple" }]
       );
       const row = before.rows[0];
-      const key = engine === "mongodb" ? { _id: String(row?._id) } : { id: row?.id };
+      const key = engine === "mongodb" ? { _id: { $oid: String(row?._id) } } : { id: row?.id };
 
       const result = await adapter.mutations?.updateRowByKey?.(
         fixture.schema,
@@ -557,7 +636,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
   it.skipIf(!configured)(
     "updateRowByKey reports matched: 0 for a key that doesn't match any row (F100)",
     async () => {
-      const key = engine === "mongodb" ? { _id: "507f1f77bcf86cd799439011" } : { id: -1 };
+      const key = engine === "mongodb" ? { _id: { $oid: "507f1f77bcf86cd799439011" } } : { id: -1 };
       const result = await adapter.mutations?.updateRowByKey?.(
         fixture.schema,
         fixture.populatedTable,
@@ -580,7 +659,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
         [{ column: "label", op: "eq", value: "banana" }]
       );
       const row = before.rows[0];
-      const key = engine === "mongodb" ? { _id: String(row?._id) } : { id: row?.id };
+      const key = engine === "mongodb" ? { _id: { $oid: String(row?._id) } } : { id: row?.id };
 
       const result = await adapter.mutations?.deleteRowsByKey?.(
         fixture.schema,
@@ -604,7 +683,7 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
   it.skipIf(!configured)(
     "deleteRowsByKey reports a lower deleted count when a key doesn't match any row (F101)",
     async () => {
-      const key = engine === "mongodb" ? { _id: "507f1f77bcf86cd799439011" } : { id: -1 };
+      const key = engine === "mongodb" ? { _id: { $oid: "507f1f77bcf86cd799439011" } } : { id: -1 };
       const result = await adapter.mutations?.deleteRowsByKey?.(
         fixture.schema,
         fixture.populatedTable,
@@ -812,6 +891,44 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
       expect(afterDrop.columns.map((column) => column.name)).toEqual(["id"]);
 
       await adapter.ddl?.dropTable?.(fixture.schema, table);
+    }
+  );
+
+  it.skipIf(!configured || engine === "mongodb")(
+    "renameAndAlterColumn on a referenced parent table keeps CASCADE and SET NULL child rows",
+    async () => {
+      const parent = `qyre_ddl_fk_parent_${suffix}`;
+      const cascadeChild = `qyre_ddl_fk_cascade_${suffix}`;
+      const setNullChild = `qyre_ddl_fk_set_null_${suffix}`;
+      const intType = engine === "postgres" ? "integer" : engine === "mysql" ? "INT" : "INTEGER";
+      const textType = engine === "mysql" ? "VARCHAR(50)" : engine === "postgres" ? "text" : "TEXT";
+      const statements = [
+        `CREATE TABLE ${parent} (id ${intType} PRIMARY KEY, name ${textType})`,
+        `CREATE TABLE ${cascadeChild} (id ${intType} PRIMARY KEY, parent_id ${intType} REFERENCES ${parent}(id) ON DELETE CASCADE)`,
+        `CREATE TABLE ${setNullChild} (id ${intType} PRIMARY KEY, parent_id ${intType} REFERENCES ${parent}(id) ON DELETE SET NULL)`,
+        `INSERT INTO ${parent} (id, name) VALUES (1, 'one'), (2, 'two')`,
+        `INSERT INTO ${cascadeChild} (id, parent_id) VALUES (10, 1), (11, 2)`,
+        `INSERT INTO ${setNullChild} (id, parent_id) VALUES (20, 1)`
+      ];
+      try {
+        for (const statement of statements) await adapter.runQuery?.(statement);
+
+        await adapter.ddl?.renameAndAlterColumn?.(fixture.schema, parent, "name", {
+          newName: "label",
+          changes: { nullable: false }
+        });
+
+        const parentRows = await adapter.getRows(fixture.schema, parent, 0, 10);
+        expect(parentRows.rows.map((row) => row.label).sort()).toEqual(["one", "two"]);
+        const cascadeRows = await adapter.getRows(fixture.schema, cascadeChild, 0, 10);
+        expect(cascadeRows.rows.map((row) => Number(row.parent_id)).sort()).toEqual([1, 2]);
+        const setNullRows = await adapter.getRows(fixture.schema, setNullChild, 0, 10);
+        expect(setNullRows.rows.map((row) => Number(row.parent_id))).toEqual([1]);
+      } finally {
+        for (const table of [setNullChild, cascadeChild, parent]) {
+          await adapter.runQuery?.(`DROP TABLE IF EXISTS ${table}`);
+        }
+      }
     }
   );
 

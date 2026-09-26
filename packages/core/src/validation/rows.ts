@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "../pagination.js";
-import { FILTER_OPS } from "../types/query/query.js";
+import { FILTER_OPS, ROW_EXPORT_FORMATS } from "../types/query/query.js";
 
 const NO_VALUE_OPS = new Set<(typeof FILTER_OPS)[number]>(["isNull", "isNotNull"]);
 
@@ -45,3 +45,11 @@ export const rowsQuerySchema = z.object({
     })
 });
 export type RowsQuery = z.infer<typeof rowsQuerySchema>;
+
+/** The table export a one-shot download grant is issued for. */
+export const exportGrantSchema = z.object({
+  schema: z.string().min(1),
+  table: z.string().min(1),
+  format: z.enum(ROW_EXPORT_FORMATS)
+});
+export type ExportGrantRequest = z.infer<typeof exportGrantSchema>;

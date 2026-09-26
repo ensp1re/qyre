@@ -18,3 +18,11 @@ Finished plans kept for future agent context. Each should link the evidence that
   DF-19 were retired unstarted on 2026-07-18: the 2026-07-15 browser audit they were scoped from
   predates F148/F149 and later UI refinements, so a fresh audit is needed before that remaining
   work is re-scoped.
+- [`0008-ai-database-assistant.md`](0008-ai-database-assistant.md) - F150-F153, opt-in AI assistant
+  tab; retired unstarted on 2026-09-26 by maintainer decision, no code written.
+- [`0009-security-audit-hardening.md`](0009-security-audit-hardening.md) - F154, security audit
+  fixes (read-only bypass, error redaction, CSV hardening); `passing`.
+- [`0010-bug-audit-fixes.md`](0010-bug-audit-fixes.md) - F160-F169, fixes from the 2026-09-26
+  code audit across drivers, server, and UI (PR #186); all `passing`.
+- [`0011-security-audit-f157.md`](0011-security-audit-f157.md) - F157, full security audit worked
+  in one pass (PR #175); all fixed except native-SQLite runtime independence (tech-debt tracker).

@@ -10,6 +10,13 @@ to connect to. The "target" is a local file, not a network address. Every behavi
 for that difference; where Postgres's contract doesn't apply 1:1, this doc says so explicitly rather
 than silently reusing Postgres language that would be misleading.
 
+> **Writes shipped later.** This contract describes the original read-only inspection scope.
+> Row editing, write SQL, schema DDL, and CSV import now exist, gated by the connected user's
+> grants and the hard `--read-only` override; see
+> [`permissions-and-capabilities.md`](permissions-and-capabilities.md) and
+> [`row-editing.md`](row-editing.md). Read-only statements below apply to
+> `--read-only` sessions and to users without write grants.
+
 ## One-sentence promise
 
 A developer can point Qyre at a `.sqlite`/`.db` file, have it auto-recognized as SQLite with zero
@@ -52,7 +59,7 @@ In scope (SQLite engine):
   no new frontend work required, only the adapter).
 - A read-only SQL query runner (SELECT-style statements only), reusing `@qyre/driver-contract`'s
   `ReadOnlyViolationError` and the same heuristic-scan layer as Postgres (`assertReadOnly` logic
-  should be shared/generalized from `packages/drivers/postgres/src/read-only.ts`, not
+  is shared in `packages/drivers/contract/src/safety/read-only.ts`, not
   copy-pasted - see `ARCHITECTURE.md`'s rule on reusing genuinely engine-agnostic logic).
 - Local server health and runtime diagnostics endpoints (reused as-is from `@qyre/server` - `/api/health`
   is engine-agnostic already).

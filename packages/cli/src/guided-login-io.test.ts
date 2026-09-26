@@ -48,6 +48,16 @@ describe("createStreamGuidedLoginIO", () => {
     expect(await promise).toBe("db.example.com");
   });
 
+  it("askMasked keeps surrounding whitespace, which can be part of a password", async () => {
+    const { input, output } = makeStreams(false);
+    const io = createStreamGuidedLoginIO(input, output);
+
+    const promise = io.askMasked("Password: ");
+    input.write("  secret \n");
+
+    expect(await promise).toBe("  secret ");
+  });
+
   it("askMasked enables raw mode on a TTY, echoes `*` per keystroke, and restores it after enter", async () => {
     const { input, output, setRawModeCalls, written } = makeStreams(true);
     const io = createStreamGuidedLoginIO(input, output);

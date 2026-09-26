@@ -1,7 +1,7 @@
 import type { ColumnMetadata, IndexMetadata, TableKind, TableMetadata } from "@qyre/core";
 import type Database from "better-sqlite3";
 import { quoteIdent } from "../query/sql.js";
-import type { ForeignKeyListRow, TableInfoRow } from "./types.js";
+import type { ForeignKeyListRow, TableInfoRow, TableXInfoRow } from "./types.js";
 
 /** SQLite has a single implicit namespace; the UI still expects a schema name. */
 export const MAIN_SCHEMA = "main";
@@ -20,16 +20,15 @@ interface IndexInfoRow {
   name: string;
 }
 
-/** Raw `PRAGMA table_info` rows (cid/type/notnull/dflt_value/pk) - unlike `ColumnMetadata`, this
- * carries a column's default value text and 1-based PK sequence number, both needed to faithfully
- * reconstruct a table's full definition for `alterColumn`'s 12-step rebuild. */
 export function fetchTableInfo(db: Database.Database, table: string): TableInfoRow[] {
   return db.pragma(`table_info(${quoteIdent(table)})`) as TableInfoRow[];
 }
 
-/** Raw `PRAGMA foreign_key_list` rows, incl. `on_update`/`on_delete` actions - `ColumnMetadata.
- * references` only carries the target table/column, not enough to faithfully reconstruct a
- * `FOREIGN KEY` clause during `alterColumn`'s rebuild. */
+/** `PRAGMA table_xinfo` also lists generated columns (`hidden` 2 or 3), which `table_info` omits. */
+export function fetchTableXInfo(db: Database.Database, table: string): TableXInfoRow[] {
+  return db.pragma(`table_xinfo(${quoteIdent(table)})`) as TableXInfoRow[];
+}
+
 export function fetchForeignKeyList(db: Database.Database, table: string): ForeignKeyListRow[] {
   return db.pragma(`foreign_key_list(${quoteIdent(table)})`) as ForeignKeyListRow[];
 }

@@ -40,6 +40,7 @@ export function FilterBar({
   const highlightedRef = useRef(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const opListRef = useRef<HTMLDivElement>(null);
+  const replacedColumnRef = useRef<string | undefined>(undefined);
   useFocusTrap(panelRef, open);
 
   const active = filters ?? [];
@@ -89,6 +90,7 @@ export function FilterBar({
   function close(): void {
     setOpen(false);
     setDraft(EMPTY_DRAFT);
+    replacedColumnRef.current = undefined;
     setEditIndex(null);
     setQuery("");
     updateHighlighted(0);
@@ -105,7 +107,9 @@ export function FilterBar({
   function pickColumn(column: ColumnMetadata): void {
     const capability = filterCapabilityForColumn(column, engine);
     if (capability.operators.length === 0) return;
-    setDraft((current) => ({ ...current, column }));
+    const sameColumn = column.name === replacedColumnRef.current;
+    replacedColumnRef.current = undefined;
+    setDraft((current) => (sameColumn ? { ...current, column } : { column, value: "" }));
     setQuery("");
     updateHighlighted(0);
   }
@@ -127,8 +131,13 @@ export function FilterBar({
 
   function stepBack(): void {
     if (step === "value") setDraft((current) => ({ ...current, op: undefined }));
-    else if (step === "op") setDraft((current) => ({ ...current, column: undefined }));
+    else if (step === "op") changeColumn();
     else close();
+  }
+
+  function changeColumn(): void {
+    replacedColumnRef.current = draft.column?.name;
+    setDraft((current) => ({ ...current, column: undefined }));
   }
 
   function editFilter(index: number): void {
@@ -274,7 +283,7 @@ export function FilterBar({
                 {draft.column && (
                   <button
                     type="button"
-                    onClick={() => setDraft((current) => ({ ...current, column: undefined }))}
+                    onClick={changeColumn}
                     title="Change column"
                     className="flex items-center gap-1 rounded-[2px] bg-accent px-1.5 py-0.5 text-foreground/90 hover:text-foreground"
                   >

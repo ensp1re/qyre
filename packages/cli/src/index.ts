@@ -12,7 +12,7 @@ import { resolveAdapter, type AdapterFactory, type DatabaseAdapter } from "@qyre
 import { mongodbAdapterFactory } from "@qyre/mongodb";
 import { mysqlAdapterFactory } from "@qyre/mysql";
 import { postgresAdapterFactory } from "@qyre/postgres";
-import { describeError, displayTarget, startServer } from "@qyre/server";
+import { describeError, displayTarget, startServer, type RunningServer } from "@qyre/server";
 import { sqliteAdapterFactory } from "@qyre/sqlite";
 import chalk from "chalk";
 import { Command, InvalidArgumentError } from "commander";
@@ -46,9 +46,14 @@ export interface CliArgs {
   readOnly: boolean;
 }
 
-function parsePortFlag(value: string): number {
+function parsePort(value: string): number | undefined {
   const port = Number(value);
-  if (!/^\d+$/.test(value) || !Number.isInteger(port) || port < 0 || port > 65_535) {
+  return /^\d+$/.test(value) && port <= 65_535 ? port : undefined;
+}
+
+function parsePortFlag(value: string): number {
+  const port = parsePort(value);
+  if (port === undefined) {
     throw new InvalidArgumentError("Port must be an integer between 0 and 65535.");
   }
   return port;
@@ -120,8 +125,11 @@ export function resolvePort(
   if (!envPort) {
     return undefined;
   }
-  const parsed = Number.parseInt(envPort, 10);
-  return Number.isNaN(parsed) ? undefined : parsed;
+  const port = parsePort(envPort);
+  if (port === undefined) {
+    throw new Error(`QYRE_PORT must be an integer between 0 and 65535 (got "${envPort}").`);
+  }
+  return port;
 }
 
 export function resolveFilesRoot(filesDir: string | undefined, cwd: string): string | undefined {
@@ -205,6 +213,20 @@ export function createShutdownHandler(deps: ShutdownDeps): () => Promise<void> {
   };
 }
 
+/** Shut down the server and whichever adapter it holds at signal time. */
+export function createServerShutdownHandler(
+  server: Pick<RunningServer, "close" | "currentAdapter">,
+  deps: Omit<ShutdownDeps, "close" | "disconnect">
+): () => Promise<void> {
+  return createShutdownHandler({
+    ...deps,
+    close: () => server.close(),
+    disconnect: async () => {
+      await server.currentAdapter()?.disconnect();
+    }
+  });
+}
+
 /** Connect and ping a target before returning its adapter. */
 async function connectToRaw(
   raw: string,
@@ -229,6 +251,7 @@ function printGuidedLoginIntro(): void {
 
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgs(argv);
+  const port = resolvePort(args.port, process.env) ?? DEFAULT_PORT;
 
   const adapterFactories = [
     postgresAdapterFactory,
@@ -263,8 +286,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   }
 
   const here = dirname(fileURLToPath(import.meta.url));
-  const port = resolvePort(args.port, process.env) ?? DEFAULT_PORT;
-  let server: Awaited<ReturnType<typeof startServer>>;
+  let server: RunningServer;
   try {
     server = await startServer({
       adapter,
@@ -297,9 +319,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   );
   await open(server.url);
 
-  const shutdown = createShutdownHandler({
-    close: () => server.close(),
-    disconnect: () => adapter?.disconnect() ?? Promise.resolve(),
+  const shutdown = createServerShutdownHandler(server, {
     exit: (code) => process.exit(code),
     log: (message) => process.stderr.write(`${message}\n`)
   });

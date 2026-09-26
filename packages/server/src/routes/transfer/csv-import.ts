@@ -94,11 +94,6 @@ export function registerCsvImportRoutes(app: FastifyInstance, ctx: ServerContext
           mapping,
           part.file
         );
-        if (part.file.truncated) {
-          throw Object.assign(new Error("The CSV file exceeds the 10 MiB limit."), {
-            statusCode: 413
-          });
-        }
 
         const durationMs = Math.round(performance.now() - startedAt);
         const insertedRows = response.mode === "inspect" ? 0 : response.insertedRows;
@@ -117,7 +112,12 @@ export function registerCsvImportRoutes(app: FastifyInstance, ctx: ServerContext
             insertedRows,
             failedRows,
             durationMs,
-            outcome: failedRows > 0 ? "partial" : "success"
+            outcome:
+              failedRows === 0
+                ? "success"
+                : response.mode === "import" && insertedRows === 0
+                  ? "rejected"
+                  : "partial"
           },
           "csv import processed"
         );

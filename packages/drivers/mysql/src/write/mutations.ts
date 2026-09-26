@@ -98,13 +98,30 @@ export async function deleteRowsByKey(
   return { deleted };
 }
 
-/** Run staged operations atomically on one checked-out connection. */
+const ER_WARNING_NOT_COMPLETE_ROLLBACK = 1196;
+
+/** Rolls back and reports whether non-transactional tables (e.g. MyISAM) kept their changes. */
+async function rollbackKeptChanges(connection: mysql.PoolConnection): Promise<boolean> {
+  const [result] = await connection.query<mysql.ResultSetHeader>("ROLLBACK");
+  if (!result.warningStatus) return false;
+  const [warnings] = await connection.query<mysql.RowDataPacket[]>("SHOW WARNINGS");
+  return warnings.some((warning) => Number(warning.Code) === ER_WARNING_NOT_COMPLETE_ROLLBACK);
+}
+
+/**
+ * Run staged operations atomically on one checked-out connection. When non-transactional tables
+ * keep changes after a failure, `appliedCount` reports the operations that were not undone.
+ */
 export async function commitBatch(
   pool: mysql.Pool,
   ops: MutationOp[]
 ): Promise<CommitMutationsResult> {
   const connection = await pool.getConnection();
   const results: Array<InsertRowResult | UpdateRowResult | DeleteRowsResult> = [];
+  const rolledBack = async (failedIndex: number): Promise<CommitMutationsResult> =>
+    (await rollbackKeptChanges(connection))
+      ? { committed: false, failedIndex, appliedCount: results.length }
+      : { committed: false, failedIndex };
   try {
     await connection.beginTransaction();
     for (const [index, op] of ops.entries()) {
@@ -114,26 +131,25 @@ export async function commitBatch(
       }
       if (op.type === "update") {
         const result = await updateRowByKey(connection, op.schema, op.table, op.key, op.changes);
-        if (result.matched === 0) {
-          await connection.rollback();
-          return { committed: false, failedIndex: index };
-        }
+        if (result.matched === 0) return await rolledBack(index);
         results.push(result);
         continue;
       }
       const result = await deleteRowsByKey(connection, op.schema, op.table, op.keys);
-      if (result.deleted < op.keys.length) {
-        await connection.rollback();
-        return { committed: false, failedIndex: index };
-      }
+      if (result.deleted < op.keys.length) return await rolledBack(index);
       results.push(result);
     }
     await connection.commit();
     return { committed: true, results };
   } catch (error) {
-    await connection.rollback().catch(() => {});
-    if (classifyMysqlPermissionDenied(error)) throw error;
-    return { committed: false, failedIndex: results.length };
+    if (classifyMysqlPermissionDenied(error)) {
+      await connection.rollback().catch(() => {});
+      throw error;
+    }
+    return await rolledBack(results.length).catch(() => ({
+      committed: false as const,
+      failedIndex: results.length
+    }));
   } finally {
     connection.release();
   }

@@ -16,6 +16,10 @@ const COMPARE_OPERATORS: Partial<Record<FilterOp, string>> = {
   gte: ">="
 };
 
+/** Built-in string types (information_schema data_type) that support ILIKE without a cast. User-
+ * defined types report their own name, so enums and domains always go through `::text`. */
+const NATIVE_TEXT_TYPES = new Set(["text", "character varying", "character", "name"]);
+
 export function buildFilterClause(
   filters: RowFilter[] | undefined,
   search?: ResolvedRowSearch
@@ -29,23 +33,18 @@ export function buildFilterClause(
     if (filter.op === "isNull") return `${column} IS NULL`;
     if (filter.op === "isNotNull") return `${column} IS NOT NULL`;
     if (filter.op === "contains") {
-      const type = filter.columnDataType?.toLowerCase() ?? "";
-      if (type.includes("array") || type.endsWith("[]")) {
-        params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
-        return `${column}::text ILIKE $${params.length} ESCAPE '\\'`;
-      }
-      if (type.includes("json")) {
-        params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
-        return `${column}::text ILIKE $${params.length} ESCAPE '\\'`;
-      }
       params.push(`%${escapeLikePattern(filter.value ?? "")}%`);
-      return `${column} ILIKE $${params.length} ESCAPE '\\'`;
+      const target = NATIVE_TEXT_TYPES.has(filter.columnDataType?.toLowerCase() ?? "")
+        ? column
+        : `${column}::text`;
+      return `${target} ILIKE $${params.length} ESCAPE '\\'`;
     }
     params.push(filter.value);
     return `${column} ${COMPARE_OPERATORS[filter.op]} $${params.length}`;
   });
   const searchable = search?.columns.filter(
-    (column) => classifyFilterColumnKind(column.dataType, DATABASE_ENGINES.postgres) !== "binary"
+    (column) =>
+      classifyFilterColumnKind(column.dataType, DATABASE_ENGINES.postgres, column) !== "binary"
   );
   if (search && searchable && searchable.length > 0) {
     params.push(`%${escapeLikePattern(search.value)}%`);

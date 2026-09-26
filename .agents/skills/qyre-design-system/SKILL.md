@@ -35,12 +35,11 @@ the reference before writing UI code; this file is only fast recall.
   memory of a past session - re-read it if a value is needed and isn't in the fast-recall section
   above, rather than guessing or reusing whatever a previous unrelated component happened to use.
 - New shadcn/Radix primitives (Button, Tabs, ScrollArea, Tooltip, DropdownMenu, ...) belong in
-  the shared `packages/ui` package, grouped by their real responsibility as that package is
-  reorganized. Add one only when a real consumer needs it, not speculatively (see
+  the shared `packages/ui` package, in the folder matching their real responsibility. Add one only when a real consumer needs it, not speculatively (see
   `CODE_ORGANIZATION.md` and `AGENTS.md`'s simplicity-first rule).
-- Group presentation components under responsibility-based folders when the current flat directory
-  becomes hard to navigate. Folder names must follow actual ownership, not examples from the
-  organization guide; tests mirror the chosen structure under `packages/ui/tests/`.
+- Place presentation components in the existing responsibility folders under `packages/ui/src/`
+  (`connection/`, `data-grid/`, `query/`, `schema/`, ...). Folder names follow actual ownership;
+  tests mirror the structure under `packages/ui/tests/`.
 - Use `CommandToolbar`/`CommandGroup`/`CommandSeparator` for dense pane actions. Keep frequent and
   contextual actions visible; move low-frequency transfer/utility actions into a labelled overflow
   menu. A selection replaces normal row actions with selection context instead of adding a second

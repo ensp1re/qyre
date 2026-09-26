@@ -28,7 +28,7 @@ export function computeCsvImportability(
   if (!tableAllows(table.permissions, "insert")) return NOT_IMPORTABLE;
 
   const columns = table.columns.filter((column) => {
-    const kind = classifyFilterColumnKind(column.dataType, engine);
+    const kind = classifyFilterColumnKind(column.dataType, engine, column);
     return kind !== "structured" && kind !== "binary" && kind !== "unknown" && kind !== "null";
   });
   return { canImport: columns.length > 0, columns };

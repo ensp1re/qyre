@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface StagedEdit {
   readonly original: unknown;
@@ -28,6 +28,10 @@ export interface PendingChangesApi {
   deletes: ReadonlySet<string>;
   stageDelete: (rowKey: string) => void;
   unstageDelete: (rowKey: string) => void;
+  /** Held while a commit is in flight; outlives the Tables tab so a remount can't commit twice. */
+  commitLock: { current: boolean };
+  committing: boolean;
+  setCommitting: (committing: boolean) => void;
 }
 
 export function applyStageEdit(
@@ -115,11 +119,46 @@ export function applyRemoveRowEdits(edits: PendingEdits, rowKey: string): Pendin
   return next;
 }
 
-export function usePendingChanges(): PendingChangesApi {
-  const [edits, setEdits] = useState<PendingEdits>(new Map());
-  const [inserts, setInserts] = useState<PendingInserts>([]);
-  const [deletes, setDeletes] = useState<ReadonlySet<string>>(new Set());
+interface ScopedPendingState {
+  readonly scope: string | undefined;
+  readonly edits: PendingEdits;
+  readonly inserts: PendingInserts;
+  readonly deletes: ReadonlySet<string>;
+}
+
+function emptyPendingState(scope: string | undefined): ScopedPendingState {
+  return { scope, edits: new Map(), inserts: [], deletes: new Set() };
+}
+
+/**
+ * Holds one table's staged changes. The buffer belongs to `scope` (connection target plus table):
+ * a different scope always sees an empty buffer and the previous scope's changes are dropped.
+ */
+export function usePendingChanges(scope?: string): PendingChangesApi {
+  const [state, setState] = useState<ScopedPendingState>(() => emptyPendingState(scope));
   const nextInsertId = useRef(0);
+  const commitLock = useRef(false);
+  const [committing, setCommittingState] = useState(false);
+  const setCommitting = useCallback((value: boolean) => {
+    commitLock.current = value;
+    setCommittingState(value);
+  }, []);
+  const current = state.scope === scope ? state : emptyPendingState(scope);
+  const { edits, inserts, deletes } = current;
+
+  useEffect(() => {
+    setState((previous) => (previous.scope === scope ? previous : emptyPendingState(scope)));
+  }, [scope]);
+
+  const update = useCallback(
+    (apply: (previous: ScopedPendingState) => Partial<ScopedPendingState>) => {
+      setState((previous) => {
+        const base = previous.scope === scope ? previous : emptyPendingState(scope);
+        return { ...base, ...apply(base) };
+      });
+    },
+    [scope]
+  );
 
   const getEdit = useCallback(
     (rowKey: string, column: string) => edits.get(rowKey)?.get(column),
@@ -128,45 +167,68 @@ export function usePendingChanges(): PendingChangesApi {
 
   const stageEdit = useCallback(
     (rowKey: string, column: string, original: unknown, next: unknown) => {
-      setEdits((current) => applyStageEdit(current, rowKey, column, original, next));
+      update((previous) => ({
+        edits: applyStageEdit(previous.edits, rowKey, column, original, next)
+      }));
     },
-    []
+    [update]
   );
 
-  const revertEdit = useCallback((rowKey: string, column: string) => {
-    setEdits((current) => applyRevertEdit(current, rowKey, column));
-  }, []);
+  const revertEdit = useCallback(
+    (rowKey: string, column: string) => {
+      update((previous) => ({ edits: applyRevertEdit(previous.edits, rowKey, column) }));
+    },
+    [update]
+  );
 
+  // A commit that resolves after a table switch must not wipe the newer table's buffer.
   const clear = useCallback(() => {
-    setEdits(new Map());
-    setInserts([]);
-    setDeletes(new Set());
-  }, []);
+    setState((previous) => (previous.scope === scope ? emptyPendingState(scope) : previous));
+  }, [scope]);
 
   const size = useMemo(() => countPendingEdits(edits), [edits]);
 
-  const addInsert = useCallback((initialValues?: Record<string, unknown>) => {
-    const id = `insert-${nextInsertId.current++}`;
-    setInserts((current) => applyAddInsert(current, id, initialValues));
-    return id;
-  }, []);
+  const addInsert = useCallback(
+    (initialValues?: Record<string, unknown>) => {
+      const id = `insert-${nextInsertId.current++}`;
+      update((previous) => ({ inserts: applyAddInsert(previous.inserts, id, initialValues) }));
+      return id;
+    },
+    [update]
+  );
 
-  const updateInsertValue = useCallback((id: string, column: string, value: unknown) => {
-    setInserts((current) => applyUpdateInsertValue(current, id, column, value));
-  }, []);
+  const updateInsertValue = useCallback(
+    (id: string, column: string, value: unknown) => {
+      update((previous) => ({
+        inserts: applyUpdateInsertValue(previous.inserts, id, column, value)
+      }));
+    },
+    [update]
+  );
 
-  const removeInsert = useCallback((id: string) => {
-    setInserts((current) => applyRemoveInsert(current, id));
-  }, []);
+  const removeInsert = useCallback(
+    (id: string) => {
+      update((previous) => ({ inserts: applyRemoveInsert(previous.inserts, id) }));
+    },
+    [update]
+  );
 
-  const stageDelete = useCallback((rowKey: string) => {
-    setDeletes((current) => applyStageDelete(current, rowKey));
-    setEdits((current) => applyRemoveRowEdits(current, rowKey));
-  }, []);
+  const stageDelete = useCallback(
+    (rowKey: string) => {
+      update((previous) => ({
+        deletes: applyStageDelete(previous.deletes, rowKey),
+        edits: applyRemoveRowEdits(previous.edits, rowKey)
+      }));
+    },
+    [update]
+  );
 
-  const unstageDelete = useCallback((rowKey: string) => {
-    setDeletes((current) => applyUnstageDelete(current, rowKey));
-  }, []);
+  const unstageDelete = useCallback(
+    (rowKey: string) => {
+      update((previous) => ({ deletes: applyUnstageDelete(previous.deletes, rowKey) }));
+    },
+    [update]
+  );
 
   return {
     edits,
@@ -181,7 +243,10 @@ export function usePendingChanges(): PendingChangesApi {
     removeInsert,
     deletes,
     stageDelete,
-    unstageDelete
+    unstageDelete,
+    commitLock,
+    committing,
+    setCommitting
   };
 }
 

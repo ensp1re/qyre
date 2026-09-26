@@ -103,7 +103,53 @@ describe("POST /api/mutations/commit (F102)", () => {
     });
 
     expect(response.statusCode).toBe(409);
-    expect(response.json()).toMatchObject({ failedIndex: 1 });
+    expect(response.json()).toMatchObject({
+      failedIndex: 1,
+      error: "Commit failed and was rolled back."
+    });
+    expect(response.json()).not.toHaveProperty("appliedCount");
+    await app.close();
+  });
+
+  it("reports operations a non-transactional table could not roll back", async () => {
+    const adapter = makeFakeAdapter({
+      getTable: async () => ({
+        schema: "public",
+        name: "users",
+        kind: "table",
+        columns: mutableColumns,
+        permissions: { select: true, insert: true, update: true, delete: true }
+      }),
+      mutations: {
+        commitBatch: async () => ({ committed: false, failedIndex: 1, appliedCount: 1 })
+      }
+    });
+    const app = createServer({ adapter });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/mutations/commit",
+      headers: authHeaders(app),
+      payload: {
+        ops: [
+          { type: "insert", schema: "public", table: "users", values: { name: "Ada" } },
+          {
+            type: "update",
+            schema: "public",
+            table: "users",
+            key: { id: 1 },
+            changes: { name: "X" }
+          }
+        ]
+      }
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({
+      failedIndex: 1,
+      appliedCount: 1,
+      error: expect.stringMatching(/could not be rolled back/)
+    });
     await app.close();
   });
 
@@ -203,7 +249,7 @@ describe("POST /api/mutations/commit (F102)", () => {
             table: "users",
             values: {
               name: "Ada",
-              joinedAt: "2026-07-16T10:30:00.000Z",
+              joinedAt: "2026-07-16T15:30:00+05",
               bytes: "00ff",
               regexField: { pattern: "^qyre", options: "im" },
               timestampField: { t: 1700000000, i: 5 },
@@ -246,7 +292,7 @@ describe("POST /api/mutations/commit (F102)", () => {
     expect(updateFieldsByKey).toHaveBeenCalledWith(
       "test",
       "users",
-      { _id: "507f1f77bcf86cd799439011" },
+      { _id: { $oid: "507f1f77bcf86cd799439011" } },
       { name: "Grace" },
       { name: "Ada" },
       []

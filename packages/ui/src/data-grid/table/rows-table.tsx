@@ -169,12 +169,7 @@ export function RowsTable({
 
     setSelectedCell({ rowIndex: nextRowIndex, column: nextColumn });
     rowVirtualizer.scrollToIndex(nextRowIndex);
-    const nextItem = filtered[nextRowIndex];
-    const nextRowKey =
-      nextItem && pendingChanges && primaryKeyColumns
-        ? computeRowKey(nextItem.row, primaryKeyColumns)
-        : undefined;
-    if (nextRowKey) focusCell(`${nextRowKey}:${nextColumn}`);
+    focusSelectedCell(nextRowIndex, nextColumn);
   }
 
   function dismissEditorFromOtherCell(event: ReactMouseEvent<HTMLDivElement>): void {
@@ -183,8 +178,18 @@ export function RowsTable({
     if (clickedCell && clickedCell.dataset.editorId !== activeEditor) setActiveEditor(null);
   }
 
+  function focusSelectedCell(rowIndex: number, column: string): void {
+    const nextItem = filtered[rowIndex];
+    const nextRowKey =
+      nextItem && pendingChanges && primaryKeyColumns
+        ? computeRowKey(nextItem.row, primaryKeyColumns)
+        : undefined;
+    if (nextRowKey) focusCell(`${nextRowKey}:${column}`);
+  }
+
   function handleGridKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
-    if (!selectedCell || activeEditor) return;
+    // A focused cell that already handled the key (Enter/F2/Delete) owns it.
+    if (event.defaultPrevented || !selectedCell || activeEditor) return;
     const item = filtered[selectedCell.rowIndex];
     if (!item) return;
     const rowKey =
@@ -205,15 +210,21 @@ export function RowsTable({
       );
       setSelectedCell({ rowIndex: nextRowIndex, column: selectedCell.column });
       rowVirtualizer.scrollToIndex(nextRowIndex);
+      focusSelectedCell(nextRowIndex, selectedCell.column);
     } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
       const delta = event.key === "ArrowRight" ? 1 : -1;
       const at = rowPage.columns.indexOf(selectedCell.column);
       const nextAt = Math.min(Math.max(at + delta, 0), rowPage.columns.length - 1);
       const nextColumn = rowPage.columns[nextAt];
-      if (nextColumn) setSelectedCell({ rowIndex: selectedCell.rowIndex, column: nextColumn });
+      if (nextColumn) {
+        setSelectedCell({ rowIndex: selectedCell.rowIndex, column: nextColumn });
+        focusSelectedCell(selectedCell.rowIndex, nextColumn);
+      }
     } else if (event.key === "Escape") {
       setSelectedCell(null);
+      // A still-focused but unselected cell would silently ignore Enter/F2/Delete.
+      if (event.target instanceof HTMLElement && event.target.dataset.cellId) event.target.blur();
     } else if (
       (event.key === "Delete" || event.key === "Backspace") &&
       isEditableSelected &&

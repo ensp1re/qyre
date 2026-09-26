@@ -26,13 +26,16 @@ Behavior:
 
 - `qyre <target>` detects the database engine from the target (e.g. the `postgres://`/`postgresql://`
   scheme), parses it with that engine's adapter, starts a local server on a default port
-  (configurable via `QYRE_PORT`, default `7717`), and opens the default browser to the UI.
+  (configurable via `--port` or `QYRE_PORT`, default `7717`), and opens the default browser to the UI.
+  Both must be an integer from 0 to 65535; an invalid `QYRE_PORT` fails startup with a clear error.
+  Port `0` binds an OS-assigned free port, and the banner and browser use the bound port.
 - If no target is provided, the CLI prints usage help and exits with a non-zero code.
 - If the target's engine is recognized but not yet supported (see `packages/drivers/<engine>` in
   `ARCHITECTURE.md`), the CLI says so explicitly rather than treating it as a parse failure.
 - If the target cannot be parsed or its engine cannot be determined at all, the CLI prints an
   actionable error explaining the expected formats and exits non-zero.
-- `Ctrl+C` shuts the server down cleanly and releases the database connection pool.
+- `Ctrl+C` shuts the server down cleanly and releases the current database connection pool,
+  including one the browser switched to after startup.
 
 ### Future engines (not yet supported, documented for design only)
 
@@ -45,7 +48,11 @@ Behavior:
 In scope (Postgres engine):
 
 - Postgres, one connection at a time.
-- Read-only inspection: schemas, tables, columns, indexes, approximate/explicit row counts.
+- Read-only inspection: schemas, tables, columns, indexes, approximate/explicit row counts. A
+  relation whose exact count fails (no `SELECT` grant, an unpopulated materialized view) reports an
+  unknown row count rather than failing the catalog. Primary and foreign keys come from
+  `pg_constraint`, pairing composite key columns by position; enum columns are recognized from the
+  type catalog (`typtype = 'e'`), not from the type's name.
 - Paginated table data browsing.
 - A read-only SQL query runner (SELECT-style statements only).
 - Local server health and runtime diagnostics endpoints for verification.
@@ -59,9 +66,10 @@ Out of scope (for now, Postgres engine):
 
 ## Read-only vs write behavior
 
-Qyre is strictly read-only for now. Write capability is explicitly excluded and, when later
-introduced, must follow the rules in [`../SECURITY.md`](../SECURITY.md): destructive actions require
-explicit, unambiguous user confirmation and must never be the default path.
+`--read-only` sessions and users without write grants stay read-only. Writes are grant-gated and
+follow [`permissions-and-capabilities.md`](permissions-and-capabilities.md),
+[`row-editing.md`](row-editing.md), and [`../SECURITY.md`](../SECURITY.md): destructive actions
+require explicit, unambiguous user confirmation and must never be the default path.
 
 ## Primary end-to-end journey
 
@@ -80,7 +88,8 @@ See [`../RELIABILITY.md`](../RELIABILITY.md) for how this journey is verified.
   database is connected.
 - The UI can list at least schemas and tables for the connected database.
 - Selecting a table shows its columns and a first page of rows.
-- No write/DDL/DML-mutating action is reachable from the UI.
+- No write/DDL/DML-mutating action is reachable from the UI unless the connected user's grants
+  allow it and the session is not `--read-only`.
 - The server starts, reports healthy, and shuts down cleanly.
 
 ## Failure states

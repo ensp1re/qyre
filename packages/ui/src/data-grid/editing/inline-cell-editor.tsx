@@ -56,11 +56,13 @@ export function InlineCellEditor({
       cancelKeepingNavigation(direction);
       return;
     }
-    if (column.nullable && rawDraft.trim() === "") {
+    const result = parseMutationDraft(rawDraft, capability, engine, metadata);
+    // Blank text is a real value; every other type falls back to NULL rather than an empty string.
+    const blankIsValue = capability.kind === "text" && result.valid;
+    if (!blankIsValue && column.nullable && rawDraft.trim() === "") {
       commit(null, direction);
       return;
     }
-    const result = parseMutationDraft(rawDraft, capability, engine, metadata);
     if (!result.valid) {
       setError(result.error);
       return;

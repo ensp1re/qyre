@@ -1,6 +1,7 @@
 # Plan 0008: AI Database Assistant
 
-Status: Approved 2026-07-18. F150 is the first slice; none started yet.
+Status: Retired unstarted 2026-09-26 (maintainer decision); no code was written. F150-F153 were
+removed from the queue. Originally approved 2026-07-18.
 Owner: current engagement
 Linked features: F150 (config/settings/gating), F151 (chat + SQL suggestions), F152 (tool-use +
 permissions + data analysis), F153 (charts)

@@ -8,4 +8,3 @@ coverage
 pnpm-lock.yaml
 playwright-report
 test-results
-docs/generated

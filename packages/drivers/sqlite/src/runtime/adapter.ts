@@ -51,6 +51,7 @@ import { commitBatch, deleteRowsByKey, insertRow, updateRowByKey } from "../writ
 import { classifySqlitePermissionDenied } from "../access/permission-errors.js";
 import { normalizeRow } from "./row-values.js";
 import { formatSqlInsert, streamRows } from "../query/row-export.js";
+import { buildRowOrderBy } from "../query/row-order.js";
 import { buildFilterClause, quoteIdent } from "../query/sql.js";
 
 /** Load the optional native SQLite binding only when SQLite is used. */
@@ -207,9 +208,7 @@ export class SqliteAdapter implements DatabaseAdapter {
   ): Promise<RowPage> {
     const { page: safePage, pageSize: safePageSize, offset } = resolvePageRequest(page, pageSize);
     // sort.column is already validated by the caller against the table's real columns.
-    const orderBy = sort
-      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
-      : "";
+    const orderBy = buildRowOrderBy(this.getDb(), table, sort);
     const { clause: whereClause, params: filterParams } = buildFilterClause(filters, search);
 
     const stmt = this.getDb()

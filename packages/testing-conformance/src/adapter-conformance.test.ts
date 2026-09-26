@@ -1,4 +1,5 @@
 import type { ConformanceFixture, PermissionDenialFixture } from "./fixtures/engine-cases.js";
+import type { RowSort } from "@qyre/core";
 import { cases, emptyTable, suffix } from "./fixtures/engine-cases.js";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -322,6 +323,84 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
         direction: "desc"
       });
       expect(descending.rows.map((row) => Number(row.n))).toEqual([3, 2, 1]);
+    }
+  );
+
+  // MongoDB uses `_id` as its row key.
+  it.skipIf(!configured)(
+    "pages and exports ties in row-key order so offset pages neither repeat nor skip rows",
+    async () => {
+      const table = `qyre_paging_${suffix}`;
+      const keyColumn = engine === "mongodb" ? "_id" : "id";
+      const insertedIds = Array.from({ length: 30 }, (_, index) => (index * 7) % 30);
+      if (engine === "mongodb") {
+        await adapter.ddl?.createTable?.(fixture.schema, table, []);
+        for (const id of insertedIds) {
+          await adapter.mutations?.insertRow?.(fixture.schema, table, { n: id % 3 });
+        }
+      } else {
+        await adapter.runQuery?.(`CREATE TABLE ${table} (id INTEGER PRIMARY KEY, n INTEGER)`);
+        await adapter.runQuery?.(
+          `INSERT INTO ${table} (id, n) VALUES ${insertedIds.map((id) => `(${id}, ${id % 3})`).join(", ")}`
+        );
+      }
+      const keyOf = (row: Record<string, unknown>) =>
+        engine === "mongodb" ? String(row[keyColumn]) : Number(row[keyColumn]);
+      const byKey = (left: string | number, right: string | number) =>
+        left < right ? -1 : left > right ? 1 : 0;
+      const pageThrough = async (sort?: RowSort) => {
+        const keys: Array<string | number> = [];
+        for (let page = 0; page < 5; page += 1) {
+          const result = await adapter.getRows(fixture.schema, table, page, 7, sort);
+          keys.push(...result.rows.map(keyOf));
+        }
+        return keys;
+      };
+      try {
+        const rows = (await adapter.getRows(fixture.schema, table, 0, 200)).rows.map((row) => ({
+          key: keyOf(row),
+          n: Number(row.n)
+        }));
+        const keysOrderedBy = (direction: "asc" | "desc") =>
+          [...rows]
+            .sort(
+              (left, right) =>
+                (direction === "asc" ? left.n - right.n : right.n - left.n) ||
+                byKey(left.key, right.key)
+            )
+            .map((row) => row.key);
+        const keyOrder = rows.map((row) => row.key).sort(byKey);
+
+        expect(await pageThrough()).toEqual(keyOrder);
+        expect(await pageThrough({ column: "n", direction: "asc" })).toEqual(keysOrderedBy("asc"));
+        expect(await pageThrough({ column: "n", direction: "desc" })).toEqual(
+          keysOrderedBy("desc")
+        );
+        expect(await pageThrough({ column: keyColumn, direction: "desc" })).toEqual(
+          [...keyOrder].reverse()
+        );
+
+        const firstKey = keyOrder[0]!;
+        await adapter.mutations?.updateRowByKey?.(
+          fixture.schema,
+          table,
+          { [keyColumn]: firstKey },
+          { n: 0 }
+        );
+        expect(await pageThrough()).toEqual(keyOrder);
+
+        const { columns } = await adapter.getTable(fixture.schema, table);
+        const exported: Array<string | number> = [];
+        for await (const row of adapter.streamRows(fixture.schema, table, columns, {
+          column: "n",
+          direction: "asc"
+        })) {
+          exported.push(keyOf(row));
+        }
+        expect(exported).toEqual(keysOrderedBy("asc"));
+      } finally {
+        await adapter.ddl?.dropTable?.(fixture.schema, table);
+      }
     }
   );
 

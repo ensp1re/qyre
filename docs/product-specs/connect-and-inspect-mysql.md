@@ -74,6 +74,8 @@ Out of scope (for now, MySQL engine):
 - **Row count.** Prefer an exact `COUNT(*)` the way SQLite does, not MySQL's `information_schema.tables.TABLE_ROWS`
   estimate (which can be significantly stale for InnoDB tables) - correctness over a cheap estimate,
   matching this product's existing preference (SQLite's spec makes the same call for the same reason).
+  Each table is counted separately; a table the user cannot `SELECT` from (for example an
+  INSERT-only grant) reports an unknown row count instead of failing the table list or `getTable`.
 
 ## Read-only enforcement
 

@@ -57,6 +57,12 @@ describe("mutationEditorCapability", () => {
     ).toMatchObject({ kind: "set", editable: true, widget: "set" });
   });
 
+  it("edits a Postgres enum named like a set type as a single-choice enum", () => {
+    expect(
+      mutationEditorCapability("charset", "postgres", { allowedValues: ["utf8", "latin1"] })
+    ).toMatchObject({ kind: "enum", editable: true, widget: "enum" });
+  });
+
   it("fails closed when enum options are missing", () => {
     expect(mutationEditorCapability("enum", "mysql")).toMatchObject({
       kind: "enum",

@@ -2,6 +2,7 @@ import type { RowFilter, RowSort } from "@qyre/core";
 import type { PoolConnection } from "mysql2";
 import type mysql from "mysql2/promise";
 import type { ResolvedRowSearch } from "@qyre/driver-contract";
+import { buildRowOrderBy } from "./row-order.js";
 import { buildFilterClause, quoteIdent } from "./sql.js";
 
 export async function* streamRows(
@@ -14,9 +15,7 @@ export async function* streamRows(
   search?: ResolvedRowSearch
 ): AsyncIterable<Record<string, unknown>> {
   const { clause, params } = buildFilterClause(filters, search);
-  const orderBy = sort
-    ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === "asc" ? "ASC" : "DESC"}`
-    : "";
+  const orderBy = await buildRowOrderBy(pool, schema, table, sort);
   const connection = await pool.getConnection();
   // mysql2's promise wrapper types its `.connection` property as another promise connection, but
   // at runtime it deliberately exposes the underlying core PoolConnection (the only API that owns

@@ -32,6 +32,12 @@ SQL without materializing or re-querying the result.
     `SELECT ... LIMIT ... OFFSET ...`, using each adapter's existing identifier-quoting convention
     (owned by each SQL driver's `src/sql.ts`).
   - **MongoDB**: `.sort({ [column]: direction === "asc" ? 1 : -1 })` on the `getRows` cursor.
+- Paging and export order is total whenever the table has a row key: SQL engines append the primary
+  key columns (ascending, skipping any already sorted on) after the user's sort, and order by the
+  primary key when there is no user sort, so ties never repeat or skip rows across offset pages and
+  an edited row keeps its page. A keyless SQLite rowid table uses its rowid. Keyless Postgres/MySQL
+  tables and views keep only the user's sort (Postgres never falls back to `ctid`, which changes on
+  every update). MongoDB uses `_id` as its row key.
 - `RowsTable`'s header-click handler stops sorting the loaded array locally and instead calls a new
   `onSortChange` prop (same shape as the existing `onPageChange`), which `apps/web` uses to update
   `useRows`'s query params and refetch. Clicking the same header cycles asc -> desc -> unsorted,

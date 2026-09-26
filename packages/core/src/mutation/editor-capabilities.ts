@@ -58,7 +58,8 @@ export function mutationEditorCapability(
   if (type === "null") return unavailable("null", "A NULL-only column has no scalar editor.");
   if (type === "uuid") return available("identifier", "text");
 
-  if (type.includes("set")) {
+  // Only MySQL has SET; a Postgres enum may merely have "set" in its name.
+  if (engine !== DATABASE_ENGINES.postgres && type.includes("set")) {
     return metadata.allowedValues?.length
       ? available("set", "set")
       : unavailable("set", "Set options are unavailable from engine metadata.");

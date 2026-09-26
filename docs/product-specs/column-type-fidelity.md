@@ -32,7 +32,11 @@ rendering of a real column type" problem F016 already exists to solve.
    `2024-03-01 10:00:00.123456+00`): a JS `Date` keeps only milliseconds, so a microsecond
    `timestamptz` primary key read back as a `Date` never matched its row again and every
    update/delete of that row reported stale. Arrays of `date`, `timestamp`, and `timestamptz`
-   (OIDs 1182, 1115, 1185) likewise return arrays of wire strings.
+   (OIDs 1182, 1115, 1185) likewise return arrays of wire strings. `timestamptz` is therefore shown
+   as ISO-style Postgres text (`YYYY-MM-DD HH:MM:SS[.ffffff]+HH`, offset in the session TimeZone),
+   not a JS ISO string. Qyre pins `DateStyle = ISO` and `IntervalStyle = postgres` on every pooled
+   connection so a role or database default such as `DateStyle = 'SQL, DMY'` cannot change this
+   text; `interval` values are the Postgres-style wire text (`1 day 02:00:00`).
 2. **MySQL: the same date/timestamp shift**, for the same underlying reason (mysql2's default also
    builds a local-time `Date`). Fixed with `dateStrings: true` on the pool - MySQL's own server-side
    session-timezone conversion for `TIMESTAMP` columns already happened before the string reaches

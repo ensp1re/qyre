@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { maskSql, scanSql } from "../src/query/sql-lexer.js";
+import { maskSql, scanSql, sqlLexModes } from "../src/query/sql-lexer.js";
+import type { SqlDialect, SqlLexMode } from "../src/query/sql-lexer.js";
 
-const kinds = (sql: string, dialect: "postgres" | "mysql" | "sqlite") =>
-  scanSql(sql, dialect).map((segment) => [segment.kind, sql.slice(segment.start, segment.end)]);
+const kinds = (sql: string, dialect: SqlDialect, mode?: SqlLexMode) =>
+  scanSql(sql, dialect, mode).map((segment) => [
+    segment.kind,
+    sql.slice(segment.start, segment.end)
+  ]);
 
 describe("scanSql", () => {
   it("treats comment markers inside literals as literal text", () => {
@@ -58,6 +62,29 @@ describe("scanSql", () => {
       ["comment", "*/"]
     ]);
     expect(kinds("SELECT 1--1", "mysql")).toEqual([["code", "SELECT 1--1"]]);
+  });
+
+  it("lexes MySQL NO_BACKSLASH_ESCAPES and ANSI_QUOTES modes and MariaDB executable comments", () => {
+    const [, noBackslash, ansi] = sqlLexModes("mysql");
+    expect(kinds("SELECT 'a\\' -- '", "mysql", noBackslash)).toEqual([
+      ["code", "SELECT "],
+      ["string", "'a\\'"],
+      ["code", " "],
+      ["comment", "-- '"]
+    ]);
+    expect(kinds('SELECT "a\\" -- "', "mysql", ansi)).toEqual([
+      ["code", "SELECT "],
+      ["identifier", '"a\\"'],
+      ["code", " "],
+      ["comment", '-- "']
+    ]);
+    expect(kinds("SELECT 1 /*M!100000 , 2 */", "mysql")).toEqual([
+      ["code", "SELECT 1 "],
+      ["comment", "/*M!100000"],
+      ["code", " , 2 "],
+      ["comment", "*/"]
+    ]);
+    expect(sqlLexModes("postgres")).toHaveLength(1);
   });
 
   it("lexes SQLite bracket identifiers", () => {

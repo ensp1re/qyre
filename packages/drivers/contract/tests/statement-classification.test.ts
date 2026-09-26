@@ -151,6 +151,31 @@ describe("classifyStatement", () => {
     );
   });
 
+  it("classifies MySQL under every NO_BACKSLASH_ESCAPES and ANSI_QUOTES combination", () => {
+    // NO_BACKSLASH_ESCAPES: the backslash does not escape, so INTO OUTFILE is code.
+    expect(
+      classifyStatement("SELECT 'x\\' INTO OUTFILE '/var/lib/mysql-files/p.txt' -- '", "mysql")
+    ).toBe("mutation");
+    // ANSI_QUOTES: "..." is an identifier without backslash escapes.
+    expect(
+      classifyStatement(
+        'SELECT 1 AS "a\\" INTO OUTFILE \'/var/lib/mysql-files/p.txt\' -- "',
+        "mysql"
+      )
+    ).toBe("mutation");
+    expect(classifyStatement("SELECT 'a\\'b' AS x, \"c\" AS y", "mysql")).toBe("read");
+    expect(classifyStatement("SELECT 'x\\' AS \"drop\" -- '", "mysql")).toBe("read");
+    expect(classifyStatement('SELECT "a\\" AS b, 1 INTO DUMPFILE \'x\' -- "', "mysql")).toBe(
+      "mutation"
+    );
+  });
+
+  it("treats MariaDB /*M! ... */ bodies as executable SQL", () => {
+    expect(classifyStatement("SELECT 1 /*M!100000 INTO OUTFILE '/tmp/x' */", "mysql")).toBe(
+      "mutation"
+    );
+  });
+
   it("requires a WHERE at the UPDATE/DELETE statement's own level", () => {
     expect(classifyStatement("UPDATE t SET a = (SELECT b FROM u WHERE u.id = 1)")).toBe(
       "destructive"

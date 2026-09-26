@@ -6,6 +6,7 @@ import {
   requireTestMysqlUrl
 } from "@qyre/testing";
 import { setupMysqlFixture } from "@qyre/testing/mysql";
+import { ReadOnlyViolationError } from "@qyre/driver-contract";
 import mysql from "mysql2/promise";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MysqlAdapter } from "../../src/index.js";
@@ -821,6 +822,56 @@ describe("MysqlAdapter integration", () => {
         `-- innocuous\nSELECT * FROM ${FIXTURE.table} INTO OUTFILE '/var/lib/mysql-files/qyre-f154b.txt'`
       )
     ).rejects.toThrow();
+  });
+
+  it("keeps a trailing executable comment's body inside the row cap's wrapper", async () => {
+    const executable = await adapter.runReadOnlyQuery("SELECT 1 AS a /*!50000 , 2 AS b */");
+    expect(executable.columns).toEqual(["a", "b"]);
+    // MySQL ignores MariaDB-only /*M! ... */ bodies.
+    const mariadbOnly = await adapter.runReadOnlyQuery("SELECT 1 AS a /*M!100000 , 2 AS b */");
+    expect(mariadbOnly.columns).toEqual(["a"]);
+  });
+
+  describe("under session sql_mode NO_BACKSLASH_ESCAPES or ANSI_QUOTES", () => {
+    let sessionAdapter: MysqlAdapter;
+
+    beforeAll(async () => {
+      // One pooled connection, so the session mode set below applies to every later query.
+      const url = new URL(databaseUrl);
+      url.searchParams.set("connectionLimit", "1");
+      sessionAdapter = new MysqlAdapter({ engine: "mysql", raw: url.toString() });
+      await sessionAdapter.connect();
+    });
+
+    afterAll(async () => {
+      await sessionAdapter?.disconnect();
+    });
+
+    // Each payload is one string literal by default; under the mode it closes the row cap's
+    // wrapper and writes a file.
+    it.each([
+      [
+        "NO_BACKSLASH_ESCAPES",
+        "SELECT 'x\\' AS a) AS q UNION SELECT 1 INTO OUTFILE '/var/lib/mysql-files/qyre-mode-a.txt' #'"
+      ],
+      [
+        "ANSI_QUOTES",
+        `SELECT "x\\" AS a) AS q UNION SELECT 1 INTO OUTFILE '/var/lib/mysql-files/qyre-mode-b.txt' #"`
+      ]
+    ])("rejects INTO OUTFILE hidden by %s quoting", async (mode, sql) => {
+      await sessionAdapter.runQuery?.(`SET SESSION sql_mode = CONCAT(@@sql_mode, ',${mode}')`);
+      try {
+        const modes = await sessionAdapter.runReadOnlyQuery("SELECT @@SESSION.sql_mode AS m");
+        expect(String(modes.rows[0]?.m)).toContain(mode);
+        await expect(sessionAdapter.runReadOnlyQuery(sql)).rejects.toThrow(ReadOnlyViolationError);
+        const row = await sessionAdapter.runReadOnlyQuery("SELECT 'a' AS v -- note");
+        expect(row.rows).toHaveLength(1);
+      } finally {
+        await sessionAdapter.runQuery?.(
+          `SET SESSION sql_mode = REPLACE(@@sql_mode, '${mode}', '')`
+        );
+      }
+    });
   });
 
   it("runQuery executes an INSERT and reports rowsAffected (F107)", async () => {

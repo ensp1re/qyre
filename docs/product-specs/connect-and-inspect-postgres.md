@@ -26,13 +26,16 @@ Behavior:
 
 - `qyre <target>` detects the database engine from the target (e.g. the `postgres://`/`postgresql://`
   scheme), parses it with that engine's adapter, starts a local server on a default port
-  (configurable via `QYRE_PORT`, default `7717`), and opens the default browser to the UI.
+  (configurable via `--port` or `QYRE_PORT`, default `7717`), and opens the default browser to the UI.
+  Both must be an integer from 0 to 65535; an invalid `QYRE_PORT` fails startup with a clear error.
+  Port `0` binds an OS-assigned free port, and the banner and browser use the bound port.
 - If no target is provided, the CLI prints usage help and exits with a non-zero code.
 - If the target's engine is recognized but not yet supported (see `packages/drivers/<engine>` in
   `ARCHITECTURE.md`), the CLI says so explicitly rather than treating it as a parse failure.
 - If the target cannot be parsed or its engine cannot be determined at all, the CLI prints an
   actionable error explaining the expected formats and exits non-zero.
-- `Ctrl+C` shuts the server down cleanly and releases the database connection pool.
+- `Ctrl+C` shuts the server down cleanly and releases the current database connection pool,
+  including one the browser switched to after startup.
 
 ### Future engines (not yet supported, documented for design only)
 

@@ -8,28 +8,6 @@
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
     {
-      "id": "F159",
-      "behavior": "TypeScript declarations and finite domain values have one owning module per domain. Shared core contracts cover engine identifiers, table references, row sorting, CSV modes, and column updates; server, driver-contract, UI, testing, and E2E modules expose cohesive type boundaries through compatibility-preserving barrels. The testing entrypoint no longer eagerly loads every database driver, so native SQLite remains an optional engine dependency for consumers that do not use it. E2E project fixture selection uses one typed project configuration, including the restricted SQLite project.",
-      "verification": "pnpm verify:pr",
-      "state": "passing",
-      "commitHash": "9176ca899b5e0db459e64ae66cb14b6ccf431916",
-      "evidence": "PR #181 (https://github.com/ensp1re/qyre/pull/181), feature commit 9176ca899b5e0db459e64ae66cb14b6ccf431916; pnpm verify:pr passed locally with checks, build, smoke E2E, and full E2E; GitHub CI Lint, typecheck, test, build and End-to-end passed.",
-      "blockedReason": null,
-      "spec": "docs/CODE_ORGANIZATION.md and TypeScript Structure audit",
-      "completedAt": "2026-09-04T13:40:38.000Z"
-    },
-    {
-      "id": "F158",
-      "behavior": "The codebase uses concise comments: comments explain only non-obvious contracts, invariants, compatibility constraints, security boundaries, or required workarounds; routine implementation narration, feature-history labels, and comments inside functions without a concrete purpose are removed. Compiler directives, license headers, generated-file markers, and necessary public API contract comments remain.",
-      "verification": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:state && review the full diff for comment-only changes",
-      "state": "passing",
-      "commitHash": "d0162b0bb4e8f4def63354ffb8ce20b4637e0c21",
-      "evidence": "PR #179 (https://github.com/ensp1re/qyre/pull/179), merged as 14a2e796074f5feb865506fd1e5b405eba5ab3f0; follow-up PR #180 (https://github.com/ensp1re/qyre/pull/180) records this queue update; pnpm verify:pr passed locally; GitHub CI checks Lint, typecheck, test, build and End-to-end passed.",
-      "blockedReason": null,
-      "spec": "AGENTS.md comment style",
-      "completedAt": "2026-09-04T11:47:13.000Z"
-    },
-    {
       "id": "F157",
       "behavior": "Works through docs/PLAN.md's security audit in one pass. Transport safety: connectionWarnings() classifies a connection string's host and warns when a remote target carries no TLS parameter, and flags posture-weakening query parameters (multipleStatements, insecureAuth, tlsInsecure, tlsAllowInvalidCertificates, tlsAllowInvalidHostnames, sslmode=disable, allowLoadLocalInfile) - surfaced in the CLI banner, the POST /api/connect response, and the Console event log; advisory, never blocking. Supply chain: pnpm audit --prod reports no known vulnerabilities via a lockfile-only refresh plus a deliberate @fastify/static ^9 -> ^10 major bump (whose setHeaders signature change from ServerResponse to FastifyReply broke asset caching and is fixed), .github/dependabot.yml runs weekly, release.yml publishes on a v* tag with OIDC Trusted Publishing and --provenance, and ci.yml declares contents: read with all actions pinned to SHAs. Auth: the guard keys on the matched route rather than the raw URL, and exports spend a single-use 60s grant instead of putting the session token in a URL. Installation: better-sqlite3 ^11 -> ^12.11.1, whose prebuilts span Node 20-26 (v13 was rejected: it requires Node >=22 and would have dropped the declared floor and CI's Node 20) and moved to optionalDependencies with a lazy import, so a failed native build no longer aborts npm i qyre or blocks Postgres/MySQL/MongoDB; it is marked external in tsup, without which esbuild inlined it and broke its binding lookup. Plus a Clear control on the query-history drawer and a documented SQLite non-interruptibility limitation.",
       "verification": "pnpm audit --prod && pnpm verify:pr",
@@ -99,111 +77,111 @@
       "id": "F160",
       "behavior": "Plan 0010 slice 1 (security, details in private advisory): SQL console statement handling and download-grant scoping are hardened; new conformance cases verified across Postgres, MySQL, and SQLite (MongoDB not applicable).",
       "verification": "pnpm --filter @qyre/driver-contract test && pnpm --filter @qyre/testing-conformance test && pnpm --filter @qyre/server test && pnpm verify:pr",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9032869",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/186 CI green on 9032869 (Lint, typecheck, test, build; End-to-end incl. MongoDB). Locally: Postgres 16 + MySQL 8 unit/integration/conformance, Playwright smoke 9/9 and full 26 passed (remaining failures environment-only, identical on main).",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0010-bug-audit-fixes.md",
-      "completedAt": null
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md",
+      "completedAt": "2026-09-26T17:44:49.000Z"
     },
     {
       "id": "F161",
       "behavior": "Plan 0010 slice 2: SQLite column alter disables foreign keys outside the transaction and preserves UNIQUE, CHECK, COLLATE, AUTOINCREMENT, WITHOUT ROWID, STRICT, generated columns, and composite FKs (or refuses the rebuild); inserts into WITHOUT ROWID tables return the inserted row.",
       "verification": "pnpm --filter @qyre/sqlite test && pnpm --filter @qyre/testing-conformance test && pnpm verify:pr",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9032869",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/186 CI green on 9032869 (Lint, typecheck, test, build; End-to-end incl. MongoDB). Locally: Postgres 16 + MySQL 8 unit/integration/conformance, Playwright smoke 9/9 and full 26 passed (remaining failures environment-only, identical on main).",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0010-bug-audit-fixes.md",
-      "completedAt": null
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md",
+      "completedAt": "2026-09-26T17:44:49.000Z"
     },
     {
       "id": "F162",
       "behavior": "Plan 0010 slice 3: MySQL MODIFY COLUMN preserves AUTO_INCREMENT, COMMENT, charset/collation, ON UPDATE, and generated expressions, and emits expression defaults unquoted.",
       "verification": "pnpm --filter @qyre/mysql test && pnpm --filter @qyre/testing-conformance test && pnpm verify:pr",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9032869",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/186 CI green on 9032869 (Lint, typecheck, test, build; End-to-end incl. MongoDB). Locally: Postgres 16 + MySQL 8 unit/integration/conformance, Playwright smoke 9/9 and full 26 passed (remaining failures environment-only, identical on main).",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0010-bug-audit-fixes.md",
-      "completedAt": null
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md",
+      "completedAt": "2026-09-26T17:44:49.000Z"
     },
     {
       "id": "F163",
       "behavior": "Plan 0010 slice 4: MongoDB edits, inserts, filters, and the document editor preserve BSON numeric/date/_id types and precision; invalid dates and out-of-range integers are rejected with 400.",
       "verification": "pnpm --filter @qyre/mongodb test && pnpm --filter @qyre/core test && pnpm --filter @qyre/server test && pnpm verify:pr",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9032869",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/186 CI green on 9032869 (Lint, typecheck, test, build; End-to-end incl. MongoDB). Locally: Postgres 16 + MySQL 8 unit/integration/conformance, Playwright smoke 9/9 and full 26 passed (remaining failures environment-only, identical on main).",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0010-bug-audit-fixes.md",
-      "completedAt": null
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md",
+      "completedAt": "2026-09-26T17:44:49.000Z"
     },
     {
       "id": "F164",
       "behavior": "Plan 0010 slice 5: SQL console results keep duplicate-named columns distinct, the row cap tolerates trailing comments, Postgres quoted aliases are not rewritten to literals, TIMESTAMPTZ keeps microseconds, and Postgres array export emits valid literals.",
       "verification": "pnpm --filter @qyre/testing-conformance test && pnpm --filter @qyre/postgres test && pnpm verify:pr",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9032869",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/186 CI green on 9032869 (Lint, typecheck, test, build; End-to-end incl. MongoDB). Locally: Postgres 16 + MySQL 8 unit/integration/conformance, Playwright smoke 9/9 and full 26 passed (remaining failures environment-only, identical on main).",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0010-bug-audit-fixes.md",
-      "completedAt": null
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md",
+      "completedAt": "2026-09-26T17:44:49.000Z"
     },
     {
       "id": "F165",
       "behavior": "Plan 0010 slice 6: Postgres composite and same-named FKs map columns correctly, per-table count failures degrade to unknown on Postgres and MySQL, and Postgres enums classify as enum regardless of name.",
       "verification": "pnpm --filter @qyre/postgres test && pnpm --filter @qyre/mysql test && pnpm verify:pr",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9032869",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/186 CI green on 9032869 (Lint, typecheck, test, build; End-to-end incl. MongoDB). Locally: Postgres 16 + MySQL 8 unit/integration/conformance, Playwright smoke 9/9 and full 26 passed (remaining failures environment-only, identical on main).",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0010-bug-audit-fixes.md",
-      "completedAt": null
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md",
+      "completedAt": "2026-09-26T17:44:49.000Z"
     },
     {
       "id": "F166",
       "behavior": "Plan 0010 slice 7: CSV import never reports failure after committing rows (validate-first or explicit partial result), never inserts a size-truncated record, and preserves exact numeric text.",
       "verification": "pnpm --filter @qyre/server test && pnpm verify:pr",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9032869",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/186 CI green on 9032869 (Lint, typecheck, test, build; End-to-end incl. MongoDB). Locally: Postgres 16 + MySQL 8 unit/integration/conformance, Playwright smoke 9/9 and full 26 passed (remaining failures environment-only, identical on main).",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0010-bug-audit-fixes.md",
-      "completedAt": null
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md",
+      "completedAt": "2026-09-26T17:44:49.000Z"
     },
     {
       "id": "F167",
       "behavior": "Plan 0010 slice 8: grid keyboard focus follows selection, Ctrl+S always commits current changes once, clearing a cell stages an empty string not NULL, staged edits survive tab switches, filter column changes reset operator/value, and partial time input does not wipe the date-time filter.",
       "verification": "pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm verify:pr",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9032869",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/186 CI green on 9032869 (Lint, typecheck, test, build; End-to-end incl. MongoDB). Locally: Postgres 16 + MySQL 8 unit/integration/conformance, Playwright smoke 9/9 and full 26 passed (remaining failures environment-only, identical on main).",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0010-bug-audit-fixes.md",
-      "completedAt": null
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md",
+      "completedAt": "2026-09-26T17:44:49.000Z"
     },
     {
       "id": "F168",
       "behavior": "Plan 0010 slice 9: row paging uses a deterministic key tiebreaker on every engine, Next is disabled while placeholder data shows, and column DDL refreshes cached rows.",
       "verification": "pnpm --filter @qyre/testing-conformance test && pnpm --filter @qyre/web test && pnpm verify:pr",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9032869",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/186 CI green on 9032869 (Lint, typecheck, test, build; End-to-end incl. MongoDB). Locally: Postgres 16 + MySQL 8 unit/integration/conformance, Playwright smoke 9/9 and full 26 passed (remaining failures environment-only, identical on main).",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0010-bug-audit-fixes.md",
-      "completedAt": null
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md",
+      "completedAt": "2026-09-26T17:44:49.000Z"
     },
     {
       "id": "F169",
       "behavior": "Plan 0010 slice 10: MongoDB database switching keeps the original authSource, passwords are never trimmed, pasted URL options are kept, shutdown disconnects the current adapter, port 0 and QYRE_PORT are handled correctly, zone-less dates are not shifted, and schema graph positions reload per database.",
       "verification": "pnpm --filter @qyre/qyre test && pnpm --filter @qyre/server test && pnpm --filter @qyre/ui test && pnpm --filter @qyre/web test && pnpm verify:pr",
-      "state": "not_started",
-      "commitHash": null,
-      "evidence": null,
+      "state": "passing",
+      "commitHash": "9032869",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/186 CI green on 9032869 (Lint, typecheck, test, build; End-to-end incl. MongoDB). Locally: Postgres 16 + MySQL 8 unit/integration/conformance, Playwright smoke 9/9 and full 26 passed (remaining failures environment-only, identical on main).",
       "blockedReason": null,
-      "spec": "docs/exec-plans/active/0010-bug-audit-fixes.md",
-      "completedAt": null
+      "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md",
+      "completedAt": "2026-09-26T17:44:49.000Z"
     }
   ]
 }

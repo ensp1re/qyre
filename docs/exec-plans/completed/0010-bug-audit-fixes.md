@@ -1,6 +1,6 @@
 # Plan 0010: Bug audit fixes
 
-Status: Implemented 2026-09-26 on one branch (all slices, per maintainer request); awaiting CI.
+Status: Completed 2026-09-26 in PR #186 (all slices on one branch, per maintainer request); CI green on 9032869.
 Owner: current engagement
 Linked features: F160-F169
 Trigger: a four-way code audit (SQL drivers, MongoDB driver + core, server + CLI, UI + web app).
@@ -173,6 +173,8 @@ command from `docs/FEATURES.json`, ending in `pnpm verify:pr`.
   could not be installed in the session environment; its changes are unit-tested and rely on CI's
   Mongo service. Remaining environment-only failures match `main` (SQLite chmod cases under root,
   Mongo integration, MongoDB E2E projects, MySQL E2E cases confused by extra local databases).
+- 2026-09-26: CI surfaced one Mongo-only regression (BSON Timestamp subclasses Long, so grid edits
+  demoted Timestamp fields); fixed in 9032869 with a unit reproduction. CI green, both jobs.
 - Follow-ups not done here: Postgres `ALTER COLUMN TYPE` drops an explicit `COLLATE`; MongoDB
   CSV import stays non-atomic across documents; `set_config(...)` in a read query persists on the
   pooled Postgres session (pre-existing).

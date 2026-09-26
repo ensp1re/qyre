@@ -18,3 +18,5 @@ Finished plans kept for future agent context. Each should link the evidence that
   DF-19 were retired unstarted on 2026-07-18: the 2026-07-15 browser audit they were scoped from
   predates F148/F149 and later UI refinements, so a fresh audit is needed before that remaining
   work is re-scoped.
+- [`0010-bug-audit-fixes.md`](0010-bug-audit-fixes.md) - F160-F169, fixes from the 2026-09-26
+  code audit across drivers, server, and UI (PR #186); all `passing`.

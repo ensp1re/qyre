@@ -77,6 +77,19 @@ describe("composeGuidedConnectionString", () => {
       })
     ).toBe("postgres://a%40b:p%3Aw@localhost:5432/db");
   });
+
+  it("keeps leading and trailing spaces in the password", () => {
+    const raw = composeGuidedConnectionString({
+      engine: "postgres",
+      host: "localhost",
+      port: "5432",
+      user: "alice",
+      password: " p w ",
+      database: "db"
+    });
+    expect(raw).toBe("postgres://alice:%20p%20w%20@localhost:5432/db");
+    expect(decodeURIComponent(new URL(raw).password)).toBe(" p w ");
+  });
 });
 
 describe("needsCredentialPrompt", () => {

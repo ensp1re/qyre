@@ -28,6 +28,8 @@ export interface PendingChangesApi {
   deletes: ReadonlySet<string>;
   stageDelete: (rowKey: string) => void;
   unstageDelete: (rowKey: string) => void;
+  /** Held while a commit is in flight; outlives the Tables tab so a remount can't commit twice. */
+  commitLock: { current: boolean };
 }
 
 export function applyStageEdit(
@@ -133,6 +135,7 @@ function emptyPendingState(scope: string | undefined): ScopedPendingState {
 export function usePendingChanges(scope?: string): PendingChangesApi {
   const [state, setState] = useState<ScopedPendingState>(() => emptyPendingState(scope));
   const nextInsertId = useRef(0);
+  const commitLock = useRef(false);
   const current = state.scope === scope ? state : emptyPendingState(scope);
   const { edits, inserts, deletes } = current;
 
@@ -232,7 +235,8 @@ export function usePendingChanges(scope?: string): PendingChangesApi {
     removeInsert,
     deletes,
     stageDelete,
-    unstageDelete
+    unstageDelete,
+    commitLock
   };
 }
 

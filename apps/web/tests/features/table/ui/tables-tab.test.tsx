@@ -25,17 +25,20 @@ const tableData: TableMetadata = {
 function Host({
   page = 0,
   hasMore = false,
-  isPlaceholderData = false
+  isPlaceholderData = false,
+  showTab = true
 }: {
   page?: number;
   hasMore?: boolean;
   isPlaceholderData?: boolean;
+  showTab?: boolean;
 }): ReactNode {
   const pendingChanges = usePendingChanges("users");
   const { addInsert } = pendingChanges;
   useEffect(() => {
     addInsert({ name: "Ada" });
   }, [addInsert]);
+  if (!showTab) return null;
   return (
     <TablesTab
       selected={{ schema: "public", table: "users" }}
@@ -102,6 +105,26 @@ describe("TablesTab", () => {
     await act(async () => resolveCommit({ committed: true }));
     pressSave();
     expect(commitMutations).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not commit again when the tab remounts while a commit is in flight", async () => {
+    let resolveCommit: (value: unknown) => void = () => {};
+    commitMutations.mockReturnValue(new Promise((resolve) => (resolveCommit = resolve)));
+    const client = new QueryClient();
+    const view = (showTab: boolean): ReactNode => (
+      <QueryClientProvider client={client}>
+        <Host showTab={showTab} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(view(true));
+
+    pressSave();
+    rerender(view(false));
+    rerender(view(true));
+    pressSave();
+
+    expect(commitMutations).toHaveBeenCalledTimes(1);
+    await act(async () => resolveCommit({ committed: true }));
   });
 
   it("disables Next while the previous page is shown as placeholder data", () => {

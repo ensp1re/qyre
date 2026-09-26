@@ -89,13 +89,13 @@ export function TablesTab({
 }: TablesTabProps): ReactNode {
   const { view, setView } = useTableView();
   const ddl = useTableDdlMutations(selected?.schema ?? "", selected?.table ?? "");
-  const [committing, setCommitting] = useState(false);
+  const [committing, setCommitting] = useState(() => pendingChanges.commitLock.current);
   const [commitError, setCommitError] = useState<
     { message: string; failedIndex?: number } | undefined
   >(undefined);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const commitRef = useRef<() => void>(() => {});
-  const committingRef = useRef(false);
+  const committingRef = pendingChanges.commitLock;
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {

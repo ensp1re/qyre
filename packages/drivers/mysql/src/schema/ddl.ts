@@ -6,6 +6,7 @@ import type {
 } from "@qyre/core";
 import type mysql from "mysql2/promise";
 import { quoteIdent } from "../query/sql.js";
+import { buildModifiedColumnSql } from "./column-definition.js";
 
 /** Format a MySQL DDL default with mysql2's engine-specific escaping. */
 function columnDefinitionSql(pool: mysql.Pool, column: ColumnDefinition): string {
@@ -73,36 +74,7 @@ export async function renameColumn(
   );
 }
 
-interface CurrentColumnDefinition {
-  columnType: string;
-  nullable: boolean;
-  /** Raw stored default text. */
-  default: string | null;
-}
-
-async function fetchCurrentColumnDefinition(
-  pool: mysql.Pool,
-  schema: string,
-  table: string,
-  column: string
-): Promise<CurrentColumnDefinition> {
-  const [rows] = await pool.query<mysql.RowDataPacket[]>(
-    `SELECT column_type AS column_type, is_nullable AS is_nullable, column_default AS column_default
-       FROM information_schema.columns
-      WHERE table_schema = ? AND table_name = ? AND column_name = ?`,
-    [schema, table, column]
-  );
-  const row = rows[0] as
-    { column_type: string; is_nullable: "YES" | "NO"; column_default: string | null } | undefined;
-  if (!row) throw new Error(`Column "${column}" not found.`);
-  return {
-    columnType: row.column_type,
-    nullable: row.is_nullable === "YES",
-    default: row.column_default
-  };
-}
-
-/** Build MySQL's full MODIFY COLUMN definition from current metadata and requested changes. */
+/** MySQL's MODIFY COLUMN takes the full resulting definition, so the current one is merged first. */
 export async function alterColumn(
   pool: mysql.Pool,
   schema: string,
@@ -110,18 +82,9 @@ export async function alterColumn(
   column: string,
   changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
 ): Promise<void> {
-  const current = await fetchCurrentColumnDefinition(pool, schema, table, column);
-  const columnType = changes.dataType ?? current.columnType;
-  const nullable = changes.nullable ?? current.nullable;
+  const definition = await buildModifiedColumnSql(pool, schema, table, column, changes);
   const target = `${quoteIdent(schema)}.${quoteIdent(table)}`;
-  const parts = [quoteIdent(column), columnType];
-  if (!nullable) parts.push("NOT NULL");
-
-  const defaultValue = "default" in changes ? changes.default : current.default;
-  if (defaultValue !== null && defaultValue !== undefined) {
-    parts.push(`DEFAULT ${pool.escape(defaultValue)}`);
-  }
-  await pool.query(`ALTER TABLE ${target} MODIFY COLUMN ${parts.join(" ")}`);
+  await pool.query(`ALTER TABLE ${target} MODIFY COLUMN ${definition}`);
 }
 
 /** Apply MySQL rename and alter sequentially; DDL auto-commits between statements. */

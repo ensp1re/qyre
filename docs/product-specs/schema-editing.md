@@ -194,15 +194,26 @@ default` is a literal value only; an expression default is a distinct, higher-ri
   the only `SchemaDdlApi` operation whose SQLite implementation is a multi-statement transaction
   rather than one native DDL statement - callers see the same `Promise<void>` either way; the
   rebuild is an implementation detail SQLite's adapter owns, not a different API shape.
+  `foreign_keys` is switched off before the transaction opens (SQLite ignores the pragma inside
+  one) and restored to its previous value afterwards; a rename plus alter runs in that same
+  transaction, and `foreign_key_check` runs only when enforcement was on. The new table is created
+  from the stored `CREATE TABLE` text with only the target column's type, nullability, or default
+  rewritten, so every other column, constraint (UNIQUE, CHECK, composite or column-list-less
+  foreign keys, COLLATE, AUTOINCREMENT and its sequence), generated column, and table option
+  (`STRICT`, `WITHOUT ROWID`) survives verbatim. Altering a generated column, or any column of a
+  virtual table, is refused with a 400 rather than approximated.
 - **A destructive/data-affecting SQLite `alterColumn` always goes through the rebuild path**, even
   for a change SQLite's `ADD COLUMN`-family limits could theoretically approximate, so every
   `alterColumn` call has one consistent, fully-tested code path per engine rather than two
   (a fast path for "safe" changes and a rebuild path for others) that could silently diverge.
 - **MySQL's `MODIFY COLUMN` requires the caller to supply the column's full resulting definition**,
   not just the changed field - MySQL has no separate "just change the type" / "just change
-  nullability" clause the way Postgres does. The adapter reads the column's current
-  `ColumnMetadata` first and merges `changes` onto it before issuing one `MODIFY COLUMN` statement,
-  so the caller-facing contract (`changes` only covers what's different) stays identical across
+  nullability" clause the way Postgres does. The adapter reads the column's current definition
+  (`information_schema.COLUMNS`, plus the `SHOW CREATE TABLE` line for exact expression text) and
+  merges `changes` onto it before issuing one `MODIFY COLUMN` statement that carries over
+  `AUTO_INCREMENT`, `COMMENT`, a non-default character set/collation, `ON UPDATE`, `INVISIBLE`,
+  `SRID`, generated-column expressions, and expression defaults (emitted unquoted), so the
+  caller-facing contract (`changes` only covers what's different) stays identical across
   engines even though MySQL's own SQL doesn't work that way under the hood.
 - Every operation above runs against the connected engine's real `statement_timeout`/equivalent
   where one is configured (matching every other adapter call in this codebase); DDL is not exempted

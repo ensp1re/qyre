@@ -5,19 +5,14 @@ import type {
   IndexDefinition
 } from "@qyre/core";
 import type Database from "better-sqlite3";
-import { fetchForeignKeyList, fetchTableInfo } from "./introspection.js";
 import { quoteIdent } from "../query/sql.js";
-import type { TableInfoRow } from "./types.js";
-
-/** Format a SQLite DDL default literal; booleans use SQLite's integer representation. */
-function formatDefaultLiteral(value: string | number | boolean): string {
-  if (typeof value === "boolean") return value ? "1" : "0";
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new Error("Default value must be a finite number.");
-    return String(value);
-  }
-  return `'${value.replace(/'/g, "''")}'`;
-}
+import {
+  type ColumnChanges,
+  formatDefaultLiteral,
+  rewriteCreateTableSql,
+  unsupportedRebuild
+} from "./create-table-sql.js";
+import { fetchTableXInfo } from "./introspection.js";
 
 function columnDefinitionSql(column: ColumnDefinition): string {
   const parts = [quoteIdent(column.name), column.dataType];
@@ -69,97 +64,91 @@ export function dropColumn(db: Database.Database, table: string, column: string)
   db.exec(`ALTER TABLE ${quoteIdent(table)} DROP COLUMN ${quoteIdent(column)}`);
 }
 
-/** Build a column definition while preserving stored defaults for untouched columns. */
-function rebuildColumnSql(
-  row: TableInfoRow,
-  isSoleIntegerPrimaryKey: boolean,
-  override: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">> | undefined
-): string {
-  const dataType = override?.dataType ?? row.type;
-  const nullable = override?.nullable ?? row.notnull === 0;
-  const parts = [quoteIdent(row.name), dataType];
-  if (isSoleIntegerPrimaryKey) parts.push("PRIMARY KEY");
-  if (!nullable) parts.push("NOT NULL");
-
-  if (override && "default" in override) {
-    const value = override.default;
-    if (value !== null && value !== undefined) parts.push(`DEFAULT ${formatDefaultLiteral(value)}`);
-  } else if (row.dflt_value !== null) {
-    parts.push(`DEFAULT ${row.dflt_value}`);
+/** Run `fn` with foreign-key enforcement off, restoring the previous setting afterwards. SQLite
+ * ignores `PRAGMA foreign_keys` inside a transaction, so this must wrap the transaction. */
+function withForeignKeysDisabled<T>(db: Database.Database, fn: (wasEnabled: boolean) => T): T {
+  if (db.inTransaction) {
+    throw Object.assign(
+      new Error("Finish the open transaction before altering columns on this SQLite database."),
+      { statusCode: 409 }
+    );
   }
-  return parts.join(" ");
+  const wasEnabled = db.pragma("foreign_keys", { simple: true }) === 1;
+  if (wasEnabled) db.pragma("foreign_keys = OFF");
+  try {
+    return fn(wasEnabled);
+  } finally {
+    if (wasEnabled) db.pragma("foreign_keys = ON");
+  }
 }
 
-/** Rebuild the table using SQLite's documented 12-step alter-column workaround. */
+function readSequence(db: Database.Database, table: string): number | undefined {
+  const hasSequence = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sqlite_sequence'")
+    .get();
+  if (!hasSequence) return undefined;
+  const row = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = ?").get(table) as
+    { seq: number } | undefined;
+  return row?.seq;
+}
+
+/** Rebuild the table using SQLite's documented 12-step alter procedure. Must run inside a
+ * transaction opened under `withForeignKeysDisabled`. */
 function rebuildTable(
   db: Database.Database,
   table: string,
   column: string,
-  changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
+  changes: ColumnChanges,
+  checkForeignKeys: boolean
 ): void {
-  const tableInfo = fetchTableInfo(db, table);
-  const foreignKeys = fetchForeignKeyList(db, table);
+  const definition = db
+    .prepare("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name = ? COLLATE NOCASE")
+    .get(table) as { name: string; sql: string | null } | undefined;
+  if (!definition?.sql || /^\s*CREATE\s+VIRTUAL\b/i.test(definition.sql)) {
+    throw unsupportedRebuild(
+      `"${table}" is not an ordinary table, so its columns can't be altered.`
+    );
+  }
+  const tableName = definition.name;
+  const tempTable = `${tableName}__qyre_rebuild`;
+  const createSql = rewriteCreateTableSql(definition.sql, tempTable, column, changes);
+
   const replayObjects = db
     .prepare(
       `SELECT sql FROM sqlite_master WHERE tbl_name = ? AND type IN ('index', 'trigger') AND sql IS NOT NULL`
     )
-    .all(table) as Array<{ sql: string }>;
+    .all(tableName) as Array<{ sql: string }>;
+  // Generated columns are recomputed by the new table and cannot be inserted into.
+  const storedColumns = fetchTableXInfo(db, tableName)
+    .filter((row) => row.hidden === 0)
+    .map((row) => quoteIdent(row.name))
+    .join(", ");
+  const sequence = readSequence(db, tableName);
 
-  const pkColumns = tableInfo.filter((row) => row.pk > 0).sort((a, b) => a.pk - b.pk);
-  const isSoleIntegerPrimaryKey =
-    pkColumns.length === 1 && pkColumns[0]?.type.toUpperCase() === "INTEGER";
-
-  const columnDefs = tableInfo.map((row) =>
-    rebuildColumnSql(
-      row,
-      isSoleIntegerPrimaryKey && row.pk > 0,
-      row.name === column ? changes : undefined
-    )
+  db.exec(createSql);
+  db.exec(
+    `INSERT INTO ${quoteIdent(tempTable)} (${storedColumns}) SELECT ${storedColumns} FROM ${quoteIdent(tableName)}`
   );
-  if (!isSoleIntegerPrimaryKey && pkColumns.length > 0) {
-    columnDefs.push(`PRIMARY KEY (${pkColumns.map((row) => quoteIdent(row.name)).join(", ")})`);
-  }
-  for (const foreignKey of foreignKeys) {
-    if (foreignKey.to === null) continue;
-    const actions = [
-      foreignKey.on_delete && foreignKey.on_delete !== "NO ACTION"
-        ? `ON DELETE ${foreignKey.on_delete}`
-        : "",
-      foreignKey.on_update && foreignKey.on_update !== "NO ACTION"
-        ? `ON UPDATE ${foreignKey.on_update}`
-        : ""
-    ]
-      .filter(Boolean)
-      .join(" ");
-    columnDefs.push(
-      `FOREIGN KEY (${quoteIdent(foreignKey.from)}) REFERENCES ${quoteIdent(foreignKey.table)}(${quoteIdent(
-        foreignKey.to
-      )})${actions ? ` ${actions}` : ""}`
-    );
-  }
-
-  const tempTable = `${table}__qyre_rebuild`;
-  const columnNames = tableInfo.map((row) => quoteIdent(row.name)).join(", ");
-
-  db.pragma("foreign_keys = OFF");
+  db.exec(`DROP TABLE ${quoteIdent(tableName)}`);
+  // Legacy rename skips re-validating views and triggers that still name the dropped table.
+  const legacyAlter = db.pragma("legacy_alter_table", { simple: true }) === 1;
+  db.pragma("legacy_alter_table = ON");
   try {
-    db.transaction(() => {
-      db.exec(`CREATE TABLE ${quoteIdent(tempTable)} (${columnDefs.join(", ")})`);
-      db.exec(
-        `INSERT INTO ${quoteIdent(tempTable)} (${columnNames}) SELECT ${columnNames} FROM ${quoteIdent(table)}`
-      );
-      db.exec(`DROP TABLE ${quoteIdent(table)}`);
-      db.exec(`ALTER TABLE ${quoteIdent(tempTable)} RENAME TO ${quoteIdent(table)}`);
-      for (const object of replayObjects) {
-        db.exec(object.sql);
-      }
-      const violations = db.pragma("foreign_key_check") as unknown[];
-      if (violations.length > 0) {
-        throw new Error(`Foreign key check failed while rebuilding "${table}".`);
-      }
-    })();
+    db.exec(`ALTER TABLE ${quoteIdent(tempTable)} RENAME TO ${quoteIdent(tableName)}`);
   } finally {
-    db.pragma("foreign_keys = ON");
+    if (!legacyAlter) db.pragma("legacy_alter_table = OFF");
+  }
+  if (sequence !== undefined) {
+    db.prepare("DELETE FROM sqlite_sequence WHERE name = ?").run(tableName);
+    db.prepare("INSERT INTO sqlite_sequence (name, seq) VALUES (?, ?)").run(tableName, sequence);
+  }
+  for (const object of replayObjects) {
+    db.exec(object.sql);
+  }
+  if (checkForeignKeys && (db.pragma("foreign_key_check") as unknown[]).length > 0) {
+    throw unsupportedRebuild(
+      `Altering "${tableName}" would leave rows that violate a foreign key; no changes were made.`
+    );
   }
 }
 
@@ -167,12 +156,14 @@ export function alterColumn(
   db: Database.Database,
   table: string,
   column: string,
-  changes: Partial<Pick<ColumnDefinition, "dataType" | "nullable" | "default">>
+  changes: ColumnChanges
 ): void {
-  rebuildTable(db, table, column, changes);
+  withForeignKeysDisabled(db, (checkForeignKeys) => {
+    db.transaction(() => rebuildTable(db, table, column, changes, checkForeignKeys))();
+  });
 }
 
-/** Apply rename and alter atomically using better-sqlite3's nested transaction support. */
+/** Apply rename and alter atomically in one transaction. */
 export function renameAndAlterColumn(
   db: Database.Database,
   table: string,
@@ -180,15 +171,17 @@ export function renameAndAlterColumn(
   update: ColumnUpdateRequest
 ): ColumnUpdateResult {
   let currentName = column;
-  db.transaction(() => {
-    if (update.newName !== undefined) {
-      renameColumn(db, table, column, update.newName);
-      currentName = update.newName;
-    }
-    if (update.changes !== undefined) {
-      alterColumn(db, table, currentName, update.changes);
-    }
-  })();
+  withForeignKeysDisabled(db, (checkForeignKeys) => {
+    db.transaction(() => {
+      if (update.newName !== undefined) {
+        renameColumn(db, table, column, update.newName);
+        currentName = update.newName;
+      }
+      if (update.changes !== undefined) {
+        rebuildTable(db, table, currentName, update.changes, checkForeignKeys);
+      }
+    })();
+  });
   return {
     column: currentName,
     renamed: update.newName !== undefined,

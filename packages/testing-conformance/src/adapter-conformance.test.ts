@@ -894,6 +894,44 @@ describe.each(cases)("adapter conformance: $name", ({ name, envVar, factory, eng
     }
   );
 
+  it.skipIf(!configured || engine === "mongodb")(
+    "renameAndAlterColumn on a referenced parent table keeps CASCADE and SET NULL child rows",
+    async () => {
+      const parent = `qyre_ddl_fk_parent_${suffix}`;
+      const cascadeChild = `qyre_ddl_fk_cascade_${suffix}`;
+      const setNullChild = `qyre_ddl_fk_set_null_${suffix}`;
+      const intType = engine === "postgres" ? "integer" : engine === "mysql" ? "INT" : "INTEGER";
+      const textType = engine === "mysql" ? "VARCHAR(50)" : engine === "postgres" ? "text" : "TEXT";
+      const statements = [
+        `CREATE TABLE ${parent} (id ${intType} PRIMARY KEY, name ${textType})`,
+        `CREATE TABLE ${cascadeChild} (id ${intType} PRIMARY KEY, parent_id ${intType} REFERENCES ${parent}(id) ON DELETE CASCADE)`,
+        `CREATE TABLE ${setNullChild} (id ${intType} PRIMARY KEY, parent_id ${intType} REFERENCES ${parent}(id) ON DELETE SET NULL)`,
+        `INSERT INTO ${parent} (id, name) VALUES (1, 'one'), (2, 'two')`,
+        `INSERT INTO ${cascadeChild} (id, parent_id) VALUES (10, 1), (11, 2)`,
+        `INSERT INTO ${setNullChild} (id, parent_id) VALUES (20, 1)`
+      ];
+      try {
+        for (const statement of statements) await adapter.runQuery?.(statement);
+
+        await adapter.ddl?.renameAndAlterColumn?.(fixture.schema, parent, "name", {
+          newName: "label",
+          changes: { nullable: false }
+        });
+
+        const parentRows = await adapter.getRows(fixture.schema, parent, 0, 10);
+        expect(parentRows.rows.map((row) => row.label).sort()).toEqual(["one", "two"]);
+        const cascadeRows = await adapter.getRows(fixture.schema, cascadeChild, 0, 10);
+        expect(cascadeRows.rows.map((row) => Number(row.parent_id)).sort()).toEqual([1, 2]);
+        const setNullRows = await adapter.getRows(fixture.schema, setNullChild, 0, 10);
+        expect(setNullRows.rows.map((row) => Number(row.parent_id))).toEqual([1]);
+      } finally {
+        for (const table of [setNullChild, cascadeChild, parent]) {
+          await adapter.runQuery?.(`DROP TABLE IF EXISTS ${table}`);
+        }
+      }
+    }
+  );
+
   it.skipIf(!configured || engine !== "mongodb")(
     "column operations are not offered on MongoDB - collections have no fixed structure (F111)",
     () => {

@@ -827,7 +827,7 @@ describe("PATCH /api/tables/:schema/:table/rows (F100)", () => {
 
     expect(response.statusCode).toBe(200);
     expect(received).toEqual({
-      key: { _id: "507f1f77bcf86cd799439011" },
+      key: { _id: { $oid: "507f1f77bcf86cd799439011" } },
       changes: { name: "Grace" }
     });
     await app.close();
@@ -1210,6 +1210,70 @@ describe("Whole-result export (F118)", () => {
 
     const response = await app.inject({ method: "GET", url: "/api/tables/public/x/export.csv" });
     expect(response.statusCode).toBe(401);
+    await app.close();
+  });
+});
+
+describe("GET /api/tables/:schema/:table/document/:id", () => {
+  function documentAdapter(idDataType: string, requested: unknown[]): DatabaseAdapter {
+    return makeFakeAdapter({
+      engine: "mongodb",
+      getTable: async () => ({
+        schema: "test",
+        name: "users",
+        kind: "collection",
+        columns: [
+          {
+            name: "_id",
+            dataType: idDataType,
+            nullable: false,
+            isPrimaryKey: true,
+            isForeignKey: false
+          }
+        ]
+      }),
+      mutations: {
+        getDocumentText: async (_schema, _table, id) => {
+          requested.push(id);
+          return '{"_id":"x"}';
+        }
+      }
+    });
+  }
+
+  it("targets the collection's sampled _id type", async () => {
+    const requested: unknown[] = [];
+    const objectIdApp = createServer({ adapter: documentAdapter("objectId", requested) });
+    const objectIdResponse = await objectIdApp.inject({
+      method: "GET",
+      url: "/api/tables/test/users/document/507f1f77bcf86cd799439011",
+      headers: authHeaders(objectIdApp)
+    });
+    expect(objectIdResponse.statusCode).toBe(200);
+    await objectIdApp.close();
+
+    const stringApp = createServer({ adapter: documentAdapter("string", requested) });
+    const stringResponse = await stringApp.inject({
+      method: "GET",
+      url: "/api/tables/test/users/document/user-1",
+      headers: authHeaders(stringApp)
+    });
+    expect(stringResponse.statusCode).toBe(200);
+    await stringApp.close();
+
+    expect(requested).toEqual([{ $oid: "507f1f77bcf86cd799439011" }, "user-1"]);
+  });
+
+  it("rejects an id that cannot be an ObjectId with 400 instead of reaching the driver", async () => {
+    const requested: unknown[] = [];
+    const app = createServer({ adapter: documentAdapter("objectId", requested) });
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/tables/test/users/document/foo",
+      headers: authHeaders(app)
+    });
+    expect(response.statusCode).toBe(400);
+    expect(requested).toEqual([]);
     await app.close();
   });
 });

@@ -7,6 +7,7 @@ import {
   isExactTimestampText,
   mutationValueText,
   parseMutationDraft,
+  parseTimestampInstant,
   validateMutationValue
 } from "../../src/mutation/editor-values.js";
 
@@ -37,6 +38,36 @@ describe("mutation editor exact values", () => {
       true
     );
     expect(isExactTimestampText("2024-11-03 01:30:45.123456", "timestamp-time-zone")).toBe(false);
+  });
+
+  it.each([
+    ["2024-01-01T10:00:00+05", "2024-01-01T05:00:00.000Z"],
+    ["2024-01-01 10:00:00+0530", "2024-01-01T04:30:00.000Z"],
+    ["2024-01-01T10:00:00.123456-04:00", "2024-01-01T14:00:00.123Z"],
+    ["2024-01-01T10:00z", "2024-01-01T10:00:00.000Z"],
+    ["2024-01-01T10:00", "2024-01-01T10:00:00.000Z"],
+    ["2024-01-01", "2024-01-01T00:00:00.000Z"]
+  ])("parses validated timestamp text %s as an exact instant", (text, iso) => {
+    expect(parseTimestampInstant(text)?.toISOString()).toBe(iso);
+  });
+
+  it.each(["", "2024-02-30T10:00:00Z", "2024-01-01T25:00:00Z", "not a date", "2024-01-01T10+05"])(
+    "rejects timestamp text %s that has no exact instant",
+    (text) => {
+      expect(parseTimestampInstant(text)).toBeUndefined();
+    }
+  );
+
+  it("normalizes MongoDB date edits to ISO text while leaving SQL timestamp text untouched", () => {
+    const mongoDate = mutationEditorCapability("date", "mongodb");
+    expect(validateMutationValue(mongoDate, "2024-01-01T10:00:00+05", "mongodb")).toEqual({
+      valid: true,
+      value: "2024-01-01T05:00:00.000Z"
+    });
+    const postgresTimestamp = mutationEditorCapability("timestamp with time zone", "postgres");
+    expect(
+      validateMutationValue(postgresTimestamp, "2024-01-01 10:00:00.123456+05", "postgres")
+    ).toEqual({ valid: true, value: "2024-01-01 10:00:00.123456+05" });
   });
 
   it("accepts MySQL signed TIME durations without treating them as a clock", () => {

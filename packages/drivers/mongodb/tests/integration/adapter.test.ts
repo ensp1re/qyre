@@ -1,7 +1,19 @@
 import { FIXTURE, requireTestMongoUrl } from "@qyre/testing";
 import { setupMongoFixture } from "@qyre/testing/mongodb";
 import { EJSON } from "bson";
-import { Binary, BSONRegExp, Code, Long, MaxKey, MinKey, MongoClient, Timestamp } from "mongodb";
+import {
+  Binary,
+  BSONRegExp,
+  Code,
+  Double,
+  Int32,
+  Long,
+  MaxKey,
+  MinKey,
+  MongoClient,
+  ObjectId,
+  Timestamp
+} from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { isMongoCancelError, registerMongoCancellation } from "../../src/runtime/cancellation.js";
 import { MongodbAdapter, normalizeBsonValue } from "../../src/index.js";
@@ -273,7 +285,7 @@ describe("MongodbAdapter integration", () => {
     const result = await adapter.mutations.updateRowByKey?.(
       databaseName,
       FIXTURE.table,
-      { _id: id },
+      { _id: { $oid: id } },
       {
         name: "Ada Lovelace",
         email: "ada@example.com",
@@ -292,7 +304,7 @@ describe("MongodbAdapter integration", () => {
     const result = await adapter.mutations.updateRowByKey?.(
       databaseName,
       FIXTURE.table,
-      { _id: "507f1f77bcf86cd799439011" },
+      { _id: { $oid: "507f1f77bcf86cd799439011" } },
       { name: "Nobody" }
     );
     expect(result).toEqual({ matched: 0 });
@@ -309,7 +321,7 @@ describe("MongodbAdapter integration", () => {
       const result = await adapter.mutations.updateRowByKey?.(
         databaseName,
         FIXTURE.table,
-        { _id: id },
+        { _id: { $oid: id } },
         { name: "Changed", email: "a@x.com" },
         { _id: { $oid: id }, name: "Original", email: "a@x.com" }
       );
@@ -335,7 +347,7 @@ describe("MongodbAdapter integration", () => {
       const result = await adapter.mutations.updateRowByKey?.(
         databaseName,
         FIXTURE.table,
-        { _id: id },
+        { _id: { $oid: id } },
         { name: "My Edit", email: "a@x.com" },
         { _id: { $oid: id }, name: "Original", email: "a@x.com" }
       );
@@ -361,7 +373,7 @@ describe("MongodbAdapter integration", () => {
         bytes,
         unrelated: { keep: true }
       });
-      const key = { _id: String(inserted.insertedId) };
+      const key = { _id: { $oid: String(inserted.insertedId) } };
 
       const result = await adapter.mutations.updateFieldsByKey?.(
         databaseName,
@@ -420,7 +432,7 @@ describe("MongodbAdapter integration", () => {
       const result = await adapter.mutations.updateFieldsByKey?.(
         databaseName,
         FIXTURE.table,
-        { _id: String(inserted.insertedId) },
+        { _id: { $oid: String(inserted.insertedId) } },
         {
           regexField: { pattern: "^new", options: "im" },
           timestampField: { t: 200, i: 2 },
@@ -471,7 +483,7 @@ describe("MongodbAdapter integration", () => {
       const result = await adapter.mutations.deleteRowsByKey?.(
         databaseName,
         FIXTURE.table,
-        ids.map((id) => ({ _id: id }))
+        ids.map((id) => ({ _id: { $oid: id } }))
       );
       expect(result).toEqual({ deleted: 2 });
 
@@ -492,8 +504,8 @@ describe("MongodbAdapter integration", () => {
       const inserted = await collection.insertOne({ name: "Delete Test" });
 
       const result = await adapter.mutations.deleteRowsByKey?.(databaseName, FIXTURE.table, [
-        { _id: String(inserted.insertedId) },
-        { _id: "507f1f77bcf86cd799439011" }
+        { _id: { $oid: String(inserted.insertedId) } },
+        { _id: { $oid: "507f1f77bcf86cd799439011" } }
       ]);
       expect(result).toEqual({ deleted: 1 });
     } finally {
@@ -510,7 +522,9 @@ describe("MongodbAdapter integration", () => {
       const inserted = await collection.insertOne({ name: "EJSON Roundtrip", joinedAt });
       const id = String(inserted.insertedId);
 
-      const text = await adapter.mutations.getDocumentText?.(databaseName, FIXTURE.table, id);
+      const text = await adapter.mutations.getDocumentText?.(databaseName, FIXTURE.table, {
+        $oid: id
+      });
       expect(text).toBeDefined();
       expect(text).toContain(`"$oid":"${id}"`);
       expect(text).toContain('"$date"');
@@ -529,12 +543,185 @@ describe("MongodbAdapter integration", () => {
   });
 
   it("getDocumentText returns undefined for an _id that doesn't match any document (F125)", async () => {
-    const text = await adapter.mutations.getDocumentText?.(
-      databaseName,
-      FIXTURE.table,
-      "507f1f77bcf86cd799439011"
-    );
+    const text = await adapter.mutations.getDocumentText?.(databaseName, FIXTURE.table, {
+      $oid: "507f1f77bcf86cd799439011"
+    });
     expect(text).toBeUndefined();
+  });
+
+  it("targets string _id values exactly, even when they look like ObjectIds", async () => {
+    const client = new MongoClient(mongoUrl);
+    const table = "qyre_test_string_ids";
+    const hex = "507f1f77bcf86cd799439011";
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(table);
+      await collection.drop().catch(() => {});
+      await collection.insertMany([
+        { _id: hex as unknown as ObjectId, name: "string id" },
+        { _id: new ObjectId(hex), name: "object id" },
+        { _id: "user-1" as unknown as ObjectId, name: "plain" }
+      ]);
+
+      const metadata = await adapter.getTable(databaseName, table);
+      expect(metadata.columns.find((column) => column.name === "_id")).toMatchObject({
+        dataType: "mixed",
+        isPrimaryKey: true
+      });
+
+      const result = await adapter.mutations.updateFieldsByKey?.(
+        databaseName,
+        table,
+        { _id: hex },
+        { name: "string id edited" },
+        { name: "string id" },
+        []
+      );
+      expect(result).toEqual({ matched: 1 });
+      expect((await collection.findOne({ _id: hex as unknown as ObjectId }))?.name).toBe(
+        "string id edited"
+      );
+      expect((await collection.findOne({ _id: new ObjectId(hex) }))?.name).toBe("object id");
+
+      const text = await adapter.mutations.getDocumentText?.(databaseName, table, "user-1");
+      expect(JSON.parse(text ?? "{}")).toEqual({ _id: "user-1", name: "plain" });
+
+      expect(
+        await adapter.mutations.deleteRowsByKey?.(databaseName, table, [{ _id: "user-1" }])
+      ).toEqual({ deleted: 1 });
+    } finally {
+      await client
+        .db(databaseName)
+        .collection(table)
+        .drop()
+        .catch(() => {});
+      await client.close();
+    }
+  });
+
+  it("keeps Int64 grid edits exact and rejects values an Int64 cannot hold", async () => {
+    const client = new MongoClient(mongoUrl);
+    const table = "qyre_test_int64_edits";
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(table);
+      await collection.drop().catch(() => {});
+      const inserted = await collection.insertOne({ n: Long.fromNumber(5) });
+      const key = { _id: { $oid: String(inserted.insertedId) } };
+
+      await expect(
+        adapter.mutations.updateFieldsByKey?.(databaseName, table, key, { n: "1.5" }, { n: 5 }, [])
+      ).rejects.toMatchObject({ statusCode: 400 });
+
+      const result = await adapter.mutations.updateFieldsByKey?.(
+        databaseName,
+        table,
+        key,
+        { n: "9007199254740993" },
+        { n: 5 },
+        []
+      );
+      expect(result).toEqual({ matched: 1 });
+      const after = await collection.findOne(
+        { _id: inserted.insertedId },
+        { promoteValues: false }
+      );
+      expect(after?.n).toBeInstanceOf(Long);
+      expect(String(after?.n)).toBe("9007199254740993");
+    } finally {
+      await client
+        .db(databaseName)
+        .collection(table)
+        .drop()
+        .catch(() => {});
+      await client.close();
+    }
+  });
+
+  it("saves an untouched document editor text back with identical numeric BSON types", async () => {
+    const client = new MongoClient(mongoUrl);
+    const table = "qyre_test_document_types";
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(table);
+      await collection.drop().catch(() => {});
+      const inserted = await collection.insertOne({
+        big: Long.fromString("9223372036854775807"),
+        count: Long.fromNumber(5),
+        ratio: new Double(1),
+        n: new Int32(2)
+      });
+      const key = { _id: { $oid: String(inserted.insertedId) } };
+
+      const text = await adapter.mutations.getDocumentText?.(databaseName, table, key._id);
+      const loaded = JSON.parse(text ?? "{}") as Record<string, unknown>;
+      expect(loaded.big).toEqual({ $numberLong: "9223372036854775807" });
+
+      const result = await adapter.mutations.updateRowByKey?.(
+        databaseName,
+        table,
+        key,
+        { ...loaded, label: "saved" },
+        loaded
+      );
+      expect(result).toEqual({ matched: 1 });
+
+      const after = await collection.findOne(
+        { _id: inserted.insertedId },
+        { promoteValues: false }
+      );
+      expect(String(after?.big)).toBe("9223372036854775807");
+      expect(after?.big).toBeInstanceOf(Long);
+      expect(after?.count).toBeInstanceOf(Long);
+      expect(after?.ratio).toBeInstanceOf(Double);
+      expect(after?.n).toBeInstanceOf(Int32);
+      expect(after?.label).toBe("saved");
+
+      const stale = await adapter.mutations.updateRowByKey?.(
+        databaseName,
+        table,
+        key,
+        { ...loaded, label: "stale" },
+        loaded
+      );
+      expect(stale).toEqual({ matched: 0 });
+    } finally {
+      await client
+        .db(databaseName)
+        .collection(table)
+        .drop()
+        .catch(() => {});
+      await client.close();
+    }
+  });
+
+  it("pages a sort with duplicate values without repeating or skipping documents", async () => {
+    const client = new MongoClient(mongoUrl);
+    const table = "qyre_test_sort_ties";
+    try {
+      await client.connect();
+      const collection = client.db(databaseName).collection(table);
+      await collection.drop().catch(() => {});
+      await collection.insertMany(Array.from({ length: 7 }, (_, index) => ({ group: 1, index })));
+
+      const seen: string[] = [];
+      for (let page = 0; page < 4; page++) {
+        const result = await adapter.getRows(databaseName, table, page, 2, {
+          column: "group",
+          direction: "desc"
+        });
+        seen.push(...result.rows.map((row) => String(row._id)));
+      }
+      expect(seen).toHaveLength(7);
+      expect(new Set(seen).size).toBe(7);
+    } finally {
+      await client
+        .db(databaseName)
+        .collection(table)
+        .drop()
+        .catch(() => {});
+      await client.close();
+    }
   });
 
   it("rejects the query runner - MongoDB has no query language for it (see the spec)", async () => {

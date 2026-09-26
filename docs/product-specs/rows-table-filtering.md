@@ -59,9 +59,14 @@ clicking a primary- or foreign-key value drills straight into the matching row(s
     reasoning as SQL's `LIKE` escaping above, just for regex instead of `%`/`_`); `isNull`/
     `isNotNull` -> `{$eq: null}`/`{$ne: null}`. Unlike the SQL engines, MongoDB documents store
     native BSON types (a number field holds a number, not a string), so a raw string `value` won't
-    match a numeric/boolean/date/ObjectId field as-is - the adapter coerces `value` using the same
-    per-field type inference `getTable`'s `inferColumns` already performs (F068) before building
-    the filter document. BSON sentinels such as MinKey and MaxKey remain displayable as normalized
+    match a numeric/boolean/date/ObjectId field as-is - the adapter coerces `value` using the
+    `columnDataType` the server resolved from `getTable`'s per-field inference (F068) before
+    building the filter document; it does not re-sample the collection. Number filters require
+    exact numeric text (anything else is a `400`): safe integers compare as numbers, larger 64-bit
+    integers as exact Int64, and decimal text matches both its nearest Double and its exact
+    Decimal128 (`$in`/`$nin` for `eq`/`neq`, with range bounds that include or exclude both).
+    Date filters accept the UI's zone-less `datetime-local` value as UTC, matching the grid's
+    UTC display; invalid date text is a `400`. BSON sentinels such as MinKey and MaxKey remain displayable as normalized
     structured values but are not exposed as normal scalar filter types in metadata or the UI.
     Object/array `contains` accepts ordinary text and recursively searches object keys, values,
     nested objects, and array members with native aggregation expressions. It does not use

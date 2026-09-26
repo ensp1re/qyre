@@ -2,13 +2,15 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ConnectionTarget } from "@qyre/core";
-import { ObjectId as DirectBsonObjectId } from "bson";
+import { deserialize, ObjectId as DirectBsonObjectId, serialize } from "bson";
 import {
   Binary,
   BSONRegExp,
   BSONSymbol,
   Code,
   Decimal128,
+  Double,
+  Int32,
   Long,
   MaxKey,
   MinKey,
@@ -67,6 +69,21 @@ describe("normalizeBsonValue", () => {
 
   it("normalizes BSONSymbol to its plain string value", () => {
     expect(normalizeBsonValue(new BSONSymbol("mysym"))).toBe("mysym");
+  });
+
+  it("keeps a stored __proto__ field as an own, serialized key", () => {
+    const stored = deserialize(serialize(JSON.parse('{"__proto__":{"polluted":true},"a":1}')));
+    const normalized = normalizeBsonValue(stored) as Record<string, unknown>;
+    expect(Object.getPrototypeOf(normalized)).toBe(Object.prototype);
+    expect(Object.keys(normalized)).toEqual(["__proto__", "a"]);
+    expect(JSON.parse(JSON.stringify(normalized))).toEqual(
+      JSON.parse('{"__proto__":{"polluted":true},"a":1}')
+    );
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("normalizes unpromoted Int32 and Double wrappers to plain numbers", () => {
+    expect(normalizeBsonValue({ i: new Int32(5), d: new Double(1) })).toEqual({ i: 5, d: 1 });
   });
 });
 

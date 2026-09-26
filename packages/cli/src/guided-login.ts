@@ -38,7 +38,7 @@ export function composeGuidedConnectionString(fields: GuidedLoginFields): string
   const host = fields.host.trim() || "localhost";
   const port = fields.port.trim() || GUIDED_ENGINE_DEFAULT_PORT[fields.engine];
   const user = fields.user.trim();
-  const password = fields.password.trim();
+  const password = fields.password;
   const database = fields.database.trim();
 
   const auth = user

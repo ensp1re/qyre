@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { CommanderError } from "commander";
 import { describe, expect, it, vi } from "vitest";
 import {
+  createServerShutdownHandler,
   createShutdownHandler,
   defaultWebRoot,
   formatBanner,
@@ -125,8 +126,17 @@ describe("resolvePort", () => {
     expect(resolvePort(undefined, {})).toBeUndefined();
   });
 
-  it("ignores an invalid QYRE_PORT", () => {
-    expect(resolvePort(undefined, { QYRE_PORT: "not-a-number" })).toBeUndefined();
+  it.each(["not-a-number", "3000abc", "70000", "-1", "1.5"])(
+    "rejects an invalid QYRE_PORT %s with a clear error",
+    (value) => {
+      expect(() => resolvePort(undefined, { QYRE_PORT: value })).toThrow(
+        `QYRE_PORT must be an integer between 0 and 65535 (got "${value}").`
+      );
+    }
+  );
+
+  it("accepts QYRE_PORT=0 for an OS-assigned port", () => {
+    expect(resolvePort(undefined, { QYRE_PORT: " 0 " })).toBe(0);
   });
 });
 
@@ -203,6 +213,41 @@ describe("createShutdownHandler", () => {
 
     expect(close).toHaveBeenCalledOnce();
     expect(exit).toHaveBeenCalledOnce();
+  });
+});
+
+describe("createServerShutdownHandler", () => {
+  it("disconnects the adapter that is current at shutdown, not the one from startup", async () => {
+    const startup = { disconnect: vi.fn(async () => {}) };
+    const switched = { disconnect: vi.fn(async () => {}) };
+    let current: { disconnect: () => Promise<void> } | undefined = startup;
+    const exit = vi.fn();
+    const shutdown = createServerShutdownHandler(
+      {
+        close: vi.fn(async () => {}),
+        currentAdapter: () => current as never
+      },
+      { exit, log: vi.fn() }
+    );
+
+    current = switched;
+    await shutdown();
+
+    expect(switched.disconnect).toHaveBeenCalledTimes(1);
+    expect(startup.disconnect).not.toHaveBeenCalled();
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it("exits 0 when no adapter is connected", async () => {
+    const exit = vi.fn();
+    const shutdown = createServerShutdownHandler(
+      { close: vi.fn(async () => {}), currentAdapter: () => undefined },
+      { exit, log: vi.fn() }
+    );
+
+    await shutdown();
+
+    expect(exit).toHaveBeenCalledWith(0);
   });
 });
 

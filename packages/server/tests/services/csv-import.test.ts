@@ -132,18 +132,16 @@ describe("processCsvImport", () => {
     });
   });
 
-  it("commits SQL rows in bounded batches and reports every line rolled back with a failed batch", async () => {
+  it("commits every SQL row in one transaction and reports a rollback when any row fails", async () => {
     const batchSizes: number[] = [];
-    const rows = Array.from({ length: 251 }, (_, index) => `User ${index},${index},1,`).join("\n");
+    const rows = Array.from({ length: 600 }, (_, index) => `User ${index},${index},1,`).join("\n");
     const result = await processCsvImport(
       adapter({
         mutations: {
           insertRow: async () => ({ row: {} }),
           commitBatch: async (ops) => {
             batchSizes.push(ops.length);
-            return batchSizes.length === 1
-              ? { committed: false as const, failedIndex: 4 }
-              : { committed: true as const, results: ops.map(() => ({ row: {} })) };
+            return { committed: false as const, failedIndex: 520 };
           }
         }
       }),
@@ -151,22 +149,160 @@ describe("processCsvImport", () => {
       "users",
       "import",
       mapping,
-      csvStream(`Name,Age,Active,Joined\n${rows}\n`)
+      csvStream(`Name,Age,Active,Joined\n${rows}\nBad,x,1,\n`)
     );
 
-    expect(batchSizes).toEqual([250, 1]);
+    expect(batchSizes).toEqual([600]);
     expect(result).toMatchObject({
       mode: "import",
-      rowCount: 251,
-      validRows: 251,
-      insertedRows: 1,
-      failedRows: 250
+      rowCount: 601,
+      validRows: 600,
+      insertedRows: 0,
+      failedRows: 601
     });
     if (result.mode === "inspect") throw new Error("Expected an import result.");
-    // failedRows remains the full total while the returned error list is capped.
+    expect(result.errors[0]).toEqual({
+      line: 522,
+      message: expect.stringMatching(/rolled back and no rows were written/i)
+    });
+    expect(result.errors[1]).toMatchObject({ line: 602, column: "age" });
+  });
+
+  it("keeps the rollback error visible when row errors already fill the error list", async () => {
+    const badRows = Array.from({ length: 150 }, (_, index) => `Bad${index},x,true,`).join("\n");
+    const result = await processCsvImport(
+      adapter({
+        mutations: {
+          insertRow: async () => ({ row: {} }),
+          commitBatch: async () => ({ committed: false as const, failedIndex: 0 })
+        }
+      }),
+      "public",
+      "users",
+      "import",
+      mapping,
+      csvStream(`Name,Age,Active,Joined\nAda,1,true,\n${badRows}\n`)
+    );
+
+    if (result.mode === "inspect") throw new Error("Expected an import result.");
+    expect(result).toMatchObject({ insertedRows: 0, failedRows: 151 });
     expect(result.errors).toHaveLength(CSV_IMPORT_MAX_ERRORS);
-    expect(result.errors[4]?.message).toMatch(/database rejected/i);
-    expect(result.errors[0]?.message).toMatch(/line 6 failed/i);
+    expect(result.errors[0]).toMatchObject({
+      line: 2,
+      message: expect.stringMatching(/rolled back/)
+    });
+  });
+
+  it.each([
+    [
+      "a malformed record after the first batch",
+      `Name,Age,Active,Joined\n${Array.from({ length: 300 }, (_, i) => `U${i},${i},1,`).join("\n")}\nshort,1\n`,
+      400
+    ],
+    [
+      "more rows than the fixed cap",
+      `Name,Age,Active,Joined\n${Array.from({ length: 10_001 }, (_, i) => `U${i},${i},1,`).join("\n")}\n`,
+      413
+    ]
+  ])("writes no rows when the upload contains %s", async (_label, csv, statusCode) => {
+    let writes = 0;
+    const write = async (ops: unknown[]) => {
+      writes += ops.length;
+      return { committed: true as const, results: ops.map(() => ({ row: {} })) };
+    };
+    await expect(
+      processCsvImport(
+        adapter({ mutations: { insertRow: async () => ({ row: {} }), commitBatch: write } }),
+        "public",
+        "users",
+        "import",
+        mapping,
+        csvStream(csv)
+      )
+    ).rejects.toMatchObject({ statusCode });
+    expect(writes).toBe(0);
+  });
+
+  it("rejects a size-truncated upload before writing its partial last record", async () => {
+    let writes = 0;
+    const input = Object.assign(csvStream("Name,Age,Active,Joined\nAda,42,true,\nGrace,4"), {
+      truncated: true
+    });
+    await expect(
+      processCsvImport(
+        adapter({
+          mutations: {
+            insertRow: async () => ({ row: {} }),
+            commitBatch: async (ops) => {
+              writes += ops.length;
+              return { committed: true as const, results: ops.map(() => ({ row: {} })) };
+            }
+          }
+        }),
+        "public",
+        "users",
+        "import",
+        mapping,
+        input
+      )
+    ).rejects.toMatchObject({ statusCode: 413 });
+    expect(writes).toBe(0);
+  });
+
+  it("sends SQL engines numbers only when exact and the literal text otherwise", async () => {
+    const numericTable = (engine: "postgres" | "mongodb") => ({
+      engine,
+      getTable: async () => ({
+        schema: "public",
+        name: "numbers",
+        kind: engine === "mongodb" ? ("collection" as const) : ("table" as const),
+        columns: [
+          {
+            name: "big",
+            dataType: engine === "mongodb" ? "number" : "int8",
+            nullable: false,
+            isPrimaryKey: false,
+            isForeignKey: false
+          }
+        ],
+        permissions: { select: true, insert: true, update: true, delete: true }
+      })
+    });
+    const csv = "Big\n9007199254740993\n 1.23456789012345678901 \n42\n1.0\n1e3\n-0.50\n";
+
+    const sql = await processCsvImport(
+      adapter(numericTable("postgres")),
+      "public",
+      "numbers",
+      "validate",
+      { Big: "big" },
+      csvStream(csv)
+    );
+    expect(sql.preview.map((row) => row.values)).toEqual([
+      { big: "9007199254740993" },
+      { big: "1.23456789012345678901" },
+      { big: 42 },
+      { big: 1 },
+      { big: 1000 },
+      { big: -0.5 }
+    ]);
+
+    const mongo = await processCsvImport(
+      adapter(numericTable("mongodb")),
+      "public",
+      "numbers",
+      "validate",
+      { Big: "big" },
+      csvStream(csv)
+    );
+    expect(mongo.preview.map((row) => row.values)).toEqual([
+      { big: { $numberLong: "9007199254740993" } },
+      { big: Number("1.23456789012345678901") },
+      { big: 42 },
+      { big: 1 },
+      { big: 1000 },
+      { big: -0.5 }
+    ]);
   });
 
   it("propagates an unexpected SQL batch failure instead of reporting a row validation error", async () => {
@@ -231,7 +367,9 @@ describe("processCsvImport", () => {
     expect(received[0]?.joined).toEqual({ $date: "2026-07-13T12:00:00Z" });
     expect(result).toMatchObject({ insertedRows: 2, failedRows: 1 });
     if (result.mode === "inspect") throw new Error("Expected an import result.");
-    expect(result.errors).toEqual([{ line: 3, message: "The database rejected this row." }]);
+    expect(result.errors).toEqual([
+      { line: 3, message: "The database rejected this row; other rows were still inserted." }
+    ]);
   });
 
   it("rejects views and missing insert permission before parsing", async () => {

@@ -364,11 +364,83 @@ describe("processCsvImport", () => {
     );
 
     expect(calls).toBe(3);
-    expect(received[0]?.joined).toEqual({ $date: "2026-07-13T12:00:00Z" });
+    expect(received[0]?.joined).toEqual({ $date: "2026-07-13T12:00:00.000Z" });
     expect(result).toMatchObject({ insertedRows: 2, failedRows: 1 });
     if (result.mode === "inspect") throw new Error("Expected an import result.");
     expect(result.errors).toEqual([
       { line: 3, message: "The database rejected this row; other rows were still inserted." }
+    ]);
+  });
+
+  it("reads zone-less MongoDB dates as UTC regardless of the server time zone", async () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = "America/New_York";
+    const received: Array<Record<string, unknown>> = [];
+    try {
+      const result = await processCsvImport(
+        adapter({
+          engine: "mongodb",
+          getTable: async () => ({
+            schema: "app",
+            name: "users",
+            kind: "collection",
+            columns: [{ ...columns[3]!, dataType: "date", nullable: false }],
+            permissions: { select: true, insert: true, update: true, delete: true }
+          }),
+          mutations: {
+            insertRow: async (_schema, _table, values) => {
+              received.push(values);
+              return { row: values };
+            }
+          }
+        }),
+        "app",
+        "users",
+        "import",
+        { Joined: "joined" },
+        csvStream("Joined\n2026-07-13 12:00\n2026-07-13\n2026-07-13T12:00:00+02:00\nJuly 13 2026\n")
+      );
+
+      expect(received.map((values) => values.joined)).toEqual([
+        { $date: "2026-07-13T12:00:00.000Z" },
+        { $date: "2026-07-13T00:00:00.000Z" },
+        { $date: "2026-07-13T10:00:00.000Z" }
+      ]);
+      if (result.mode === "inspect") throw new Error("Expected an import result.");
+      expect(result.errors).toEqual([expect.objectContaining({ line: 5, column: "joined" })]);
+    } finally {
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
+  });
+
+  it("rejects enum and set values outside the column's labels", async () => {
+    const result = await processCsvImport(
+      adapter({
+        engine: "mysql",
+        getTable: async () => ({
+          schema: "app",
+          name: "users",
+          kind: "table",
+          columns: [
+            { ...columns[0]!, name: "mood", dataType: "enum", allowedValues: ["happy", "sad"] },
+            { ...columns[0]!, name: "tags", dataType: "set", allowedValues: ["a", "b"] }
+          ],
+          permissions: { select: true, insert: true, update: false, delete: false }
+        })
+      }),
+      "app",
+      "users",
+      "validate",
+      { Mood: "mood", Tags: "tags" },
+      csvStream('Mood,Tags\nhappy,"a,b"\nsad,\nangry,a\nhappy,"a,c"\n')
+    );
+
+    if (result.mode === "inspect") throw new Error("Expected a validation result.");
+    expect(result.validRows).toBe(2);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ line: 4, column: "mood" }),
+      expect.objectContaining({ line: 5, column: "tags" })
     ]);
   });
 

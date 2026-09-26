@@ -178,3 +178,142 @@ describe.each(cases)(
   // Thousands of row inserts on shared CI databases can exceed Vitest's 5s default.
   30_000
 );
+
+async function postCsv(
+  adapter: DatabaseAdapter,
+  schema: string,
+  tableName: string,
+  mode: "validate" | "import",
+  mapping: Record<string, string | null>,
+  csv: string
+) {
+  const app = createServer({ adapter });
+  const upload = multipart(mode, mapping, csv);
+  try {
+    return await app.inject({
+      method: "POST",
+      url: `/api/tables/${encodeURIComponent(schema)}/${tableName}/import.csv`,
+      headers: { authorization: `Bearer ${app.authToken}`, "content-type": upload.contentType },
+      payload: upload.body
+    });
+  } finally {
+    await app.close();
+  }
+}
+
+const labelTable = `qyre_csv_labels_${suffix}`;
+
+describe.each([
+  {
+    name: "postgres" as const,
+    factory: postgresAdapterFactory,
+    raw: process.env[TEST_DB_ENV]?.trim() || undefined,
+    schema: () => "public",
+    setup: [
+      `DROP TABLE IF EXISTS ${labelTable}`,
+      `DROP TYPE IF EXISTS ${labelTable}_mood`,
+      `CREATE TYPE ${labelTable}_mood AS ENUM ('happy', 'sad')`,
+      `CREATE TABLE ${labelTable} (id int PRIMARY KEY, mood ${labelTable}_mood NOT NULL)`
+    ],
+    teardown: [`DROP TABLE IF EXISTS ${labelTable}`, `DROP TYPE IF EXISTS ${labelTable}_mood`],
+    mapping: { Id: "id", Mood: "mood" } as Record<string, string>,
+    csv: "Id,Mood\n1,happy\n2,angry\n3,Happy\n4,sad\n",
+    badLines: [3, 4]
+  },
+  {
+    name: "mysql" as const,
+    factory: mysqlAdapterFactory,
+    raw: process.env[TEST_MYSQL_ENV]?.trim() || undefined,
+    schema: (raw: string) => decodeURIComponent(new URL(raw).pathname.slice(1)),
+    setup: [
+      `DROP TABLE IF EXISTS ${labelTable}`,
+      `CREATE TABLE ${labelTable} (id INT PRIMARY KEY, mood ENUM('happy', 'sad') NOT NULL, tags SET('a', 'b') NOT NULL)`
+    ],
+    teardown: [`DROP TABLE IF EXISTS ${labelTable}`],
+    mapping: { Id: "id", Mood: "mood", Tags: "tags" } as Record<string, string>,
+    csv: 'Id,Mood,Tags\n1,happy,"a,b"\n2,sad,\n3,angry,a\n4,happy,"a,c"\n',
+    badLines: [4, 5]
+  }
+])(
+  "csv import enum and set labels: $name",
+  ({ name, factory, raw, schema, setup, teardown, mapping, csv, badLines }) => {
+    let adapter: DatabaseAdapter;
+
+    beforeAll(async () => {
+      if (!raw) return;
+      adapter = factory.create({ engine: name, raw });
+      await adapter.connect();
+      for (const sql of setup) await adapter.runQuery!(sql);
+    });
+
+    afterAll(async () => {
+      if (!raw) return;
+      for (const sql of teardown) await adapter.runQuery!(sql);
+      await adapter.disconnect();
+    });
+
+    it.skipIf(!raw)("dry run reports values outside the column's labels", async () => {
+      const response = await postCsv(adapter, schema(raw!), labelTable, "validate", mapping, csv);
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json() as { validRows: number; errors: Array<{ line: number }> };
+      expect(body.errors.map((error) => error.line)).toEqual(badLines);
+      expect(body.validRows).toBe(2);
+    });
+
+    it.skipIf(!raw)("imports the rows whose values match the labels", async () => {
+      const valid = csv
+        .split("\n")
+        .filter((_, index) => !badLines.includes(index + 1))
+        .join("\n");
+      const response = await postCsv(adapter, schema(raw!), labelTable, "import", mapping, valid);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ insertedRows: 2, failedRows: 0 });
+    });
+  }
+);
+
+const myisamTable = `qyre_csv_myisam_${suffix}`;
+
+describe("csv import on a non-transactional MySQL table", () => {
+  const raw = process.env[TEST_MYSQL_ENV]?.trim() || undefined;
+  let adapter: DatabaseAdapter;
+
+  beforeAll(async () => {
+    if (!raw) return;
+    adapter = mysqlAdapterFactory.create({ engine: "mysql", raw });
+    await adapter.connect();
+    await adapter.runQuery!(`DROP TABLE IF EXISTS ${myisamTable}`);
+    await adapter.runQuery!(
+      `CREATE TABLE ${myisamTable} (id INT PRIMARY KEY, n INT NOT NULL) ENGINE=MyISAM`
+    );
+  });
+
+  afterAll(async () => {
+    if (!raw) return;
+    await adapter.runQuery!(`DROP TABLE IF EXISTS ${myisamTable}`);
+    await adapter.disconnect();
+  });
+
+  it.skipIf(!raw)("reports the rows MySQL could not roll back", async () => {
+    const schema = decodeURIComponent(new URL(raw!).pathname.slice(1));
+    const response = await postCsv(
+      adapter,
+      schema,
+      myisamTable,
+      "import",
+      { Id: "id", N: "n" },
+      "Id,N\n1,1\n2,2\n1,3\n4,4\n"
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      insertedRows: 2,
+      failedRows: 2,
+      errors: [{ line: 4, message: expect.stringMatching(/could not be rolled back/i) }]
+    });
+    const stored = await adapter.runQuery!(`SELECT id FROM ${myisamTable} ORDER BY id`);
+    expect(stored.rows.map((row) => Number(row.id))).toEqual([1, 2]);
+  });
+});

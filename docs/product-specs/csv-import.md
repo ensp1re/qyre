@@ -9,8 +9,8 @@ disk, request-body, or transaction.
 
 A user with insert permission can map a CSV file onto an existing table or collection, preview the
 server's real type coercion before writing, and import valid rows atomically, never leaving a
-partially imported file behind on SQL engines, with an exact source-line report for every rejected
-row.
+partially imported file behind on transactional SQL tables, with an exact failed-row count and a
+source-line report for the first rejected rows.
 
 ## Eligibility and affordance gating
 
@@ -66,7 +66,7 @@ Malformed CSV, invalid multipart shape/mapping, or a limit breach (including a f
 size cap) rejects the request (`400` or `413`) before any row is written, so retrying the corrected
 file never duplicates rows. Row-level validation/database failures are a normal `200` result that
 carries the inserted count and line errors: `insertedRows: 0` on SQL engines after a rollback, and
-the exact partial count on MongoDB.
+the exact partial count on MongoDB or on a MySQL table that cannot roll back.
 
 ## CSV dialect and mapping
 
@@ -85,15 +85,20 @@ the exact partial count on MongoDB.
 
 Coercion reuses the same `FilterColumnKind` classification as row editing:
 
-- text/identifier: the CSV text unchanged;
+- text/identifier: the CSV text unchanged. A Postgres or MySQL enum must match one of its catalog
+  labels, and a MySQL SET value must be a comma-separated list of its labels (an empty string is
+  the empty set); MySQL labels match case-insensitively, as its default collations do. Other values
+  are row errors in both dry run and import;
 - numeric: a finite decimal/exponent literal; whitespace-only and non-numeric text are errors. SQL
   engines receive a JSON number only when it represents the literal exactly (so `1.0` and `1e3`
   still fit integer columns) and otherwise the exact trimmed text, so `bigint` and high-precision
   `numeric`/`decimal` values are never rounded through a JavaScript number. MongoDB receives the same values as grid inserts: a
   number for safe integers, `$numberLong` for larger 64-bit integers, and otherwise a double;
 - boolean: case-insensitive `true`/`false` and `1`/`0`;
-- date/time/datetime: a parseable ISO-8601-shaped string, passed through for SQL drivers and
-  converted to MongoDB Extended JSON `$date` for a sampled Date field;
+- date/time/datetime: a parseable ISO-8601-shaped string, passed through for SQL drivers. For a
+  sampled MongoDB Date field it must be `YYYY-MM-DD` or `YYYY-MM-DD[T ]HH:MM[:SS[.fraction]]` with
+  an optional `Z`/numeric offset, is read as UTC when zone-less (as in the grid editor), and is
+  sent as an Extended JSON `$date` instant;
 - objectId: a 24-character hexadecimal string, converted to MongoDB Extended JSON `$oid` before
   insertion;
 - structured/binary/unknown/null-only: not importable.
@@ -113,13 +118,18 @@ defaults; the connected database remains authoritative.
 - SQL engines insert every valid row in one `mutations.commitBatch` call, which is one native
   transaction. A rejected operation rolls back the whole import: the result reports
   `insertedRows: 0` and the failed line receives an error stating that no rows were written.
+- A MySQL table on a non-transactional storage engine (for example MyISAM) cannot roll back. MySQL
+  reports this on `ROLLBACK`, so the result instead reports the rows written before the rejected
+  one as `insertedRows`, and the failed line's error says they could not be rolled back.
 - MongoDB uses `mutations.insertRow` one document at a time. A document is MongoDB's native atomic
   unit, and Qyre's supported standalone MongoDB topology cannot provide multi-document
   transactions, so a rejected document does not roll back or block the others. The result is an
   explicit partial result: `insertedRows` is the exact number written and each rejected line says
   that other rows were still inserted.
-- Error details are bounded by the 10,000-row request cap, so every rejected input row can be
-  returned without a second unbounded response surface.
+- `failedRows` always counts every rejected row, but `errors` holds at most 100 entries
+  (`CSV_IMPORT_MAX_ERRORS`): the first rejected rows in source order. When the database rejects
+  the SQL commit, its error is placed first so it stays visible, displacing the last row error
+  if the list is already full.
 
 ## Audit behavior
 
@@ -131,7 +141,8 @@ field values, the file body, credentials, or raw database errors.
 ## Engine parity
 
 - Postgres, MySQL, and SQLite: identical mapping/coercion/result behavior; one whole-import
-  transaction through each engine's existing `commitBatch` implementation.
+  transaction through each engine's existing `commitBatch` implementation. Non-transactional MySQL
+  tables report their unrecoverable partial write as described above.
 - MongoDB: identical mapping/coercion behavior for sampled top-level scalar fields; atomic
   one-document inserts through `insertRow` with an explicit partial result.
 - Views/materialized views are not applicable targets on any engine. Collections are applicable
@@ -154,8 +165,9 @@ field values, the file body, credentials, or raw database errors.
 - Read-only, ungranted, view, and materialized-view targets expose no import action and the route
   rejects direct calls.
 - Invalid mappings and type conversions name the CSV source line without inserting that row.
-- A SQL constraint failure anywhere in the file rolls back the whole import and names the failed
-  source line; a MongoDB document failure affects only that row and the result states how many
+- A SQL constraint failure anywhere in the file rolls back the whole import (or, on a
+  non-transactional MySQL table, reports the rows already written) and names the failed source
+  line; a MongoDB document failure affects only that row and the result states how many
   rows were inserted.
 - Malformed, over-cap, or size-truncated files write no rows on any engine.
 - Files, rows, columns, fields, or parts beyond the fixed limits fail without unbounded buffering or

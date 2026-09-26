@@ -55,7 +55,7 @@ export interface DatabaseAdapter {
   formatSqlInsert?(
     schema: string,
     table: string,
-    columns: readonly string[],
+    columns: readonly ColumnMetadata[],
     row: Record<string, unknown>
   ): string;
   serializeJsonRow?(row: Record<string, unknown>): string;

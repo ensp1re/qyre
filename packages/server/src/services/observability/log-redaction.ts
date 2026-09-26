@@ -1,7 +1,7 @@
 import type { FastifyLoggerOptions, FastifyRequest } from "fastify";
 
 const REDACTED = "[redacted]";
-const SENSITIVE_QUERY_PARAMS = new Set(["token"]);
+const SENSITIVE_QUERY_PARAMS = new Set(["token", "grant"]);
 
 export function redactSensitiveQueryParams(url: string): string {
   let parsed: URL;

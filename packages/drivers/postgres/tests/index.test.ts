@@ -118,6 +118,32 @@ describe("coerceUnknownQuotedIdentifiers", () => {
     expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(sql);
   });
 
+  it("never rewrites a double-quoted token in an identifier position", () => {
+    for (const sql of [
+      `SELECT name AS "Full Name" FROM employees`,
+      `SELECT "u".id FROM employees "u"`,
+      `SELECT relname FROM pg_catalog."pg_class"`,
+      `SELECT * FROM "recent_signups_mv"`,
+      `SELECT "Full Name" FROM employees`
+    ]) {
+      expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers), sql).toBe(sql);
+    }
+  });
+
+  it("coerces unknown quoted values in LIKE patterns and IN lists", () => {
+    expect(
+      coerceUnknownQuotedIdentifiers(
+        `SELECT * FROM employees WHERE department IN ("Support", "Sales") AND id LIKE "1%"`,
+        knownIdentifiers
+      )
+    ).toBe(`SELECT * FROM employees WHERE department IN ('Support', 'Sales') AND id LIKE '1%'`);
+  });
+
+  it("ignores double quotes inside comments and E'' strings", () => {
+    const sql = `SELECT E'\\' "x"', 1 -- department="Support"\nFROM employees`;
+    expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(sql);
+  });
+
   it("still coerces an unknown quoted value even when the query also has a string literal containing a quote", () => {
     const sql = `SELECT 'he said "hi"' , department="Support" FROM employees`;
     expect(coerceUnknownQuotedIdentifiers(sql, knownIdentifiers)).toBe(

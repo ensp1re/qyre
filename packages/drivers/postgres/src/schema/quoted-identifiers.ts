@@ -1,70 +1,12 @@
+import { maskSql, scanSql } from "@qyre/driver-contract";
 import type { Pool } from "pg";
 import { SYSTEM_SCHEMAS } from "./catalog.js";
 
-function skipSingleQuotedLiteral(sql: string, start: number): number {
-  let index = start + 1;
-  while (index < sql.length) {
-    if (sql[index] === "'") {
-      if (sql[index + 1] === "'") {
-        index += 2;
-        continue;
-      }
-      return index + 1;
-    }
-    index += 1;
-  }
-  return sql.length;
-}
-
-function skipDoubleQuotedToken(sql: string, start: number): number {
-  let index = start + 1;
-  while (index < sql.length) {
-    if (sql[index] === '"') {
-      if (sql[index + 1] === '"') {
-        index += 2;
-        continue;
-      }
-      return index + 1;
-    }
-    index += 1;
-  }
-  return sql.length;
-}
-
-function matchDollarQuoteTag(sql: string, index: number): string | undefined {
-  return /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/.exec(sql.slice(index))?.[0];
-}
-
-function skipDollarQuotedLiteral(sql: string, start: number, tag: string): number {
-  const closeIndex = sql.indexOf(tag, start + tag.length);
-  return closeIndex === -1 ? sql.length : closeIndex + tag.length;
-}
-
-function maskStringLiterals(sql: string): string {
-  let result = "";
-  let index = 0;
-  while (index < sql.length) {
-    if (sql[index] === "'") {
-      const end = skipSingleQuotedLiteral(sql, index);
-      result += " ".repeat(end - index);
-      index = end;
-      continue;
-    }
-    const tag = matchDollarQuoteTag(sql, index);
-    if (tag) {
-      const end = skipDollarQuotedLiteral(sql, index, tag);
-      result += " ".repeat(end - index);
-      index = end;
-      continue;
-    }
-    result += sql[index];
-    index += 1;
-  }
-  return result;
-}
+// Right after a comparison operator or LIKE, a double-quoted token is being used as a value.
+const VALUE_OPERATOR_BEFORE = /(?:[=<>]|\b(?:i?like))\s*$/i;
 
 function collectLocalIdentifiers(sql: string): Set<string> {
-  const masked = maskStringLiterals(sql);
+  const masked = maskSql(sql, "postgres", ["comment", "string"]);
   const identifiers = new Set<string>();
   for (const match of masked.matchAll(/"?([A-Za-z_][A-Za-z0-9_]*)"?\s+AS\s*\(/gi)) {
     if (match[1]) identifiers.add(match[1]);
@@ -75,65 +17,82 @@ function collectLocalIdentifiers(sql: string): Set<string> {
   return identifiers;
 }
 
-/** Coerce only unknown double-quoted tokens to string literals. */
+/** True when the open paren enclosing `end` belongs to an `IN (...)` list. */
+function isInsideInList(code: string, end: number): boolean {
+  let depth = 0;
+  for (let index = end - 1; index >= 0; index -= 1) {
+    const char = code[index];
+    if (char === ")") depth += 1;
+    else if (char === "(") {
+      if (depth === 0) return /\bin\s*$/i.test(code.slice(0, index));
+      depth -= 1;
+    }
+  }
+  return false;
+}
+
+function isValuePosition(code: string, start: number, end: number): boolean {
+  const before = code.slice(0, start);
+  if (/\.\s*$/.test(before) || /^\s*\./.test(code.slice(end))) return false;
+  if (VALUE_OPERATOR_BEFORE.test(before)) return true;
+  return /[(,]\s*$/.test(before) && isInsideInList(code, start);
+}
+
+/**
+ * Coerce an unknown double-quoted token to a string literal only where a value is expected
+ * (`col = "x"`, `col LIKE "x%"`, `col IN ("a", "b")`); identifier positions are never rewritten.
+ */
 export function coerceUnknownQuotedIdentifiers(
   sql: string,
   knownIdentifiers: ReadonlySet<string>
 ): string {
   const localIdentifiers = collectLocalIdentifiers(sql);
+  const code = maskSql(sql, "postgres", ["comment", "string", "identifier"]);
   let result = "";
-  let index = 0;
-  while (index < sql.length) {
-    if (sql[index] === "'") {
-      const end = skipSingleQuotedLiteral(sql, index);
-      result += sql.slice(index, end);
-      index = end;
+  for (const segment of scanSql(sql, "postgres")) {
+    const token = sql.slice(segment.start, segment.end);
+    if (segment.kind !== "identifier" || !token.startsWith('"') || !token.endsWith('"')) {
+      result += token;
       continue;
     }
-    const tag = matchDollarQuoteTag(sql, index);
-    if (tag) {
-      const end = skipDollarQuotedLiteral(sql, index, tag);
-      result += sql.slice(index, end);
-      index = end;
-      continue;
-    }
-    if (sql[index] === '"') {
-      const end = skipDoubleQuotedToken(sql, index);
-      const token = sql.slice(index, end);
-      const inner = token.slice(1, -1).replace(/""/g, '"');
-      result +=
-        knownIdentifiers.has(inner) || localIdentifiers.has(inner)
-          ? token
-          : `'${inner.replace(/'/g, "''")}'`;
-      index = end;
-      continue;
-    }
-    result += sql[index];
-    index += 1;
+    const inner = token.slice(1, -1).replace(/""/g, '"');
+    const keep =
+      knownIdentifiers.has(inner) ||
+      localIdentifiers.has(inner) ||
+      !isValuePosition(code, segment.start, segment.end);
+    result += keep ? token : `'${inner.replace(/'/g, "''")}'`;
   }
   return result;
 }
 
-/** Load every real schema, table, and column name for quoted-token coercion. */
+/** Load every user schema, relation (including views and materialized views), and column name. */
 export async function fetchKnownIdentifiers(pool: Pool): Promise<Set<string>> {
-  const [schemas, tables, columns] = await Promise.all([
-    pool.query<{ schema_name: string }>(
-      `SELECT schema_name FROM information_schema.schemata WHERE schema_name <> ALL($1::text[])`,
+  const [schemas, relations, columns] = await Promise.all([
+    pool.query<{ name: string }>(
+      `SELECT nspname AS name FROM pg_catalog.pg_namespace WHERE nspname <> ALL($1::text[])`,
       [SYSTEM_SCHEMAS]
     ),
-    pool.query<{ table_name: string }>(
-      `SELECT table_name FROM information_schema.tables WHERE table_schema <> ALL($1::text[])`,
+    pool.query<{ name: string }>(
+      `SELECT c.relname AS name
+         FROM pg_catalog.pg_class c
+         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND n.nspname <> ALL($1::text[])`,
       [SYSTEM_SCHEMAS]
     ),
-    pool.query<{ column_name: string }>(
-      `SELECT DISTINCT column_name FROM information_schema.columns
-        WHERE table_schema <> ALL($1::text[])`,
+    pool.query<{ name: string }>(
+      `SELECT DISTINCT a.attname AS name
+         FROM pg_catalog.pg_attribute a
+         JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f')
+          AND a.attnum > 0 AND NOT a.attisdropped
+          AND n.nspname <> ALL($1::text[])`,
       [SYSTEM_SCHEMAS]
     )
   ]);
   const identifiers = new Set<string>();
-  for (const row of schemas.rows) identifiers.add(row.schema_name);
-  for (const row of tables.rows) identifiers.add(row.table_name);
-  for (const row of columns.rows) identifiers.add(row.column_name);
+  for (const row of [...schemas.rows, ...relations.rows, ...columns.rows]) {
+    identifiers.add(row.name);
+  }
   return identifiers;
 }

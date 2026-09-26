@@ -33,6 +33,12 @@ describe("exportRowsUrl (F118)", () => {
     ]);
     expect(url.searchParams.get("search")).toBe("admin");
     expect(url.searchParams.get("grant")).toBe("one-shot-grant");
+    const [, init] = vi.mocked(fetch).mock.calls[0] as [RequestInfo, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      schema: "public data",
+      table: "order/items",
+      format: "json"
+    });
   });
 
   it("never puts the session token in the URL, which browser history would keep", async () => {

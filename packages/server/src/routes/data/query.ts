@@ -1,6 +1,7 @@
 import { explainQuerySchema, runQuerySchema } from "@qyre/core";
 import {
   classifyStatement,
+  isSqlDialect,
   OperationCancelledError,
   ReadOnlyViolationError
 } from "@qyre/driver-contract";
@@ -71,7 +72,7 @@ export function registerQueryRoute(app: FastifyInstance, ctx: ServerContext): vo
 
       let classification: StatementClassification;
       try {
-        classification = classifyStatement(sql);
+        classification = classifyStatement(sql, isSqlDialect(db.engine) ? db.engine : undefined);
       } catch (error) {
         if (error instanceof ReadOnlyViolationError) {
           ctx.eventLog.log("warn", `Query rejected: ${error.message}`);

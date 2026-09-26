@@ -24,6 +24,11 @@ describe("withDatabase", () => {
     expect(searchParam(fromDatabase, "tls")).toBe("true");
   });
 
+  it("pins the path auth database for the driver's DEFAULT (SCRAM) mechanism", () => {
+    const next = withDatabase("mongodb://root:pw@host:27017/users?authMechanism=DEFAULT", "app");
+    expect(searchParam(next, "authSource")).toBe("users");
+  });
+
   it("leaves MongoDB URIs without credentials or with explicit auth settings unchanged", () => {
     expect(searchParam(withDatabase("mongodb://host:27017/", "app"), "authSource")).toBeNull();
     expect(

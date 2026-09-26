@@ -84,7 +84,7 @@ export function parseConnectionTarget(input: string | undefined): ConnectionTarg
   return resolveSqliteTarget(trimmed, trimmed);
 }
 
-const PATH_DEFAULT_AUTH_MECHANISMS = new Set(["SCRAM-SHA-1", "SCRAM-SHA-256"]);
+const PATH_DEFAULT_AUTH_MECHANISMS = new Set(["DEFAULT", "SCRAM-SHA-1", "SCRAM-SHA-256"]);
 
 /**
  * MongoDB authenticates against the URI path database unless `authSource` is set, so switching

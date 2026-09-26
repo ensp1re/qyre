@@ -391,6 +391,11 @@ describe("resolveKey (F100)", () => {
     expect(resolveKey(withIdType("number"), { _id: "9223372036854775807" }, "mongodb")).toEqual({
       _id: { $numberLong: "9223372036854775807" }
     });
+    // Only Long and Decimal128 keys display as text; fractional text is a Decimal128.
+    expect(resolveKey(withIdType("number"), { _id: "0.1" }, "mongodb")).toEqual({
+      _id: { $numberDecimal: "0.1" }
+    });
+    expect(resolveKey(withIdType("number"), { _id: 0.1 }, "mongodb")).toEqual({ _id: 0.1 });
     expect(resolveKey(withIdType("mixed"), { _id: "user-1" }, "mongodb")).toEqual({
       _id: "user-1"
     });

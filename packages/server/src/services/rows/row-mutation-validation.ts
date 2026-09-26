@@ -83,7 +83,8 @@ function objectIdKeyText(value: unknown): string | undefined {
 
 /**
  * Resolve a MongoDB `_id` to the adapter's typed key form: `{ $oid }` targets an ObjectId, a plain
- * string or number targets that exact value, and `{ $numberLong }` targets a 64-bit integer.
+ * string or number targets that exact value, `{ $numberLong }` targets a 64-bit integer, and
+ * `{ $numberDecimal }` targets a Decimal128.
  */
 function resolveMongoDocumentKey(column: ColumnMetadata, value: unknown): unknown {
   const type = column.dataType.trim().toLowerCase();
@@ -106,7 +107,12 @@ function resolveMongoDocumentKey(column: ColumnMetadata, value: unknown): unknow
     if (typeof value !== "string" || !isExactNumericText(value)) {
       throw badRequest(`Column "${column.name}" expects an exact number.`);
     }
-    return mongoInsertNumber(value.trim(), column.name);
+    const text = value.trim();
+    // Int32/Double keys display as JSON numbers; only Long and Decimal128 keys display as text,
+    // and a Decimal128 does not equal its nearest Double.
+    return /^[+-]?\d+$/.test(text)
+      ? mongoInsertNumber(text, column.name)
+      : { $numberDecimal: text };
   }
   // Grid rows show ObjectIds as hex text, so hex text in a mixed-type `_id` targets an ObjectId.
   if (objectId) return { $oid: objectId };

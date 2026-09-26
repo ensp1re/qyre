@@ -215,14 +215,16 @@ describe("MongoDB typed document keys", () => {
       { _id: "507f1f77bcf86cd799439011" },
       { _id: 7 },
       { _id: { $numberLong: "9223372036854775807" } },
-      { _id: { $oid: "507f1f77bcf86cd799439011" } }
+      { _id: { $oid: "507f1f77bcf86cd799439011" } },
+      { _id: { $numberDecimal: "0.1" } }
     ]);
     const filter = callsTo(calls, "deleteMany")[0]?.args[0] as { _id: { $in: unknown[] } };
     expect(filter._id.$in).toEqual([
       "507f1f77bcf86cd799439011",
       7,
       Long.fromString("9223372036854775807"),
-      ID
+      ID,
+      Decimal128.fromString("0.1")
     ]);
   });
 
@@ -230,7 +232,8 @@ describe("MongoDB typed document keys", () => {
     ["a malformed ObjectId", { $oid: "zz" }],
     ["a query operator", { $gt: "" }],
     ["null", null],
-    ["an array", [ID.toHexString()]]
+    ["an array", [ID.toHexString()]],
+    ["an invalid Decimal128", { $numberDecimal: "abc" }]
   ])("rejects %s key with 400 before querying", async (_label, id) => {
     const { client, calls } = fakeMongoClient();
     await expect(getDocumentText(client, "app", "items", id)).rejects.toMatchObject({

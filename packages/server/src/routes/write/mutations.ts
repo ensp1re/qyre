@@ -109,23 +109,32 @@ export function registerMutationsRoutes(app: FastifyInstance, ctx: ServerContext
 
       if (!result.committed) {
         const failedOp = parsedBody.data.ops[result.failedIndex];
+        // Non-transactional tables (e.g. MySQL MyISAM) keep operations a rollback could not undo.
+        const applied = result.appliedCount ?? 0;
         ctx.eventLog.log(
           "warn",
-          `Batch commit rolled back at operation ${result.failedIndex} (${failedOp?.type}).`
+          applied > 0
+            ? `Batch commit failed at operation ${result.failedIndex} (${failedOp?.type}); ${applied} earlier operation(s) could not be rolled back.`
+            : `Batch commit rolled back at operation ${result.failedIndex} (${failedOp?.type}).`
         );
         request.log.warn(
           {
             operation: "commit",
             failedIndex: result.failedIndex,
             failedType: failedOp?.type,
+            appliedCount: applied,
             durationMs,
             outcome: "conflict"
           },
-          "batch commit rolled back"
+          applied > 0 ? "batch commit partially applied" : "batch commit rolled back"
         );
         return reply.status(409).send({
-          error: "Commit failed and was rolled back.",
-          failedIndex: result.failedIndex
+          error:
+            applied > 0
+              ? `Commit failed; ${applied} earlier operation(s) could not be rolled back.`
+              : "Commit failed and was rolled back.",
+          failedIndex: result.failedIndex,
+          ...(applied > 0 ? { appliedCount: applied } : {})
         });
       }
 

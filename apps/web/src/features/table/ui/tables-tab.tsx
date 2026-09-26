@@ -131,16 +131,19 @@ export function TablesTab({
         rows.refetch();
       } else {
         const applied = result.appliedCount ?? 0;
+        const isMongo = engine === DATABASE_ENGINES.mongodb;
         setCommitError({
           message:
-            engine === DATABASE_ENGINES.mongodb && applied > 0
-              ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; ${applied} earlier operation(s) were applied. Rows were refreshed.`
-              : engine === DATABASE_ENGINES.mongodb
+            applied > 0
+              ? isMongo
+                ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; ${applied} earlier operation(s) were applied. Rows were refreshed.`
+                : `Commit failed at operation ${result.failedIndex + 1}; ${applied} earlier operation(s) could not be rolled back. Rows were refreshed.`
+              : isMongo
                 ? `MongoDB commit stopped at operation ${result.failedIndex + 1}; no changes were applied.`
                 : `Commit failed and was rolled back at operation ${result.failedIndex + 1}.`,
           failedIndex: result.failedIndex
         });
-        if (engine === DATABASE_ENGINES.mongodb && applied > 0) {
+        if (applied > 0) {
           pendingChanges.clear();
           rows.refetch();
         }

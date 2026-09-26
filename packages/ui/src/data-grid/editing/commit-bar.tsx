@@ -29,7 +29,23 @@ export function CommitBar({
 }: CommitBarProps): ReactNode {
   const [expanded, setExpanded] = useState(false);
   const total = insertCount + updateCount + deleteCount;
-  if (total === 0) return null;
+  if (total === 0) {
+    // A partially applied commit clears the buffer but its outcome must still be visible.
+    if (!error) return null;
+    return (
+      <div className="flex shrink-0 items-center gap-1.5 border-t border-border bg-card px-3 py-1.5 font-mono text-[10px]">
+        <AlertTriangle className="h-2.5 w-2.5 shrink-0" style={{ color: "var(--c-red)" }} />
+        <span style={{ color: "var(--c-red)" }}>{error}</span>
+        <button
+          type="button"
+          onClick={onDiscard}
+          className="ml-auto flex items-center gap-1 rounded-[3px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <X className="h-3 w-3" /> Dismiss
+        </button>
+      </div>
+    );
+  }
 
   const parts: string[] = [];
   if (insertCount > 0) parts.push(`${insertCount} to insert`);

@@ -128,6 +128,17 @@ describe("TablesTab", () => {
     expect(screen.getByRole("button", { name: /Commit/ })).toHaveProperty("disabled", false);
   });
 
+  it("says a failed SQL commit kept operations it could not roll back", async () => {
+    commitMutations.mockResolvedValue({ committed: false, failedIndex: 1, appliedCount: 1 });
+    renderHost();
+
+    await act(async () => pressSave());
+
+    expect(
+      screen.getByText(/operation 2; 1 earlier operation\(s\) could not be rolled back/)
+    ).toBeTruthy();
+  });
+
   it("disables Next while the previous page is shown as placeholder data", () => {
     renderHost({ page: 1, hasMore: true, isPlaceholderData: true });
     expect(screen.getByRole("button", { name: "Next page" })).toHaveProperty("disabled", true);

@@ -6,10 +6,9 @@ feature tracking, definition of done) that this file only summarizes.
 
 ## Prerequisites
 
-- Node.js 22 LTS for development. The runtime floor is `>=20.11.0` (`package.json` `engines`), but
-  the repo's `better-sqlite3` native binding is built against Node 22 - on newer majors (24/26)
-  tests fail to load it with a `NODE_MODULE_VERSION` mismatch. Use Node 22, or rebuild the binding
-  yourself if you know what you're doing.
+- Node.js 20.11+ (`package.json` `engines`); CI runs Node 20 and releases build on Node 22. The
+  `better-sqlite3` `^12` native binding ships prebuilds for Node 20-26. After switching Node majors,
+  run `pnpm rebuild better-sqlite3` so the binding matches the new `NODE_MODULE_VERSION`.
 - [pnpm](https://pnpm.io/) (version pinned in `package.json`'s `packageManager` field)
 - [Docker](https://www.docker.com/) - needed for the Postgres/MySQL/MongoDB integration suites and
   for the pre-push gate (`pnpm verify:pr` starts the compose stack); not for SQLite-only or

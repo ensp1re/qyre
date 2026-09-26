@@ -281,7 +281,7 @@ describe("resolveVersion", () => {
   });
 });
 
-describe("formatBanner transport warnings (PLAN.md P1)", () => {
+describe("formatBanner transport warnings (plan 0011 P1)", () => {
   it("prints a warning line for a remote target with no TLS", () => {
     const banner = formatBanner({
       version: "1.0.0",

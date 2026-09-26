@@ -1,14 +1,14 @@
-# Security audit and hardening plan
+# Plan 0011: Security audit and hardening (F157)
 
-Status: **all findings below are fixed as of F157**, except the native-SQLite P1, which is
-partially fixed and has a named remainder - see its own Status line. Each heading carries its
-outcome inline. Verification for every item is in the F157 PR.
+Status: Completed (F157), merged in PR #175 (`8194ff3`). Every finding below is fixed except the
+native-SQLite P1 runtime-independence remainder, now tracked in
+[`../tech-debt-tracker.md`](../tech-debt-tracker.md). Each heading carries its outcome inline.
 
 Audit date: 2026-08-26, against `main` at `fb425b2` (v0.4.3 published, F155/F156 merged unreleased).
 Method: every claim below was checked by running it - `pnpm audit`, `git grep`/history scans,
 reading the live server/driver/CLI code paths, and live queries against the local Docker engines
 and one real remote Postgres. Nothing is asserted from reading alone. This supersedes the
-narrower findings list in `exec-plans/completed/0009-security-audit-hardening.md`, which fixed
+narrower findings list in `0009-security-audit-hardening.md`, which fixed
 six issues in F154; those are not repeated here.
 
 Severity is for Qyre's actual threat model: a local-first, single-developer tool bound to
@@ -349,18 +349,7 @@ Recorded so the next audit does not repeat them. Each was checked, not assumed.
 
 ## Suggested order
 
-**Installation priority:** resolve the P1 native SQLite blocker before the next release; users
-must be able to launch Qyre without managing Node versions. The security work order remains:
-
-1. **P2 provenance** - one workflow file, removes the single worst outcome.
-2. **P1 TLS warning + P1 parameter warning** - one change at the parse boundary.
-3. **P3 CI permissions + action pinning** - four lines.
-4. **P2 lockfile refresh**, then `@fastify/static` bump, then Dependabot.
-5. **P3 auth-guard regression test.**
-6. P3 export token, P3 SQLite hang note, P4 items - as their areas are next touched.
-
-Items 1-3 are each under an hour and close everything that could hurt someone other than the
-developer running the tool.
+Obsolete: F157 worked every item in one pass. The only open remainder is the tech-debt row above.
 
 ---
 

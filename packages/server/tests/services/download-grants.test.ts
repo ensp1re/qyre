@@ -10,7 +10,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("download grants (PLAN.md P3)", () => {
+describe("download grants (plan 0011 P3)", () => {
   it("accepts a freshly issued grant exactly once", () => {
     const grant = issueDownloadGrant(TARGET);
 

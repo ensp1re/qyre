@@ -4,8 +4,9 @@ Qyre groups code by cohesive responsibility. Domain, resource, capability, and t
 all valid boundaries when they match the code's ownership and dependencies. Examples in this file
 illustrate a decision; they do not prescribe folder names.
 
-Existing flat areas predate this contract and are migration debt in Plan 0005. Do not add more flat
-files while they are being moved. Structural moves remain behavior-preserving slices.
+Remaining exceptions (tests still under `src/` in a few packages) are listed in the
+[tech-debt tracker](exec-plans/tech-debt-tracker.md). Structural moves remain behavior-preserving
+slices.
 
 ## Universal placement rules
 

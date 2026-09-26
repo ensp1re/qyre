@@ -1,3 +1,4 @@
+import type { ColumnMetadata } from "@qyre/core";
 import { describe, expect, it } from "vitest";
 import { formatRowExport } from "../../src/services/rows/row-export.js";
 import { makeFakeAdapter } from "../support/fake-adapter.js";
@@ -10,15 +11,23 @@ async function collect(chunks: AsyncIterable<string>): Promise<string> {
 
 async function* noRows(): AsyncIterable<Record<string, unknown>> {}
 
+const ID_COLUMN: ColumnMetadata = {
+  name: "id",
+  dataType: "integer",
+  nullable: false,
+  isPrimaryKey: true,
+  isForeignKey: false
+};
+
 describe("formatRowExport", () => {
   it("writes metadata columns for an empty CSV and a valid empty JSON array", async () => {
     const db = makeFakeAdapter();
 
     await expect(
-      collect(formatRowExport(db, "csv", "public", "users", ["id"], noRows()))
+      collect(formatRowExport(db, "csv", "public", "users", [ID_COLUMN], noRows()))
     ).resolves.toBe("id\n");
     await expect(
-      collect(formatRowExport(db, "json", "public", "users", ["id"], noRows()))
+      collect(formatRowExport(db, "json", "public", "users", [ID_COLUMN], noRows()))
     ).resolves.toBe("[]\n");
   });
 
@@ -28,7 +37,7 @@ describe("formatRowExport", () => {
     }
 
     await expect(
-      collect(formatRowExport(makeFakeAdapter(), "json", "public", "users", ["id"], rows()))
+      collect(formatRowExport(makeFakeAdapter(), "json", "public", "users", [ID_COLUMN], rows()))
     ).resolves.toBe('[\n{"id":"9007199254740993"}\n]\n');
   });
 

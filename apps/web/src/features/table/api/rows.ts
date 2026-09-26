@@ -45,7 +45,11 @@ export async function exportRowsUrl(
 ): Promise<string> {
   const params = new URLSearchParams();
   appendSortAndFilterParams(params, sort, filters, search);
-  const { grant } = await fetchJson<{ grant: string }>("/api/exports/grant", { method: "POST" });
+  const { grant } = await fetchJson<{ grant: string }>("/api/exports/grant", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ schema, table, format })
+  });
   params.set("grant", grant);
   const query = params.toString();
   const path = `/api/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/export.${format}`;

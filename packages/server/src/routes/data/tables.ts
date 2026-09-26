@@ -8,6 +8,7 @@ import { Readable } from "node:stream";
 import {
   DATABASE_ENGINES,
   deleteRowsRequestSchema,
+  exportGrantSchema,
   insertRowRequestSchema,
   ROW_EXPORT_FORMATS,
   rowsQuerySchema,
@@ -18,7 +19,7 @@ import { OperationCancelledError } from "@qyre/driver-contract";
 import type { FastifyInstance } from "fastify";
 import type { ServerContext } from "../../types/server.js";
 import { formatRowExport } from "../../services/rows/row-export.js";
-import { issueDownloadGrant } from "../../services/access/download-grants.js";
+import { issueDownloadGrant, TABLE_EXPORT_ROUTE } from "../../services/access/download-grants.js";
 import { permissionRoute } from "../../services/access/permission-denied.js";
 import { requireAdapter } from "../../services/connection/require-adapter.js";
 import {
@@ -298,12 +299,20 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     }
   );
 
-  app.post("/api/exports/grant", async () => ({ grant: issueDownloadGrant() }));
+  app.post<{ Body: unknown }>("/api/exports/grant", async (request, reply) => {
+    const parsed = exportGrantSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send({ error: "Request body must be { schema: string, table: string, format }." });
+    }
+    return { grant: issueDownloadGrant(parsed.data) };
+  });
 
   app.get<{
     Params: TableExportParams;
     Querystring: QueryParams;
-  }>("/api/tables/:schema/:table/export.:format", async (request, reply) => {
+  }>(TABLE_EXPORT_ROUTE, async (request, reply) => {
     const format = request.params.format as RowExportFormat;
     if (!ROW_EXPORT_FORMATS.includes(format)) {
       return reply.status(400).send({ error: "Export format must be csv, json, or sql." });
@@ -332,11 +341,10 @@ export function registerTablesRoutes(app: FastifyInstance, ctx: ServerContext): 
     const sort = resolveRowSort(metadata, parsed.data.sortColumn, parsed.data.sortDirection);
     const filters = resolveRowFilters(metadata, parsed.data.filters, db.engine);
     const search = resolveRowSearch(metadata, parsed.data.search);
-    const columns = metadata.columns.map((column) => column.name);
     const rows = db.streamRows(schema, table, metadata.columns, sort, filters, search);
 
     reply.header("Content-Type", EXPORT_CONTENT_TYPES[format]);
     reply.header("Content-Disposition", `attachment; filename="${exportFilename(table, format)}"`);
-    return Readable.from(formatRowExport(db, format, schema, table, columns, rows));
+    return Readable.from(formatRowExport(db, format, schema, table, metadata.columns, rows));
   });
 }

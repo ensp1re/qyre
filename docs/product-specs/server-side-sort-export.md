@@ -76,8 +76,17 @@ SQL without materializing or re-querying the result.
 - SQL export is a sequence of complete `INSERT INTO ... VALUES (...);` statements. It is available
   only when the adapter reports it. Each SQL adapter owns its identifier and literal formatting:
   Postgres and SQLite use their double-quote identifier rules, MySQL uses backticks and mysql2's
-  value escaping, and binary/structured values use an engine-valid literal form. MongoDB never
-  advertises SQL export, so the UI hides it and a direct `.sql` request receives `400`.
+  value escaping, and binary/structured values use an engine-valid literal form. The formatter
+  receives the table's column metadata, so Postgres writes native array columns in array input
+  syntax (`'{"1",NULL,"3"}'`, nested for multi-dimensional arrays) while a `json`/`jsonb` value that
+  happens to be a JSON array stays JSON (`'[1,2]'`); the exported statements round-trip into the same
+  table. MongoDB never advertises SQL export, so the UI hides it and a direct `.sql` request
+  receives `400`.
+- Browser downloads authenticate with a one-shot grant instead of the session token.
+  `POST /api/exports/grant` requires `{ schema, table, format }` and returns a grant that expires
+  after 60 seconds and authorizes exactly one `GET` of that table's export in that format. Presenting
+  it anywhere else (another route, table, format, or method) is rejected with `401`, and the
+  request log redacts `grant` alongside `token`.
 
 ### Capability contract
 

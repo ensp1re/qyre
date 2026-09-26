@@ -17,6 +17,7 @@ import {
   assertReadOnly,
   capResultRows,
   classifyExplainTarget,
+  keyRowsByColumn,
   OperationCancelledError,
   resolvePageRequest,
   runInReadOnlyTransaction,
@@ -43,6 +44,7 @@ import { inspectAccess } from "../access/access.js";
 import { tableKey } from "../schema/catalog.js";
 import { isPgCancelError, withCancellableClient } from "./cancellation.js";
 import { createPostgresPool } from "./connection.js";
+import { querySingleStatement } from "./single-statement.js";
 import { buildPostgresExplainSql, postgresPlanLines } from "../query/explain.js";
 import {
   addColumn,
@@ -136,7 +138,7 @@ export class PostgresAdapter implements DatabaseAdapter {
   formatSqlInsert(
     schema: string,
     table: string,
-    columns: readonly string[],
+    columns: readonly ColumnMetadata[],
     row: Record<string, unknown>
   ): string {
     return formatSqlInsert(schema, table, columns, row);
@@ -285,7 +287,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     const rewritten = sql.includes('"')
       ? coerceUnknownQuotedIdentifiers(sql, await fetchKnownIdentifiers(this.getPool()))
       : sql;
-    assertReadOnly(rewritten);
+    assertReadOnly(rewritten, "postgres");
     return withCancellableClient(
       this.getPool(),
       this.operationRegistry,
@@ -297,13 +299,7 @@ export class PostgresAdapter implements DatabaseAdapter {
               begin: async () => {
                 await client.query("BEGIN TRANSACTION READ ONLY");
               },
-              query: async (querySql) => {
-                const result = await client.query(querySql);
-                return {
-                  columns: result.fields.map((field) => field.name),
-                  rows: result.rows as Array<Record<string, unknown>>
-                };
-              },
+              query: (querySql) => querySingleStatement(client, querySql),
               commit: async () => {
                 await client.query("COMMIT");
               },
@@ -330,10 +326,12 @@ export class PostgresAdapter implements DatabaseAdapter {
       operationId,
       async (client, wasCancelledByUser) => {
         try {
-          const result = await client.query(sql);
+          const result = await client.query({ text: sql, rowMode: "array" });
           return {
-            columns: result.fields.map((field) => field.name),
-            rows: result.rows as Array<Record<string, unknown>>,
+            ...keyRowsByColumn(
+              result.fields.map((field) => field.name),
+              result.rows
+            ),
             rowsAffected: result.rowCount ?? result.rows.length
           };
         } catch (error) {
@@ -345,7 +343,7 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async explainQuery(sql: string, analyze = false): Promise<QueryPlanResult> {
-    const classification = classifyExplainTarget(sql, analyze);
+    const classification = classifyExplainTarget(sql, analyze, "postgres");
     const page = await withCancellableClient(
       this.getPool(),
       this.operationRegistry,
@@ -356,13 +354,7 @@ export class PostgresAdapter implements DatabaseAdapter {
             begin: async () => {
               await client.query("BEGIN TRANSACTION READ ONLY");
             },
-            query: async (querySql) => {
-              const result = await client.query(querySql);
-              return {
-                columns: result.fields.map((field) => field.name),
-                rows: result.rows as Array<Record<string, unknown>>
-              };
-            },
+            query: (querySql) => querySingleStatement(client, querySql),
             commit: async () => {
               await client.query("COMMIT");
             },

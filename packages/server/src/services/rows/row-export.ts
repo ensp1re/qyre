@@ -1,4 +1,4 @@
-import type { RowExportFormat } from "@qyre/core";
+import type { ColumnMetadata, RowExportFormat } from "@qyre/core";
 import type { DatabaseAdapter } from "@qyre/driver-contract";
 import { csvLine } from "../transfer/csv.js";
 
@@ -13,13 +13,14 @@ export async function* formatRowExport(
   format: RowExportFormat,
   schema: string,
   table: string,
-  columns: readonly string[],
+  columns: readonly ColumnMetadata[],
   rows: AsyncIterable<Record<string, unknown>>
 ): AsyncIterable<string> {
   if (format === "csv") {
-    yield `${csvLine(columns)}\n`;
+    const names = columns.map((column) => column.name);
+    yield `${csvLine(names)}\n`;
     for await (const row of rows) {
-      yield `${csvLine(columns.map((column) => row[column]))}\n`;
+      yield `${csvLine(names.map((column) => row[column]))}\n`;
     }
     return;
   }

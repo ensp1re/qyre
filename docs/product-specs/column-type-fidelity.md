@@ -28,8 +28,11 @@ rendering of a real column type" problem F016 already exists to solve.
    value by the server's offset (confirmed live on a UTC+2 host: a stored `2024-01-15` came back as
    `"2024-01-14T22:00:00.000Z"` - the wrong calendar date entirely). Fixed with
    `types.setTypeParser` for OIDs 1082 (`DATE`) and 1114 (`TIMESTAMP`) to return the raw wire
-   string unchanged. `timestamptz` (1184) is untouched - it's a genuine absolute instant and
-   converts to UTC correctly.
+   string unchanged. `timestamptz` (1184) also returns its wire text (for example
+   `2024-03-01 10:00:00.123456+00`): a JS `Date` keeps only milliseconds, so a microsecond
+   `timestamptz` primary key read back as a `Date` never matched its row again and every
+   update/delete of that row reported stale. Arrays of `date`, `timestamp`, and `timestamptz`
+   (OIDs 1182, 1115, 1185) likewise return arrays of wire strings.
 2. **MySQL: the same date/timestamp shift**, for the same underlying reason (mysql2's default also
    builds a local-time `Date`). Fixed with `dateStrings: true` on the pool - MySQL's own server-side
    session-timezone conversion for `TIMESTAMP` columns already happened before the string reaches

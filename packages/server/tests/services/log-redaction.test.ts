@@ -8,6 +8,12 @@ describe("redactSensitiveQueryParams (F130)", () => {
     );
   });
 
+  it("masks a one-shot download grant query param", () => {
+    expect(redactSensitiveQueryParams("/api/tables/public/x/export.csv?grant=abc123")).toBe(
+      "/api/tables/public/x/export.csv?grant=%5Bredacted%5D"
+    );
+  });
+
   it("leaves the rest of the query string untouched", () => {
     const redacted = redactSensitiveQueryParams(
       "/api/tables/public/x/export.csv?sortColumn=id&token=abc123"

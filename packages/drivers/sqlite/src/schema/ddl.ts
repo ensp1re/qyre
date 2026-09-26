@@ -82,6 +82,18 @@ function withForeignKeysDisabled<T>(db: Database.Database, fn: (wasEnabled: bool
   }
 }
 
+type ForeignKeyViolation = { table: string; parent: string; fkid: number };
+
+/** Count violations per foreign key so a rebuild is judged only on violations it introduced. */
+function foreignKeyViolationCounts(db: Database.Database): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const row of db.pragma("foreign_key_check") as ForeignKeyViolation[]) {
+    const key = `${row.table}\u0000${row.parent}\u0000${row.fkid}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
 function readSequence(db: Database.Database, table: string): number | undefined {
   const hasSequence = db
     .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sqlite_sequence'")
@@ -124,6 +136,7 @@ function rebuildTable(
     .map((row) => quoteIdent(row.name))
     .join(", ");
   const sequence = readSequence(db, tableName);
+  const violationsBefore = checkForeignKeys ? foreignKeyViolationCounts(db) : undefined;
 
   db.exec(createSql);
   db.exec(
@@ -145,7 +158,12 @@ function rebuildTable(
   for (const object of replayObjects) {
     db.exec(object.sql);
   }
-  if (checkForeignKeys && (db.pragma("foreign_key_check") as unknown[]).length > 0) {
+  const violationsAfter = violationsBefore ? foreignKeyViolationCounts(db) : undefined;
+  if (
+    violationsBefore &&
+    violationsAfter &&
+    [...violationsAfter].some(([key, count]) => count > (violationsBefore.get(key) ?? 0))
+  ) {
     throw unsupportedRebuild(
       `Altering "${tableName}" would leave rows that violate a foreign key; no changes were made.`
     );

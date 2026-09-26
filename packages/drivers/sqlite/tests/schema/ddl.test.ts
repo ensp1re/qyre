@@ -49,6 +49,39 @@ describe("SQLite column alter rebuild", () => {
     expect(db.pragma("foreign_key_check")).toEqual([]);
   });
 
+  it("does not let an unrelated pre-existing foreign key violation block an alter", () => {
+    db.pragma("foreign_keys = OFF");
+    db.exec(`
+      CREATE TABLE owner (id INTEGER PRIMARY KEY);
+      CREATE TABLE orphan (id INTEGER PRIMARY KEY, owner_id INTEGER REFERENCES owner(id));
+      INSERT INTO orphan VALUES (1, 99);
+      CREATE TABLE plain (id INTEGER PRIMARY KEY, note TEXT);
+      INSERT INTO plain VALUES (1, 'kept');
+    `);
+    db.pragma("foreign_keys = ON");
+
+    alterColumn(db, "plain", "note", { nullable: false });
+
+    expect(tableSql(db, "plain")).toMatch(/note TEXT NOT NULL/);
+    expect(db.pragma("foreign_key_check")).toHaveLength(1);
+  });
+
+  it("rejects an alter that introduces a foreign key violation", () => {
+    db.exec(`
+      CREATE TABLE owner (code TEXT PRIMARY KEY);
+      CREATE TABLE pet (id INTEGER PRIMARY KEY, owner_code INTEGER REFERENCES owner(code));
+      INSERT INTO owner VALUES ('1');
+      INSERT INTO pet VALUES (1, 1);
+    `);
+    expect(db.pragma("foreign_key_check")).toEqual([]);
+
+    // Without TEXT affinity on the parent key, the child's integer 1 no longer matches '1'.
+    expect(() => alterColumn(db, "owner", "code", { dataType: "BLOB" })).toThrow(
+      /violate a foreign key/
+    );
+    expect(tableSql(db, "owner")).toMatch(/code TEXT PRIMARY KEY/);
+  });
+
   it("leaves foreign keys disabled when the connection had them disabled", () => {
     db.pragma("foreign_keys = OFF");
     db.exec("CREATE TABLE plain (id INTEGER PRIMARY KEY, note TEXT)");
@@ -69,23 +102,21 @@ describe("SQLite column alter rebuild", () => {
 
   it("rolls back the rename and rebuild when the foreign key check fails", () => {
     db.exec(`
-      CREATE TABLE parent (id INTEGER PRIMARY KEY, name TEXT);
-      CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id));
-      INSERT INTO parent VALUES (1, 'one');
+      CREATE TABLE parent (code TEXT PRIMARY KEY, name TEXT);
+      CREATE TABLE child (id INTEGER PRIMARY KEY, parent_code INTEGER REFERENCES parent(code));
+      INSERT INTO parent VALUES ('1', 'one');
+      INSERT INTO child VALUES (1, 1);
     `);
-    db.pragma("foreign_keys = OFF");
-    db.exec("INSERT INTO child VALUES (1, 99)");
-    db.pragma("foreign_keys = ON");
 
     expect(() =>
-      renameAndAlterColumn(db, "parent", "name", {
-        newName: "label",
+      renameAndAlterColumn(db, "parent", "code", {
+        newName: "key",
         changes: { dataType: "BLOB" }
       })
     ).toThrow(
       expect.objectContaining({ statusCode: 400, message: expect.stringMatching(/foreign key/) })
     );
-    expect(tableSql(db, "parent")).toContain("name TEXT");
+    expect(tableSql(db, "parent")).toContain("code TEXT");
     expect(db.prepare("SELECT count(*) FROM child").pluck().get()).toBe(1);
     expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
   });

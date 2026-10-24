@@ -10,3 +10,5 @@ afterEach(() => {
 // jsdom reports zero layout dimensions, so virtualized lists need fixed test sizes.
 Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, value: 600 });
 Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, value: 800 });
+Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, value: 600 });
+Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, value: 800 });

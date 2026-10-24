@@ -5,10 +5,9 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Current state
 
-- Date: 2026-09-27.
-- Branch: `feature/F170-release-v0.4.5`. PR #186 is merged into main at `ff4764d`.
-  v0.4.4 is the latest published release; all ten public packages are prepared for v0.4.5.
-- Queue: F170 active (release); F160-F169 passing (plan 0010).
+- Date: 2026-10-24.
+- Branch: `feature/F171-fix-dependency-ci`, based on dependency PR #192.
+- Queue: F171 active (dependency CI fix); F170 release follow-up deferred during this fix.
 - No active exec plan. Plan 0008 (AI assistant) was retired unstarted; plan 0011 (F157 security
   audit) is completed. A fresh UI audit is still pending.
 
@@ -18,7 +17,10 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## In progress
 
-- F170: verify the release locally, open the release PR, wait for CI, and publish v0.4.5.
+- F171: PR #192 updated TanStack Virtual to read client dimensions; jsdom setup supplied only
+  offset dimensions. Added client dimensions: all 475 UI tests pass. `pnpm verify:pr` passed on
+  Node 22.23.4 across all four engines: 11 smoke tests and 32 full E2E tests, with 59 expected skips.
+  Main push and CI pending.
 
 ## Known issues / blockers
 
@@ -32,11 +34,15 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
   after server/driver changes. The CLI (`@qyre/qyre`) additionally bundles a copy of
   `apps/web/dist` into its own `dist/web` at build time.
 - Docker may require `/Applications/Docker.app/Contents/Resources/bin/docker` explicitly on macOS.
+- Verify with the documented Node 22 release runtime. Node 26's native `localStorage` conflicts
+  with the existing web test setup; rebuild `better-sqlite3` with `pnpm -r rebuild better-sqlite3`
+  after changing Node majors.
 - Deferred by explicit scoping decision, not oversight: full column resize/reorder/frozen columns,
   a complete toolbar regroup into 4 sections with an overflow menu, full drag-to-select multi-cell
   copy/paste, and JSON syntax highlighting. Revisit only if explicitly requested.
 
 ## Next steps
 
-- Complete F170 and confirm all ten npm packages and the GitHub release are published.
+- Finish F171 verification and push the dependency updates plus fix to main as requested.
+- Resume F170 and confirm all ten npm package versions and the GitHub release.
 - Run a fresh UI/UX browser audit and turn its findings into a new exec plan.

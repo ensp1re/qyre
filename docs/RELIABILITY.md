@@ -19,6 +19,8 @@ A change is not done until the required levels pass, in order:
 
 1. Static: formatting, lint, typecheck.
 2. Unit: package unit tests (Vitest).
+   UI tests run in jsdom, which has no layout engine. Their shared setup supplies both client and
+   offset dimensions so virtualized tables render rows using real virtualization code.
 3. Integration: adapter tests against real Postgres, MySQL, and MongoDB instances (require
    `QYRE_TEST_DATABASE_URL`, `QYRE_TEST_MYSQL_URL`, and `QYRE_TEST_MONGO_URL` respectively;
    `docker compose up -d` starts all three with the credentials in `.env.example`, matching

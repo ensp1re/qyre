@@ -6,21 +6,21 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 ## Current state
 
 - Date: 2026-10-24.
-- Branch: `feature/F171-fix-dependency-ci`, based on dependency PR #192.
-- Queue: F171 active (dependency CI fix); F170 release follow-up deferred during this fix.
+- Branch: `main`. Dependency PR #192 is merged; its CI fix is `dcdd47f`.
+- Queue: F171 passing (dependency CI fix); F170 active (existing release follow-up).
 - No active exec plan. Plan 0008 (AI assistant) was retired unstarted; plan 0011 (F157 security
   audit) is completed. A fresh UI audit is still pending.
 
 ## Completed
 
 - Plan 0010 (F160-F169), see `docs/exec-plans/completed/0010-bug-audit-fixes.md`.
+- F171: all 475 UI tests and local `pnpm verify:pr` passed on Node 22.23.4 across all four engines.
+  Both main CI jobs passed: https://github.com/ensp1re/qyre/actions/runs/40102250713.
 
 ## In progress
 
-- F171: PR #192 updated TanStack Virtual to read client dimensions; jsdom setup supplied only
-  offset dimensions. Added client dimensions: all 475 UI tests pass. `pnpm verify:pr` passed on
-  Node 22.23.4 across all four engines: 11 smoke tests and 32 full E2E tests, with 59 expected skips.
-  Main push and CI pending.
+- F170: release follow-up remains from the previous session; confirm published package versions
+  and the GitHub release before closing it.
 
 ## Known issues / blockers
 
@@ -43,6 +43,5 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Next steps
 
-- Finish F171 verification and push the dependency updates plus fix to main as requested.
 - Resume F170 and confirm all ten npm package versions and the GitHub release.
 - Run a fresh UI/UX browser audit and turn its findings into a new exec plan.

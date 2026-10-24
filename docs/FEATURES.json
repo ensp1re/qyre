@@ -11,17 +11,18 @@
       "id": "F171",
       "behavior": "Keep virtualized row and query-result rendering tests working with PR #192's TanStack Virtual update by supplying client dimensions in jsdom.",
       "verification": "pnpm --filter @qyre/ui test; pnpm verify:pr; main CI",
-      "state": "active",
-      "commitHash": null,
-      "evidence": "PR https://github.com/ensp1re/qyre/pull/192: reproduced 7 failing table-render tests before the fix. All 475 UI tests pass after adding client dimensions. pnpm verify:pr passed on Node 22.23.4 across Postgres, MySQL, SQLite, and MongoDB: all package checks, 11 smoke tests (4 expected skips), 32 full E2E tests (55 expected skips). Main push and CI pending.",
+      "state": "passing",
+      "commitHash": "dcdd47f009a917cbdec9bba758c1733dfb71a864",
+      "evidence": "PR https://github.com/ensp1re/qyre/pull/192 merged; fix dcdd47f pushed to main. Reproduced 7 failing table-render tests before the fix; all 475 UI tests pass afterward. pnpm verify:pr passed on Node 22.23.4 across Postgres, MySQL, SQLite, and MongoDB: all package checks, 11 smoke tests (4 expected skips), 32 full E2E tests (55 expected skips). Both main CI jobs passed: https://github.com/ensp1re/qyre/actions/runs/40102250713.",
       "blockedReason": null,
-      "spec": "docs/RELIABILITY.md"
+      "spec": "docs/RELIABILITY.md",
+      "completedAt": "2026-10-24T14:28:47.000Z"
     },
     {
       "id": "F170",
       "behavior": "Release Qyre 0.4.5 with the merged bug-audit fixes across all ten public packages.",
       "verification": "pnpm verify:pr; required PR CI; verify all ten npm package versions and the GitHub release tag",
-      "state": "not_started",
+      "state": "active",
       "commitHash": null,
       "evidence": "Local pnpm verify:pr passed on Node 22.23.3 with Postgres, MySQL, SQLite, and MongoDB; full E2E 32 passed, 55 project-specific skips. Conformance files run sequentially to avoid concurrent Postgres GRANT catalog updates. Remote CI and publication pending.",
       "blockedReason": null,

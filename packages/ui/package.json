@@ -30,10 +30,10 @@
     "@codemirror/view": "^6.43.15",
     "@qyre/core": "workspace:*",
     "@lezer/highlight": "^1.2.5",
-    "@tanstack/react-virtual": "^3.14.21",
+    "@tanstack/react-virtual": "^3.14.23",
     "clsx": "^2.1.1",
     "codemirror": "^6.0.2",
-    "lucide-react": "^1.60.0",
+    "lucide-react": "^1.62.0",
     "tailwind-merge": "^2.6.0"
   },
   "peerDependencies": {

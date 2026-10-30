@@ -23,9 +23,9 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@fastify/compress": "^9.2.2",
-    "@fastify/multipart": "^10.1.4",
-    "@fastify/static": "^10.1.6",
+    "@fastify/compress": "^9.3.0",
+    "@fastify/multipart": "^10.1.6",
+    "@fastify/static": "^10.1.8",
     "@qyre/core": "workspace:*",
     "@qyre/driver-contract": "workspace:*",
     "csv-parse": "^7.0.3",

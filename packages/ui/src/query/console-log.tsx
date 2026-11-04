@@ -41,7 +41,7 @@ export function ConsoleLog({ events, onClear }: ConsoleLogProps): ReactNode {
               aria-pressed={level === option}
               onClick={() => setLevel(option)}
               className={cn(
-                "h-6 rounded-[3px] px-2 font-mono text-[10px] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-primary",
+                "h-6 rounded-[3px] px-2 font-mono text-[10px] outline-hidden transition-colors focus-visible:ring-1 focus-visible:ring-primary",
                 level === option
                   ? "bg-accent text-foreground"
                   : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"

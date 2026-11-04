@@ -5,7 +5,7 @@ choose, no account, no heavy GUI to install.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/ensp1re/qyre/ci.yml?branch=main&label=CI)](https://github.com/ensp1re/qyre/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/qyre.svg)](https://www.npmjs.com/package/qyre)
-[![node](https://img.shields.io/badge/node-%3E%3D20.11-brightgreen.svg)](package.json)
+[![node](https://img.shields.io/badge/node-%3E%3D22.22.2-brightgreen.svg)](package.json)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Current release: `v0.4.4`

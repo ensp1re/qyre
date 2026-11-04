@@ -4,7 +4,10 @@ How Qyre proves it is healthy and restartable. Only a full-pipeline run counts a
 
 ## Standard paths
 
+- Runtime: Node 22.22.2+, 24.15+, or 26+; CI uses Node 22. SQLite 13 bundles portable native
+  binaries for supported platforms, so switching Node majors does not require rebuilding it.
 - Bootstrap: `pnpm install`
+- Browser bootstrap: `pnpm exec playwright install chromium`
 - Verification (local): `pnpm check` - requires the live test databases below
 - Verification (same coverage, failing tasks only in output): `pnpm check:quiet`
 - Verification (CI-equivalent, adds E2E): `pnpm check:ci`

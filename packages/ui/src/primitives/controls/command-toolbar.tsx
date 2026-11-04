@@ -15,7 +15,7 @@ export function CommandToolbar({ label, children, className }: CommandToolbarPro
     ).filter((item) => item.offsetParent !== null);
     if (items.length === 0) return;
     const current = items.indexOf(document.activeElement as HTMLElement);
-    let next = current;
+    let next: number;
     if (event.key === "Home") next = 0;
     else if (event.key === "End") next = items.length - 1;
     else if (event.key === "ArrowRight") next = (Math.max(current, -1) + 1) % items.length;

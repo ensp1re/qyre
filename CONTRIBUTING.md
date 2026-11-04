@@ -6,10 +6,12 @@ feature tracking, definition of done) that this file only summarizes.
 
 ## Prerequisites
 
-- Node.js 20.11+ (`package.json` `engines`); CI runs Node 20 and releases build on Node 22. The
-  `better-sqlite3` `^12` native binding ships prebuilds for Node 20-26. After switching Node majors,
-  run `pnpm rebuild better-sqlite3` so the binding matches the new `NODE_MODULE_VERSION`.
+- Node.js 22.22.2+, 24.15+, or 26+ (`package.json` `engines`); CI and releases build on Node 22.
+  The `better-sqlite3` `^13` package includes portable native binaries for supported platforms;
+  no install-time compilation or rebuild after switching Node majors is needed.
 - [pnpm](https://pnpm.io/) (version pinned in `package.json`'s `packageManager` field)
+- Type checks use TypeScript 7 (`tsc`). The `typescript` dependency aliases Microsoft's
+  TypeScript 6 compatibility package for ESLint and declaration builds, which need its compiler API.
 - [Docker](https://www.docker.com/) - needed for the Postgres/MySQL/MongoDB integration suites and
   for the pre-push gate (`pnpm verify:pr` starts the compose stack); not for SQLite-only or
   UI-only work
@@ -18,6 +20,7 @@ feature tracking, definition of done) that this file only summarizes.
 
 ```bash
 pnpm install
+pnpm exec playwright install chromium
 pnpm verify:pr   # starts/checks DBs; checks, build, smoke E2E, full E2E
 ```
 

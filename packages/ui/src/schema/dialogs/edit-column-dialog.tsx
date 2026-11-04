@@ -79,7 +79,7 @@ export function EditColumnDialog({
         aria-modal="true"
         aria-labelledby="edit-column-dialog-title"
         data-testid="edit-column-dialog"
-        className="fixed left-1/2 top-1/2 z-50 flex w-[26rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-[3px] border border-border bg-card p-4 outline-none"
+        className="fixed left-1/2 top-1/2 z-50 flex w-[26rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-[3px] border border-border bg-card p-4 outline-hidden"
       >
         <div className="flex items-center gap-2">
           <h2
@@ -107,7 +107,7 @@ export function EditColumnDialog({
             onChange={(event) => setName(event.target.value)}
             aria-label="Column name"
             autoFocus
-            className="rounded-[3px] border border-border bg-secondary px-2 py-1 font-mono text-[12px] text-foreground outline-none focus:border-foreground/40"
+            className="rounded-[3px] border border-border bg-secondary px-2 py-1 font-mono text-[12px] text-foreground outline-hidden focus:border-foreground/40"
           />
           {!nameValid && (
             <span className="font-mono text-[10px]" style={{ color: "var(--c-red)" }}>

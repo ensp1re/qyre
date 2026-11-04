@@ -1,6 +1,6 @@
 {
   "name": "@qyre/sqlite",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "type": "module",
   "description": "SQLite driver for Qyre.",
   "license": "MIT",
@@ -28,9 +28,12 @@
   },
   "devDependencies": {
     "@qyre/config": "workspace:*",
-    "@types/better-sqlite3": "^7.6.13"
+    "@types/better-sqlite3": "^9.6.0"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^12.11.1"
+    "better-sqlite3": "^13.0.3"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   }
 }

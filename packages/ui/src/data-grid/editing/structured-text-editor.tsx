@@ -66,7 +66,7 @@ export function StructuredTextEditor({
       value={text}
       onChange={(event) => onChange(event.target.value)}
       spellCheck={false}
-      className={`${minHeightClassName} w-full rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary ${variant === "minimal" ? "min-h-0 flex-1 resize-none" : "resize-y"}`}
+      className={`${minHeightClassName} w-full rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-hidden focus:border-primary ${variant === "minimal" ? "min-h-0 flex-1 resize-none" : "resize-y"}`}
     />
   );
 

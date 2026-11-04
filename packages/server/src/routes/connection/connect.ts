@@ -28,7 +28,8 @@ export function registerConnectRoute(app: FastifyInstance, ctx: ServerContext): 
       if (newAdapter.classifyPermissionDenied?.(error)) {
         throw new Error(
           "Connection is stable, but this role is not authorized to browse the database " +
-            "(listing schemas/collections was denied). Check the credential's privileges."
+            "(listing schemas/collections was denied). Check the credential's privileges.",
+          { cause: error }
         );
       }
       throw error;

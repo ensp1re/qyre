@@ -199,7 +199,7 @@ export function ConnectDrawer({
   }
 
   const inputClass =
-    "rounded-[3px] border border-border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground outline-none placeholder:text-quiet-foreground disabled:opacity-50";
+    "rounded-[3px] border border-border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground outline-hidden placeholder:text-quiet-foreground disabled:opacity-50";
 
   return (
     <>
@@ -216,7 +216,7 @@ export function ConnectDrawer({
         tabIndex={-1}
         data-testid="connect-drawer"
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-96 flex-col border-l border-border bg-card outline-none transition-transform duration-150",
+          "fixed inset-y-0 right-0 z-50 flex w-96 flex-col border-l border-border bg-card outline-hidden transition-transform duration-150",
           open ? "translate-x-0" : "translate-x-full"
         )}
       >

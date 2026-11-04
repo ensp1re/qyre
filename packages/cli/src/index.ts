@@ -240,7 +240,9 @@ async function connectToRaw(
       throw new Error("Connected, but the target did not respond to a ping.");
     }
   } catch (error) {
-    throw new Error(`Could not connect to ${displayTarget(target)}: ${describeError(error)}`);
+    throw new Error(`Could not connect to ${displayTarget(target)}: ${describeError(error)}`, {
+      cause: error
+    });
   }
   return { target, adapter };
 }
@@ -301,7 +303,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "EADDRINUSE") {
       throw new Error(
-        `Port ${port} is already in use. Try a different one with --port <port>, or stop whatever else is using it.`
+        `Port ${port} is already in use. Try a different one with --port <port>, or stop whatever else is using it.`,
+        { cause: error }
       );
     }
     throw error;

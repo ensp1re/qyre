@@ -40,7 +40,7 @@ function moveOutputTabFocus(event: KeyboardEvent<HTMLDivElement>): void {
   const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
   if (tabs.length === 0) return;
   const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
-  let next = current;
+  let next: number;
   if (event.key === "Home") next = 0;
   else if (event.key === "End") next = tabs.length - 1;
   else if (event.key === "ArrowRight") next = (Math.max(current, -1) + 1) % tabs.length;
@@ -501,7 +501,7 @@ function OutputTab({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "relative border-r border-border px-3 font-mono text-[10px] outline-none transition-colors focus-visible:bg-accent",
+        "relative border-r border-border px-3 font-mono text-[10px] outline-hidden transition-colors focus-visible:bg-accent",
         active
           ? "bg-background text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary"
           : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",

@@ -114,7 +114,7 @@ export function RowsTableToolbar({
             placeholder="Search this page..."
             aria-label="Search rows"
             title="Typing searches this page; press Enter to search the whole table"
-            className="w-full min-w-0 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+            className="w-full min-w-0 bg-transparent text-foreground outline-hidden placeholder:text-muted-foreground"
           />
           {searchLoading && (
             <span role="status" aria-live="polite" className="sr-only">
@@ -127,7 +127,7 @@ export function RowsTableToolbar({
               data-command-item
               onClick={onSearchClear}
               aria-label="Clear search"
-              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[2px] outline-none transition-colors hover:bg-accent focus-visible:ring-1 focus-visible:ring-primary"
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[2px] outline-hidden transition-colors hover:bg-accent focus-visible:ring-1 focus-visible:ring-primary"
             >
               <X className="h-2.5 w-2.5" />
             </button>
@@ -264,7 +264,7 @@ export function RowsTableToolbar({
                 data-command-item
                 aria-label="More table actions"
                 title="More table actions"
-                className="flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-[3px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary [&::-webkit-details-marker]:hidden"
+                className="flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-[3px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-primary [&::-webkit-details-marker]:hidden"
               >
                 <MoreHorizontal className={commandIcon} />
               </summary>

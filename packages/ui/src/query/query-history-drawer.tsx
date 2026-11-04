@@ -51,7 +51,7 @@ export function QueryHistoryDrawer({
         tabIndex={-1}
         data-testid="query-history-drawer"
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-border bg-card outline-none transition-transform duration-150",
+          "fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-border bg-card outline-hidden transition-transform duration-150",
           open ? "translate-x-0" : "translate-x-full"
         )}
       >

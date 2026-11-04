@@ -155,7 +155,7 @@ export function Sidebar({
                 type="button"
                 aria-label="Collapse sidebar"
                 onClick={() => onOpenChange(false)}
-                className="ml-auto rounded-[3px] p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                className="ml-auto rounded-[3px] p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-primary"
               >
                 <PanelLeftClose className="h-3.5 w-3.5" strokeWidth={1.8} />
               </button>
@@ -253,7 +253,7 @@ export function Sidebar({
               data-testid="status-badge"
               data-status={status}
               aria-label={`Change connection, current database ${databaseNameFromTarget(target)}, ${status}`}
-              className="flex h-9 shrink-0 items-center gap-2 border-t border-border px-2.5 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary"
+              className="flex h-9 shrink-0 items-center gap-2 border-t border-border px-2.5 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary"
             >
               <span className="relative shrink-0">
                 <Database className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.8} />

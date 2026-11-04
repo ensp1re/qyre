@@ -1,6 +1,6 @@
 {
   "name": "@qyre/mongodb",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "type": "module",
   "description": "MongoDB adapter for Qyre.",
   "license": "MIT",
@@ -26,10 +26,13 @@
     "@qyre/core": "workspace:*",
     "@qyre/driver-contract": "workspace:*",
     "bson": "^7.3.3",
-    "mongodb": "^7.7.0"
+    "mongodb": "^7.8.0"
   },
   "devDependencies": {
     "@qyre/config": "workspace:*",
     "@qyre/testing": "workspace:*"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   }
 }

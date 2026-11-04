@@ -2,31 +2,30 @@
   "version": 1,
   "description": "Machine-readable live work queue. Passing entries are retained for 24 hours, then removed by pnpm features:prune; durable behavior and evidence remain in product specs and Git/PR history. See docs/FEATURES.md for rules.",
   "nextIds": {
-    "F": 172,
+    "F": 173,
     "DF": 13
   },
   "states": ["not_started", "active", "blocked", "passing"],
   "features": [
     {
-      "id": "F171",
-      "behavior": "Keep virtualized row and query-result rendering tests working with PR #192's TanStack Virtual update by supplying client dimensions in jsdom.",
-      "verification": "pnpm --filter @qyre/ui test; pnpm verify:pr; main CI",
-      "state": "passing",
-      "commitHash": "dcdd47f009a917cbdec9bba758c1733dfb71a864",
-      "evidence": "PR https://github.com/ensp1re/qyre/pull/192 merged; fix dcdd47f pushed to main. Reproduced 7 failing table-render tests before the fix; all 475 UI tests pass afterward. pnpm verify:pr passed on Node 22.23.4 across Postgres, MySQL, SQLite, and MongoDB: all package checks, 11 smoke tests (4 expected skips), 32 full E2E tests (55 expected skips). Both main CI jobs passed: https://github.com/ensp1re/qyre/actions/runs/40102250713.",
-      "blockedReason": null,
-      "spec": "docs/RELIABILITY.md",
-      "completedAt": "2026-10-24T14:28:47.000Z"
-    },
-    {
       "id": "F170",
       "behavior": "Release Qyre 0.4.5 with the merged bug-audit fixes across all ten public packages.",
       "verification": "pnpm verify:pr; required PR CI; verify all ten npm package versions and the GitHub release tag",
-      "state": "active",
+      "state": "not_started",
       "commitHash": null,
       "evidence": "Local pnpm verify:pr passed on Node 22.23.3 with Postgres, MySQL, SQLite, and MongoDB; full E2E 32 passed, 55 project-specific skips. Conformance files run sequentially to avoid concurrent Postgres GRANT catalog updates. Remote CI and publication pending.",
       "blockedReason": null,
       "spec": "docs/exec-plans/completed/0010-bug-audit-fixes.md"
+    },
+    {
+      "id": "F172",
+      "behavior": "Release Qyre 0.4.6 with latest stable workspace dependencies and approved Node 22+/React 19 requirements, preserving supported database and browser behavior.",
+      "verification": "pnpm verify:pr; required PR CI; packed-package startup; verify all ten npm package versions and GitHub release",
+      "state": "active",
+      "commitHash": null,
+      "evidence": "pnpm verify:pr passed on Node 22.23.4: 34 package tasks, 11 smoke tests (4 expected skips), 32 full E2E tests (55 expected skips), across Postgres, MySQL, SQLite, and MongoDB. Forced package tests/build prerequisites passed on Node 26.12.1 (22 tasks, no cache); CLI startup, SQLite health, bundled assets, and shutdown passed. pnpm install --frozen-lockfile and pnpm peers check passed; pnpm outdated -r --format json returned {}. Local changes are not committed or published. User authorized patch publication. Fresh 0.4.6 pnpm verify:pr passed on Node 26.12.1 (34 tasks; 11 smoke and 32 full browser tests). All ten tarballs packed and installed through npm in a clean directory; installed CLI version and four-engine startup checks passed.",
+      "blockedReason": null,
+      "spec": "docs/exec-plans/active/0012-dependency-updates.md"
     }
   ]
 }

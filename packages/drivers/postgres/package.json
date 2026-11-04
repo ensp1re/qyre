@@ -1,6 +1,6 @@
 {
   "name": "@qyre/postgres",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "type": "module",
   "description": "PostgreSQL adapter for Qyre.",
   "license": "MIT",
@@ -31,6 +31,9 @@
   "devDependencies": {
     "@qyre/config": "workspace:*",
     "@qyre/testing": "workspace:*",
-    "@types/pg": "^8.11.10"
+    "@types/pg": "^8.23.1"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   }
 }

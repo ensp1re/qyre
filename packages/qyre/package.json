@@ -1,6 +1,6 @@
 {
   "name": "qyre",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "type": "module",
   "description": "Launch a local-first database management UI from your terminal. Bare-named alias for @qyre/qyre, published only so `npx qyre` and `npm install -g qyre` work.",
   "keywords": [
@@ -31,5 +31,8 @@
   ],
   "dependencies": {
     "@qyre/qyre": "workspace:*"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   }
 }

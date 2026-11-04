@@ -40,7 +40,7 @@ export function ConfirmDestructiveStatementDialog({
         aria-modal="true"
         aria-labelledby="confirm-destructive-statement-title"
         data-testid="confirm-destructive-statement-dialog"
-        className="fixed left-1/2 top-1/2 z-50 flex w-[32rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-[3px] border border-border bg-card p-4 outline-none"
+        className="fixed left-1/2 top-1/2 z-50 flex w-[32rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-[3px] border border-border bg-card p-4 outline-hidden"
       >
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: "var(--c-red)" }} />

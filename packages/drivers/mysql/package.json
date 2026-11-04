@@ -1,6 +1,6 @@
 {
   "name": "@qyre/mysql",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "type": "module",
   "description": "MySQL adapter for Qyre.",
   "license": "MIT",
@@ -30,5 +30,8 @@
   "devDependencies": {
     "@qyre/config": "workspace:*",
     "@qyre/testing": "workspace:*"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   }
 }

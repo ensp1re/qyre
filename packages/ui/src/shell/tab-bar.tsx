@@ -36,7 +36,7 @@ export function TabBar({
     );
     if (tabs.length === 0) return;
     const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
-    let next = current;
+    let next: number;
     if (event.key === "Home") next = 0;
     else if (event.key === "End") next = tabs.length - 1;
     else if (event.key === "ArrowRight") next = (Math.max(current, -1) + 1) % tabs.length;
@@ -70,7 +70,7 @@ export function TabBar({
               title={disabledReason ?? label}
               onClick={() => onChange(id)}
               className={cn(
-                "relative flex shrink-0 items-center gap-1.5 whitespace-nowrap border-r border-border px-2.5 text-[11px] font-medium outline-none transition-colors focus-visible:bg-accent sm:px-3",
+                "relative flex shrink-0 items-center gap-1.5 whitespace-nowrap border-r border-border px-2.5 text-[11px] font-medium outline-hidden transition-colors focus-visible:bg-accent sm:px-3",
                 disabledReason
                   ? "cursor-not-allowed text-quiet-foreground"
                   : isActive

@@ -81,8 +81,8 @@ export function ResizeHandle({
       onKeyDown={handleKeyDown}
       className={
         orientation === "vertical"
-          ? "h-full w-1 shrink-0 cursor-col-resize bg-border outline-none hover:bg-primary/50 focus-visible:bg-primary"
-          : "w-full h-1 shrink-0 cursor-row-resize bg-border outline-none hover:bg-primary/50 focus-visible:bg-primary"
+          ? "h-full w-1 shrink-0 cursor-col-resize bg-border outline-hidden hover:bg-primary/50 focus-visible:bg-primary"
+          : "w-full h-1 shrink-0 cursor-row-resize bg-border outline-hidden hover:bg-primary/50 focus-visible:bg-primary"
       }
     />
   );

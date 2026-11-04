@@ -289,7 +289,7 @@ export function App(): ReactNode {
             <main
               id="workspace-content"
               tabIndex={-1}
-              className="min-h-0 flex-1 overflow-hidden outline-none"
+              className="min-h-0 flex-1 overflow-hidden outline-hidden"
             >
               <ErrorBoundary
                 key={tab}

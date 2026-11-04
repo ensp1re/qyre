@@ -79,7 +79,7 @@ export function SettingsScreen({
               aria-current={category === id ? "page" : undefined}
               onClick={() => setCategory(id)}
               className={cn(
-                "mx-1 flex min-h-7 w-[calc(100%-0.5rem)] items-center gap-2 rounded-[2px] px-2 text-left text-[11px] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
+                "mx-1 flex min-h-7 w-[calc(100%-0.5rem)] items-center gap-2 rounded-[2px] px-2 text-left text-[11px] outline-hidden transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
                 category === id
                   ? "bg-sidebar-accent text-foreground shadow-[inset_2px_0_0_rgb(var(--primary))]"
                   : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"

@@ -1,6 +1,6 @@
 {
   "name": "@qyre/driver-contract",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "type": "module",
   "description": "Engine-agnostic database adapter contracts for Qyre.",
   "license": "MIT",
@@ -27,5 +27,8 @@
   },
   "devDependencies": {
     "@qyre/config": "workspace:*"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   }
 }

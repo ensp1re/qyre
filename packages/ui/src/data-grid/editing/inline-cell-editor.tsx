@@ -11,7 +11,7 @@ import { EditorPopover } from "./editor-popover.js";
 export type CommitDirection = "enter" | "tab" | "shiftTab";
 
 const PLAIN_INPUT_CLASS =
-  "min-w-0 flex-1 border-0 bg-transparent px-0 font-mono text-[10px] text-foreground outline-none";
+  "min-w-0 flex-1 border-0 bg-transparent px-0 font-mono text-[10px] text-foreground outline-hidden";
 
 export interface InlineCellEditorProps {
   column: Pick<

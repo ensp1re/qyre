@@ -247,7 +247,7 @@ export function EditableCell({
                 startEditing();
               }
             }}
-            className="shrink-0 rounded-[2px] p-0.5 text-quiet-foreground opacity-0 outline-none focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-primary group-hover:opacity-100 hover:text-foreground"
+            className="shrink-0 rounded-[2px] p-0.5 text-quiet-foreground opacity-0 outline-hidden focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-primary group-hover:opacity-100 hover:text-foreground"
           >
             <Pencil className="h-2.5 w-2.5" />
           </button>
@@ -284,7 +284,7 @@ export function EditableCell({
               : "Double-click or Enter to edit"
           }
           className={cn(
-            "min-w-0 flex-1 truncate rounded-sm px-0.5 text-left outline-none focus-visible:ring-1 focus-visible:ring-primary",
+            "min-w-0 flex-1 truncate rounded-sm px-0.5 text-left outline-hidden focus-visible:ring-1 focus-visible:ring-primary",
             displayValue === null || displayValue === undefined || displayValue === ""
               ? "italic text-quiet-foreground"
               : "text-foreground"

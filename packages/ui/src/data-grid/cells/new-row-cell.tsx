@@ -140,7 +140,7 @@ export function NewRowCell({
           onActivate();
         }}
         className={cn(
-          "min-w-0 flex-1 truncate rounded-[2px] border border-border bg-secondary px-1.5 py-0.5 text-left font-mono text-[10px] outline-none focus-visible:border-primary",
+          "min-w-0 flex-1 truncate rounded-[2px] border border-border bg-secondary px-1.5 py-0.5 text-left font-mono text-[10px] outline-hidden focus-visible:border-primary",
           value === undefined ? "italic text-quiet-foreground" : "text-foreground"
         )}
       >

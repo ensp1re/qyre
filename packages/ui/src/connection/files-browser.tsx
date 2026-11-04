@@ -41,7 +41,7 @@ function TreeRow({
         aria-pressed={node.type === "file" ? isSelected : undefined}
         aria-expanded={node.type === "directory" ? open : undefined}
         className={cn(
-          "mx-1 flex min-h-6 w-[calc(100%-0.5rem)] cursor-pointer select-none items-center gap-1.5 rounded-[2px] pr-2 text-left outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
+          "mx-1 flex min-h-6 w-[calc(100%-0.5rem)] cursor-pointer select-none items-center gap-1.5 rounded-[2px] pr-2 text-left outline-hidden transition-colors hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
           isSelected &&
             "bg-sidebar-accent text-foreground shadow-[inset_2px_0_0_rgb(var(--primary))]"
         )}

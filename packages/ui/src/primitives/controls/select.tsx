@@ -232,7 +232,7 @@ export function Select({
                 onMouseEnter={() => !option.disabled && setActiveIndex(index)}
                 onClick={() => choose(index)}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-[2px] px-2 py-1.5 text-left font-mono text-[10px] text-foreground outline-none",
+                  "flex w-full items-center gap-2 rounded-[2px] px-2 py-1.5 text-left font-mono text-[10px] text-foreground outline-hidden",
                   activeIndex === index && "bg-accent",
                   option.disabled && "cursor-not-allowed text-quiet-foreground"
                 )}
@@ -269,7 +269,7 @@ export function Select({
         onClick={() => (open ? closePopup() : openPopup())}
         onKeyDown={handleKeyDown}
         className={cn(
-          "flex min-h-7 w-full items-center gap-2 rounded-[3px] border border-border bg-secondary px-2 py-1 text-left font-mono text-[10px] outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-45",
+          "flex min-h-7 w-full items-center gap-2 rounded-[3px] border border-border bg-secondary px-2 py-1 text-left font-mono text-[10px] outline-hidden focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-45",
           className
         )}
       >

@@ -112,7 +112,7 @@ function TreeRow({
         aria-selected={node.type === "table" ? isSelected : undefined}
         aria-level={depth + 1}
         className={cn(
-          "group relative mx-1 flex h-6 cursor-pointer select-none items-center gap-1 rounded-none pr-1.5 outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
+          "group relative mx-1 flex h-6 cursor-pointer select-none items-center gap-1 rounded-none pr-1.5 outline-hidden transition-colors hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary",
           depth > 0 &&
             "before:absolute before:left-[17px] before:top-1/2 before:w-1.5 before:border-t before:border-sidebar-border before:content-['']",
           isSelected &&
@@ -275,7 +275,7 @@ export function SchemaTree({
               onClick={onRequestCreateSchema}
               aria-label="New schema"
               title="New schema"
-              className="ml-auto rounded-[3px] p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              className="ml-auto rounded-[3px] p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-primary"
             >
               <Plus className="h-3 w-3" strokeWidth={1.8} />
             </button>
@@ -292,7 +292,7 @@ export function SchemaTree({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search tables, schemas..."
             aria-label="Search tables"
-            className="w-full min-w-0 bg-transparent text-[11px] text-foreground outline-none placeholder:text-quiet-foreground"
+            className="w-full min-w-0 bg-transparent text-[11px] text-foreground outline-hidden placeholder:text-quiet-foreground"
           />
         </div>
       </div>

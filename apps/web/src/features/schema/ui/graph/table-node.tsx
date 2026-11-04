@@ -15,7 +15,7 @@ export function TableNode({ data, selected }: NodeProps<TableFlowNode>): ReactNo
   return (
     <div
       className={
-        "w-60 overflow-hidden rounded-[4px] border bg-card shadow-sm transition-[border-color,opacity,box-shadow] " +
+        "w-60 overflow-hidden rounded-[4px] border bg-card shadow-xs transition-[border-color,opacity,box-shadow] " +
         (isHighlighted ? "border-primary shadow-primary/15" : "border-border") +
         (isDimmed ? " opacity-45" : "")
       }

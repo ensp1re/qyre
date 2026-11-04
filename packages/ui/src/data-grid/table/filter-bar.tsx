@@ -329,7 +329,7 @@ export function FilterBar({
                         ? `filter-column-option-${highlighted}`
                         : undefined
                     }
-                    className="w-full bg-transparent text-foreground outline-none placeholder:text-quiet-foreground"
+                    className="w-full bg-transparent text-foreground outline-hidden placeholder:text-quiet-foreground"
                   />
                 </div>
                 <div
@@ -402,7 +402,7 @@ export function FilterBar({
                       aria-selected={editIndex !== null && active[editIndex]?.op === op}
                       onClick={() => pickOperator(op)}
                       className={cn(
-                        "flex w-full items-center justify-between gap-2 rounded-[2px] px-2 py-1.5 text-left text-foreground/80 hover:bg-accent hover:text-foreground focus:bg-accent focus:text-foreground focus:outline-none",
+                        "flex w-full items-center justify-between gap-2 rounded-[2px] px-2 py-1.5 text-left text-foreground/80 hover:bg-accent hover:text-foreground focus:bg-accent focus:text-foreground focus:outline-hidden",
                         editIndex !== null && active[editIndex]?.op === op && "text-primary"
                       )}
                     >
@@ -518,7 +518,7 @@ export function FilterBar({
                       aria-label="Filter value"
                       autoFocus
                       inputMode={valueInputKind === "number" ? "decimal" : undefined}
-                      className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-foreground outline-none placeholder:text-quiet-foreground focus:border-primary"
+                      className="w-full rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-foreground outline-hidden placeholder:text-quiet-foreground focus:border-primary"
                     />
                   )}
                   <button

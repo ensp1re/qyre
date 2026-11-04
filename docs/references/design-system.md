@@ -12,8 +12,9 @@ instead of generic dashboard content.
 
 Stack in the source: React + Vite, Tailwind v4 (CSS-first `@theme inline`), shadcn/ui components on
 Radix primitives, `lucide-react` icons, `class-variance-authority` for variants. Qyre's `apps/web`
-already has Tailwind v3 scaffolded (unused until this design landed) - tokens below are translated
-to v3 config + CSS custom properties, not copy-pasted v4 syntax.
+uses Tailwind v4 with the shared tokens below in `tailwind.config.js` and CSS custom properties.
+The stylesheet loads that configuration explicitly and keeps global styles in the base layer so
+component utilities can override them.
 
 ## Typography
 

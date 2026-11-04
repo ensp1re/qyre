@@ -3,7 +3,7 @@ export function libConfig(overrides = {}) {
   return {
     entry: ["src/index.ts"],
     format: ["esm"],
-    target: "node20",
+    target: "node22",
     dts: true,
     sourcemap: true,
     clean: true,

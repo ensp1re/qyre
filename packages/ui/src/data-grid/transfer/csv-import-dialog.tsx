@@ -144,7 +144,7 @@ export function CsvImportDialog({
         aria-modal="true"
         aria-labelledby="csv-import-title"
         data-testid="csv-import-dialog"
-        className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100vh-2rem)] w-[48rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[3px] border border-border bg-card outline-none"
+        className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100vh-2rem)] w-[48rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[3px] border border-border bg-card outline-hidden"
       >
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           <FileUp className="h-3.5 w-3.5" style={{ color: "var(--c-blue)" }} />

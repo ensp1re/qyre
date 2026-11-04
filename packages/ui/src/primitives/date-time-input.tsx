@@ -200,7 +200,7 @@ export function DatePicker({
         aria-describedby={ariaDescribedBy}
         aria-invalid={ariaInvalid}
         className={cn(
-          "flex w-full items-center gap-1.5 rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-left font-mono text-[11px] outline-none focus:border-primary",
+          "flex w-full items-center gap-1.5 rounded-[3px] border border-border bg-secondary px-2 py-1.5 text-left font-mono text-[11px] outline-hidden focus:border-primary",
           parts ? "text-foreground" : "text-quiet-foreground"
         )}
       >
@@ -315,7 +315,7 @@ export function TimeSegments({
         placeholder="HH"
         inputMode="numeric"
         autoFocus={autoFocus}
-        className="w-5 bg-transparent text-center font-mono text-[11px] text-foreground outline-none placeholder:text-quiet-foreground"
+        className="w-5 bg-transparent text-center font-mono text-[11px] text-foreground outline-hidden placeholder:text-quiet-foreground"
       />
       <span className="text-muted-foreground">:</span>
       <input
@@ -330,7 +330,7 @@ export function TimeSegments({
         }}
         placeholder="MM"
         inputMode="numeric"
-        className="w-5 bg-transparent text-center font-mono text-[11px] text-foreground outline-none placeholder:text-quiet-foreground"
+        className="w-5 bg-transparent text-center font-mono text-[11px] text-foreground outline-hidden placeholder:text-quiet-foreground"
       />
     </div>
   );

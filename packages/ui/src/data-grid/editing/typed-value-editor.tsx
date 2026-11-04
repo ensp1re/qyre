@@ -7,11 +7,12 @@ import {
   validateMutationValue
 } from "@qyre/core/mutation-editor-values";
 import { Check, Maximize2 } from "lucide-react";
-import type { KeyboardEvent, ReactElement, ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "../../cn.js";
 import { Button } from "../../primitives/controls/button.js";
 import { Field } from "../../primitives/controls/field.js";
+import type { FieldProps } from "../../primitives/controls/field.js";
 import { BinaryTextEditor, formatBinaryHex } from "./binary-text-editor.js";
 import { EditorActions } from "./editor-actions.js";
 import { StructuredTextEditor } from "./structured-text-editor.js";
@@ -93,7 +94,7 @@ export function TypedValueEditor({
   const structured = capability.widget === "json" || capability.widget === "array";
   const minimalDrawer = presentation === "drawer";
 
-  let control: ReactElement;
+  let control: FieldProps["children"];
   if (nullDraft) {
     control = (
       <div className="rounded-[3px] border border-border bg-secondary px-2 py-2 font-mono text-[10px] italic text-muted-foreground">
@@ -123,7 +124,7 @@ export function TypedValueEditor({
                 setError(undefined);
               }}
               className={cn(
-                "flex items-center gap-2 rounded-[2px] px-2 py-1 text-left font-mono text-[10px] outline-none focus-visible:ring-1 focus-visible:ring-primary",
+                "flex items-center gap-2 rounded-[2px] px-2 py-1 text-left font-mono text-[10px] outline-hidden focus-visible:ring-1 focus-visible:ring-primary",
                 selected ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent"
               )}
             >
@@ -174,7 +175,7 @@ export function TypedValueEditor({
         }}
         spellCheck={false}
         className={cn(
-          "w-full resize-y overflow-auto rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary",
+          "w-full resize-y overflow-auto rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-hidden focus:border-primary",
           minimalDrawer ? "h-full min-h-40 resize-none" : "min-h-32 max-h-72"
         )}
       />

@@ -205,7 +205,7 @@ export function TableStructure({
                 onChange={(event) => setRenameText(event.target.value)}
                 autoFocus
                 aria-label="New table name"
-                className="min-w-0 flex-1 rounded-[2px] border border-border bg-secondary px-1.5 py-0.5 font-mono text-[12px] text-foreground outline-none focus:border-foreground/40"
+                className="min-w-0 flex-1 rounded-[2px] border border-border bg-secondary px-1.5 py-0.5 font-mono text-[12px] text-foreground outline-hidden focus:border-foreground/40"
               />
               <button
                 type="button"

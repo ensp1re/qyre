@@ -5,43 +5,39 @@ entries. Validated by `scripts/check-handoff.mjs` and the harness size budget.
 
 ## Current state
 
-- Date: 2026-10-24.
-- Branch: `main`. Dependency PR #192 is merged; its CI fix is `dcdd47f`.
-- Queue: F171 passing (dependency CI fix); F170 active (existing release follow-up).
-- No active exec plan. Plan 0008 (AI assistant) was retired unstarted; plan 0011 (F157 security
-  audit) is completed. A fresh UI audit is still pending.
+- Date: 2026-11-04.
+- Branch: `feature/F172-dependency-updates`, based on current `main` at `637a094`.
+- Queue: F172 active (verified dependency upgrades); F170 queued (existing release follow-up).
+- Active plan: `docs/exec-plans/active/0012-dependency-updates.md`.
 
 ## Completed
 
-- Plan 0010 (F160-F169), see `docs/exec-plans/completed/0010-bug-audit-fixes.md`.
-- F171: all 475 UI tests and local `pnpm verify:pr` passed on Node 22.23.4 across all four engines.
-  Both main CI jobs passed: https://github.com/ensp1re/qyre/actions/runs/40102250713.
+- F172 implementation: latest stable dependencies and pnpm, restored Playwright, Node 22+ runtime
+  requirement, and React/Tailwind/TypeScript migrations.
+- `pnpm verify:pr` passed on Node 22.23.4 across all four engines: 34 package tasks, 11 smoke tests,
+  and 32 full browser tests. Engine/role-specific skips are unchanged.
+- Forced package tests passed on Node 26.12.1, as did CLI startup, SQLite health, bundled assets,
+  and shutdown. Frozen install and peer checks passed; no direct dependencies are outdated.
 
 ## In progress
 
-- F170: release follow-up remains from the previous session; confirm published package versions
-  and the GitHub release before closing it.
+- F172: the user authorized publication of 0.4.6; run fresh verification, PR CI, merge, and publish.
+- F170 remains queued: confirm all ten published package versions and the GitHub release.
 
 ## Known issues / blockers
 
-- **npm Trusted Publishing needs one manual registration** before `release.yml` can publish: add
-  org/repo `ensp1re/qyre`, workflow `release.yml` as the Trusted Publisher for each package on
-  npmjs.com. Until then the publish step fails closed rather than falling back to a token.
-- SQLite still depends on the native `better-sqlite3` `^12` addon (prebuilds for Node 20-26; v13
-  not adopted because it drops Node 20). Runtime independence is in the tech-debt tracker.
-- UI Preview and E2E must rebuild `@qyre/ui` before `@qyre/web` because web consumes UI `dist/`;
-  the e2e preview servers also load `@qyre/server`/driver `dist/`, so rebuild those packages too
-  after server/driver changes. The CLI (`@qyre/qyre`) additionally bundles a copy of
-  `apps/web/dist` into its own `dist/web` at build time.
-- Docker may require `/Applications/Docker.app/Contents/Resources/bin/docker` explicitly on macOS.
-- Verify with the documented Node 22 release runtime. Node 26's native `localStorage` conflicts
-  with the existing web test setup; rebuild `better-sqlite3` with `pnpm -r rebuild better-sqlite3`
-  after changing Node majors.
-- Deferred by explicit scoping decision, not oversight: full column resize/reorder/frozen columns,
-  a complete toolbar regroup into 4 sections with an overflow menu, full drag-to-select multi-cell
-  copy/paste, and JSON syntax highlighting. Revisit only if explicitly requested.
+- npm Trusted Publishing still needs manual registration for `ensp1re/qyre`, workflow `release.yml`,
+  for each public package before the release workflow can publish.
+- Use Node 22.22.2+, 24.15+, or 26+. CI runs Node 22. Type checks use TypeScript 7; lint/declaration
+  tools use Microsoft's TypeScript 6 compatibility API through the `typescript` alias.
+- Playwright 1.64.1 and Chromium are installed; launch from the default browser cache was verified.
+- Web consumes UI/server/driver `dist/`; rebuild dependencies after changes. CLI also bundles web
+  assets at build time. SQLite 13 needs no per-Node-major rebuild on supported platforms.
+- Docker may require `/Applications/Docker.app/Contents/Resources/bin/docker` on macOS.
+- Previously deferred UI scope remains: column resize/reorder/frozen columns, toolbar regrouping,
+  drag-to-select multi-cell copy/paste, and JSON syntax highlighting.
 
 ## Next steps
 
-- Resume F170 and confirm all ten npm package versions and the GitHub release.
-- Run a fresh UI/UX browser audit and turn its findings into a new exec plan.
+- Finish F172 verification and publish 0.4.6; verify registry versions and the GitHub release.
+- Resume F170 release follow-up, then the pending UI/UX audit.

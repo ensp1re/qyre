@@ -148,7 +148,7 @@ export function CreateTableDialog({
         aria-modal="true"
         aria-labelledby="create-table-dialog-title"
         data-testid="create-table-dialog"
-        className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100vh-4rem)] w-[36rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-hidden rounded-[3px] border border-border bg-card p-4 outline-none"
+        className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100vh-4rem)] w-[36rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-hidden rounded-[3px] border border-border bg-card p-4 outline-hidden"
       >
         <div className="flex shrink-0 items-center gap-2">
           <h2
@@ -177,7 +177,7 @@ export function CreateTableDialog({
               onChange={(event) => setTable(event.target.value)}
               placeholder="my_table"
               autoFocus
-              className="rounded-[3px] border border-border bg-secondary px-2 py-1 font-mono text-[12px] text-foreground outline-none focus:border-foreground/40"
+              className="rounded-[3px] border border-border bg-secondary px-2 py-1 font-mono text-[12px] text-foreground outline-hidden focus:border-foreground/40"
             />
             {table.length > 0 && !tableNameValid && (
               <span className="font-mono text-[10px]" style={{ color: "var(--c-red)" }}>
@@ -296,7 +296,7 @@ function ColumnRow({
           onChange={(event) => onChange({ name: event.target.value })}
           placeholder="column_name"
           aria-label="Column name"
-          className="min-w-0 flex-1 rounded-[2px] border border-border bg-secondary px-1.5 py-1 font-mono text-[11px] text-foreground outline-none focus:border-foreground/40"
+          className="min-w-0 flex-1 rounded-[2px] border border-border bg-secondary px-1.5 py-1 font-mono text-[11px] text-foreground outline-hidden focus:border-foreground/40"
         />
         <Select
           value={column.dataType}
@@ -329,7 +329,7 @@ function ColumnRow({
         onChange={(event) => onChange({ defaultText: event.target.value })}
         placeholder="Default value (optional)"
         aria-label="Default value"
-        className="rounded-[2px] border border-border bg-secondary px-1.5 py-1 font-mono text-[10px] text-foreground outline-none focus:border-foreground/40"
+        className="rounded-[2px] border border-border bg-secondary px-1.5 py-1 font-mono text-[10px] text-foreground outline-hidden focus:border-foreground/40"
       />
       {!nameValid && (
         <span className="font-mono text-[10px]" style={{ color: "var(--c-red)" }}>

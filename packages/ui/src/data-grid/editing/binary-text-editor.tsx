@@ -69,7 +69,7 @@ export function BinaryTextEditor({
         value={text}
         onChange={(event) => onChange(event.target.value)}
         spellCheck={false}
-        className="min-h-40 flex-1 resize-none overflow-auto rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-none focus:border-primary"
+        className="min-h-40 flex-1 resize-none overflow-auto rounded-[3px] border border-border bg-secondary p-2 font-mono text-[10px] text-foreground outline-hidden focus:border-primary"
       />
       <div className="flex min-w-0 items-center gap-2 font-mono text-[9px] text-quiet-foreground">
         {summary.byteCount !== undefined && (

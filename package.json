@@ -5,16 +5,9 @@
   "description": "Qyre - a local-first database management UI you can launch from the terminal.",
   "license": "MIT",
   "type": "module",
-  "packageManager": "pnpm@10.26.1",
+  "packageManager": "pnpm@12.16.1",
   "engines": {
-    "node": ">=20.11.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "esbuild",
-      "lefthook"
-    ]
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "scripts": {
     "build": "turbo run build",
@@ -51,25 +44,26 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
-    "@eslint/js": "^9.17.0",
-    "@faker-js/faker": "^10.5.0",
+    "@eslint/js": "^10.0.1",
+    "@faker-js/faker": "^10.6.0",
     "@playwright/test": "^1.64.1",
     "@qyre/core": "workspace:*",
     "@qyre/driver-contract": "workspace:*",
     "@qyre/postgres": "workspace:*",
     "@qyre/server": "workspace:*",
     "@qyre/testing": "workspace:*",
-    "@types/node": "^22.20.5",
-    "eslint": "^9.17.0",
-    "globals": "^15.14.0",
-    "lefthook": "^1.10.1",
+    "@types/node": "^26.6.6",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "lefthook": "^2.2.2",
     "prettier": "^3.9.10",
-    "rimraf": "^6.0.1",
-    "tsup": "^8.3.5",
+    "rimraf": "^6.1.4",
+    "tsup": "^9.0.0",
     "tsx": "^4.23.15",
     "turbo": "^2.11.10",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.72.0",
-    "vitest": "^2.1.8"
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.1.0"
   }
 }

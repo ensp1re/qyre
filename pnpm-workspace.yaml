@@ -2,3 +2,14 @@ packages:
   - "apps/*"
   - "packages/*"
   - "packages/drivers/*"
+
+autoInstallPeers: true
+strictPeerDependencies: false
+allowBuilds:
+  # SQLite ships portable native binaries and needs no install-time build.
+  better-sqlite3: false
+  esbuild: true
+  lefthook: true
+minimumReleaseAgeExclude:
+  - "@fastify/static@10.1.10"
+  - lucide-react@1.68.0

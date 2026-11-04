@@ -71,7 +71,7 @@ export function CreateIndexDialog({
         aria-modal="true"
         aria-labelledby="create-index-dialog-title"
         data-testid="create-index-dialog"
-        className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100vh-4rem)] w-[26rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-hidden rounded-[3px] border border-border bg-card p-4 outline-none"
+        className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100vh-4rem)] w-[26rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-hidden rounded-[3px] border border-border bg-card p-4 outline-hidden"
       >
         <div className="flex shrink-0 items-center gap-2">
           <h2
@@ -101,7 +101,7 @@ export function CreateIndexDialog({
               placeholder="my_table_col_idx"
               autoFocus
               aria-label="Index name"
-              className="rounded-[3px] border border-border bg-secondary px-2 py-1 font-mono text-[12px] text-foreground outline-none focus:border-foreground/40"
+              className="rounded-[3px] border border-border bg-secondary px-2 py-1 font-mono text-[12px] text-foreground outline-hidden focus:border-foreground/40"
             />
           </label>
 

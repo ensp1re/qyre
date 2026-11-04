@@ -8,7 +8,9 @@ choose, no account, no heavy GUI to install.**
 [![node](https://img.shields.io/badge/node-%3E%3D22.22.2-brightgreen.svg)](package.json)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Current release: `v0.4.4`
+Current release: [`v0.4.6`](https://github.com/ensp1re/qyre/releases/tag/v0.4.6)
+
+Requires Node.js **22.22.2+ within Node 22, 24.15+ within Node 24, or Node 26+**.
 
 ```bash
 npx qyre postgres://user:pass@localhost:5432/mydb
@@ -28,6 +30,21 @@ npx qyre
 That one command detects which engine you pointed it at, starts a local server bound to
 `127.0.0.1`, and opens your browser straight into a dense, VS Code-style IDE for the connection.
 Nothing is installed globally, nothing phones home, and closing the terminal ends the session.
+
+## Upgrading to 0.4.6
+
+This release updates dependencies and includes compatibility changes:
+
+- Upgrade from Node 20 to one of the supported Node versions above before updating Qyre.
+- SQLite uses bundled native binaries on supported platforms; switching Node versions no longer
+  requires rebuilding the SQLite driver.
+- Applications that use `@qyre/ui` must use React 19.
+
+To run this release explicitly:
+
+```bash
+npx qyre@0.4.6
+```
 
 ## What you get
 

@@ -54,9 +54,25 @@ Check registry metadata for remaining outdated direct dependencies and review th
   (34 package tasks, 11 smoke tests, 32 full browser tests; expected skips unchanged).
 - All ten archives packed successfully and installed with normal `npm install` in a clean temp
   project. Installed CLI reports 0.4.6; installed drivers passed connection, health, overview,
-  and bundled UI checks against all four engines. PR/CI and publication remain in progress.
+  and bundled UI checks against all four engines.
 
 ## Open decisions
 
 The user approved all stable major releases and dropping Node 20 support. No other scope decisions
 are pending.
+
+## Release evidence
+
+- [PR #194](https://github.com/ensp1re/qyre/pull/194) merged at
+  `9ae41ac32e9b1650dfc5f4a102e30a919ced9b60`. Both required CI jobs passed in
+  [PR CI](https://github.com/ensp1re/qyre/actions/runs/41898676147) and
+  [main CI](https://github.com/ensp1re/qyre/actions/runs/41899185193).
+- All ten public packages are published as 0.4.6. Each npm `latest` tag resolves to 0.4.6 and each
+  tarball is reachable. [GitHub release](https://github.com/ensp1re/qyre/releases/tag/v0.4.6) is live.
+- The release workflow failed npm trusted-publisher authentication (OIDC exchange returned 404).
+  Local browser-authenticated publication succeeded; package registration remains tracked debt.
+- After registry propagation, `npm install qyre@0.4.6` with a fresh cache passed. The installed CLI
+  reports 0.4.6; installed drivers passed startup, authenticated health, overview, bundled UI assets,
+  and shutdown against Postgres, MySQL, MongoDB, and SQLite.
+- README now links the release and documents Node and React upgrade requirements. Its full local
+  `pnpm verify:pr` gate passed. Existing bundle-size and Postgres query deprecation warnings remain.

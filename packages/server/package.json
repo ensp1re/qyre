@@ -24,8 +24,8 @@
   },
   "dependencies": {
     "@fastify/compress": "^9.3.0",
-    "@fastify/multipart": "^10.1.7",
-    "@fastify/static": "^10.1.10",
+    "@fastify/multipart": "^10.1.9",
+    "@fastify/static": "^10.1.11",
     "@qyre/core": "workspace:*",
     "@qyre/driver-contract": "workspace:*",
     "csv-parse": "^7.0.3",

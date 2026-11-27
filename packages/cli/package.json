@@ -56,8 +56,8 @@
     "@qyre/server": "workspace:*",
     "@qyre/sqlite": "workspace:*",
     "chalk": "^6.0.1",
-    "commander": "^15.0.0",
-    "figlet": "^1.12.0",
+    "commander": "^15.1.0",
+    "figlet": "^1.13.0",
     "gradient-string": "^3.0.0",
     "open": "^11.0.4"
   },

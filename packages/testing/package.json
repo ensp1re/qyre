@@ -20,8 +20,8 @@
   },
   "dependencies": {
     "@qyre/core": "workspace:*",
-    "better-sqlite3": "^13.0.3",
-    "mongodb": "^7.8.0",
+    "better-sqlite3": "^13.2.0",
+    "mongodb": "^7.9.1",
     "mysql2": "^3.24.6",
     "pg": "^8.23.1"
   },
